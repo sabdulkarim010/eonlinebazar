@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20  
+**Last updated:** 2026-09-20 (Admin-Employee profile link)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -35,6 +35,7 @@
 | `client/js/admin/modules/settings-hub.js` | Settings tab routing |
 | `client/js/admin/modules/orders-pos.js` | POS checkout, barcode, split payment |
 | `client/js/admin/modules/notifications.js` | In-app notification center |
+| `client/js/admin/modules/adminSidebar.js` | Sidebar profile — merged Admin + linked Employee via `/api/admin/profile/me/full` |
 | `client/css/admin/` | Module CSS (never edit `admin.css` barrel directly) |
 
 **Counts (verified 2026-09-20):** 46 HTML partials, 53 JS modules under `client/js/admin/modules/`.
@@ -61,6 +62,8 @@
 - [x] Filter-aware CSV export — `/api/admin/*/export` endpoints
 - [x] Staff audit + security views — `settings-staff-audit.js`, `view-security.html`
 - [x] System backup (superadmin) — `view-system-backup.html`, `system-backup.js`
+- [x] Admin sidebar dynamic profile (name + photo) — `adminSidebar.js`, `GET /api/admin/profile/me/full`, sessionStorage cache
+- [x] Super Admin link to HRM Employee record — Settings Hub card + `PUT /api/admin/profile/link-employee`
 - [ ] Legacy chat sections in SPA — `view-chat.html` deprecated; use `/chat-admin`
 
 ---
@@ -85,6 +88,14 @@
 ---
 
 ## Change Log
+
+### Admin-Employee Profile Link — 2026-09-20
+
+- Sidebar loads merged profile from `GET /api/admin/profile/me/full` (Employee photo preferred over Admin.image)
+- New `adminSidebar.js`: `loadAdminSidebarProfile`, `updateSidebarDisplay`, `clearAdminSidebarCache`
+- Settings Hub: super-admin "Link to Employee Record" card in `view-settings.html`
+- Profile save + photo upload refresh sidebar immediately; employee photo update clears cache
+- Files: `adminSidebar.js`, `core-boot.js`, `core-nav.js`, `settings-cms.js`, `view-settings.html`
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

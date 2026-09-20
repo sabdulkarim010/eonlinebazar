@@ -698,6 +698,13 @@ async function saveEmployee() {
             }
         }
 
+        if (typeof window.clearAdminSidebarCache === 'function') {
+            window.clearAdminSidebarCache();
+        }
+        if (typeof window.loadAdminSidebarProfile === 'function') {
+            await window.loadAdminSidebarProfile(true);
+        }
+
         showAdminSuccess(id ? 'Employee Updated' : 'Employee Added', result.message || 'Saved.');
         closeEmployeeModal();
         if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();

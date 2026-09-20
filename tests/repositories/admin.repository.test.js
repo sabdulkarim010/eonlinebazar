@@ -27,7 +27,9 @@ const {
   verifyPassword,
   upsertFromMongo,
   updateByLegacyId,
-  findByLegacyId
+  findByLegacyId,
+  getAdminWithEmployeeData,
+  linkEmployeeToAdmin
 } = require('../../backend/src/repositories/adminRepository');
 const {
   logAdminDualWriteFailure,
@@ -36,8 +38,13 @@ const {
 
 const PREFIX = `__test_admin_${Date.now()}_`;
 const createdIds = [];
+const createdEmployeeIds = [];
 
 async function cleanup() {
+  if (createdEmployeeIds.length) {
+    await prisma.employee.deleteMany({ where: { id: { in: [...createdEmployeeIds] } } });
+    createdEmployeeIds.length = 0;
+  }
   if (createdIds.length) {
     await prisma.admin.deleteMany({ where: { id: { in: [...createdIds] } } });
     createdIds.length = 0;
@@ -372,5 +379,95 @@ describe('Admin dual-write — upsertFromMongo and status patches', () => {
     await expect(
       remove(owner.id)
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+});
+
+describe('Admin repository — employee profile merge', () => {
+  test('getAdminWithEmployeeData returns merged photo and employee fields', async () => {
+    const admin = track(await create({
+      username: `${PREFIX}merge_admin`,
+      password: 'SecurePass123!',
+      role: 'superadmin',
+      displayName: 'Merge Admin',
+      image: 'https://example.com/admin.jpg'
+    }));
+
+    const employee = await prisma.employee.create({
+      data: {
+        employeeId: `${PREFIX}EMP001`,
+        fullName: 'Linked Employee',
+        phone: '01700000001',
+        photo: 'https://example.com/employee.jpg',
+        linkedAdminId: admin.id,
+        legacyId: `${PREFIX}emp_legacy`
+      }
+    });
+    createdEmployeeIds.push(employee.id);
+
+    const merged = await getAdminWithEmployeeData(admin.id);
+
+    expect(merged).toBeTruthy();
+    expect(merged.adminId).toBe(admin.id);
+    expect(merged.displayName).toBe('Linked Employee');
+    expect(merged.username).toBe(admin.username);
+    expect(merged.role).toBe('superadmin');
+    expect(merged.photo).toBe('https://example.com/employee.jpg');
+    expect(merged.employeeId).toBe(employee.legacyId);
+    expect(merged.employeeName).toBe('Linked Employee');
+    expect(merged.employeeCode).toBe(employee.employeeId);
+  });
+
+  test('getAdminWithEmployeeData falls back to admin.image when employee has no photo', async () => {
+    const admin = track(await create({
+      username: `${PREFIX}fallback_admin`,
+      password: 'SecurePass123!',
+      role: 'superadmin',
+      displayName: 'Fallback Admin',
+      image: 'https://example.com/admin-only.jpg'
+    }));
+
+    const employee = await prisma.employee.create({
+      data: {
+        employeeId: `${PREFIX}EMP002`,
+        fullName: 'No Photo Employee',
+        phone: '01700000002',
+        linkedAdminId: admin.id,
+        legacyId: `${PREFIX}emp_legacy_2`
+      }
+    });
+    createdEmployeeIds.push(employee.id);
+
+    const merged = await getAdminWithEmployeeData(admin.id);
+
+    expect(merged.photo).toBe('https://example.com/admin-only.jpg');
+    expect(merged.employeeName).toBe('No Photo Employee');
+  });
+
+  test('linkEmployeeToAdmin rejects employee already linked to another admin', async () => {
+    const adminA = track(await create({
+      username: `${PREFIX}admin_a`,
+      password: 'SecurePass123!',
+      role: 'superadmin'
+    }));
+    const adminB = track(await create({
+      username: `${PREFIX}admin_b`,
+      password: 'SecurePass123!',
+      role: 'superadmin'
+    }));
+
+    const employee = await prisma.employee.create({
+      data: {
+        employeeId: `${PREFIX}EMP003`,
+        fullName: 'Taken Employee',
+        phone: '01700000003',
+        linkedAdminId: adminA.id,
+        legacyId: `${PREFIX}emp_legacy_3`
+      }
+    });
+    createdEmployeeIds.push(employee.id);
+
+    await expect(
+      linkEmployeeToAdmin(adminB.id, employee.id)
+    ).rejects.toMatchObject({ code: 'ALREADY_LINKED' });
   });
 });

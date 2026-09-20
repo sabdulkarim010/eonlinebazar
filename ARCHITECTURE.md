@@ -44,7 +44,7 @@ client/
 
 │   │   ├── admin-dashboard.js ← analytics widgets
 
-│   │   └── modules/           ← Actual logic files
+│   │   └── modules/           ← Actual logic files (incl. adminSidebar.js — merged sidebar profile)
 
 │   ├── profile.js         ← BARREL → js/profile/*.js
 
@@ -167,7 +167,8 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 
 | Employee | `backend/src/models/employee.js` | Non-login operational staff — full profile, documents, references |
 | Designation | `backend/src/models/designation.js` | Job title catalog (Manager, Delivery Man, …) seeded on bootstrap |
-| Attendance | `backend/src/models/attendance.js` | One row per staff per day (clock in/out, late, shift) |
+| Attendance | `backend/src/models/attendance.js` | One row per staff per day (clock in/out, late, shift, manual-entry audit) |
+| AttendanceLock | `backend/src/models/attendanceLock.js` | Per-date attendance lock (Super Admin); blocks writes with HTTP 423 |
 
 | Shift | `backend/src/models/shift.js` | Named working windows + late grace period |
 

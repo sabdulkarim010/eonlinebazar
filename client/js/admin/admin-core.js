@@ -11,4 +11,5 @@ import './modules/core-realtime.js';
 import './modules/core-nav.js';
 import './modules/core-breadcrumb.js';
 import './modules/core-boot.js';
+import './modules/adminSidebar.js';
 import './modules/notifications.js';

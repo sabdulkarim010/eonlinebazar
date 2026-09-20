@@ -404,6 +404,8 @@ async function update(id, data) {
   if (data.email !== undefined) fields.email = String(data.email).trim().toLowerCase();
   if (data.department !== undefined) fields.department = String(data.department).trim();
   if (data.notes !== undefined) fields.notes = String(data.notes).trim();
+  if (data.photo !== undefined) fields.photo = String(data.photo).trim();
+  if (data.photoPublicId !== undefined) fields.photoPublicId = String(data.photoPublicId).trim();
 
   if (
     data.designation !== undefined

@@ -116,30 +116,27 @@ function updateAdminProfileUI(adminData = {}) {
 }
 
 async function fetchAdminProfile() {
-    try {
-        
-/* shared state: token lives on window (admin-core) */
+    if (typeof window.loadAdminSidebarProfile === 'function') {
+        return window.loadAdminSidebarProfile(true);
+    }
 
-        
+    try {
         const response = await fetch('/api/admin/profile', {
             method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${token}` 
+            headers: {
+                Authorization: `Bearer ${token}`
             }
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             updateAdminProfileUI(data);
         }
     } catch (error) {
-        console.error("🔴 The profile image could not be fetched from the database :", error);
+        console.error('The profile image could not be fetched from the database:', error);
     }
 }
-
-// পেজ রিফ্রেশ বা প্রথমবার লোড হওয়ার সাথে সাথে ছবি লোড করার ইভেন্ট অ্যাক্টিভ করা
-document.addEventListener('DOMContentLoaded', fetchAdminProfile);
 
 /**
  * ২. প্রোফাইল পিকচার ইনপুট চেঞ্জ এবং ক্লাউডিনারি আপলোড হ্যান্ডলার

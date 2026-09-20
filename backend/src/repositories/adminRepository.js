@@ -465,6 +465,138 @@ function mapMongoDocToWriteInput(mongoDoc, options = {}) {
   return input;
 }
 
+function buildAdminEmployeeProfileShape(admin, employee) {
+  const role = normaliseRole(admin?.role) || 'superadmin';
+  const adminFallbackName = String(admin?.name || admin?.displayName || admin?.username || 'Admin').trim();
+  const employeeName = String(employee?.fullName || '').trim();
+  const displayName = employeeName || adminFallbackName;
+  const adminImage = String(admin?.image || '').trim();
+  const employeePhoto = String(employee?.photo || '').trim();
+
+  return {
+    adminId: admin?.legacyId || admin?.id || null,
+    displayName,
+    email: String(admin?.email || '').trim(),
+    username: String(admin?.username || '').trim(),
+    role,
+    photo: employeePhoto || adminImage || null,
+    employeeId: employee?.legacyId || employee?.id || null,
+    employeeName: employee?.fullName || null,
+    employeeCode: employee?.employeeId || null
+  };
+}
+
+/**
+ * Merged admin sidebar profile — prefers linked Employee photo over Admin.image.
+ * adminId accepts Postgres UUID or Mongo legacyId.
+ */
+async function getAdminWithEmployeeData(adminId) {
+  if (!adminId) return null;
+
+  let admin = await prisma.admin.findUnique({
+    where: { id: String(adminId) },
+    select: SAFE_SELECT
+  });
+  if (!admin) {
+    admin = await prisma.admin.findUnique({
+      where: { legacyId: String(adminId) },
+      select: SAFE_SELECT
+    });
+  }
+  if (!admin) return null;
+
+  const employeeSelect = {
+    id: true,
+    legacyId: true,
+    fullName: true,
+    photo: true,
+    employeeId: true
+  };
+
+  let employee = await prisma.employee.findFirst({
+    where: { linkedAdminId: admin.id },
+    select: employeeSelect
+  });
+
+  if (!employee && admin.legacyId) {
+    const Admin = require('../models/admin');
+    const mongoAdmin = await Admin.findById(admin.legacyId).select('employeeRef').lean();
+    const employeeRef = mongoAdmin?.employeeRef;
+    if (employeeRef) {
+      employee = await prisma.employee.findFirst({
+        where: {
+          OR: [
+            { id: String(employeeRef) },
+            { legacyId: String(employeeRef) }
+          ]
+        },
+        select: employeeSelect
+      });
+    }
+  }
+
+  return buildAdminEmployeeProfileShape(admin, employee);
+}
+
+/**
+ * Link an Employee row to an Admin account (Postgres canonical FK on Employee).
+ * Returns merged profile shape or throws with err.code for HTTP mapping.
+ */
+async function linkEmployeeToAdmin(adminId, employeeId) {
+  let admin = await prisma.admin.findUnique({ where: { id: String(adminId) } });
+  if (!admin) {
+    admin = await prisma.admin.findUnique({ where: { legacyId: String(adminId) } });
+  }
+  if (!admin) {
+    const err = new Error('Admin not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  let employee = await prisma.employee.findUnique({ where: { id: String(employeeId) } });
+  if (!employee) {
+    employee = await prisma.employee.findUnique({ where: { legacyId: String(employeeId) } });
+  }
+  if (!employee) {
+    employee = await prisma.employee.findUnique({ where: { employeeId: String(employeeId) } });
+  }
+  if (!employee) {
+    const err = new Error('Employee not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  if (employee.linkedAdminId && employee.linkedAdminId !== admin.id) {
+    const err = new Error('Employee is already linked to another admin account.');
+    err.code = 'ALREADY_LINKED';
+    throw err;
+  }
+
+  const previousEmployee = await prisma.employee.findFirst({
+    where: { linkedAdminId: admin.id, id: { not: employee.id } }
+  });
+  if (previousEmployee) {
+    await prisma.employee.update({
+      where: { id: previousEmployee.id },
+      data: { linkedAdminId: null }
+    });
+  }
+
+  const updatedEmployee = await prisma.employee.update({
+    where: { id: employee.id },
+    data: { linkedAdminId: admin.id },
+    select: {
+      id: true,
+      legacyId: true,
+      fullName: true,
+      photo: true,
+      employeeId: true
+    }
+  });
+
+  return buildAdminEmployeeProfileShape(admin, updatedEmployee);
+}
+
 async function upsertFromMongo(mongoDoc, options = {}) {
   const legacyId = mongoDoc._id != null ? String(mongoDoc._id) : null;
   if (!legacyId) throw new Error('Admin legacyId is required for upsertFromMongo.');
@@ -494,6 +626,7 @@ module.exports = {
   BCRYPT_PATTERN,
   isHashed,
   SECRET_FIELDS,
+  buildAdminEmployeeProfileShape,
   findAll,
   findById,
   findByIdWithSecrets,
@@ -506,6 +639,8 @@ module.exports = {
   findByLegacyId,
   updateByLegacyId,
   removeByLegacyId,
+  getAdminWithEmployeeData,
+  linkEmployeeToAdmin,
   mapMongoDocToWriteInput,
   upsertFromMongo
 };

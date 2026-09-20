@@ -184,6 +184,7 @@ enum AttendanceStatus {
   LATE     @map("late")
   HALF_DAY @map("half-day")
   HOLIDAY  @map("holiday")
+  LEAVE    @map("leave")
 }
 
 /// attendance.js — SHIFT_TYPES. Note: this is NOT a reference to the Shift
@@ -1007,6 +1008,10 @@ model Attendance {
   notes    String @default("")
   markedBy String @default("self")
 
+  modifiedBy    String    @default("")
+  modifiedAt    DateTime?
+  isManualEntry Boolean   @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1017,7 +1022,25 @@ model Attendance {
   @@index([date, status])
   @@index([adminId])
   @@index([employeeId])
+  @@index([isManualEntry, modifiedAt])
   @@map("attendance")
+}
+
+/// Source: backend/src/models/attendanceLock.js
+model AttendanceLock {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  /// YYYY-MM-DD — one lock row per calendar day.
+  date         String   @unique
+  lockedAt     DateTime @default(now())
+  lockedBy     String   @default("")
+  lockedByName String   @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("attendance_locks")
 }
 
 /// Source: backend/src/models/payroll.js — one salary run per staff per month.

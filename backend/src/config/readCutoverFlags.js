@@ -55,7 +55,8 @@ const GROUP_ENV = {
   profitloss: 'READ_PG_PROFIT_LOSS',
   accountssummary: 'READ_PG_ACCOUNTS_SUMMARY',
   crm: 'READ_PG_CRM',
-  enterprisesummary: 'READ_PG_ENTERPRISE_SUMMARY'
+  enterprisesummary: 'READ_PG_ENTERPRISE_SUMMARY',
+  admin: 'READ_PG_ADMIN'
 };
 
 /**

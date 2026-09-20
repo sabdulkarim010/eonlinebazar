@@ -46,7 +46,10 @@
     </div>
 
     <div class="hrm-tabs" id="hrmAttendanceTabs">
-        <button type="button" class="hrm-tab active" data-hrm-tab="hrm-tab-register">
+        <button type="button" class="hrm-tab active" data-hrm-tab="hrm-tab-daily-sheet">
+            <i class="fa-solid fa-table-list"></i> Daily Sheet
+        </button>
+        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-register">
             <i class="fa-solid fa-list-check"></i> Attendance Register
         </button>
         <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-shifts">
@@ -55,10 +58,73 @@
         <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-late">
             <i class="fa-solid fa-clock"></i> Late Report
         </button>
+        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-manual">
+            <i class="fa-solid fa-pen-to-square"></i> Manual Entry
+        </button>
     </div>
 
-    <!-- TAB 1: Attendance register -->
-    <div id="hrm-tab-register" class="hrm-panel">
+    <!-- TAB: Daily Sheet -->
+    <div id="hrm-tab-daily-sheet" class="hrm-panel">
+        <div class="hrm-filter-bar hrm-daily-sheet-toolbar">
+            <div class="form-group">
+                <label for="dailySheetDate">Date</label>
+                <input type="date" id="dailySheetDate">
+            </div>
+            <div class="form-group">
+                <label for="dailySheetDept">Department</label>
+                <select id="dailySheetDept">
+                    <option value="">All departments</option>
+                </select>
+            </div>
+            <div class="form-group hrm-filter-actions">
+                <button type="button" class="btn-primary" id="dailySheetRefreshBtn">
+                    <i class="fa-solid fa-rotate"></i> Refresh
+                </button>
+                <button type="button" class="btn-secondary" id="dailySheetMarkAllPresentBtn">
+                    <i class="fa-solid fa-check-double"></i> Mark All Present
+                </button>
+                <button type="button" class="btn-secondary" id="dailySheetMarkAllAbsentBtn">
+                    <i class="fa-solid fa-user-xmark"></i> Mark All Absent
+                </button>
+            </div>
+            <div id="dailySheetPastDateBanner" class="att-lock-status att-lock-status--open hrm-past-date-banner" hidden>
+                ⚠️ Past date — view only. Contact HR to make changes.
+            </div>
+            <div class="hrm-daily-sheet-lock" id="dailySheetLockBar">
+                <span id="dailySheetLockStatus" class="att-lock-status att-lock-status--open">🔓 Unlocked</span>
+                <button type="button" class="btn-secondary btn-sm" id="dailySheetLockBtn" data-superadmin-only="true" hidden>
+                    🔓 Lock This Date
+                </button>
+                <button type="button" class="btn-secondary btn-sm" id="dailySheetUnlockBtn" data-superadmin-only="true" hidden>
+                    Unlock
+                </button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="data-table hrm-daily-sheet-table">
+                <thead>
+                    <tr>
+                        <th>Photo</th>
+                        <th>Emp-ID</th>
+                        <th>Name</th>
+                        <th>Designation</th>
+                        <th>Dept</th>
+                        <th>Status</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th class="customers-th--actions">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="dailySheetTableBody">
+                    <tr><td colspan="9" class="loading-container"><div class="spinner"></div><p>Loading daily sheet…</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB: Attendance register -->
+    <div id="hrm-tab-register" class="hrm-panel" style="display:none;">
         <div class="hrm-filter-bar">
             <div class="form-group">
                 <label for="hrmAttendanceDateFilter">Date</label>
@@ -78,6 +144,7 @@
                     <option value="absent">Absent</option>
                     <option value="late">Late</option>
                     <option value="half-day">Half day</option>
+                    <option value="leave">Leave</option>
                     <option value="holiday">Holiday</option>
                 </select>
             </div>
@@ -142,7 +209,91 @@
         </div>
     </div>
 
-    <!-- TAB 3: Late report -->
+    <!-- TAB: Manual Entry -->
+    <div id="hrm-tab-manual" class="hrm-panel" style="display:none;">
+        <div class="saas-settings-card">
+            <div class="saas-settings-card-header">
+                <h4><i class="fa-solid fa-pen-to-square"></i> Manual Attendance Entry</h4>
+                <p class="settings-card-sub">Override or backfill attendance for any employee and date.</p>
+            </div>
+            <form id="manualEntryForm" class="saas-settings-form" onsubmit="event.preventDefault(); saveManualEntry();">
+                <div class="saas-settings-card-body">
+                    <div class="form-group">
+                        <label for="manualEntryDate">Date *</label>
+                        <input type="date" id="manualEntryDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="manualEntryEmployee">Employee *</label>
+                        <select id="manualEntryEmployee" required>
+                            <option value="">Select employee…</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="manualEntryStatus">Status *</label>
+                        <select id="manualEntryStatus" required>
+                            <option value="present">Present</option>
+                            <option value="absent">Absent</option>
+                            <option value="late">Late</option>
+                            <option value="half-day">Half-Day</option>
+                            <option value="leave">Leave</option>
+                            <option value="holiday">Holiday</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="manualEntryCheckIn">Check-in (optional)</label>
+                        <input type="time" id="manualEntryCheckIn">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualEntryCheckOut">Check-out (optional)</label>
+                        <input type="time" id="manualEntryCheckOut">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualEntryNote">Note / reason</label>
+                        <textarea id="manualEntryNote" rows="2" placeholder="Optional note"></textarea>
+                    </div>
+                    <div class="form-group" data-superadmin-only="true">
+                        <label class="checkbox-label" style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" id="manualEntryOverrideLock">
+                            Override locked date (Super Admin only)
+                        </label>
+                    </div>
+                </div>
+                <div class="saas-settings-card-footer">
+                    <button type="submit" class="btn-submit saas-settings-save-btn" id="manualEntrySaveBtn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Entry
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="section-header-box" style="margin-top:24px;">
+            <div>
+                <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Manual Entries</h3>
+                <p class="section-subtitle">Last 30 manual attendance edits.</p>
+            </div>
+        </div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Employee</th>
+                        <th>Status</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Note</th>
+                        <th>Modified By</th>
+                        <th>Modified At</th>
+                    </tr>
+                </thead>
+                <tbody id="manualEntriesTableBody">
+                    <tr><td colspan="8" class="table-status-empty">Open this tab to load recent entries.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB: Late report -->
     <div id="hrm-tab-late" class="hrm-panel" style="display:none;">
         <div class="hrm-filter-bar">
             <div class="form-group">
@@ -209,6 +360,7 @@
                         <option value="absent">Absent</option>
                         <option value="late">Late</option>
                         <option value="half-day">Half day</option>
+                        <option value="leave">Leave</option>
                         <option value="holiday">Holiday</option>
                     </select>
                 </div>

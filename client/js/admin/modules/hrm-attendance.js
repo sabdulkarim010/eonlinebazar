@@ -17,8 +17,24 @@ const ATTENDANCE_STATUS_CLASSES = {
     late: 'status-pending',
     absent: 'status-blocked',
     'half-day': 'status-pending',
-    holiday: 'status-verified'
+    holiday: 'status-verified',
+    leave: 'status-verified'
 };
+
+const DAILY_SHEET_STATUS_META = {
+    present: { label: '✓ Present', className: 'att-pill att-pill--present' },
+    absent: { label: '✗ Absent', className: 'att-pill att-pill--absent' },
+    late: { label: '⏰ Late', className: 'att-pill att-pill--late' },
+    'half-day': { label: '◑ Half-Day', className: 'att-pill att-pill--halfday' },
+    leave: { label: '🏖 Leave', className: 'att-pill att-pill--leave' },
+    holiday: { label: '📅 Holiday', className: 'att-pill att-pill--holiday' },
+    none: { label: '— Not Marked', className: 'att-pill att-pill--none' }
+};
+
+let dailySheetCache = [];
+let dailySheetLocked = false;
+let dailySheetLockInfo = null;
+let dailySheetPastDateViewOnly = false;
 
 /** Staff roster is read by all three HRM sections — fetched once per page load. */
 let hrmStaffCache = [];
@@ -184,6 +200,485 @@ function hrmSetupTabs(containerId, onShow) {
         if (!loaded.has(panelId)) {
             loaded.add(panelId);
             if (typeof onShow === 'function') onShow(panelId);
+        }
+    });
+}
+
+function hrmIsSuperAdmin() {
+    return typeof window.isAdminSuperAdmin === 'function' && window.isAdminSuperAdmin();
+}
+
+function hrmCanEditPastAttendanceDates() {
+    if (hrmIsSuperAdmin()) return true;
+    try {
+        const cached = sessionStorage.getItem('adminProfile');
+        if (cached) {
+            const profile = JSON.parse(cached);
+            const role = String(profile.role || '').toLowerCase();
+            if (role === 'hr' || role === 'superadmin' || role === 'super_admin') return true;
+        }
+    } catch (_) { /* ignore corrupt cache */ }
+    return false;
+}
+
+function updateDailySheetPastDateUI() {
+    const dateInput = document.getElementById('dailySheetDate');
+    const banner = document.getElementById('dailySheetPastDateBanner');
+    const today = hrmTodayInputValue();
+    const selected = dateInput?.value || today;
+    const isPast = selected < today;
+
+    dailySheetPastDateViewOnly = isPast && !hrmCanEditPastAttendanceDates();
+
+    if (dateInput) dateInput.max = today;
+
+    if (banner) banner.hidden = !dailySheetPastDateViewOnly;
+
+    ['dailySheetMarkAllPresentBtn', 'dailySheetMarkAllAbsentBtn'].forEach((id) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = dailySheetPastDateViewOnly || dailySheetLocked;
+    });
+}
+
+function renderDailySheetStatusPill(status) {
+    const meta = DAILY_SHEET_STATUS_META[status] || DAILY_SHEET_STATUS_META.none;
+    return `<span class="${meta.className}">${meta.label}</span>`;
+}
+
+function updateDailySheetLockUI() {
+    const statusEl = document.getElementById('dailySheetLockStatus');
+    const lockBtn = document.getElementById('dailySheetLockBtn');
+    const unlockBtn = document.getElementById('dailySheetUnlockBtn');
+
+    if (statusEl) {
+        if (dailySheetLocked && dailySheetLockInfo) {
+            const when = dailySheetLockInfo.lockedAt
+                ? new Date(dailySheetLockInfo.lockedAt).toLocaleString('en-GB')
+                : '';
+            statusEl.textContent = `🔒 Locked by ${dailySheetLockInfo.lockedByName || 'Admin'}${when ? ` at ${when}` : ''}`;
+            statusEl.className = 'att-lock-status att-lock-status--locked';
+        } else {
+            statusEl.textContent = '🔓 Unlocked';
+            statusEl.className = 'att-lock-status att-lock-status--open';
+        }
+    }
+
+    if (lockBtn) lockBtn.hidden = dailySheetLocked || !hrmIsSuperAdmin();
+    if (unlockBtn) unlockBtn.hidden = !dailySheetLocked || !hrmIsSuperAdmin();
+
+    if (typeof window.applySuperAdminOnlyVisibility === 'function') {
+        window.applySuperAdminOnlyVisibility();
+    }
+}
+
+function populateDailySheetDepartments(employees) {
+    const select = document.getElementById('dailySheetDept');
+    if (!select) return;
+
+    const current = select.value;
+    const departments = [...new Set((employees || []).map((e) => e.department).filter(Boolean))].sort();
+    select.innerHTML = '<option value="">All departments</option>'
+        + departments.map((d) => `<option value="${hrmEscape(d)}">${hrmEscape(d)}</option>`).join('');
+    if (current) select.value = current;
+}
+
+function renderDailySheetRows(employees) {
+    const tbody = document.getElementById('dailySheetTableBody');
+    if (!tbody) return;
+
+    const deptFilter = document.getElementById('dailySheetDept')?.value || '';
+    const rows = (employees || []).filter((e) => !deptFilter || e.department === deptFilter);
+
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="table-status-empty">No active employees for this filter.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = rows.map((row) => {
+        const status = row.attendance?.status || 'none';
+        const photo = row.photo
+            ? `<img src="${hrmEscape(row.photo)}" alt="" class="hrm-employee-thumb">`
+            : `<span class="hrm-employee-thumb hrm-employee-thumb--placeholder">${hrmEscape((row.name || '?').charAt(0))}</span>`;
+
+        let actionCell = '';
+        if (dailySheetLocked) {
+            actionCell = '<span class="att-lock-icon" title="Date locked">🔒</span>';
+        } else if (dailySheetPastDateViewOnly) {
+            actionCell = '<span class="att-view-only-label" title="Past date — view only">View only</span>';
+        } else {
+            actionCell = `
+                <div class="att-split-btn" data-employee-id="${hrmEscape(row.employeeId)}">
+                    <button type="button" class="att-split-btn__main" onclick="markDailySheetStatus('${hrmEscape(row.employeeId)}','present', this)">✓ Present</button>
+                    <button type="button" class="att-split-btn__toggle" onclick="toggleDailySheetMenu(this)" aria-label="More statuses">▾</button>
+                    <div class="att-split-menu" hidden>
+                        <button type="button" onclick="markDailySheetStatus('${hrmEscape(row.employeeId)}','late', this)">Late</button>
+                        <button type="button" onclick="markDailySheetStatus('${hrmEscape(row.employeeId)}','half-day', this)">Half-Day</button>
+                        <button type="button" onclick="markDailySheetStatus('${hrmEscape(row.employeeId)}','absent', this)">Absent</button>
+                        <button type="button" onclick="markDailySheetStatus('${hrmEscape(row.employeeId)}','leave', this)">Leave</button>
+                        <button type="button" onclick="markDailySheetStatus('${hrmEscape(row.employeeId)}','holiday', this)">Holiday</button>
+                    </div>
+                    <span class="att-saved-flash" hidden>✓ Saved</span>
+                </div>`;
+        }
+
+        return `
+            <tr data-employee-id="${hrmEscape(row.employeeId)}" data-department="${hrmEscape(row.department || '')}">
+                <td>${photo}</td>
+                <td><code>${hrmEscape(row.empId || '—')}</code></td>
+                <td><strong>${hrmEscape(row.name || '—')}</strong></td>
+                <td>${hrmEscape(row.designation || '—')}</td>
+                <td>${hrmEscape(row.department || '—')}</td>
+                <td class="daily-sheet-status-cell">${renderDailySheetStatusPill(status)}</td>
+                <td>${hrmFormatTime(row.attendance?.checkIn)}</td>
+                <td>${hrmFormatTime(row.attendance?.checkOut)}</td>
+                <td>${actionCell}</td>
+            </tr>`;
+    }).join('');
+}
+
+async function loadDailySheet() {
+    const tbody = document.getElementById('dailySheetTableBody');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="9" class="loading-container"><div class="spinner"></div><p>Loading daily sheet…</p></td></tr>';
+    }
+
+    const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
+    const dept = document.getElementById('dailySheetDept')?.value || '';
+    const params = new URLSearchParams({ date });
+    if (dept) params.set('dept', dept);
+
+    try {
+        const res = await fetch(`/api/admin/hrm/attendance/daily-sheet?${params.toString()}`, {
+            headers: hrmAuthHeaders()
+        });
+        const result = await res.json();
+
+        if (!result.success) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="table-status-error">Failed to load daily sheet.</td></tr>';
+            return;
+        }
+
+        dailySheetCache = result.data?.employees || [];
+        dailySheetLocked = Boolean(result.data?.isLocked);
+        dailySheetLockInfo = result.data?.lockInfo || null;
+
+        populateDailySheetDepartments(dailySheetCache);
+        updateDailySheetPastDateUI();
+        renderDailySheetRows(dailySheetCache);
+        updateDailySheetLockUI();
+    } catch (err) {
+        console.error('loadDailySheet:', err);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="table-status-error">Failed to load daily sheet.</td></tr>';
+    }
+}
+
+function toggleDailySheetMenu(btn) {
+    const menu = btn.parentElement?.querySelector('.att-split-menu');
+    if (!menu) return;
+    document.querySelectorAll('.att-split-menu').forEach((el) => {
+        if (el !== menu) el.hidden = true;
+    });
+    menu.hidden = !menu.hidden;
+}
+
+function flashDailySheetSaved(employeeId) {
+    const row = document.querySelector(`#dailySheetTableBody tr[data-employee-id="${employeeId}"]`);
+    const flash = row?.querySelector('.att-saved-flash');
+    if (!flash) return;
+    flash.hidden = false;
+    setTimeout(() => { flash.hidden = true; }, 2000);
+}
+
+async function markDailySheetStatus(employeeId, status, triggerEl) {
+    if (dailySheetPastDateViewOnly) {
+        showToast('Past dates are view-only. Contact HR to make changes.', 'warning');
+        return;
+    }
+    if (dailySheetLocked) {
+        showToast('This date is locked.', 'warning');
+        return;
+    }
+
+    const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
+    const menu = triggerEl?.closest('.att-split-btn')?.querySelector('.att-split-menu');
+    if (menu) menu.hidden = true;
+
+    try {
+        const res = await fetch('/api/admin/hrm/attendance/mark', {
+            method: 'POST',
+            headers: hrmAuthHeaders(true),
+            body: JSON.stringify({ employeeId, date, status })
+        });
+        const result = await res.json();
+
+        if (res.status === 423) {
+            showToast(result.message || 'Date is locked.', 'warning');
+            return;
+        }
+        if (res.status === 403) {
+            showToast(result.message || 'Past dates are view-only.', 'warning');
+            return;
+        }
+        if (!result.success) {
+            showToast(result.message || 'Failed to mark attendance.', 'error');
+            return;
+        }
+
+        const row = dailySheetCache.find((e) => String(e.employeeId) === String(employeeId));
+        if (row) {
+            row.attendance = {
+                status,
+                checkIn: result.data?.clockIn || null,
+                checkOut: result.data?.clockOut || null,
+                note: result.data?.notes || ''
+            };
+        }
+
+        const tr = document.querySelector(`#dailySheetTableBody tr[data-employee-id="${employeeId}"]`);
+        const statusCell = tr?.querySelector('.daily-sheet-status-cell');
+        if (statusCell) statusCell.innerHTML = renderDailySheetStatusPill(status);
+
+        flashDailySheetSaved(employeeId);
+    } catch (err) {
+        console.error('markDailySheetStatus:', err);
+        showToast('Server error while marking attendance.', 'error');
+    }
+}
+
+async function bulkMarkDailySheet(status) {
+    if (dailySheetPastDateViewOnly) {
+        showToast('Past dates are view-only. Contact HR to make changes.', 'warning');
+        return;
+    }
+    if (dailySheetLocked) {
+        showToast('This date is locked.', 'warning');
+        return;
+    }
+
+    const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
+    const deptFilter = document.getElementById('dailySheetDept')?.value || '';
+    const ids = dailySheetCache
+        .filter((e) => !deptFilter || e.department === deptFilter)
+        .map((e) => e.employeeId);
+
+    if (!ids.length) {
+        showToast('No employees to mark.', 'warning');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admin/hrm/attendance/bulk-mark', {
+            method: 'POST',
+            headers: hrmAuthHeaders(true),
+            body: JSON.stringify({ date, employeeIds: ids, status })
+        });
+        const result = await res.json();
+
+        if (res.status === 423) {
+            showToast(result.message || 'Date is locked.', 'warning');
+            return;
+        }
+        if (res.status === 403) {
+            showToast(result.message || 'Past dates are view-only.', 'warning');
+            return;
+        }
+        if (!result.success) {
+            showToast(result.message || 'Bulk mark failed.', 'error');
+            return;
+        }
+
+        showToast(`Marked ${result.data?.success || 0} employee(s) as ${status}.`, 'success');
+        await loadDailySheet();
+    } catch (err) {
+        console.error('bulkMarkDailySheet:', err);
+        showToast('Server error during bulk mark.', 'error');
+    }
+}
+
+async function lockDailySheetDate() {
+    const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
+    try {
+        const res = await fetch('/api/admin/hrm/attendance/lock', {
+            method: 'POST',
+            headers: hrmAuthHeaders(true),
+            body: JSON.stringify({ date })
+        });
+        const result = await res.json();
+        if (!result.success) {
+            showToast(result.message || 'Failed to lock date.', 'error');
+            return;
+        }
+        showToast('Date locked successfully.', 'success');
+        await loadDailySheet();
+    } catch (err) {
+        console.error('lockDailySheetDate:', err);
+        showToast('Failed to lock date.', 'error');
+    }
+}
+
+async function unlockDailySheetDate() {
+    const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
+    try {
+        const res = await fetch('/api/admin/hrm/attendance/lock', {
+            method: 'DELETE',
+            headers: hrmAuthHeaders(true),
+            body: JSON.stringify({ date })
+        });
+        const result = await res.json();
+        if (!result.success) {
+            showToast(result.message || 'Failed to unlock date.', 'error');
+            return;
+        }
+        showToast('Date unlocked.', 'success');
+        await loadDailySheet();
+    } catch (err) {
+        console.error('unlockDailySheetDate:', err);
+        showToast('Failed to unlock date.', 'error');
+    }
+}
+
+async function loadManualEntries() {
+    const tbody = document.getElementById('manualEntriesTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="8" class="loading-container"><div class="spinner"></div><p>Loading entries…</p></td></tr>';
+
+    try {
+        const res = await fetch('/api/admin/hrm/attendance/manual-entries?limit=30', {
+            headers: hrmAuthHeaders()
+        });
+        const result = await res.json();
+        const rows = result.data || [];
+
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="table-status-empty">No manual entries yet.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rows.map((row) => `
+            <tr>
+                <td>${hrmFormatDate(row.date)}</td>
+                <td><strong>${hrmEscape(row.employeeName)}</strong>${row.empId ? `<br><code>${hrmEscape(row.empId)}</code>` : ''}</td>
+                <td>${renderDailySheetStatusPill(row.status)}</td>
+                <td>${hrmFormatTime(row.checkIn)}</td>
+                <td>${hrmFormatTime(row.checkOut)}</td>
+                <td>${hrmEscape(row.note || '—')}</td>
+                <td>${hrmEscape(row.modifiedBy || '—')}</td>
+                <td>${hrmFormatDate(row.modifiedAt)} ${hrmFormatTime(row.modifiedAt)}</td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        console.error('loadManualEntries:', err);
+        tbody.innerHTML = '<tr><td colspan="8" class="table-status-error">Failed to load manual entries.</td></tr>';
+    }
+}
+
+async function loadManualEntryEmployees() {
+    const select = document.getElementById('manualEntryEmployee');
+    if (!select) return;
+
+    if (!hrmEmployeeCache.length) {
+        try {
+            const res = await fetch('/api/admin/hrm/employees?all=true', { headers: hrmAuthHeaders() });
+            const result = await res.json();
+            hrmEmployeeCache = Array.isArray(result.data) ? result.data : [];
+        } catch (err) {
+            console.error('loadManualEntryEmployees:', err);
+        }
+    }
+
+    const previous = select.value;
+    select.innerHTML = '<option value="">Select employee…</option>'
+        + hrmEmployeeCache
+            .filter((e) => e.status === 'active')
+            .map((e) => `<option value="${hrmEscape(e._id)}">${hrmEscape(e.fullName)} — ${hrmEscape(e.employeeId)}</option>`)
+            .join('');
+    if (previous) select.value = previous;
+}
+
+async function saveManualEntry() {
+    const payload = {
+        date: document.getElementById('manualEntryDate')?.value,
+        employeeId: document.getElementById('manualEntryEmployee')?.value,
+        status: document.getElementById('manualEntryStatus')?.value,
+        checkIn: document.getElementById('manualEntryCheckIn')?.value || undefined,
+        checkOut: document.getElementById('manualEntryCheckOut')?.value || undefined,
+        note: document.getElementById('manualEntryNote')?.value?.trim() || '',
+        overrideLock: document.getElementById('manualEntryOverrideLock')?.checked || false
+    };
+
+    if (!payload.date || !payload.employeeId || !payload.status) {
+        showToast('Date, employee, and status are required.', 'warning');
+        return;
+    }
+
+    const saveBtn = document.getElementById('manualEntrySaveBtn');
+    if (saveBtn) saveBtn.disabled = true;
+
+    try {
+        const res = await fetch('/api/admin/hrm/attendance/manual-entry', {
+            method: 'POST',
+            headers: hrmAuthHeaders(true),
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+
+        if (res.status === 423) {
+            showToast(result.message || 'Date is locked. Enable override if you are Super Admin.', 'warning');
+            return;
+        }
+        if (!result.success) {
+            showToast(result.message || 'Failed to save manual entry.', 'error');
+            return;
+        }
+
+        showAdminSuccess('Manual Entry Saved', result.message || 'Attendance updated.');
+        await loadManualEntries();
+        await loadDailySheet();
+    } catch (err) {
+        console.error('saveManualEntry:', err);
+        showToast('Server error while saving entry.', 'error');
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+}
+
+function setupDailySheetSection() {
+    const dateInput = document.getElementById('dailySheetDate');
+    if (dateInput && !dateInput.value) dateInput.value = hrmTodayInputValue();
+    updateDailySheetPastDateUI();
+
+    const deptSelect = document.getElementById('dailySheetDept');
+    if (deptSelect && !deptSelect.dataset.bound) {
+        deptSelect.dataset.bound = '1';
+        deptSelect.addEventListener('change', () => renderDailySheetRows(dailySheetCache));
+    }
+
+    const bindClick = (id, fn) => {
+        const el = document.getElementById(id);
+        if (el && !el.dataset.bound) {
+            el.dataset.bound = '1';
+            el.addEventListener('click', fn);
+        }
+    };
+
+    bindClick('dailySheetRefreshBtn', loadDailySheet);
+    bindClick('dailySheetMarkAllPresentBtn', () => bulkMarkDailySheet('present'));
+    bindClick('dailySheetMarkAllAbsentBtn', () => bulkMarkDailySheet('absent'));
+    bindClick('dailySheetLockBtn', lockDailySheetDate);
+    bindClick('dailySheetUnlockBtn', unlockDailySheetDate);
+
+    if (dateInput && !dateInput.dataset.bound) {
+        dateInput.dataset.bound = '1';
+        dateInput.addEventListener('change', () => {
+            updateDailySheetPastDateUI();
+            loadDailySheet();
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.att-split-btn')) {
+            document.querySelectorAll('.att-split-menu').forEach((menu) => { menu.hidden = true; });
         }
     });
 }
@@ -554,13 +1049,28 @@ async function loadHrmAttendanceSection() {
         return;
     }
 
-    await loadAttendanceList();
+    const dailyDate = document.getElementById('dailySheetDate');
+    if (dailyDate && !dailyDate.value) dailyDate.value = hrmTodayInputValue();
+
+    await loadDailySheet();
 }
 
 function setupHrmAttendanceSection() {
+    setupDailySheetSection();
+
     hrmSetupTabs('hrmAttendanceTabs', (panelId) => {
+        if (panelId === 'hrm-tab-daily-sheet') loadDailySheet();
         if (panelId === 'hrm-tab-shifts') loadShifts();
         if (panelId === 'hrm-tab-late') loadLateReport();
+        if (panelId === 'hrm-tab-manual') {
+            const manualDate = document.getElementById('manualEntryDate');
+            if (manualDate && !manualDate.value) manualDate.value = hrmTodayInputValue();
+            loadManualEntryEmployees();
+            loadManualEntries();
+            if (typeof window.applySuperAdminOnlyVisibility === 'function') {
+                window.applySuperAdminOnlyVisibility();
+            }
+        }
     });
 
     const refreshBtn = document.getElementById('attendanceRefreshBtn');
@@ -604,3 +1114,7 @@ window.closeShiftModal = closeShiftModal;
 window.saveShift = saveShift;
 window.deleteShift = deleteShift;
 window.loadLateReport = loadLateReport;
+window.loadDailySheet = loadDailySheet;
+window.markDailySheetStatus = markDailySheetStatus;
+window.toggleDailySheetMenu = toggleDailySheetMenu;
+window.saveManualEntry = saveManualEntry;

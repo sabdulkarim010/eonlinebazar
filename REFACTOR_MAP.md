@@ -1898,3 +1898,59 @@ CHAT_AUDIT.md [MOD] redirect stub → docs/audit/CHAT_AUDIT.md
 ARCHITECTURE.md [MOD] Documentation Index — docs/audit/ area audit table
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Audit System Initialized — 2026-09-20"
 README.md [MOD] docs/audit/ directory index + Last updated date
+
+# Admin-Employee Profile Link — 2026-09-20
+backend/src/config/readCutoverFlags.js [MOD] READ_PG_ADMIN flag
+backend/src/repositories/adminRepository.js [MOD] getAdminWithEmployeeData, linkEmployeeToAdmin, buildAdminEmployeeProfileShape
+backend/src/repositories/employeeRepository.js [MOD] update() supports photo + photoPublicId
+backend/src/controllers/admin/adminProfileController.js [MOD] getAdminProfileFull, linkAdminEmployee, photo/name sync helpers
+backend/src/controllers/admin/employeeController.js [MOD] uploadEmployeePhoto syncs linked admin image + photoUpdated flag
+backend/src/routes/adminRoutes.js [MOD] GET /profile/me/full, PUT /profile/link-employee
+client/js/admin/modules/adminSidebar.js [NEW] loadAdminSidebarProfile, updateSidebarDisplay, clearAdminSidebarCache
+client/js/admin/admin-core.js [MOD] import adminSidebar module
+client/js/admin/modules/core-boot.js [MOD] fetchAdminProfile delegates to loadAdminSidebarProfile
+client/js/admin/modules/core-nav.js [MOD] sidebar refresh on photo upload; clear cache on logout
+client/js/admin/modules/settings-cms.js [MOD] refresh sidebar after profile save
+client/js/admin/modules/settings-platform.js [MOD] applyAdminSettingsToUI uses updateSidebarDisplay
+client/js/admin/modules/hrm-employees.js [MOD] clearAdminSidebarCache after employee photo upload
+client/admin/partials/view-settings.html [MOD] Link to Employee Record card (super-admin)
+tests/repositories/admin.repository.test.js [MOD] getAdminWithEmployeeData + linkEmployeeToAdmin tests
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] feature + change log
+docs/audit/HRM_AUDIT.md [MOD] admin link + sync notes
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] link security rules
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Admin-Employee Profile Link section
+README.md [MOD] feature note + Last updated
+
+# Attendance System Upgrade — 2026-09-20
+backend/src/models/attendance.js [MOD] leave status; modifiedBy, modifiedAt, isManualEntry
+backend/src/models/attendanceLock.js [NEW] per-date lock (date, lockedAt, lockedBy, lockedByName)
+backend/src/repositories/attendanceRepository.js [MOD] getDailySheet, bulkMarkAttendance, listManualEntries
+backend/src/repositories/attendanceLockRepository.js [NEW] lockDate, unlockDate, getLockStatus, isDateLocked
+backend/src/controllers/admin/attendanceController.js [MOD] daily-sheet, bulk-mark, manual-entry, lock/unlock; persistAttendanceMark + 423 lock guard
+backend/src/routes/adminRoutes.js [MOD] GET /daily-sheet, POST /bulk-mark, POST /manual-entry, GET /manual-entries, lock routes
+prisma/schema.prisma [MOD] AttendanceLock model; Attendance audit fields; LEAVE enum
+prisma/migrations/20260920143000_attendance_upgrade/migration.sql [NEW]
+client/admin/partials/view-hrm-attendance.html [MOD] Daily Sheet + Manual Entry tabs; leave in filters
+client/js/admin/modules/hrm-attendance.js [MOD] daily sheet auto-save, lock UI, bulk mark, manual entry
+client/css/admin/_hrm.css [MOD] status pills, split buttons, lock bar
+tests/repositories/attendance.repository.test.js [MOD] getDailySheet + bulkMarkAttendance tests
+tests/repositories/attendanceLock.repository.test.js [NEW] lockDate/isDateLocked/unlockDate tests
+docs/audit/HRM_AUDIT.md [MOD] feature checklist + change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Attendance System Upgrade section
+README.md [MOD] Daily Sheet / lock / manual entry feature note
+
+# Full HRM Audit — 2026-09-20 (audit-only, no code fixes)
+docs/audit/HRM_AUDIT.md [MOD] full file inventory with ✅/⚠️/❌; Bug Report BUG 1 + BUG 2; status → PARTIAL (24/26 features)
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## HRM Full Audit — 2026-09-20" section; HRM audit row → ⚠️
+
+# HRM Bug Fix — Sidebar sync + date restriction — 2026-09-20
+backend/src/repositories/adminRepository.js [MOD] buildAdminEmployeeProfileShape prefers employee.fullName; getAdminWithEmployeeData PG employeeRef fallback via Mongo
+backend/src/controllers/admin/employeeController.js [MOD] syncLinkedAdminName helper; updateEmployee syncs linked Admin name
+backend/src/controllers/admin/attendanceController.js [MOD] assertStaffAttendanceDateAllowed; 403 on past-date mark/clock/bulk for staff
+client/js/admin/modules/hrm-employees.js [MOD] sidebar cache clear + profile reload after every employee save
+client/js/admin/modules/hrm-attendance.js [MOD] past-date view-only UI, max=today, hrmCanEditPastAttendanceDates
+client/admin/partials/view-hrm-attendance.html [MOD] dailySheetPastDateBanner
+tests/repositories/admin.repository.test.js [MOD] displayName expects linked employee fullName
+docs/audit/HRM_AUDIT.md [MOD] BUG 1 + BUG 2 → FIXED; 26/26 features; status COMPLETE
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## HRM Bug Fix — 2026-09-20"
+README.md [MOD] last updated date

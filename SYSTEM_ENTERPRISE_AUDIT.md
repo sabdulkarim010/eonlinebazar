@@ -2584,6 +2584,40 @@ All flags default **OFF** (Mongo reads unchanged until env `=true`).
 | `backend/docs/ROLLOUT_GUIDE.md` | ✅ |
 | `backend/docs/DECOMMISSION_GUIDE.md` | ✅ |
 
+## Attendance System Upgrade — 2026-09-20
+
+**Status:** ✅ COMPLETE
+
+| Item | Status |
+|------|--------|
+| Daily Sheet tab (merged employee + attendance for date) | ✅ `GET /api/admin/hrm/attendance/daily-sheet` |
+| Per-row auto-save status (Present/Late/Half-Day/Absent/Leave/Holiday) | ✅ `POST /mark` with lock guard |
+| Bulk Mark All Present / Absent | ✅ `POST /bulk-mark` |
+| AttendanceLock model (Mongo + Prisma) | ✅ `attendanceLock.js`, `AttendanceLock` table |
+| Lock/unlock date (Super Admin only) | ✅ `POST/DELETE /lock`, `GET /lock-status` |
+| Locked date writes return HTTP 423 | ✅ mark, clock-in/out, bulk, manual entry |
+| Manual Entry tab + recent 30 table | ✅ `POST /manual-entry`, `GET /manual-entries` |
+| Super Admin override locked date on manual entry | ✅ `overrideLock` body flag |
+| Attendance audit fields (modifiedBy, modifiedAt, isManualEntry) | ✅ Mongo + Prisma |
+| Repository tests (daily sheet, bulk mark, lock) | ✅ `attendance.repository.test.js`, `attendanceLock.repository.test.js` |
+| Jest suite | ✅ 228/228 passing |
+
+## Admin-Employee Profile Link — 2026-09-20
+
+**Status:** ✅ COMPLETE
+
+| Item | Status |
+|------|--------|
+| Merged sidebar profile API (`GET /api/admin/profile/me/full`) | ✅ Employee photo preferred over Admin.image |
+| Super Admin link endpoint (`PUT /api/admin/profile/link-employee`) | ✅ 409 if employee already linked to another admin |
+| Bidirectional photo sync | ✅ Admin profile pic ↔ Employee.photo via Cloudinary URLs |
+| Bidirectional name sync (Super Admin) | ✅ Admin displayName → linked Employee fullName |
+| Frontend sidebar module (`adminSidebar.js`) | ✅ sessionStorage cache + refresh on save/upload |
+| Settings Hub link UI | ✅ Active employee dropdown (super-admin only) |
+| PG repository merge helper | ✅ `getAdminWithEmployeeData` + `READ_PG_ADMIN` flag |
+| Repository tests | ✅ 3 new cases in `admin.repository.test.js` |
+| Jest suite | ✅ 228/228 passing |
+
 ## Jest + Prisma ESM Compatibility Fix — 2026-09-20
 
 **Status:** ✅ COMPLETE
@@ -2608,7 +2642,7 @@ Domain audit files under `docs/audit/` created from live codebase scans — each
 | `docs/audit/ADMIN_PANEL_AUDIT.md` | ✅ | 46 partials, 53 admin modules inventoried |
 | `docs/audit/CUSTOMER_FRONTEND_AUDIT.md` | ✅ | 21 HTML pages, profile/checkout/PDP modules |
 | `docs/audit/AUTH_SECURITY_AUDIT.md` | ✅ | Auth controllers, RBAC, 2FA, session repos |
-| `docs/audit/HRM_AUDIT.md` | ✅ | Full `/api/admin/hrm/*` stack |
+| `docs/audit/HRM_AUDIT.md` | ✅ | Full audit + bug fixes 2026-09-20 — 26/26 HRM features complete |
 | `docs/audit/ORDERS_AUDIT.md` | ✅ | 14 order routes; 2 low-severity PG verify gaps |
 | `docs/audit/PRODUCTS_AUDIT.md` | ✅ | Catalog + ERP; slug schema gap noted |
 | `docs/audit/PAYMENTS_FINANCE_AUDIT.md` | ✅ | Gateways, P&L, wallet, expenses |
@@ -2619,7 +2653,41 @@ Domain audit files under `docs/audit/` created from live codebase scans — each
 
 Root `CHAT_AUDIT.md` → redirect stub. Backend API status remains here. DB migration → `DATABASE_MIGRATION_AUDIT.md`.
 
+## HRM Full Audit — 2026-09-20
 
+**Status:** ⚠️ PARTIAL — core module complete; 2 bugs open (audit-only, no fixes applied)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Backend models (employee, attendance, lock, shift, leave, payroll) | ✅ | Mongo + Prisma dual-write |
+| Controllers + repositories + `/api/admin/hrm/*` routes | ✅ | 50+ HRM endpoints wired |
+| Frontend (employees, attendance, payroll, leaves partials + JS + CSS) | ✅ | Daily Sheet default tab |
+| Admin sidebar loader (`adminSidebar.js`) | ✅ | Loads via `admin-core.js`; calls `GET /profile/me/full` |
+| Admin–employee profile merge (photo) | ⚠️ | Works when `linkedAdminId` FK present; PG misses `employeeRef`-only links |
+| Admin–employee profile merge (name) | ❌ | `buildAdminEmployeeProfileShape` uses Admin `displayName` only; employee `fullName` not shown in sidebar |
+| Employee name → Admin sync on HRM update | ❌ | `updateEmployee` does not push `fullName` to linked Admin |
+| Staff past-date attendance restriction | ❌ | No backend or UI guard; lock is only control |
+| Attendance date lock (Super Admin) | ✅ | HTTP 423 on locked writes |
+| Repository + integration tests | ✅ | `tests/repositories/*`, `tests/hrm.test.js` |
+
+**Bug 1 (sidebar link):** Photo sync works on employee upload; name never reflects Employee record; PG read path orphan-link gap.  
+**Bug 2 (attendance dates):** Staff with `manage_staff` can mark/clock-in for any past date via API or Daily Sheet date picker.
+
+See `docs/audit/HRM_AUDIT.md` for file/line evidence and full inventory.
+
+## HRM Bug Fix — 2026-09-20
+
+**Status:** ✅ COMPLETE
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Sidebar shows linked Employee `fullName` + photo | ✅ | `buildAdminEmployeeProfileShape` + PG `employeeRef` fallback |
+| Employee name update syncs linked Admin | ✅ | `syncLinkedAdminName` in `employeeController.js` |
+| Sidebar refresh after HRM employee save | ✅ | `hrm-employees.js` clears cache + reloads profile |
+| Staff past-date attendance blocked (API) | ✅ | HTTP 403 on mark/clock/bulk when date ≠ today |
+| Super Admin / HR bypass for past dates | ✅ | Manual Entry exempt; superadmin always allowed |
+| Daily Sheet past-date view-only UI | ✅ | Banner + disabled actions; `max=today` on date picker |
+| Jest regression suite | ✅ | **228/228** passing |
 
 
 

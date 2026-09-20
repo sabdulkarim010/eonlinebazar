@@ -337,6 +337,27 @@
                                 </form>
                             </div>
 
+                            <div class="saas-settings-card" data-superadmin-only="true">
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-solid fa-link"></i> Link to Employee Record</h4>
+                                    <p class="settings-card-sub">Connect your admin sidebar photo and name to an HRM employee profile.</p>
+                                </div>
+                                <div class="saas-settings-card-body">
+                                    <p id="adminEmployeeLinkStatus" class="settings-card-sub">No employee record linked yet.</p>
+                                    <div class="form-group">
+                                        <label for="adminEmployeeLinkSelect">Active Employee</label>
+                                        <select id="adminEmployeeLinkSelect">
+                                            <option value="">Select an employee…</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="saas-settings-card-footer">
+                                    <button type="button" class="btn-submit saas-settings-save-btn" id="adminEmployeeLinkBtn">
+                                        <i class="fa-solid fa-link"></i> Link My Profile
+                                    </button>
+                                </div>
+                            </div>
+
                             <div class="saas-settings-card twofa-card">
                                 <div class="saas-settings-card-header">
                                     <h4><i class="fa-solid fa-user-lock"></i> Two-Factor Authentication</h4>

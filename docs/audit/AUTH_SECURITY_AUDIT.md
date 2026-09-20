@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20  
+**Last updated:** 2026-09-20 (Admin-Employee profile link)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -66,6 +66,7 @@
 - [x] Finance dashboard scoped JWT — `financeRoutes.js`
 - [x] Account deletion (Play Store compliance) — `loginController.js`
 - [x] PG read cutover for sessions/security — `READ_PG_*` flags in `readCutoverFlags.js`
+- [x] Admin ↔ Employee 1:1 link — `Admin.employeeRef` (Mongo) / `Employee.linkedAdminId` (canonical PG FK); link endpoint super-admin only, 409 if employee already linked
 
 ---
 
@@ -81,12 +82,18 @@
 ## Dependencies & Integrations
 
 - **Env:** `JWT_SECRET`, OAuth client IDs, session secrets
-- **PG flags:** `READ_PG_USER_SESSION`, `READ_PG_ADMIN_SESSION`, `READ_PG_SECURITYLOG`, `READ_PG_LOGINATTEMPT`, `READ_PG_BLACKLISTEDIP`
+- **PG flags:** `READ_PG_USER_SESSION`, `READ_PG_ADMIN_SESSION`, `READ_PG_ADMIN` (admin profile merge reads), `READ_PG_SECURITYLOG`, `READ_PG_LOGINATTEMPT`, `READ_PG_BLACKLISTEDIP`
 - **Related audits:** `ADMIN_PANEL_AUDIT.md`, `HRM_AUDIT.md`, `CHAT_AUDIT.md`
 
 ---
 
 ## Change Log
+
+### Admin-Employee Profile Link — 2026-09-20
+
+- `GET /api/admin/profile/me/full` — any authenticated admin; merged sidebar profile
+- `PUT /api/admin/profile/link-employee` — `requireSuperAdmin`; validates employee exists, active, not linked to another admin (409)
+- Link writes bidirectionally: `Admin.employeeRef` + `Employee.linkedAdminId` with dual-write to PG
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

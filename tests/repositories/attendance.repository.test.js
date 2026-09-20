@@ -13,6 +13,8 @@ const { create: createEmployee } = require('../../backend/src/repositories/emplo
 const {
   computeHoursWorked,
   markAttendance,
+  bulkMarkAttendance,
+  getDailySheet,
   clockIn,
   clockOut,
   getSummary,
@@ -171,6 +173,54 @@ describe('Attendance repository — polymorphic staff + Neon DB', () => {
     expect(row.adminId).toBeNull();
     expect(row.staffType).toBe('EMPLOYEE');
     expect(row.legacyId).toBe(mongoLikeDoc._id);
+  });
+
+  test('getDailySheet returns merged employee and attendance data', async () => {
+    const employee = await createEmployee({
+      fullName: `${PREFIX} Sheet Employee`,
+      phone: `019${String(Date.now()).slice(-8)}`,
+      department: 'Operations',
+      designation: 'Operator'
+    });
+    createdEmployeeIds.push(employee.id);
+
+    trackAttendance(await markAttendance({
+      staffType: 'employee',
+      staffId: employee.legacyId || employee.id,
+      date: new Date('2026-08-01'),
+      status: 'present',
+      markedBy: 'test-admin'
+    }));
+
+    const sheet = await getDailySheet('2026-08-01', 'Operations');
+    expect(sheet.date).toBe('2026-08-01');
+    expect(Array.isArray(sheet.employees)).toBe(true);
+
+    const match = sheet.employees.find((row) => row.empId === employee.employeeId);
+    expect(match).toBeTruthy();
+    expect(match.attendance?.status).toBe('present');
+  });
+
+  test('bulkMarkAttendance creates attendance rows for employees', async () => {
+    const employee = await createEmployee({
+      fullName: `${PREFIX} Bulk Employee`,
+      phone: `016${String(Date.now()).slice(-8)}`
+    });
+    createdEmployeeIds.push(employee.id);
+
+    const result = await bulkMarkAttendance({
+      date: new Date('2026-08-02'),
+      employeeIds: [employee.legacyId || employee.id],
+      status: 'absent',
+      markedBy: 'test-admin'
+    });
+
+    expect(result.success).toBe(1);
+    expect(result.failed).toBe(0);
+
+    const sheet = await getDailySheet('2026-08-02');
+    const match = sheet.employees.find((row) => row.empId === employee.employeeId);
+    expect(match?.attendance?.status).toBe('absent');
   });
 
   test('getSummary returns counts for the month', async () => {

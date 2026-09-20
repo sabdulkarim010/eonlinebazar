@@ -10,7 +10,16 @@
  */
 
 const Admin = require('../../models/admin');
+const Employee = require('../../models/employee');
 const AdminSession = require('../../models/adminSession');
+const { ROLES } = require('../../config/permissions');
+const { routedRead } = require('../../services/readRouter');
+const {
+    getAdminWithEmployeeData: getAdminWithEmployeeDataPg,
+    linkEmployeeToAdmin: linkEmployeeToAdminPg,
+    buildAdminEmployeeProfileShape
+} = require('../../repositories/adminRepository');
+const { dualWrite } = require('../../services/dualWriteService');
 const {
     fetchSecurityLogsPage,
     countSecurityLogs
@@ -20,6 +29,125 @@ const cloudinary = require('cloudinary').v2;
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { adminDualWrite, mirrorAdminUpdate } = require('../../utils/adminDualWriteHelpers');
 const { getApplicationNow } = require('../../utils/applicationTime');
+
+function getEmployeeRepository() {
+    return require('../../repositories/employeeRepository');
+}
+
+function mapHttpLinkError(err, res) {
+    if (err.code === 'NOT_FOUND') {
+        return res.status(404).json({ success: false, message: err.message });
+    }
+    if (err.code === 'ALREADY_LINKED') {
+        return res.status(409).json({ success: false, message: err.message });
+    }
+    return null;
+}
+
+async function resolveLinkedEmployee(admin) {
+    if (!admin) return null;
+
+    let employee = null;
+    if (admin.employeeRef) {
+        employee = await Employee.findById(admin.employeeRef);
+    }
+    if (!employee) {
+        employee = await Employee.findOne({ linkedAdminId: String(admin._id) });
+    }
+    return employee;
+}
+
+async function getAdminWithEmployeeDataMongo(adminId) {
+    const admin = await Admin.findById(adminId);
+    if (!admin) return null;
+
+    const employee = await resolveLinkedEmployee(admin);
+    return buildAdminEmployeeProfileShape(
+        {
+            id: String(admin._id),
+            legacyId: String(admin._id),
+            displayName: admin.displayName,
+            name: admin.name,
+            email: admin.email,
+            username: admin.username,
+            role: admin.role,
+            image: admin.image
+        },
+        employee
+            ? {
+                id: String(employee._id),
+                legacyId: String(employee._id),
+                fullName: employee.fullName,
+                photo: employee.photo,
+                employeeId: employee.employeeId
+            }
+            : null
+    );
+}
+
+async function syncLinkedEmployeePhoto(admin, imageUrl, publicId = '') {
+    const employee = await resolveLinkedEmployee(admin);
+    if (!employee || !imageUrl) return;
+
+    employee.photo = imageUrl;
+    if (publicId) employee.photoPublicId = publicId;
+
+    await dualWrite(
+        () => employee.save(),
+        async (saved) => {
+            const repo = getEmployeeRepository();
+            const pgRow = await repo.findByLegacyId(String(saved._id));
+            if (!pgRow) return;
+            await repo.update(pgRow.id, {
+                photo: saved.photo,
+                photoPublicId: saved.photoPublicId
+            });
+        },
+        {
+            model: 'Employee',
+            operation: 'update',
+            mongoId: (saved) => String(saved._id)
+        }
+    );
+}
+
+async function syncLinkedAdminPhoto(employee, imageUrl) {
+    if (!employee?.linkedAdminId || !imageUrl) return;
+
+    await adminDualWrite(
+        () => Admin.findByIdAndUpdate(
+            employee.linkedAdminId,
+            { image: imageUrl },
+            { returnDocument: 'after' }
+        ),
+        (updated) => mirrorAdminUpdate(updated, { operation: 'syncLinkedAdminPhoto' }),
+        {
+            operation: 'syncLinkedAdminPhoto',
+            mongoId: String(employee.linkedAdminId)
+        }
+    );
+}
+
+async function syncLinkedEmployeeName(admin, displayName) {
+    const employee = await resolveLinkedEmployee(admin);
+    if (!employee || !displayName) return;
+
+    employee.fullName = String(displayName).trim();
+    await dualWrite(
+        () => employee.save(),
+        async (saved) => {
+            const repo = getEmployeeRepository();
+            const pgRow = await repo.findByLegacyId(String(saved._id));
+            if (!pgRow) return;
+            await repo.update(pgRow.id, { fullName: saved.fullName });
+        },
+        {
+            model: 'Employee',
+            operation: 'update',
+            mongoId: (saved) => String(saved._id)
+        }
+    );
+}
 
 // ==============================================================
 // ৩. প্রোফাইল ছবি আপলোড ফাংশন (Cloudinary) - 🌟 ওল্ড ইমেজ ডিলিট ফিক্সসহ
@@ -76,9 +204,12 @@ const updateProfilePic = async (req, res) => {
                     return res.status(404).json({ success: false, message: "অ্যাডমিন অ্যাকাউন্ট পাওয়া যায়নি।" });
                 }
 
+                await syncLinkedEmployeePhoto(updatedAdmin, result.secure_url, result.public_id);
+
                 res.status(200).json({
                     success: true,
                     imageUrl: result.secure_url,
+                    photoUpdated: true,
                     message: "প্রোফাইল ছবি সফলভাবে আপডেট হয়েছে!"
                 });
             }
@@ -95,6 +226,161 @@ const updateProfilePic = async (req, res) => {
 // ==============================================================
 // ৪. ডাটাবেজ থেকে অ্যাডমিন প্রোফাইল ছবি নিয়ে আসার ফাংশন
 // ==============================================================
+const getAdminProfileFull = async (req, res) => {
+    try {
+        const adminId = String(req.adminAccount?._id || req.admin?.id || '');
+        if (!adminId) {
+            return res.status(401).json({ success: false, message: 'Admin session could not be verified.' });
+        }
+
+        const data = await routedRead(
+            'admin',
+            () => getAdminWithEmployeeDataMongo(adminId),
+            () => getAdminWithEmployeeDataPg(adminId)
+        );
+
+        if (!data) {
+            return res.status(404).json({ success: false, message: 'Admin not found.' });
+        }
+
+        res.status(200).json({ success: true, data });
+    } catch (error) {
+        console.error('Get Admin Profile Full Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load admin profile.' });
+    }
+};
+
+const linkAdminEmployee = async (req, res) => {
+    try {
+        const account = req.adminAccount;
+        if (!account?.isSuperAdmin()) {
+            return res.status(403).json({
+                success: false,
+                message: 'Only Super Admin can link employee records.'
+            });
+        }
+
+        const { employeeId } = req.body || {};
+        if (!employeeId) {
+            return res.status(400).json({ success: false, message: 'employeeId is required.' });
+        }
+
+        const adminId = String(account._id);
+        const employee = await Employee.findOne({
+            $or: [
+                { _id: employeeId },
+                { employeeId: String(employeeId).trim() }
+            ]
+        });
+
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found.' });
+        }
+
+        if (employee.status !== 'active') {
+            return res.status(400).json({ success: false, message: 'Only active employees can be linked.' });
+        }
+
+        if (employee.linkedAdminId && employee.linkedAdminId !== adminId) {
+            return res.status(409).json({
+                success: false,
+                message: 'Employee is already linked to another admin account.'
+            });
+        }
+
+        if (employee.linkedAdminId === adminId && account.employeeRef === String(employee._id)) {
+            const existing = await routedRead(
+                'admin',
+                () => getAdminWithEmployeeDataMongo(adminId),
+                () => getAdminWithEmployeeDataPg(adminId)
+            );
+            return res.status(200).json({
+                success: true,
+                message: 'Employee record is already linked.',
+                data: existing
+            });
+        }
+
+        const previousEmployee = await Employee.findOne({
+            linkedAdminId: adminId,
+            _id: { $ne: employee._id }
+        });
+        if (previousEmployee) {
+            previousEmployee.linkedAdminId = null;
+            await dualWrite(
+                () => previousEmployee.save(),
+                async (saved) => {
+                    const repo = getEmployeeRepository();
+                    const pgRow = await repo.findByLegacyId(String(saved._id));
+                    if (pgRow) await repo.unlinkAdminAccount(pgRow.id).catch(() => {});
+                },
+                {
+                    model: 'Employee',
+                    operation: 'update',
+                    mongoId: (saved) => String(saved._id)
+                }
+            );
+        }
+
+        employee.linkedAdminId = adminId;
+        account.employeeRef = String(employee._id);
+
+        await dualWrite(
+            () => employee.save(),
+            async (saved) => {
+                const repo = getEmployeeRepository();
+                const pgEmployee = await repo.findByLegacyId(String(saved._id));
+                const pgAdminId = await require('../../utils/hrmDualWriteHelpers')
+                    .resolvePostgresAdminId(adminId);
+                if (pgEmployee && pgAdminId && pgEmployee.linkedAdminId !== pgAdminId) {
+                    await repo.linkAdminAccount(pgEmployee.id, pgAdminId);
+                }
+            },
+            {
+                model: 'Employee',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
+
+        await adminDualWrite(
+            () => account.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'linkAdminEmployee' }),
+            {
+                operation: 'linkAdminEmployee',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
+
+        const data = await routedRead(
+            'admin',
+            () => getAdminWithEmployeeDataMongo(adminId),
+            () => getAdminWithEmployeeDataPg(adminId)
+        );
+
+        await logSecurityEvent({
+            action: 'Admin Employee Link Updated',
+            actor: account.username,
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `Linked to ${employee.employeeId} — ${employee.fullName}`,
+            resourceType: 'employee',
+            resourceId: String(employee._id)
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Employee record linked successfully.',
+            data
+        });
+    } catch (error) {
+        const mapped = mapHttpLinkError(error, res);
+        if (mapped) return mapped;
+        console.error('Link Admin Employee Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to link employee record.' });
+    }
+};
+
 const getAdminProfile = async (req, res) => {
     try {
         // লগইন করা অ্যাকাউন্টের নিজের প্রোফাইল (সুপার অ্যাডমিন বা স্টাফ)
@@ -243,6 +529,10 @@ const updateAdminProfile = async (req, res) => {
             }
         );
 
+        if (displayName !== undefined && admin.isSuperAdmin()) {
+            await syncLinkedEmployeeName(admin, admin.displayName);
+        }
+
         // ইউজারনেম বা পাসওয়ার্ড বদলালে পুরোনো টোকেন/সেশন আর বৈধ নয় —
         // সব ডিভাইস সাইন-আউট করে ফ্রন্টএন্ডকে রি-লগইন করতে বলা হয়।
         const requireRelogin = usernameChanged || !!newPassword;
@@ -380,9 +670,14 @@ Respond with ONLY a valid JSON object (no markdown, no backticks):
 module.exports = {
     updateProfilePic,
     getAdminProfile,
+    getAdminProfileFull,
+    linkAdminEmployee,
     getSecurityLogs,
     verifyAdminToken,
     updateAdminProfile,
     syncAdminData,
-    aiProductAssist
+    aiProductAssist,
+    getAdminWithEmployeeDataMongo,
+    resolveLinkedEmployee,
+    syncLinkedAdminPhoto
 };

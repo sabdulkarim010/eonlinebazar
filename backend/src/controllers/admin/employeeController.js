@@ -178,6 +178,26 @@ const {
 
 const MIN_ACCESS_PASSWORD_LENGTH = 8;
 
+async function syncLinkedAdminName(employee, newName) {
+    if (!employee?.linkedAdminId || !newName) return;
+
+    const trimmed = String(newName).trim();
+    if (!trimmed) return;
+
+    await adminDualWrite(
+        () => Admin.findByIdAndUpdate(
+            employee.linkedAdminId,
+            { name: trimmed, displayName: trimmed },
+            { returnDocument: 'after' }
+        ),
+        (updated) => mirrorAdminUpdate(updated, { operation: 'syncLinkedAdminName' }),
+        {
+            operation: 'syncLinkedAdminName',
+            mongoId: String(employee.linkedAdminId)
+        }
+    );
+}
+
 async function suspendLinkedAdminAccess(employee) {
     if (!employee?.linkedAdminId) return;
     await adminDualWrite(
@@ -395,6 +415,10 @@ exports.updateEmployee = async (req, res) => {
             await suspendLinkedAdminAccess(employee);
         }
 
+        if (fields.fullName !== undefined) {
+            await syncLinkedAdminName(employee, employee.fullName);
+        }
+
         await logSecurityEvent({
             action: 'Employee Updated',
             actor: actorName(req),
@@ -509,7 +533,14 @@ exports.uploadEmployeePhoto = async (req, res) => {
             resourceId: String(employee._id)
         });
 
-        res.status(200).json({ success: true, message: 'Photo updated.', data: { photo: url } });
+        await require('./adminProfileController').syncLinkedAdminPhoto(employee, url);
+
+        res.status(200).json({
+            success: true,
+            message: 'Photo updated.',
+            photoUpdated: true,
+            data: { photo: url }
+        });
     } catch (error) {
         console.error('uploadEmployeePhoto Error:', error);
         res.status(500).json({ success: false, message: 'Failed to upload photo.' });

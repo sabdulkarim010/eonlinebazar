@@ -10,7 +10,7 @@
 
 const mongoose = require('mongoose');
 
-const ATTENDANCE_STATUSES = ['present', 'absent', 'late', 'half-day', 'holiday'];
+const ATTENDANCE_STATUSES = ['present', 'absent', 'late', 'half-day', 'holiday', 'leave'];
 const SHIFT_TYPES = ['morning', 'evening', 'night', 'custom'];
 
 const attendanceSchema = new mongoose.Schema({
@@ -37,7 +37,11 @@ const attendanceSchema = new mongoose.Schema({
     },
     notes: { type: String, default: '', trim: true },
     /** 'self' for a staff clock-in, otherwise the admin username who marked it. */
-    markedBy: { type: String, default: 'self', trim: true }
+    markedBy: { type: String, default: 'self', trim: true },
+    /** Admin display/username who last modified this row (manual entry / sheet). */
+    modifiedBy: { type: String, default: '', trim: true },
+    modifiedAt: { type: Date, default: null },
+    isManualEntry: { type: Boolean, default: false }
 }, { timestamps: true });
 
 attendanceSchema.index({ staffId: 1, date: -1 });

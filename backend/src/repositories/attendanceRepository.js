@@ -53,7 +53,8 @@ function normaliseStatus(status) {
     ABSENT: 'absent',
     LATE: 'late',
     HALF_DAY: 'half-day',
-    HOLIDAY: 'holiday'
+    HOLIDAY: 'holiday',
+    LEAVE: 'leave'
   };
   return map[status] || (status ? String(status).toLowerCase() : status);
 }
@@ -64,7 +65,27 @@ function toStatusEnum(value) {
   if (v === 'late') return 'LATE';
   if (v === 'half-day') return 'HALF_DAY';
   if (v === 'holiday') return 'HOLIDAY';
+  if (v === 'leave') return 'LEAVE';
   return 'ABSENT';
+}
+
+function formatDateKey(input) {
+  const raw = String(input || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const d = normalizeDate(input);
+  if (!d) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function combineDateAndTime(dateNormalized, timeStr) {
+  if (!timeStr || !dateNormalized) return null;
+  const match = /^(\d{1,2}):(\d{2})$/.exec(String(timeStr).trim());
+  if (!match) return null;
+  const d = new Date(dateNormalized);
+  d.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return d;
 }
 
 function normaliseShift(shift) {
@@ -264,7 +285,7 @@ async function markAttendance(data) {
   if (!date) throw new Error('A valid date is required.');
 
   const status = String(data.status || '').trim().toLowerCase();
-  const valid = ['present', 'absent', 'late', 'half-day', 'holiday'];
+  const valid = ['present', 'absent', 'late', 'half-day', 'holiday', 'leave'];
   if (!valid.includes(status)) {
     throw new Error(`Status must be one of: ${valid.join(', ')}.`);
   }
@@ -281,8 +302,21 @@ async function markAttendance(data) {
     shiftStart: String(data.shiftStart || '09:00').trim(),
     shiftEnd: String(data.shiftEnd || '18:00').trim(),
     notes: String(data.notes || '').trim(),
-    markedBy: String(data.markedBy || 'admin').trim()
+    markedBy: String(data.markedBy || 'admin').trim(),
+    modifiedBy: String(data.modifiedBy || data.markedBy || 'admin').trim(),
+    modifiedAt: data.modifiedAt ? new Date(data.modifiedAt) : new Date(),
+    isManualEntry: Boolean(data.isManualEntry)
   };
+
+  if (data.clockIn !== undefined) {
+    fields.clockIn = data.clockIn ? new Date(data.clockIn) : null;
+  }
+  if (data.clockOut !== undefined) {
+    fields.clockOut = data.clockOut ? new Date(data.clockOut) : null;
+  }
+  if (fields.clockIn && fields.clockOut) {
+    fields.hoursWorked = computeHoursWorked(fields.clockIn, fields.clockOut);
+  }
 
   if (status === 'late') {
     fields.isLate = true;
@@ -451,6 +485,9 @@ async function upsertFromMongo(mongoDoc) {
     shiftEnd: String(plain.shiftEnd || '18:00').trim(),
     notes: String(plain.notes || '').trim(),
     markedBy: String(plain.markedBy || 'self').trim(),
+    modifiedBy: String(plain.modifiedBy || '').trim(),
+    modifiedAt: plain.modifiedAt ? new Date(plain.modifiedAt) : null,
+    isManualEntry: plain.isManualEntry === true,
     legacyId: mongoDoc._id != null ? String(mongoDoc._id) : null
   };
 
@@ -521,9 +558,138 @@ async function getSummary(staffType, staffId, month, year) {
   };
 }
 
+async function getDailySheet(dateInput, department = '') {
+  const date = normalizeDate(dateInput);
+  const dateKey = formatDateKey(date);
+  if (!date) throw new Error('A valid date is required.');
+
+  const employeeWhere = { status: 'ACTIVE' };
+  const dept = String(department || '').trim();
+  if (dept && dept.toLowerCase() !== 'all') {
+    employeeWhere.department = dept;
+  }
+
+  const employees = await prisma.employee.findMany({
+    where: employeeWhere,
+    orderBy: { fullName: 'asc' },
+    select: {
+      id: true,
+      legacyId: true,
+      employeeId: true,
+      fullName: true,
+      photo: true,
+      designation: true,
+      department: true
+    }
+  });
+
+  const attendanceRows = employees.length
+    ? await prisma.attendance.findMany({
+      where: {
+        date,
+        OR: [
+          { employeeId: { in: employees.map((e) => e.id) } },
+          { staffId: { in: employees.map((e) => e.legacyId || e.id) } }
+        ]
+      }
+    })
+    : [];
+
+  const byEmployeeId = new Map();
+  attendanceRows.forEach((row) => {
+    if (row.employeeId) byEmployeeId.set(row.employeeId, row);
+    else if (row.staffId) {
+      const match = employees.find((e) => e.legacyId === row.staffId || e.id === row.staffId);
+      if (match) byEmployeeId.set(match.id, row);
+    }
+  });
+
+  return {
+    date: dateKey,
+    employees: employees.map((employee) => {
+      const row = byEmployeeId.get(employee.id);
+      return {
+        employeeId: employee.legacyId || employee.id,
+        empId: employee.employeeId,
+        name: employee.fullName,
+        photo: employee.photo || '',
+        designation: employee.designation || '',
+        department: employee.department || '',
+        attendance: row
+          ? {
+            status: normaliseStatus(row.status),
+            checkIn: row.clockIn,
+            checkOut: row.clockOut,
+            note: row.notes || ''
+          }
+          : null
+      };
+    })
+  };
+}
+
+async function bulkMarkAttendance({
+  date,
+  employeeIds = [],
+  status,
+  markedBy = 'admin',
+  modifiedBy = '',
+  isManualEntry = false
+}) {
+  let success = 0;
+  let failed = 0;
+
+  for (const employeeId of employeeIds) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await markAttendance({
+        staffType: 'employee',
+        staffId: employeeId,
+        date,
+        status,
+        markedBy,
+        modifiedBy: modifiedBy || markedBy,
+        isManualEntry
+      });
+      success += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+
+  return { success, failed };
+}
+
+async function listManualEntries(limit = 30) {
+  const records = await prisma.attendance.findMany({
+    where: { isManualEntry: true },
+    orderBy: { modifiedAt: 'desc' },
+    take: Math.min(Math.max(Number(limit) || 30, 1), 100),
+    include: {
+      employee: {
+        select: { fullName: true, employeeId: true }
+      }
+    }
+  });
+
+  return records.map((row) => ({
+    date: formatDateKey(row.date),
+    employeeName: row.employee?.fullName || row.staffUsername || '—',
+    empId: row.employee?.employeeId || '',
+    status: normaliseStatus(row.status),
+    checkIn: row.clockIn,
+    checkOut: row.clockOut,
+    note: row.notes || '',
+    modifiedBy: row.modifiedBy || row.markedBy || '—',
+    modifiedAt: row.modifiedAt || row.updatedAt
+  }));
+}
+
 module.exports = {
   computeHoursWorked,
   normalizeDate,
+  formatDateKey,
+  combineDateAndTime,
   parseShiftMinutes,
   findAll,
   count,
@@ -532,6 +698,9 @@ module.exports = {
   findById,
   findByLegacyId,
   markAttendance,
+  bulkMarkAttendance,
+  getDailySheet,
+  listManualEntries,
   clockIn,
   clockOut,
   upsertFromMongo,

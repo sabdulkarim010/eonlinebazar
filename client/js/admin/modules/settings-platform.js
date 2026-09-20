@@ -32,8 +32,17 @@ function applyAdminSettingsToUI(settings) {
     const storeNameEl = document.getElementById('sidebarStoreName');
     if (storeNameEl) storeNameEl.textContent = settings.storeName || 'EonlineBazar';
 
-    const sidebarName = document.querySelector('.admin-profile .info h4');
-    if (sidebarName && settings.displayName) sidebarName.textContent = settings.displayName;
+    if (typeof window.updateSidebarDisplay === 'function') {
+        window.updateSidebarDisplay({
+            displayName: settings.displayName || settings.name || settings.username,
+            username: settings.username,
+            role: settings.role,
+            photo: settings.image || settings.photo || null
+        });
+    } else {
+        const sidebarName = document.querySelector('.admin-profile .info h4');
+        if (sidebarName && settings.displayName) sidebarName.textContent = settings.displayName;
+    }
 
     applyBrandingPreviewFromSettings(settings);
     startLiveClock();

@@ -457,8 +457,12 @@ window.uploadAdminProfilePic = async function(event) {
         
         if (result.success) {
             showToast("Profile picture updated successfully!", "success");
-            localStorage.setItem('adminProfilePic', result.imageUrl);
-            updateAdminProfileUI({ image: result.imageUrl });
+            if (typeof window.clearAdminSidebarCache === 'function') window.clearAdminSidebarCache();
+            if (typeof window.loadAdminSidebarProfile === 'function') {
+                await window.loadAdminSidebarProfile(true);
+            } else {
+                updateAdminProfileUI({ image: result.imageUrl });
+            }
         } else {
             showToast("Failed to upload picture.", "error");
         }
@@ -474,6 +478,7 @@ window.uploadAdminProfilePic = async function(event) {
  */
 window.logout = function() {
     const goLogout = () => {
+        if (typeof window.clearAdminSidebarCache === 'function') window.clearAdminSidebarCache();
         try { showToast("Logging out...", "info"); } catch (e) { /* never block logout */ }
         window.location.href = '/admin/logout';
     };
@@ -511,13 +516,7 @@ function initDashboard() {
     fetchAdminSettings();
     if (typeof loadSandboxStatus === 'function') loadSandboxStatus();
 
-    // ২. লোকাল স্টোরেজ থেকে প্রোফাইল পিকচার সেট করা (যদি আগে থেকে থাকে)
-    const savedPic = localStorage.getItem('adminProfilePic');
-    if (savedPic) {
-        updateAdminProfileUI({ image: savedPic });
-    }
-
-    // ৩. কোর মডিউলগুলোর ডাটা সার্ভার থেকে সিঙ্ক করা
+    // ২. কোর মডিউলগুলোর ডাটা সার্ভার থেকে সিঙ্ক করা
     fetchDashboardData();   // ওভারভিউ এবং কাস্টমার ডাটা
     initAdminPaginationInstances();
     fetchLiveOrders();      // লাইভ অর্ডারস

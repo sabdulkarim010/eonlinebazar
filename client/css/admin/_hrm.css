@@ -460,3 +460,142 @@
     font-size: 14px;
     word-break: break-word;
 }
+
+/* ── Daily attendance sheet ───────────────────────────────────────── */
+.hrm-daily-sheet-toolbar {
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.hrm-daily-sheet-lock {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.att-lock-status {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 999px;
+}
+
+.att-lock-status--open {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+
+.att-lock-status--locked {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.hrm-employee-thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #334155;
+    color: #f8fafc;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.hrm-employee-thumb--placeholder {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.att-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.att-pill--present { background: rgba(34, 197, 94, 0.18); color: #4ade80; }
+.att-pill--absent { background: rgba(239, 68, 68, 0.18); color: #f87171; }
+.att-pill--late { background: rgba(249, 115, 22, 0.18); color: #fb923c; }
+.att-pill--halfday { background: rgba(234, 179, 8, 0.18); color: #facc15; }
+.att-pill--leave { background: rgba(59, 130, 246, 0.18); color: #60a5fa; }
+.att-pill--holiday { background: rgba(168, 85, 247, 0.18); color: #c084fc; }
+.att-pill--none { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+.att-split-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+    max-width: 140px;
+}
+
+.att-split-btn__main,
+.att-split-btn__toggle {
+    border: 1px solid rgba(59, 130, 246, 0.45);
+    background: rgba(59, 130, 246, 0.12);
+    color: #93c5fd;
+    font-size: 12px;
+    padding: 6px 8px;
+    cursor: pointer;
+}
+
+.att-split-btn__main {
+    border-radius: 8px 0 0 8px;
+    border-right: none;
+    flex: 1;
+}
+
+.att-split-btn__toggle {
+    border-radius: 0 8px 8px 0;
+    min-width: 28px;
+}
+
+.att-split-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 20;
+    min-width: 120px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.att-split-menu button {
+    background: transparent;
+    border: none;
+    color: inherit;
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.att-split-menu button:hover {
+    background: rgba(59, 130, 246, 0.15);
+}
+
+.att-saved-flash {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #4ade80;
+    font-weight: 600;
+}
+
+.att-lock-icon {
+    font-size: 16px;
+    opacity: 0.85;
+}

@@ -584,9 +584,16 @@ router.delete('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff')
 // Named sub-paths are declared before any /:id route so "summary" and
 // "late-report" are never read as record ids.
 router.get('/hrm/attendance', verifyAdmin, checkPermission('manage_staff'), attendanceController.getAttendanceList);
+router.get('/hrm/attendance/daily-sheet', verifyAdmin, checkPermission('manage_staff'), attendanceController.getDailySheet);
 router.get('/hrm/attendance/summary', verifyAdmin, checkPermission('manage_staff'), attendanceController.getAttendanceSummary);
 router.get('/hrm/attendance/late-report', verifyAdmin, checkPermission('manage_staff'), attendanceController.getLateReport);
+router.get('/hrm/attendance/lock-status', verifyAdmin, checkPermission('manage_staff'), attendanceController.getLockStatus);
+router.get('/hrm/attendance/manual-entries', verifyAdmin, checkPermission('manage_staff'), attendanceController.getManualEntries);
 router.post('/hrm/attendance/mark', verifyAdmin, checkPermission('manage_staff'), attendanceController.markAttendance);
+router.post('/hrm/attendance/bulk-mark', verifyAdmin, checkPermission('manage_staff'), attendanceController.bulkMarkAttendance);
+router.post('/hrm/attendance/manual-entry', verifyAdmin, checkPermission('manage_staff'), attendanceController.manualEntry);
+router.post('/hrm/attendance/lock', verifyAdmin, requireSuperAdmin, attendanceController.lockAttendanceDate);
+router.delete('/hrm/attendance/lock', verifyAdmin, requireSuperAdmin, attendanceController.unlockAttendanceDate);
 router.post('/hrm/attendance/clock-in', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockIn);
 router.post('/hrm/attendance/clock-out', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockOut);
 
@@ -652,7 +659,9 @@ router.post('/update-profile-pic', verifyAdmin, upload.single('profilePic'), adm
 
 // ৮. অ্যাডমিন প্রোফাইল (GET ছবি / PUT প্রোফাইল ডিটেইলস)
 router.get('/profile', verifyAdmin, adminController.getAdminProfile);
+router.get('/profile/me/full', verifyAdmin, adminController.getAdminProfileFull);
 router.put('/profile', verifyAdmin, adminController.updateAdminProfile);
+router.put('/profile/link-employee', verifyAdmin, requireSuperAdmin, adminController.linkAdminEmployee);
 
 /********************************************************************
  # Database backup — super-admin export only (no restore)

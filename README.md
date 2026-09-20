@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-20 (Jest + Prisma ESM fix — 228/228 passing)
+**Last updated:** 2026-09-20 (HRM bug fix — sidebar employee name/photo sync + staff past-date attendance restriction — 228/228 Jest passing)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
@@ -106,10 +106,11 @@ Staff identity, time tracking, compensation, and leave — gated by `manage_staf
 | Module | Description |
 |--------|-------------|
 | **Granular RBAC & Staff Activity Audit** | Super-admin vs staff with explicit permissions (`view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff`, `manage_marketing`). Every sensitive action writes a **staff activity audit** entry (`resourceType` + `resourceId`). **Unified Activity Feed** timeline (`GET /api/admin/activity-feed`) and **role-based dashboard widgets** (ERP/CRM/Finance/HRM sections gated by permission). |
-| **Attendance & Shift Management** | Clock-in / clock-out with optional **GPS tagging**, one attendance row per staff per day, named shifts with a protected default, grace-period **late penalties**, plus monthly summary and late reports. |
+| **Attendance & Shift Management** | **Daily Sheet** tab for same-day roster marking (auto-save, bulk present/absent, dept filter), **date lock** (Super Admin), **Manual Entry** panel with audit trail, clock-in / clock-out with optional **GPS tagging**, one row per staff per day, named shifts with grace-period **late penalties**, plus register, summary, and late reports. |
 | **Payroll Engine & Automated Pay Slips** | Attendance-driven runs: `baseSalary × min(presentDays / workingDays, 1) + overtime + bonus − deductions`. Workflow is draft → approved → paid. Each slip is a **PDFKit** pay slip with pro-rated working-day calculation. |
 | **Leave Management** | **Casual**, **Sick**, and **Annual** leave (plus unpaid) with balances, a month **calendar** view, and automatic attendance sync — approving leave stamps `holiday` rows across the span. |
 | **Operational Employees & Designations** | Non-login staff roster with tabbed profiles (personal, contact, employment, salary/bank, references, **Access** tab), **designation catalog** (seeded defaults), Cloudinary **photo + document** uploads, read-only **profile modal** (attendance, payroll, leave tabs), **Link System Account** flow (employee profile or Admin Access **Assign New Access** → linked `Admin` account), superadmin auto-synced to HRM on bootstrap, and `employeeCount` on the enterprise dashboard. |
+| **Admin Sidebar ↔ Employee Profile Link** | Super Admin sidebar name/photo merges Admin + linked Employee (`GET /api/admin/profile/me/full`). Settings Hub links an active employee (`PUT /api/admin/profile/link-employee`); photo and display name sync bidirectionally. |
 
 ---
 

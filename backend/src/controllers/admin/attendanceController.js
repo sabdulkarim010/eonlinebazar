@@ -11,11 +11,16 @@
 
 const mongoose = require('mongoose');
 const Attendance = require('../../models/attendance');
+const AttendanceLock = require('../../models/attendanceLock');
 const Shift = require('../../models/shift');
 const Admin = require('../../models/admin');
+const Employee = require('../../models/employee');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { dualWrite } = require('../../services/dualWriteService');
+const { routedRead } = require('../../services/readRouter');
 const shiftRepo = require('../../repositories/shiftRepository');
+const attendanceRepo = require('../../repositories/attendanceRepository');
+const attendanceLockRepo = require('../../repositories/attendanceLockRepository');
 
 async function dualWriteShiftDoc(mongoDoc) {
     try {
@@ -57,6 +62,151 @@ function parsePagination(query) {
 
 function actorName(req) {
     return req.adminAccount?.username || req.admin?.username || 'admin';
+}
+
+function actorDisplayName(req) {
+    const account = req.adminAccount;
+    return account?.displayName || account?.name || actorName(req);
+}
+
+function isRequestSuperAdmin(req) {
+    if (req.adminAccount?.isSuperAdmin?.()) return true;
+    return req.admin?.isSuperAdmin === true || req.admin?.role === 'superadmin';
+}
+
+function resolveAdminRole(req) {
+    return String(req.adminAccount?.role || req.admin?.role || '').toLowerCase();
+}
+
+function canEditPastAttendanceDates(req) {
+    if (isRequestSuperAdmin(req)) return true;
+    return resolveAdminRole(req) === 'hr';
+}
+
+function getTodayDateKey() {
+    return attendanceRepo.formatDateKey(new Date());
+}
+
+function isTodayOrFuture(dateStr) {
+    const today = getTodayDateKey();
+    return String(dateStr || '') >= today;
+}
+
+function assertStaffAttendanceDateAllowed(req, dateInput, { isManualEntry = false } = {}) {
+    if (isManualEntry || canEditPastAttendanceDates(req)) return null;
+
+    const dateKey = attendanceRepo.formatDateKey(dateInput);
+    const todayKey = getTodayDateKey();
+    if (dateKey !== todayKey) {
+        return {
+            status: 403,
+            body: {
+                success: false,
+                message: 'Past dates can only be edited by HR or Super Admin via Manual Entry'
+            }
+        };
+    }
+    return null;
+}
+
+function combineDateAndTime(dateNormalized, timeStr) {
+    return attendanceRepo.combineDateAndTime(dateNormalized, timeStr);
+}
+
+async function getLockStatusMerged(dateInput) {
+    return routedRead(
+        'attendance',
+        async () => {
+            const dateKey = attendanceRepo.formatDateKey(dateInput);
+            const row = await AttendanceLock.findOne({ date: dateKey }).lean();
+            if (!row) return null;
+            return {
+                isLocked: true,
+                date: row.date,
+                lockedAt: row.lockedAt,
+                lockedBy: row.lockedBy,
+                lockedByName: row.lockedByName
+            };
+        },
+        () => attendanceLockRepo.getLockStatus(dateInput)
+    );
+}
+
+async function assertDateWritable(req, res, dateInput, { overrideLock = false } = {}) {
+    const lockInfo = await getLockStatusMerged(dateInput);
+    if (lockInfo?.isLocked && !(overrideLock && isRequestSuperAdmin(req))) {
+        res.status(423).json({ success: false, message: 'Date is locked' });
+        return false;
+    }
+    return true;
+}
+
+async function getDailySheetMongo(dateInput, department = '') {
+    const date = Attendance.normalizeDate(dateInput);
+    const dateKey = attendanceRepo.formatDateKey(date);
+    const query = { status: 'active' };
+    const dept = String(department || '').trim();
+    if (dept && dept.toLowerCase() !== 'all') query.department = dept;
+
+    const employees = await Employee.find(query).sort({ fullName: 1 }).lean();
+    const staffIds = employees.map((e) => String(e._id));
+    const rows = staffIds.length
+        ? await Attendance.find({ date, staffId: { $in: staffIds } }).lean()
+        : [];
+    const byStaff = new Map(rows.map((r) => [String(r.staffId), r]));
+
+    return {
+        date: dateKey,
+        employees: employees.map((emp) => {
+            const row = byStaff.get(String(emp._id));
+            return {
+                employeeId: String(emp._id),
+                empId: emp.employeeId,
+                name: emp.fullName,
+                photo: emp.photo || '',
+                designation: emp.designation || emp.role || '',
+                department: emp.department || '',
+                attendance: row
+                    ? {
+                        status: row.status,
+                        checkIn: row.clockIn,
+                        checkOut: row.clockOut,
+                        note: row.notes || ''
+                    }
+                    : null
+            };
+        })
+    };
+}
+
+async function listManualEntriesMongo(limit = 30) {
+    const take = Math.min(Math.max(Number(limit) || 30, 1), 100);
+    const rows = await Attendance.find({ isManualEntry: true })
+        .sort({ modifiedAt: -1 })
+        .limit(take)
+        .lean();
+
+    const employeeIds = [...new Set(rows.filter((r) => r.staffType === 'employee').map((r) => r.staffId))];
+    const employees = employeeIds.length
+        ? await Employee.find({ _id: { $in: employeeIds } }).select('fullName employeeId').lean()
+        : [];
+    const empMap = new Map(employees.map((e) => [String(e._id), e]));
+
+    return rows.map((row) => {
+        const emp = empMap.get(String(row.staffId));
+        const d = Attendance.normalizeDate(row.date);
+        return {
+            date: attendanceRepo.formatDateKey(d),
+            employeeName: emp?.fullName || row.staffUsername || '—',
+            empId: emp?.employeeId || '',
+            status: row.status,
+            checkIn: row.clockIn,
+            checkOut: row.clockOut,
+            note: row.notes || '',
+            modifiedBy: row.modifiedBy || row.markedBy || '—',
+            modifiedAt: row.modifiedAt || row.updatedAt
+        };
+    });
 }
 
 /** Resolve a login Admin by _id or username (clock-in/out paths). */
@@ -140,6 +290,111 @@ async function buildTodayStats() {
 
 exports.buildTodayStats = buildTodayStats;
 
+async function persistAttendanceMark(req, body) {
+    const payload = body.employeeId
+        ? { ...body, staffType: 'employee', staffId: body.employeeId }
+        : body;
+
+    const subject = await resolveHrmSubject(payload);
+    if (!subject) {
+        const err = new Error('Staff member not found.');
+        err.code = 'NOT_FOUND';
+        throw err;
+    }
+
+    const date = Attendance.normalizeDate(body.date);
+    if (!date) {
+        const err = new Error('A valid date is required.');
+        err.code = 'BAD_DATE';
+        throw err;
+    }
+
+    const pastDateBlock = assertStaffAttendanceDateAllowed(req, date, {
+        isManualEntry: Boolean(body.isManualEntry)
+    });
+    if (pastDateBlock) {
+        const err = new Error(pastDateBlock.body.message);
+        err.code = 'PAST_DATE_FORBIDDEN';
+        err.httpStatus = pastDateBlock.status;
+        throw err;
+    }
+
+    const lockInfo = await getLockStatusMerged(date);
+    if (lockInfo?.isLocked && !(Boolean(body.overrideLock) && isRequestSuperAdmin(req))) {
+        const err = new Error('Date is locked');
+        err.code = 'LOCKED';
+        throw err;
+    }
+
+    const status = String(body.status || '').trim().toLowerCase();
+    if (!ATTENDANCE_STATUSES.includes(status)) {
+        const err = new Error(`Status must be one of: ${ATTENDANCE_STATUSES.join(', ')}.`);
+        err.code = 'BAD_STATUS';
+        throw err;
+    }
+
+    const shiftWindow = await resolveShiftFor(subject.shiftKey);
+    const shiftType = SHIFT_TYPES.includes(String(body.shift || '').toLowerCase())
+        ? String(body.shift).toLowerCase()
+        : 'morning';
+
+    const record = await Attendance.findOne({ staffId: subject.staffId, date })
+        || new Attendance({ staffId: subject.staffId, date });
+
+    record.staffType = subject.staffType;
+    record.staffUsername = subject.staffUsername;
+    record.status = status;
+    record.shift = shiftType;
+    record.shiftStart = String(body.shiftStart || shiftWindow.startTime).trim();
+    record.shiftEnd = String(body.shiftEnd || shiftWindow.endTime).trim();
+    record.notes = String(body.note || body.notes || '').trim();
+    record.markedBy = actorName(req);
+    record.modifiedBy = actorDisplayName(req);
+    record.modifiedAt = new Date();
+    if (body.isManualEntry !== undefined) record.isManualEntry = Boolean(body.isManualEntry);
+
+    if (body.checkIn !== undefined) {
+        record.clockIn = body.checkIn
+            ? combineDateAndTime(date, body.checkIn) || new Date(body.checkIn)
+            : null;
+    }
+    if (body.checkOut !== undefined) {
+        record.clockOut = body.checkOut
+            ? combineDateAndTime(date, body.checkOut) || new Date(body.checkOut)
+            : null;
+    }
+
+    if (status === 'late') {
+        record.isLate = true;
+        if (!record.lateMinutes) record.lateMinutes = Number(body.lateMinutes) || 0;
+    } else if (status !== 'present') {
+        record.isLate = false;
+        record.lateMinutes = 0;
+    }
+
+    await dualWrite(
+        () => record.save(),
+        async (saved) => { await mirrorAttendanceDoc(saved); },
+        {
+            model: 'Attendance',
+            operation: 'create',
+            mongoId: (saved) => String(saved._id)
+        }
+    );
+
+    await logSecurityEvent({
+        action: body.isManualEntry ? 'Attendance Manual Entry' : 'Attendance Marked',
+        actor: actorName(req),
+        actorType: 'admin',
+        ipAddress: getClientIp(req),
+        details: `${subject.staffUsername} — ${status} on ${date.toISOString().slice(0, 10)}`,
+        resourceType: 'attendance',
+        resourceId: String(record._id)
+    });
+
+    return record;
+}
+
 /**
  * POST /api/admin/hrm/attendance/mark
  * Admin marks a staff member for a date. Re-marking the same day updates
@@ -147,74 +402,21 @@ exports.buildTodayStats = buildTodayStats;
  */
 exports.markAttendance = async (req, res) => {
     try {
-        const body = req.body || {};
-
-        const subject = await resolveHrmSubject(body);
-        if (!subject) {
-            return res.status(404).json({ success: false, message: 'Staff member not found.' });
-        }
-
-        const date = Attendance.normalizeDate(body.date);
-        if (!date) {
-            return res.status(400).json({ success: false, message: 'A valid date is required.' });
-        }
-
-        const status = String(body.status || '').trim().toLowerCase();
-        if (!ATTENDANCE_STATUSES.includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: `Status must be one of: ${ATTENDANCE_STATUSES.join(', ')}.`
-            });
-        }
-
-        const shiftWindow = await resolveShiftFor(subject.shiftKey);
-        const shiftType = SHIFT_TYPES.includes(String(body.shift || '').toLowerCase())
-            ? String(body.shift).toLowerCase()
-            : 'morning';
-
-        const record = await Attendance.findOne({ staffId: subject.staffId, date })
-            || new Attendance({ staffId: subject.staffId, date });
-
-        record.staffType = subject.staffType;
-        record.staffUsername = subject.staffUsername;
-        record.status = status;
-        record.shift = shiftType;
-        record.shiftStart = String(body.shiftStart || shiftWindow.startTime).trim();
-        record.shiftEnd = String(body.shiftEnd || shiftWindow.endTime).trim();
-        record.notes = String(body.notes || '').trim();
-        record.markedBy = actorName(req);
-
-        // 'late' marked by hand still needs a late flag the reports can count.
-        if (status === 'late') {
-            record.isLate = true;
-            if (!record.lateMinutes) record.lateMinutes = Number(body.lateMinutes) || 0;
-        } else if (status !== 'present') {
-            record.isLate = false;
-            record.lateMinutes = 0;
-        }
-
-        await dualWrite(
-            () => record.save(),
-            async (saved) => { await mirrorAttendanceDoc(saved); },
-            {
-                model: 'Attendance',
-                operation: 'create',
-                mongoId: (saved) => String(saved._id)
-            }
-        );
-
-        await logSecurityEvent({
-            action: 'Attendance Marked',
-            actor: actorName(req),
-            actorType: 'admin',
-            ipAddress: getClientIp(req),
-            details: `${subject.staffUsername} — ${status} on ${date.toISOString().slice(0, 10)}`,
-            resourceType: 'attendance',
-            resourceId: String(record._id)
-        });
-
+        const record = await persistAttendanceMark(req, req.body || {});
         res.status(200).json({ success: true, message: 'Attendance saved.', data: record });
     } catch (error) {
+        if (error.code === 'NOT_FOUND') {
+            return res.status(404).json({ success: false, message: error.message });
+        }
+        if (error.code === 'BAD_DATE' || error.code === 'BAD_STATUS') {
+            return res.status(400).json({ success: false, message: error.message });
+        }
+        if (error.code === 'LOCKED') {
+            return res.status(423).json({ success: false, message: error.message });
+        }
+        if (error.code === 'PAST_DATE_FORBIDDEN') {
+            return res.status(error.httpStatus || 403).json({ success: false, message: error.message });
+        }
         console.error('markAttendance Error:', error);
         res.status(500).json({ success: false, message: 'Failed to save attendance.' });
     }
@@ -237,6 +439,16 @@ exports.clockIn = async (req, res) => {
         }
 
         const date = Attendance.normalizeDate(body.date);
+        const pastDateBlock = assertStaffAttendanceDateAllowed(req, date);
+        if (pastDateBlock) {
+            return res.status(pastDateBlock.status).json(pastDateBlock.body);
+        }
+
+        const lockInfo = await getLockStatusMerged(date);
+        if (lockInfo?.isLocked) {
+            return res.status(423).json({ success: false, message: 'Date is locked' });
+        }
+
         const now = new Date();
 
         let record = await Attendance.findOne({ staffId: String(account._id), date });
@@ -308,6 +520,16 @@ exports.clockOut = async (req, res) => {
         }
 
         const date = Attendance.normalizeDate(body.date);
+        const pastDateBlock = assertStaffAttendanceDateAllowed(req, date);
+        if (pastDateBlock) {
+            return res.status(pastDateBlock.status).json(pastDateBlock.body);
+        }
+
+        const lockInfo = await getLockStatusMerged(date);
+        if (lockInfo?.isLocked) {
+            return res.status(423).json({ success: false, message: 'Date is locked' });
+        }
+
         const record = await Attendance.findOne({ staffId: String(account._id), date });
 
         if (!record || !record.clockIn) {
@@ -413,6 +635,265 @@ exports.getLateReport = async (req, res) => {
     } catch (error) {
         console.error('getLateReport Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load late report.' });
+    }
+};
+
+/**
+ * GET /api/admin/hrm/attendance/daily-sheet?date=&dept=
+ */
+exports.getDailySheet = async (req, res) => {
+    try {
+        const dateInput = req.query.date || new Date();
+        const department = req.query.dept || req.query.department || '';
+
+        const sheet = await routedRead(
+            'attendance',
+            () => getDailySheetMongo(dateInput, department),
+            () => attendanceRepo.getDailySheet(dateInput, department)
+        );
+
+        const lockInfo = await getLockStatusMerged(dateInput);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                ...sheet,
+                isLocked: Boolean(lockInfo?.isLocked),
+                lockInfo: lockInfo || null
+            }
+        });
+    } catch (error) {
+        console.error('getDailySheet Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load daily sheet.' });
+    }
+};
+
+/**
+ * POST /api/admin/hrm/attendance/bulk-mark
+ */
+exports.bulkMarkAttendance = async (req, res) => {
+    try {
+        const { date, employeeIds, status } = req.body || {};
+        const normalizedDate = Attendance.normalizeDate(date);
+        if (!normalizedDate) {
+            return res.status(400).json({ success: false, message: 'A valid date is required.' });
+        }
+
+        const writable = await assertDateWritable(req, res, normalizedDate);
+        if (!writable) return;
+
+        const pastDateBlock = assertStaffAttendanceDateAllowed(req, normalizedDate);
+        if (pastDateBlock) {
+            return res.status(pastDateBlock.status).json(pastDateBlock.body);
+        }
+
+        const ids = Array.isArray(employeeIds) ? employeeIds.map(String).filter(Boolean) : [];
+        if (!ids.length) {
+            return res.status(400).json({ success: false, message: 'employeeIds array is required.' });
+        }
+
+        const normalizedStatus = String(status || '').trim().toLowerCase();
+        if (!ATTENDANCE_STATUSES.includes(normalizedStatus)) {
+            return res.status(400).json({
+                success: false,
+                message: `Status must be one of: ${ATTENDANCE_STATUSES.join(', ')}.`
+            });
+        }
+
+        let success = 0;
+        let failed = 0;
+
+        for (const employeeId of ids) {
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                await persistAttendanceMark(req, {
+                    employeeId,
+                    date,
+                    status: normalizedStatus,
+                    isManualEntry: false
+                });
+                success += 1;
+            } catch (err) {
+                if (err.code === 'LOCKED') {
+                    return res.status(423).json({ success: false, message: err.message });
+                }
+                if (err.code === 'PAST_DATE_FORBIDDEN') {
+                    return res.status(err.httpStatus || 403).json({ success: false, message: err.message });
+                }
+                failed += 1;
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Marked ${success} employee(s).`,
+            data: { success, failed }
+        });
+    } catch (error) {
+        console.error('bulkMarkAttendance Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to bulk mark attendance.' });
+    }
+};
+
+/**
+ * POST /api/admin/hrm/attendance/manual-entry
+ */
+exports.manualEntry = async (req, res) => {
+    req.body = {
+        ...req.body,
+        isManualEntry: true,
+        notes: req.body?.note || req.body?.notes || ''
+    };
+    return exports.markAttendance(req, res);
+};
+
+/**
+ * GET /api/admin/hrm/attendance/manual-entries?limit=30
+ */
+exports.getManualEntries = async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit, 10) || 30;
+        const data = await routedRead(
+            'attendance',
+            () => listManualEntriesMongo(limit),
+            () => attendanceRepo.listManualEntries(limit)
+        );
+        res.status(200).json({ success: true, data });
+    } catch (error) {
+        console.error('getManualEntries Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load manual entries.' });
+    }
+};
+
+/**
+ * GET /api/admin/hrm/attendance/lock-status?date=
+ */
+exports.getLockStatus = async (req, res) => {
+    try {
+        const lockInfo = await getLockStatusMerged(req.query.date || new Date());
+        res.status(200).json({
+            success: true,
+            data: {
+                isLocked: Boolean(lockInfo?.isLocked),
+                lockInfo: lockInfo || null
+            }
+        });
+    } catch (error) {
+        console.error('getLockStatus Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load lock status.' });
+    }
+};
+
+/**
+ * POST /api/admin/hrm/attendance/lock
+ */
+exports.lockAttendanceDate = async (req, res) => {
+    try {
+        if (!isRequestSuperAdmin(req)) {
+            return res.status(403).json({ success: false, message: 'Only Super Admin can lock dates.' });
+        }
+
+        const dateInput = req.body?.date;
+        const dateKey = attendanceRepo.formatDateKey(dateInput);
+        if (!dateKey) {
+            return res.status(400).json({ success: false, message: 'A valid date is required.' });
+        }
+        if (attendanceLockRepo.isFutureDateKey(dateKey)) {
+            return res.status(400).json({ success: false, message: 'Future dates cannot be locked.' });
+        }
+
+        const adminId = String(req.adminAccount?._id || req.admin?.id || '');
+        const adminName = actorDisplayName(req);
+
+        const lock = await dualWrite(
+            () => AttendanceLock.findOneAndUpdate(
+                { date: dateKey },
+                {
+                    date: dateKey,
+                    lockedAt: new Date(),
+                    lockedBy: adminId,
+                    lockedByName: adminName
+                },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            ),
+            async (saved) => { await attendanceLockRepo.upsertFromMongo(saved); },
+            { model: 'AttendanceLock', operation: 'create', mongoId: (saved) => String(saved._id) }
+        );
+
+        await logSecurityEvent({
+            action: 'Attendance Date Locked',
+            actor: actorName(req),
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: dateKey,
+            resourceType: 'attendance_lock',
+            resourceId: String(lock._id)
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Attendance date locked.',
+            data: {
+                isLocked: true,
+                lockInfo: {
+                    date: lock.date,
+                    lockedAt: lock.lockedAt,
+                    lockedBy: lock.lockedBy,
+                    lockedByName: lock.lockedByName
+                }
+            }
+        });
+    } catch (error) {
+        console.error('lockAttendanceDate Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to lock attendance date.' });
+    }
+};
+
+/**
+ * DELETE /api/admin/hrm/attendance/lock
+ */
+exports.unlockAttendanceDate = async (req, res) => {
+    try {
+        if (!isRequestSuperAdmin(req)) {
+            return res.status(403).json({ success: false, message: 'Only Super Admin can unlock dates.' });
+        }
+
+        const dateKey = attendanceRepo.formatDateKey(req.body?.date);
+        if (!dateKey) {
+            return res.status(400).json({ success: false, message: 'A valid date is required.' });
+        }
+
+        const existing = await AttendanceLock.findOne({ date: dateKey });
+        if (!existing) {
+            return res.status(404).json({ success: false, message: 'Date is not locked.' });
+        }
+
+        await dualWrite(
+            () => AttendanceLock.deleteOne({ _id: existing._id }),
+            async () => {
+                try {
+                    await attendanceLockRepo.unlockDate(dateKey);
+                } catch (err) {
+                    if (err.code !== 'NOT_LOCKED') throw err;
+                }
+            },
+            { model: 'AttendanceLock', operation: 'delete', mongoId: String(existing._id) }
+        );
+
+        await logSecurityEvent({
+            action: 'Attendance Date Unlocked',
+            actor: actorName(req),
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: dateKey,
+            resourceType: 'attendance_lock',
+            resourceId: String(existing._id)
+        });
+
+        res.status(200).json({ success: true, message: 'Attendance date unlocked.' });
+    } catch (error) {
+        console.error('unlockAttendanceDate Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to unlock attendance date.' });
     }
 };
 

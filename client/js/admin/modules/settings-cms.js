@@ -1374,6 +1374,10 @@ function setupAdminSettingsForms() {
                 if (result.success) {
                     showToast('Success: Admin Profile updated successfully!', 'success');
                     if (result.data) applyAdminSettingsToUI(result.data);
+                    if (typeof window.clearAdminSidebarCache === 'function') window.clearAdminSidebarCache();
+                    if (typeof window.loadAdminSidebarProfile === 'function') {
+                        await window.loadAdminSidebarProfile(true);
+                    }
                     document.getElementById('settingsCurrentPassword').value = '';
                     document.getElementById('settingsNewPassword').value = '';
                     if (typeof window.refreshTwoFactorSettings === 'function') window.refreshTwoFactorSettings();
