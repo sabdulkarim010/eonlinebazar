@@ -15,7 +15,9 @@ const wishlistItemSchema = new mongoose.Schema({
     price: { type: Number, default: 0 },
     image: { type: String, default: '' },
     icon: { type: String, default: '📦' },
-    addedAt: { type: Date, default: Date.now }
+    addedAt: { type: Date, default: Date.now },
+    priceDropNotifiedAt: { type: Date, default: null },
+    backInStockNotifiedAt: { type: Date, default: null }
 });
 
 module.exports = { wishlistItemSchema };

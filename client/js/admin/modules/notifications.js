@@ -39,7 +39,7 @@ function renderAdminNotifDropdown() {
     if (!listEl) return;
 
     if (!adminNotifications.length) {
-        listEl.innerHTML = '<p class="admin-notif-empty">No notifications yet</p>';
+        listEl.innerHTML = '<p class="admin-notif-empty">🔔 No notifications yet</p>';
         return;
     }
 

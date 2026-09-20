@@ -62,6 +62,7 @@ function plGetEls() {
         end: document.getElementById('plEndDate'),
         groupBy: document.getElementById('plGroupBy'),
         generateBtn: document.getElementById('plGenerateBtn'),
+        excelBtn: document.getElementById('plExportExcelBtn'),
         pdfBtn: document.getElementById('plExportPdfBtn'),
         csvBtn: document.getElementById('plExportCsvBtn'),
         spinner: document.getElementById('plSpinner'),
@@ -89,6 +90,7 @@ function plCurrentQuery() {
 
 function plSetExportsEnabled(enabled) {
     const els = plGetEls();
+    if (els.excelBtn) els.excelBtn.disabled = !enabled;
     if (els.pdfBtn) els.pdfBtn.disabled = !enabled;
     if (els.csvBtn) els.csvBtn.disabled = !enabled;
 }
@@ -375,6 +377,42 @@ async function loadPLReport(startDate, endDate, groupBy) {
 }
 
 async function plDownloadExport(kind) {
+    if (kind === 'excel') {
+        const btn = plGetEls().excelBtn;
+        const original = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting…'; }
+        try {
+            const params = new URLSearchParams(plCurrentQuery());
+            params.set('type', 'excel');
+            params.set('from', params.get('startDate') || '');
+            params.set('to', params.get('endDate') || '');
+            const res = await fetch(`/api/admin/finance/export?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) {
+                let message = `Export failed (${res.status}).`;
+                try { const j = await res.json(); message = j.message || message; } catch { /* binary */ }
+                throw new Error(message);
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `finance-report-${new Date().toISOString().slice(0, 10)}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            if (typeof showToast === 'function') showToast('Finance Excel downloaded.', 'success');
+        } catch (err) {
+            console.error('Finance Excel export error:', err);
+            if (typeof showToast === 'function') showToast(err.message || 'Export failed.', 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = original; }
+        }
+        return;
+    }
+
     const path = kind === 'csv' ? 'export-csv' : 'export-pdf';
     const ext = kind === 'csv' ? 'csv' : 'pdf';
     const btn = kind === 'csv' ? plGetEls().csvBtn : plGetEls().pdfBtn;
@@ -410,6 +448,7 @@ async function plDownloadExport(kind) {
 
 function exportPDF() { return plDownloadExport('pdf'); }
 function exportCSV() { return plDownloadExport('csv'); }
+function exportExcel() { return plDownloadExport('excel'); }
 
 /* ------------------------------------------------------------------ */
 /* Init                                                               */
@@ -429,6 +468,7 @@ function initProfitLossReport() {
         if (els.end && !els.end.value) els.end.value = plToDateInput(now);
 
         els.generateBtn.addEventListener('click', loadPLReport);
+        if (els.excelBtn) els.excelBtn.addEventListener('click', exportExcel);
         if (els.pdfBtn) els.pdfBtn.addEventListener('click', exportPDF);
         if (els.csvBtn) els.csvBtn.addEventListener('click', exportCSV);
 
@@ -447,5 +487,7 @@ window.renderCharts = renderCharts;
 window.renderTopProducts = renderTopProducts;
 window.exportPDF = exportPDF;
 window.exportCSV = exportCSV;
+window.exportExcel = exportExcel;
 window.exportPLReportPDF = exportPDF;
 window.exportPLReportCSV = exportCSV;
+window.exportPLReportExcel = exportExcel;

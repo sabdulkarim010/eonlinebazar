@@ -232,6 +232,47 @@ window.closeInvoiceModal = function() {
     currentInvoiceOrderId = null;
 };
 
+window.downloadAdminOrderInvoice = async function(orderId) {
+    const id = orderId || currentInvoiceOrderId;
+    if (!id) {
+        showToast('No order selected for invoice download.', 'warning');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/orders/${encodeURIComponent(id)}/invoice`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!res.ok) {
+            let message = 'Failed to download invoice.';
+            try {
+                const data = await res.json();
+                message = data.message || message;
+            } catch (_) { /* binary */ }
+            showToast(message, 'error');
+            return;
+        }
+
+        const blob = await res.blob();
+        const disposition = res.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="([^"]+)"/i);
+        const filename = match?.[1] || `invoice-${id}.pdf`;
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+        showToast('Invoice PDF downloaded.', 'success');
+    } catch (err) {
+        console.error('downloadAdminOrderInvoice:', err);
+        showToast('Unable to download invoice PDF.', 'error');
+    }
+};
+
 window.printInvoice = function() {
     document.body.classList.add('printing-invoice');
     const cleanup = () => {

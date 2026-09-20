@@ -28,7 +28,24 @@
 
             <div class="system-settings-card-footer">
                 <button type="button" id="downloadFullBackupBtn" class="btn-submit system-settings-save-btn" onclick="downloadFullBackup()">
-                    <i class="fa-solid fa-download"></i> Download Full Backup
+                    <i class="fa-solid fa-download"></i> Download MongoDB Backup
+                </button>
+            </div>
+        </div>
+
+        <div class="system-settings-card system-settings-card--indigo">
+            <div class="system-settings-card-header">
+                <div class="system-settings-card-icon system-settings-card-icon--indigo" aria-hidden="true">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <div class="system-settings-card-heading">
+                    <h4>PostgreSQL Backup</h4>
+                    <p class="settings-card-sub">Manual export of critical Neon/PostgreSQL tables (orders, products, users, employees, attendance, payments). Neon also retains automatic backups.</p>
+                </div>
+            </div>
+            <div class="system-settings-card-footer">
+                <button type="button" id="downloadPostgresBackupBtn" class="btn-submit system-settings-save-btn" onclick="downloadPostgresBackup()">
+                    <i class="fa-solid fa-download"></i> Download PostgreSQL Backup
                 </button>
             </div>
         </div>

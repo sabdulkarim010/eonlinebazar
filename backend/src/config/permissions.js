@@ -97,11 +97,133 @@ const PERMISSIONS = Object.freeze([
         description: 'Create staff accounts and assign their permissions.',
         icon: 'fa-user-shield',
         group: 'Administration'
+    },
+    // ── Granular Attendance ─────────────────────────────────────────────
+    {
+        key: 'view_attendance',
+        label: 'View attendance',
+        description: 'Open HRM attendance tabs and read attendance records.',
+        icon: 'fa-calendar-check',
+        group: 'Attendance'
+    },
+    {
+        key: 'mark_attendance_today',
+        label: "Mark today's attendance only",
+        description: 'Mark or edit attendance for the current date only.',
+        icon: 'fa-clock',
+        group: 'Attendance'
+    },
+    {
+        key: 'mark_attendance_any_date',
+        label: 'Mark any date (HR privilege)',
+        description: 'Edit attendance for past or future dates on the Daily Sheet.',
+        icon: 'fa-calendar-days',
+        group: 'Attendance'
+    },
+    {
+        key: 'lock_attendance_dates',
+        label: 'Lock/unlock dates',
+        description: 'Lock or unlock attendance dates to prevent further edits.',
+        icon: 'fa-lock',
+        group: 'Attendance'
+    },
+    {
+        key: 'manual_attendance',
+        label: 'Manual entry',
+        description: 'Use the Manual Entry tab to backfill or override attendance.',
+        icon: 'fa-pen-to-square',
+        group: 'Attendance'
+    },
+    // ── Granular HRM ────────────────────────────────────────────────────
+    {
+        key: 'view_employees',
+        label: 'View employees',
+        description: 'Browse the employee roster and profiles.',
+        icon: 'fa-users',
+        group: 'HRM'
+    },
+    {
+        key: 'edit_employees',
+        label: 'Edit employees',
+        description: 'Create, update, and deactivate employee records.',
+        icon: 'fa-user-pen',
+        group: 'HRM'
+    },
+    {
+        key: 'manage_payroll',
+        label: 'Manage payroll',
+        description: 'Generate, approve, and mark payroll as paid.',
+        icon: 'fa-money-check-dollar',
+        group: 'HRM'
+    },
+    {
+        key: 'manage_leave',
+        label: 'Manage leave',
+        description: 'Review and approve leave applications.',
+        icon: 'fa-umbrella-beach',
+        group: 'HRM'
+    },
+    // ── Granular Inventory ─────────────────────────────────────────────
+    {
+        key: 'view_products',
+        label: 'View products',
+        description: 'Browse the product catalog and stock levels.',
+        icon: 'fa-box',
+        group: 'Inventory'
+    },
+    {
+        key: 'edit_products',
+        label: 'Edit products',
+        description: 'Create and update product listings.',
+        icon: 'fa-pen',
+        group: 'Inventory'
+    },
+    {
+        key: 'manage_stock',
+        label: 'Manage stock',
+        description: 'Adjust stock quantities and warehouse assignments.',
+        icon: 'fa-warehouse',
+        group: 'Inventory'
+    },
+    // ── Granular Orders ───────────────────────────────────────────────
+    {
+        key: 'view_orders',
+        label: 'View orders',
+        description: 'Open the live orders list and order details.',
+        icon: 'fa-receipt',
+        group: 'Orders'
+    },
+    {
+        key: 'update_order_status',
+        label: 'Update order status',
+        description: 'Change order status including bulk status updates.',
+        icon: 'fa-truck-fast',
+        group: 'Orders'
+    },
+    {
+        key: 'process_refunds',
+        label: 'Process refunds',
+        description: 'Approve returns and issue refunds.',
+        icon: 'fa-rotate-left',
+        group: 'Orders'
     }
 ]);
 
 const PERMISSION_KEYS = Object.freeze(PERMISSIONS.map(p => p.key));
 const PERMISSION_SET = new Set(PERMISSION_KEYS);
+
+/** Legacy coarse permissions imply their granular children for backward compatibility. */
+const PERMISSION_IMPLICATIONS = Object.freeze({
+    manage_staff: [
+        'view_attendance', 'mark_attendance_today', 'mark_attendance_any_date',
+        'lock_attendance_dates', 'manual_attendance',
+        'view_employees', 'edit_employees', 'manage_payroll', 'manage_leave'
+    ],
+    manage_orders: ['view_orders', 'update_order_status', 'process_refunds'],
+    manage_inventory: ['view_products', 'edit_products', 'manage_stock'],
+    manage_customers: ['view_orders'],
+    view_analytics: ['view_orders']
+});
 
 /**
  * Maps admin panel sections (the `data-target` on each sidebar item) to the
@@ -131,10 +253,10 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-staff': 'manage_staff',
     'view-staff-audit': 'manage_security',
     'view-activity-feed': 'manage_security',
-    'view-hrm-employees': 'manage_staff',
-    'view-hrm-attendance': 'manage_staff',
-    'view-hrm-payroll': 'manage_staff',
-    'view-hrm-leaves': 'manage_staff',
+    'view-hrm-employees': 'view_employees',
+    'view-hrm-attendance': 'view_attendance',
+    'view-hrm-payroll': 'manage_payroll',
+    'view-hrm-leaves': 'manage_leave',
     'view-newsletter-subscribers': 'manage_marketing',
     'view-newsletter-campaigns': 'manage_marketing',
     'view-crm-abandoned': 'manage_marketing',
@@ -178,6 +300,22 @@ function getPermissionCatalog() {
     return PERMISSIONS.map(p => ({ ...p }));
 }
 
+/** True when account holds permission directly or via a parent coarse grant. */
+function accountHasPermission(account, permission) {
+    if (!account) return false;
+    if (typeof account.isSuperAdmin === 'function' && account.isSuperAdmin()) return true;
+    if (!permission) return true;
+
+    const granted = Array.isArray(account.permissions) ? account.permissions : [];
+    if (granted.includes(permission)) return true;
+
+    for (const [parent, children] of Object.entries(PERMISSION_IMPLICATIONS)) {
+        if (granted.includes(parent) && children.includes(permission)) return true;
+    }
+
+    return false;
+}
+
 module.exports = {
     ROLES,
     ROLE_VALUES,
@@ -185,8 +323,10 @@ module.exports = {
     STATUS_VALUES,
     PERMISSIONS,
     PERMISSION_KEYS,
+    PERMISSION_IMPLICATIONS,
     SECTION_PERMISSIONS,
     isValidPermission,
     sanitizePermissions,
-    getPermissionCatalog
+    getPermissionCatalog,
+    accountHasPermission
 };

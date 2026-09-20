@@ -156,12 +156,16 @@ window.updatePricePreview = function() {
 };
 
 window.updateSeoPreview = function() {
-    const name = document.getElementById('prodName')?.value || 'Product Name';
-    const desc = document.getElementById('prodDesc')?.value || 'Product description will appear here...';
+    const name = document.getElementById('prodName')?.value || document.getElementById('editProdName')?.value || 'Product Name';
+    const desc = document.getElementById('prodSeoDescription')?.value
+        || document.getElementById('prodDesc')?.value
+        || document.getElementById('editProdDesc')?.value
+        || 'Product description will appear here...';
+    const customTitle = document.getElementById('prodSeoTitle')?.value?.trim();
     const titleEl = document.getElementById('seoTitle');
     const descEl = document.getElementById('seoDesc');
-    if (titleEl) titleEl.textContent = (name || 'Product Name') + ' | EOnlineBazar';
-    if (descEl) descEl.textContent = desc.substring(0, 160);
+    if (titleEl) titleEl.textContent = customTitle || `${name || 'Product Name'} | EOnlineBazar`;
+    if (descEl) descEl.textContent = String(desc).substring(0, 160);
 };
 
 /* shared state: addProductCharCountersReady lives on window (admin-core) */
@@ -428,6 +432,9 @@ window.uploadProduct = async function() {
     formData.append('warehouseId', document.getElementById('prodWarehouse')?.value || '');
     const reorderPointField = document.getElementById('prodReorderPoint');
     formData.append('reorderPoint', reorderPointField ? (reorderPointField.value || 5) : 5);
+    formData.append('seoTitle', document.getElementById('prodSeoTitle')?.value?.trim() || '');
+    formData.append('seoDescription', document.getElementById('prodSeoDescription')?.value?.trim() || '');
+    formData.append('seoKeywords', document.getElementById('prodSeoKeywords')?.value?.trim() || '');
     
     // একাধিক ছবি থাকলে সবগুলোকে ব্যাকএন্ড রাউটের 'productImages' কী-তে অ্যাপেন্ড করা
     if (files.length > 0) {
@@ -547,6 +554,10 @@ window.editProduct = async function(id) {
     
     if (document.getElementById('editProdEmoji')) document.getElementById('editProdEmoji').value = product.icon || '📦';
     if (document.getElementById('editProdDesc')) document.getElementById('editProdDesc').value = product.description || '';
+    if (document.getElementById('prodSeoTitle')) document.getElementById('prodSeoTitle').value = product.seoTitle || '';
+    if (document.getElementById('prodSeoDescription')) document.getElementById('prodSeoDescription').value = product.seoDescription || '';
+    if (document.getElementById('prodSeoKeywords')) document.getElementById('prodSeoKeywords').value = product.seoKeywords || '';
+    updateSeoPreview();
     
     // অ্যাডভান্সড ডেসক্রিপশন এবং হাইলাইটস ডাটা ইনজেকশন
     if (document.getElementById('editDetailedDescription')) document.getElementById('editDetailedDescription').value = product.detailedDescription || '';
@@ -715,6 +726,9 @@ window.updateProductDetails = async function() {
     formData.append('warehouseId', document.getElementById('editProdWarehouse')?.value || '');
     const editReorderPointField = document.getElementById('editProdReorderPoint');
     formData.append('reorderPoint', editReorderPointField ? (editReorderPointField.value || 5) : 5);
+    formData.append('seoTitle', document.getElementById('prodSeoTitle')?.value?.trim() || '');
+    formData.append('seoDescription', document.getElementById('prodSeoDescription')?.value?.trim() || '');
+    formData.append('seoKeywords', document.getElementById('prodSeoKeywords')?.value?.trim() || '');
     
     if (files && files.length > 0) {
         for (let i = 0; i < files.length; i++) {

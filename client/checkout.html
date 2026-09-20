@@ -104,6 +104,21 @@
                     <strong id="checkoutGrandTotal">৳0</strong>
                 </div>
 
+                <div class="checkout-loyalty-panel" id="checkoutLoyaltyPanel" style="display:none;">
+                    <div class="checkout-loyalty-balance-row">
+                        <span><i class="fa-solid fa-star"></i> Loyalty Points</span>
+                        <strong id="checkoutLoyaltyPointsBalance">0</strong>
+                    </div>
+                    <label class="checkout-loyalty-toggle" for="applyLoyaltyCheckbox">
+                        <input type="checkbox" id="applyLoyaltyCheckbox">
+                        <span id="checkoutLoyaltyApplyLabel">Use loyalty points for discount</span>
+                    </label>
+                    <div class="summary-row loyalty-deduct-row" id="checkoutLoyaltyDeductRow" style="display:none;">
+                        <span>Points Discount:</span>
+                        <strong id="checkoutLoyaltyApplied">-৳0</strong>
+                    </div>
+                </div>
+
                 <div class="checkout-wallet-panel" id="checkoutWalletPanel" style="display:none;">
                     <div class="checkout-wallet-balance-row">
                         <span><i class="fa-solid fa-wallet"></i> Your Wallet Balance</span>

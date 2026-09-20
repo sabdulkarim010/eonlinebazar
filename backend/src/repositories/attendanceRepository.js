@@ -660,6 +660,27 @@ async function bulkMarkAttendance({
   return { success, failed };
 }
 
+async function deleteByStaffAndDate(staffId, dateInput) {
+  const date = normalizeDate(dateInput);
+  if (!date) {
+    const err = new Error('A valid date is required.');
+    err.code = 'BAD_DATE';
+    throw err;
+  }
+
+  const existing = await prisma.attendance.findFirst({
+    where: { staffId: String(staffId), date }
+  });
+  if (!existing) {
+    const err = new Error('Attendance record not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  await prisma.attendance.delete({ where: { id: existing.id } });
+  return existing;
+}
+
 async function listManualEntries(limit = 30) {
   const records = await prisma.attendance.findMany({
     where: { isManualEntry: true },
@@ -704,6 +725,7 @@ module.exports = {
   clockIn,
   clockOut,
   upsertFromMongo,
+  deleteByStaffAndDate,
   getSummary,
   parseStaffSelector
 };

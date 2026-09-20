@@ -135,6 +135,13 @@ const returnItemSchema = new mongoose.Schema({
     }
 }, { _id: true });
 
+const statusHistoryEntrySchema = new mongoose.Schema({
+    status: { type: String, required: true, trim: true },
+    changedAt: { type: Date, default: Date.now },
+    changedBy: { type: String, default: 'system', trim: true },
+    note: { type: String, default: '', trim: true }
+}, { _id: false });
+
 const orderNotificationsSchema = new mongoose.Schema({
     returnReceived: { type: Boolean, default: false },
     returnApproved: { type: Boolean, default: false },
@@ -175,6 +182,8 @@ const orderSchema = new mongoose.Schema({
     vatEnabled: { type: Boolean, default: false },
     taxRegistrationNumber: { type: String, default: '', trim: true },
     walletApplied: { type: Number, default: 0, min: 0 },
+    pointsRedeemed: { type: Number, default: 0, min: 0 },
+    loyaltyDiscount: { type: Number, default: 0, min: 0 },
     couponCode: { type: String, default: '', trim: true, uppercase: true },
     deliveryLocationType: { type: String, enum: ['inside', 'outside'], default: 'inside' },
     shippingFee: { type: Number, default: 0, min: 0 },
@@ -189,6 +198,7 @@ const orderSchema = new mongoose.Schema({
         enum: ORDER_STATUSES,
         default: 'Pending'
     },
+    statusHistory: { type: [statusHistoryEntrySchema], default: [] },
     isDelivered: { type: Boolean, default: false },
     deliveredAt: { type: Date, default: null },
     cancelReason: { type: String, default: '', trim: true },
@@ -196,6 +206,25 @@ const orderSchema = new mongoose.Schema({
     returnReason: { type: String, default: '', trim: true },
     returnRequestedAt: { type: Date, default: null },
     returnItems: { type: [returnItemSchema], default: [] },
+    returnRequest: {
+        requestedAt: { type: Date, default: null },
+        reason: { type: String, default: '', trim: true },
+        items: { type: [returnItemSchema], default: [] },
+        status: {
+            type: String,
+            enum: ['pending', 'approved', 'rejected'],
+            default: 'pending'
+        },
+        reviewedBy: { type: String, default: '', trim: true },
+        reviewedAt: { type: Date, default: null },
+        refundAmount: { type: Number, default: 0, min: 0 },
+        refundMethod: {
+            type: String,
+            enum: ['wallet', 'bkash', 'nagad', 'original_payment', 'cash'],
+            default: 'wallet'
+        },
+        note: { type: String, default: '', trim: true }
+    },
     refundMethod: {
         type: String,
         enum: ['wallet', 'bkash', 'nagad', 'original_payment', 'cash'],

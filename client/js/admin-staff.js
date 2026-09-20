@@ -135,22 +135,21 @@ function generateStrongPassword(length = 14) {
 
 /** Module-grouped permission matrix for the slide-over panel. */
 const STAFF_PERMISSION_MODULES = [
-    { id: 'sales', label: 'Sales & Orders', emoji: '📦', keys: ['view_analytics', 'manage_orders'] },
-    { id: 'inventory', label: 'Inventory & Catalog', emoji: '📋', keys: ['manage_inventory', 'manage_catalog', 'manage_coupons'] },
-    { id: 'finance', label: 'Finance', emoji: '💰', keys: [] },
-    { id: 'hrm', label: 'HRM & Staff', emoji: '👥', keys: ['manage_staff'] },
-    { id: 'marketing', label: 'Marketing', emoji: '📢', keys: ['manage_marketing'] },
-    { id: 'system', label: 'System', emoji: '⚙️', keys: ['manage_settings', 'manage_security', 'manage_customers'] }
+    { id: 'attendance', label: 'Attendance', emoji: '🕐', keys: ['view_attendance', 'mark_attendance_today', 'mark_attendance_any_date', 'lock_attendance_dates', 'manual_attendance'] },
+    { id: 'hrm', label: 'HRM', emoji: '👥', keys: ['view_employees', 'edit_employees', 'manage_payroll', 'manage_leave'] },
+    { id: 'inventory', label: 'Inventory', emoji: '📦', keys: ['view_products', 'edit_products', 'manage_stock'] },
+    { id: 'orders', label: 'Orders', emoji: '🛒', keys: ['view_orders', 'update_order_status', 'process_refunds'] },
+    { id: 'platform', label: 'Platform & Admin', emoji: '⚙️', keys: ['view_analytics', 'manage_catalog', 'manage_coupons', 'manage_customers', 'manage_settings', 'manage_marketing', 'manage_security', 'manage_staff', 'manage_orders', 'manage_inventory'] }
 ];
 
 /** One-click permission presets — keys must match config/permissions.js. */
 const ROLE_PRESETS = {
     fullAdmin: null,
-    inventoryManager: ['manage_inventory', 'manage_catalog'],
-    orderManager: ['manage_orders', 'manage_customers'],
-    posOperator: ['manage_orders', 'manage_inventory'],
-    hrManager: ['manage_staff'],
-    customerSupport: ['manage_orders', 'manage_customers'],
+    inventoryManager: ['view_products', 'edit_products', 'manage_stock', 'manage_catalog'],
+    orderManager: ['view_orders', 'update_order_status', 'process_refunds', 'manage_customers'],
+    posOperator: ['view_orders', 'update_order_status', 'view_products', 'manage_stock'],
+    hrManager: ['view_attendance', 'mark_attendance_today', 'mark_attendance_any_date', 'lock_attendance_dates', 'manual_attendance', 'view_employees', 'edit_employees', 'manage_payroll', 'manage_leave'],
+    customerSupport: ['view_orders', 'update_order_status', 'manage_customers'],
     marketingManager: ['manage_marketing', 'manage_settings'],
     clear: []
 };

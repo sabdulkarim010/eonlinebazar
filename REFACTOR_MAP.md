@@ -1954,3 +1954,178 @@ tests/repositories/admin.repository.test.js [MOD] displayName expects linked emp
 docs/audit/HRM_AUDIT.md [MOD] BUG 1 + BUG 2 → FIXED; 26/26 features; status COMPLETE
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## HRM Bug Fix — 2026-09-20"
 README.md [MOD] last updated date
+
+# Production Bug Fix — 2026-09-20
+backend/src/controllers/admin/enterpriseSummaryController.js [MOD] countLowStockProductsFromPG — "stockQuantity"/"lowStockThreshold" quoted column names
+backend/src/routes/adminRoutes.js [MOD] adminProfileController direct import; /profile/me/full before /profile; daily-sheet before /hrm/attendance list
+docs/audit/DEVOPS_AUDIT.md [MOD] production bug fix change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Production Bug Fix — 2026-09-20"
+README.md [MOD] last updated date
+
+# HRM Attendance Edit Controls + Save Feedback — 2026-09-20
+backend/src/middlewares/rbac.js [MOD] requireHrOrSuperAdmin, isHrOrSuperAdmin
+backend/src/controllers/admin/attendanceController.js [MOD] updateAttendanceDetails, removeAttendanceRecord
+backend/src/repositories/attendanceRepository.js [MOD] deleteByStaffAndDate
+backend/src/routes/adminRoutes.js [MOD] PUT /attendance/update, DELETE /attendance/remove; manual-entry HR guard
+client/js/admin/modules/core-boot.js [MOD] window.adminRole from sessionStorage; manual tab visibility hook
+client/js/admin/modules/hrm-attendance.js [MOD] inline edit row, per-row feedback, showHrmToast, manual tab hide
+client/js/admin/modules/hrm-employees.js [MOD] Save Employee Saving…/✓ Saved! button feedback
+client/admin/partials/view-hrm-attendance.html [MOD] hrmManualEntryTab id
+client/css/admin/_hrm.css [MOD] inline edit, row feedback, save error, toast styles
+docs/audit/HRM_AUDIT.md [MOD] change log + feature checklist
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## HRM Attendance Edit Controls + Save Feedback — 2026-09-20"
+README.md [MOD] last updated date
+
+# Master Enterprise Audit — 2026-09-20 (audit-only, no code fixes)
+docs/audit/MASTER_ENTERPRISE_AUDIT.md [NEW] full-stack deep scan — routes vs frontend, HRM Register bug, enterprise gap A–H, priority queue
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Master Enterprise Audit — 2026-09-20"
+REFACTOR_MAP.md [MOD] this entry
+
+# Critical Bug Fix Group 1 — 2026-09-20
+client/js/admin/modules/hrm-attendance.js [MOD] hrmFetchJson, register tab load, pagination, Set Now, Clock Out Now
+client/admin/partials/view-hrm-attendance.html [MOD] pagination controls, Actions column, clock-out button
+client/css/admin/_hrm.css [MOD] pagination, time-field, clock-out button styles
+backend/src/controllers/admin/attendanceController.js [MOD] parsePagination default limit 50
+backend/src/services/whatsappService.js [MOD] UltraMsg try/catch, WHATSAPP-SUSPENDED logging
+backend/src/services/gatewayStatusService.js [NEW] cached gateway status (whatsapp/sms/email)
+backend/src/controllers/settingsController.js [MOD] getGatewayStatus
+backend/src/routes/adminRoutes.js [MOD] GET /settings/gateway-status, GET /system/backup-postgres
+client/admin/partials/view-catalog.html [MOD] whatsappGatewayBanner
+client/js/admin-newsletter.js [MOD] gateway status fetch, disable WhatsApp Send
+client/css/admin/_products-catalog.css [MOD] gateway banner styles
+backend/src/services/backupService.js [MOD] exportPostgresBackup (lazy archiver)
+backend/src/controllers/admin/backupController.js [MOD] triggerPostgresBackup, streamBackupFile, getBackupStatus
+backend/src/models/Settings.js [MOD] lastPostgresBackupAt
+client/admin/partials/view-system-backup.html [MOD] PostgreSQL backup button
+client/js/admin/modules/system-backup.js [MOD] downloadPostgresBackup
+package.json [MOD] archiver dependency
+docs/audit/MASTER_ENTERPRISE_AUDIT.md [MOD] 6 bugs → Fixed, 82% ready
+docs/audit/HRM_AUDIT.md [MOD] register/pagination/clock UI fixes
+docs/audit/MARKETING_AUDIT.md [MOD] WhatsApp gateway hardening
+docs/audit/DEVOPS_AUDIT.md [MOD] PG backup + gateway status
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Critical Bug Fix Group 1 — 2026-09-20"
+README.md [MOD] last updated date
+
+# High Priority Features Group 2 — 2026-09-20
+backend/src/services/attendanceSettingsService.js [NEW] office hours, grace, weekend settings
+backend/src/models/Settings.js [MOD] attendanceSettings field
+backend/src/controllers/settingsController.js [MOD] getAttendanceSettings, updateAttendanceSettings
+backend/src/controllers/admin/attendanceController.js [MOD] settings-based late detection + default check-in
+backend/src/config/permissions.js [MOD] 15 granular permissions + PERMISSION_IMPLICATIONS + accountHasPermission
+backend/src/models/admin.js [MOD] hasPermission uses accountHasPermission
+backend/src/middlewares/rbac.js [MOD] checkPermission uses accountHasPermission
+backend/src/controllers/staffController.js [MOD] updateStaffPermissions
+backend/src/routes/staffRoutes.js [MOD] PUT /:id/permissions
+backend/src/models/product.js [MOD] seoTitle, seoDescription, seoKeywords, previousPrice, restockedAt
+backend/src/utils/productDualWriteHelpers.js [MOD] SEO + tracking fields
+backend/src/repositories/productRepository.js [MOD] SEO fields in create/update PG
+backend/src/controllers/productController.js [MOD] SEO save + price/stock tracking
+backend/src/controllers/orderAdminController.js [MOD] bulkUpdateOrderStatus
+backend/src/routes/adminRoutes.js [MOD] settings/attendance, orders/bulk-status, manual_attendance guard
+backend/src/jobs/wishlistNotificationJob.js [NEW] daily wishlist email cron
+backend/src/services/mailer.js [MOD] sendWishlistNotificationEmail
+backend/src/models/wishlist.js [MOD] notification tracking fields
+backend/src/server.js [MOD] wishlist cron bootstrap
+prisma/schema.prisma [MOD] Product SEO + tracking columns
+prisma/migrations/20260920160000_product_seo_wishlist/migration.sql [NEW]
+client/admin/partials/view-hrm-attendance.html [MOD] Attendance Settings card
+client/js/admin/modules/hrm-attendance.js [MOD] settings load/save, late detection, Present check-in
+client/css/admin/_hrm.css [MOD] attendance settings styles
+client/js/admin-staff.js [MOD] granular permission modules + presets
+client/admin/partials/view-products.html [MOD] SEO input fields
+client/js/admin/modules/products-form.js [MOD] SEO in create/update + preview
+client/js/admin/modules/orders-actions.js [MOD] bulk status API
+docs/audit/MASTER_ENTERPRISE_AUDIT.md [MOD] 89% ready, Group 2 done
+docs/audit/HRM_AUDIT.md [MOD] attendance settings + granular RBAC
+docs/audit/PRODUCTS_AUDIT.md [MOD] SEO persistence
+docs/audit/ORDERS_AUDIT.md [MOD] bulk status
+docs/audit/MARKETING_AUDIT.md [MOD] wishlist job
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## High Priority Features Group 2 — 2026-09-20"
+README.md [MOD] last updated date
+
+## Medium Priority Group 3 — 2026-09-20
+
+backend/src/services/invoiceService.js [NEW] branded PDF invoice generation
+backend/src/services/exportService.js [NEW] Excel + PDF export helpers
+backend/src/services/healthService.js [NEW] public health probe payload
+backend/src/controllers/admin/financeExportController.js [NEW] GET /finance/export
+backend/src/middlewares/errorLogger.js [NEW] daily error logs + admin notify on 500
+backend/src/utils/orderStatusHistory.js [NEW] statusHistory append + PG mirror
+backend/src/utils/invoicePdf.js [MOD] Settings branding parameter
+backend/src/models/order.js [MOD] statusHistory[] embedded schema
+backend/src/models/payroll.js [MOD] attendanceRecordIds, earnedSalary, attendanceDeductions
+backend/src/utils/orderDualWriteHelpers.js [MOD] mirrorOrderStatusHistory
+backend/src/repositories/orderRepository.js [MOD] syncStatusHistoryByLegacyId
+backend/src/controllers/orderAdminController.js [MOD] status history on updates, downloadAdminOrderInvoice
+backend/src/controllers/orderCustomerController.js [MOD] invoiceService wrapper
+backend/src/controllers/orderCheckoutController.js [MOD] seed initial statusHistory
+backend/src/controllers/admin/payrollController.js [MOD] calculatePayrollFromAttendance, preview endpoint
+backend/src/routes/adminRoutes.js [MOD] orders/:id/invoice, finance/export, payroll/calculate
+backend/src/routes/orderRoutes.js [MOD] my-orders/:id/invoice
+backend/src/server.js [MOD] GET /health, errorLogger middleware
+backend/logs/.gitkeep [NEW] error log directory
+prisma/schema.prisma [MOD] OrderStatusHistory model
+client/js/orderStatusTimeline.js [MOD] renderVerticalStatusHistory
+client/js/admin/modules/customers-table.js [MOD] vertical timeline + download invoice btn
+client/js/admin/modules/orders-table.js [MOD] pass full order to timeline hydrator
+client/js/admin/modules/orders-invoice.js [MOD] downloadAdminOrderInvoice
+client/js/admin/modules/erp-profit-loss.js [MOD] Export Excel via /finance/export
+client/js/admin/modules/hrm-payroll.js [MOD] calculate from attendance + breakdown modal
+client/admin/partials/modals-invoice.html [MOD] Download Invoice PDF button
+client/admin/partials/view-finance.html [MOD] Export Excel toolbar button
+client/admin/partials/view-hrm-payroll.html [MOD] calculate button + breakdown modal
+client/css/admin/_orders.css [MOD] vertical status timeline styles
+docs/audit/MASTER_ENTERPRISE_AUDIT.md [MOD] 95% ready, Group 3 done
+docs/audit/ORDERS_AUDIT.md [MOD] invoice + status timeline
+docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD] unified finance export
+docs/audit/HRM_AUDIT.md [MOD] payroll calculate preview
+docs/audit/DEVOPS_AUDIT.md [MOD] /health + error logger
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Medium Priority Group 3 — 2026-09-20"
+README.md [MOD] Group 3 last updated
+
+# Final Polish Group 4 — 2026-09-20
+backend/src/middlewares/rateLimiter.js [MOD] authLimiter, otpLimiter, apiLimiter fixed windows
+backend/src/middlewares/securityMiddleware.js [MOD] wire auth/OTP/API limiters
+backend/src/middlewares/maintenanceModeMiddleware.js [NEW] storefront 503 gate + IP allowlist cache
+backend/src/utils/returnRequestHelpers.js [NEW] returnRequest build/review helpers
+backend/src/models/order.js [MOD] returnRequest, pointsRedeemed, loyaltyDiscount
+backend/src/models/Settings.js [MOD] maintenanceAllowedIPs
+backend/src/controllers/orderAdminController.js [MOD] listReturnRequests, reviewReturnRequest
+backend/src/controllers/orderCustomerController.js [MOD] returnRequest on item returns
+backend/src/controllers/orderCheckoutController.js [MOD] loyalty points redemption
+backend/src/controllers/userProfileController.js [MOD] loyaltySummary + pointsHistory
+backend/src/controllers/masterSettingsController.js [MOD] maintenanceAllowedIPs in API shape
+backend/src/routes/adminRoutes.js [MOD] return-requests routes
+backend/src/routes/orderRoutes.js [MOD] POST /:id/return-request alias
+backend/src/server.js [MOD] maintenanceModeMiddleware registration
+client/checkout.html [MOD] loyalty points panel
+client/js/checkout/state.js [MOD] loyalty checkout globals
+client/js/checkout/render.js [MOD] loyalty in totals + profile fetch
+client/js/checkout/actions.js [MOD] loyalty controls + discount calc
+client/js/checkout/submit.js [MOD] loyalty in checkout session
+client/js/checkout.js [MOD] initCheckoutLoyaltyControls
+client/js/payment.js [MOD] applyLoyaltyPoints payload
+client/profile/partials/tab-overview.html [MOD] loyalty dashboard card
+client/js/profile/account.js [MOD] renderLoyaltyDashboardCard
+client/admin/partials/view-orders.html [MOD] Return Requests tab + panel
+client/admin/partials/view-settings.html [MOD] maintenance allowlist + warning
+client/js/admin/admin-orders.js [MOD] import orders-return-requests
+client/js/admin/modules/orders-return-requests.js [NEW] admin return queue UI
+client/js/admin/modules/orders-table.js [MOD] hide return panel on status tab
+client/js/admin/modules/settings-hub.js [MOD] save maintenanceAllowedIPs
+client/js/admin/modules/settings-platform.js [MOD] load maintenance allowlist + warning
+client/js/admin/modules/customers-table.js [MOD] empty state emoji
+client/js/admin/modules/products-table.js [MOD] empty state emoji
+client/js/admin/modules/catalog-coupons.js [MOD] empty state emoji
+client/js/admin/modules/notifications.js [MOD] empty state emoji
+client/css/checkout.css [MOD] loyalty panel styles
+client/css/profile/_wallet.css [MOD] loyalty dashboard card styles
+client/css/admin/_orders-return-requests.css [NEW] return requests panel styles
+client/css/admin.css [MOD] import _orders-return-requests.css
+docs/audit/MASTER_ENTERPRISE_AUDIT.md [MOD] 100% enterprise ready
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] rate limiting + maintenance allowlist
+docs/audit/ORDERS_AUDIT.md [MOD] return queue + loyalty checkout
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD] loyalty card + checkout redemption
+docs/audit/CMS_AUDIT.md [MOD] maintenance middleware
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Final Polish Group 4 — 2026-09-20"
+README.md [MOD] Enterprise Ready 100% badge

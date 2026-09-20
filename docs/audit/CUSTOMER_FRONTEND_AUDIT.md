@@ -1,6 +1,6 @@
 # CUSTOMER FRONTEND AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20  
+**Last updated:** 2026-09-20 (Group 4 — loyalty dashboard + checkout redemption)  
 **Scope:** Storefront HTML pages, shared JS/CSS, profile module, checkout, PDP, cart  
 **Status:** ✅ COMPLETE
 
@@ -42,13 +42,14 @@
 - [x] Homepage + category/product listing — `index.html`, `products.js`
 - [x] Product detail page with variants — `product-details.html`, `pdp/variants.js`
 - [x] Shopping cart (guest + logged-in) — `cart.html`, `cart.js`, `cart-merge.js`
-- [x] Checkout (COD, gateways, wallet, VAT) — `checkout.html`, `checkout/submit.js`
+- [x] Checkout (COD, gateways, wallet, loyalty points, VAT) — `checkout.html`, `checkout/actions.js`, `checkout/submit.js`
 - [x] Customer registration / login — `login.html`, `auth.js`
 - [x] Profile management (tabs) — `profile.html`, `profile/tabs.js`
 - [x] Order history + order details — `profile/orders.js`, `order-details.html`
 - [x] Public order tracking — `order-track.html`, `order-track.js`
 - [x] Wishlist — `profile/wishlist.js`, `wishlist.js`
-- [x] Wallet & loyalty points UI — `profile/wallet.js`
+- [x] Wallet & loyalty points UI — `profile/wallet.js`, dashboard loyalty card (`tab-overview.html`, `account.js`)
+- [x] Return request flow — `profile/orders.js` modal + status chip (7-day window)
 - [x] Customer addresses (BD districts) — `profile/addresses.js`, `bd-districts.js`
 - [x] Customer notebook — `profile/notes.js`
 - [x] Session / security settings — `profile/security.js`
@@ -79,6 +80,12 @@
 ---
 
 ## Change Log
+
+### Group 4 — Loyalty + returns UI — 2026-09-20
+
+- Checkout loyalty panel with points-to-discount preview; session passes redemption to payment
+- Profile dashboard loyalty card: tier, next tier, points activity list from `loyaltySummary`
+- Tests: Jest **228/228** passing
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

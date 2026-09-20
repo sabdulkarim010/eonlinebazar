@@ -91,6 +91,21 @@ if (logoutBtn) {
  * ১. ডাটাবেজ থেকে অ্যাডমিন প্রোফাইল ছবি লোড করার ফাংশন
  * পেজ যখনই রিফ্রেশ বা নতুন করে লোড হবে, এই ফাংশনটি ডাটাবেজ থেকে লেটেস্ট ছবি এনে দেখাবে।
  */
+function normalizeAdminRole(raw) {
+    const role = String(raw || '').toLowerCase();
+    if (role === 'superadmin' || role === 'super admin') return 'super_admin';
+    return role;
+}
+
+function syncWindowAdminRoleFromCache() {
+    try {
+        const cached = sessionStorage.getItem('adminProfile');
+        if (cached) {
+            window.adminRole = normalizeAdminRole(JSON.parse(cached).role);
+        }
+    } catch (_) { /* ignore corrupt cache */ }
+}
+
 function updateAdminProfileUI(adminData = {}) {
     const avatarImg = document.getElementById('adminProfilePic');
     const nameEl = document.querySelector('.admin-profile .info h4');
@@ -100,6 +115,11 @@ function updateAdminProfileUI(adminData = {}) {
 
     if (nameEl) nameEl.textContent = displayName;
     if (roleEl) roleEl.textContent = adminData.role || 'Super Admin';
+
+    syncWindowAdminRoleFromCache();
+    if (typeof window.applyManualEntryTabVisibility === 'function') {
+        window.applyManualEntryTabVisibility();
+    }
 
     if (!avatarImg) return;
 

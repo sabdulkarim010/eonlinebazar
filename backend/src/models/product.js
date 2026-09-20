@@ -154,6 +154,31 @@ const productSchema = new mongoose.Schema({
         type: [String],
         default: []
     },
+    seoTitle: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    seoDescription: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    seoKeywords: {
+        type: String,
+        default: '',
+        trim: true
+    },
+    /** Previous selling price — used for wishlist price-drop notifications. */
+    previousPrice: {
+        type: Number,
+        default: null
+    },
+    /** Set when stock transitions from 0 to in-stock for wishlist alerts. */
+    restockedAt: {
+        type: Date,
+        default: null
+    },
     /** Product weight in grams (shipping / courier integrations). */
     weight: {
         type: Number,

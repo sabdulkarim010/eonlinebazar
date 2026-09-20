@@ -156,6 +156,9 @@ window.filterByDate = function(value) {
 };
 
 window.setOrderStatusTab = function(status) {
+    if (typeof setOrderReturnRequestsView === 'function') {
+        setOrderReturnRequestsView(false);
+    }
     currentOrderStatusFilter = status;
     document.querySelectorAll('#view-orders .order-tab').forEach((tab) => {
         tab.classList.toggle('active', tab.dataset.status === status);
@@ -334,7 +337,7 @@ window.renderOrderTable = function() {
         tableBody.appendChild(expandTr);
 
         if (isExpanded) {
-            requestAnimationFrame(() => hydrateOrderExpandedTimeline(orderId, order.status));
+            requestAnimationFrame(() => hydrateOrderExpandedTimeline(order));
         }
     });
 
@@ -357,7 +360,7 @@ window.toggleOrderRowExpand = function(event, orderId) {
         expandRow.style.display = 'table-row';
         mainRow.classList.add('is-expanded');
         const order = globalOrders.find((o) => String(o._id) === id);
-        if (order) hydrateOrderExpandedTimeline(id, order.status);
+        if (order) hydrateOrderExpandedTimeline(order);
     } else {
         expandedOrderIds.delete(id);
         expandRow.style.display = 'none';

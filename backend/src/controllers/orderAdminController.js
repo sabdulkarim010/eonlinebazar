@@ -20,6 +20,10 @@ function getOrderRepository() {
     return require('../repositories/orderRepository');
 }
 
+function adminActorName(req) {
+    return req.admin?.username || req.adminAccount?.username || req.admin?.displayName || 'admin';
+}
+
 const User = require('../models/user');
 const {
     getDeliverySettings,
@@ -37,7 +41,9 @@ const {
     creditOrderDeliveryRewards,
     isWithinRefundUndoWindow
 } = require('../utils/rewardSettings');
-const { pickImageFromSources, pickEmojiFromSources } = require('../utils/orderItemImages');
+const { pickImageFromSources, pickEmojiFromSources, enrichOrderItemsWithImages } = require('../utils/orderItemImages');
+const { seedInitialStatusHistory } = require('../utils/orderStatusHistory');
+const { generateInvoicePDF } = require('../services/invoiceService');
 const { computeProcessingFee } = require('../services/paymentMethodService');
 const { sendSms, isCustomerSmsEnabled } = require('../services/smsService');
 const { sendReturnStatusEmail, sendOrderShippedEmail } = require('../services/mailer');
@@ -442,9 +448,14 @@ const createManualOrder = async (req, res) => {
             isSandbox: inSandbox
         });
 
+        seedInitialStatusHistory(newOrder, adminActorName(req));
+
         await dualWrite(
             () => newOrder.save(),
-            async (saved) => { await getOrderDualWriteHelpers().mirrorOrderCreate(saved); },
+            async (saved) => {
+                await getOrderDualWriteHelpers().mirrorOrderCreate(saved);
+                await getOrderDualWriteHelpers().mirrorOrderStatusHistory(saved);
+            },
             {
                 model: 'Order',
                 operation: 'createManualPos',
@@ -963,15 +974,31 @@ const updateOrderStatus = async (req, res) => {
         const wasDelivered = existingOrder.isDelivered === true
             || String(existingOrder.status || '').trim().toLowerCase() === 'delivered';
 
+        const statusChanged = String(existingOrder.status || '') !== status;
+        const updateOps = { $set: updatePayload };
+        if (statusChanged) {
+            updateOps.$push = {
+                statusHistory: {
+                    status,
+                    changedAt: new Date(),
+                    changedBy: adminActorName(req),
+                    note: String(req.body.note || '').trim()
+                }
+            };
+        }
+
         const updatedOrder = await dualWrite(
             () => Order.findByIdAndUpdate(
                 req.params.id,
-                { $set: updatePayload },
+                updateOps,
                 { returnDocument: 'after' }
             ),
             async (updated) => {
                 if (!updated) return;
                 await getOrderDualWriteHelpers().mirrorOrderStatusUpdate(updated);
+                if (statusChanged) {
+                    await getOrderDualWriteHelpers().mirrorOrderStatusHistory(updated);
+                }
                 if (paymentStatus) {
                     await getOrderDualWriteHelpers().mirrorOrderPayment(updated);
                 }
@@ -1025,6 +1052,136 @@ const deleteOrder = async (req, res) => {
         res.json({ success: true, message: "Order deleted successfully!" });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+/**
+ * Bulk update order status (admin live orders).
+ * PUT /api/admin/orders/bulk-status
+ */
+const bulkUpdateOrderStatus = async (req, res) => {
+    try {
+        const { orderIds, status: requestedStatus } = req.body || {};
+
+        if (!Array.isArray(orderIds) || orderIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'orderIds array is required.'
+            });
+        }
+
+        if (!requestedStatus) {
+            return res.status(400).json({ success: false, message: 'status is required.' });
+        }
+
+        if (orderIds.length > 50) {
+            return res.status(400).json({
+                success: false,
+                message: 'Maximum 50 orders can be updated at once.'
+            });
+        }
+
+        const requestedKey = String(requestedStatus).trim().toLowerCase();
+        const normalizedKey = requestedKey === 'canceled' ? 'cancelled' : requestedKey;
+        const status = Order.STATUSES.find(
+            (allowed) => allowed.toLowerCase() === normalizedKey
+        );
+
+        if (!status) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid order status "${requestedStatus}".`,
+                allowedStatuses: Order.STATUSES
+            });
+        }
+
+        const allowedBulk = ['processing', 'shipped', 'delivered', 'cancelled'];
+        if (!allowedBulk.includes(status.toLowerCase())) {
+            return res.status(400).json({
+                success: false,
+                message: `Bulk status update supports: ${allowedBulk.join(', ')}.`
+            });
+        }
+
+        const validIds = orderIds.filter((id) => mongoose.Types.ObjectId.isValid(String(id)));
+        let updated = 0;
+        const errors = [];
+
+        for (const id of validIds) {
+            try {
+                const existingOrder = await Order.findById(id);
+                if (!existingOrder) {
+                    errors.push({ orderId: id, message: 'Order not found.' });
+                    continue;
+                }
+
+                const statusLower = status.toLowerCase();
+                const updatePayload = {
+                    status,
+                    isDelivered: statusLower === 'delivered'
+                };
+
+                if (statusLower === 'delivered') {
+                    updatePayload.deliveredAt = new Date();
+                }
+                if (statusLower === 'cancelled' || statusLower === 'canceled') {
+                    updatePayload.cancelledBy = 'Admin';
+                    updatePayload.isDelivered = false;
+                    if (!existingOrder.cancelReason) {
+                        updatePayload.cancelReason = 'Bulk status update by admin';
+                    }
+                }
+
+                const statusChanged = String(existingOrder.status || '') !== status;
+                const updateOps = { $set: updatePayload };
+                if (statusChanged) {
+                    updateOps.$push = {
+                        statusHistory: {
+                            status,
+                            changedAt: new Date(),
+                            changedBy: adminActorName(req),
+                            note: 'Bulk status update'
+                        }
+                    };
+                }
+
+                // eslint-disable-next-line no-await-in-loop
+                await dualWrite(
+                    () => Order.findByIdAndUpdate(id, updateOps, { returnDocument: 'after' }),
+                    async (updatedOrder) => {
+                        if (updatedOrder) {
+                            await getOrderDualWriteHelpers().mirrorOrderStatusUpdate(updatedOrder);
+                            if (statusChanged) {
+                                await getOrderDualWriteHelpers().mirrorOrderStatusHistory(updatedOrder);
+                            }
+                        }
+                    },
+                    {
+                        model: 'Order',
+                        operation: 'bulkStatusUpdate',
+                        mongoId: String(id)
+                    }
+                );
+
+                updated += 1;
+            } catch (err) {
+                errors.push({ orderId: id, message: err.message || 'Update failed.' });
+            }
+        }
+
+        return res.json({
+            success: true,
+            updated,
+            failed: validIds.length - updated,
+            errors,
+            message: `${updated} order(s) updated to ${status}.`
+        });
+    } catch (err) {
+        console.error('Bulk update order status error:', err);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to bulk update order status.'
+        });
     }
 };
 
@@ -1605,6 +1762,117 @@ const assignOrderToStaff = async (req, res) => {
     }
 };
 
+/** GET /api/admin/orders/return-requests — list return request queue */
+const listReturnRequests = async (req, res) => {
+    try {
+        const statusFilter = String(req.query.status || 'pending').trim().toLowerCase();
+        const query = { status: 'Return Requested' };
+
+        if (statusFilter === 'approved') {
+            query['returnRequest.status'] = 'approved';
+        } else if (statusFilter === 'rejected') {
+            query['returnRequest.status'] = 'rejected';
+        } else if (statusFilter !== 'all') {
+            query.$or = [
+                { 'returnRequest.status': 'pending' },
+                { returnRequest: { $exists: false } },
+                { 'returnRequest.status': { $exists: false } }
+            ];
+        }
+
+        const orders = await Order.find(query)
+            .sort({ returnRequestedAt: -1, createdAt: -1 })
+            .limit(Math.min(Number(req.query.limit) || 100, 200))
+            .lean();
+
+        res.json({
+            success: true,
+            data: orders.map((order) => ({
+                _id: order._id,
+                orderId: order.orderId,
+                customerName: order.customerName,
+                customerPhone: order.customerPhone,
+                status: order.status,
+                returnRequest: order.returnRequest || null,
+                returnItems: order.returnItems || [],
+                returnRequestedAt: order.returnRequestedAt,
+                grandTotal: order.grandTotal
+            })),
+            count: orders.length
+        });
+    } catch (err) {
+        console.error('listReturnRequests error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+/** PUT /api/admin/orders/:id/return-request — approve or reject return */
+const reviewReturnRequest = async (req, res) => {
+    try {
+        const { status, refundAmount, refundMethod, note } = req.body || {};
+        const decision = String(status || '').trim().toLowerCase();
+
+        if (!['approved', 'rejected'].includes(decision)) {
+            return res.status(400).json({
+                success: false,
+                message: 'status must be approved or rejected.'
+            });
+        }
+
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        const { applyReturnRequestReview } = require('../utils/returnRequestHelpers');
+        const reviewer = adminActorName(req);
+        applyReturnRequestReview(order, {
+            status: decision,
+            refundAmount,
+            refundMethod,
+            note,
+            reviewedBy: reviewer
+        });
+
+        if (decision === 'approved') {
+            req.body = { ...(req.body || {}), refundMethod: refundMethod || order.returnRequest?.refundMethod || 'wallet' };
+            if (refundAmount !== undefined) order.refundAmount = Number(refundAmount) || 0;
+            await order.save();
+            return approveOrderReturn(req, res);
+        }
+
+        req.body = { reason: note || 'Return request rejected' };
+        await order.save();
+        return rejectOrderReturn(req, res);
+    } catch (err) {
+        console.error('reviewReturnRequest error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+/** GET /api/admin/orders/:id/invoice — stream branded PDF invoice */
+const downloadAdminOrderInvoice = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        const orderObj = order.toObject ? order.toObject() : { ...order };
+        await enrichOrderItemsWithImages(orderObj);
+
+        const { buffer, filename } = await generateInvoicePDF(orderObj);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', buffer.length);
+        return res.send(buffer);
+    } catch (err) {
+        console.error('downloadAdminOrderInvoice error:', err);
+        return res.status(500).json({ success: false, message: err.message || 'Failed to generate invoice.' });
+    }
+};
+
 module.exports = {
     createManualOrder,
     getOrders,
@@ -1613,10 +1881,14 @@ module.exports = {
     updateOrderStatus,
     deleteOrder,
     bulkDeleteOrders,
+    bulkUpdateOrderStatus,
     approveOrderReturn,
     undoOrderRefund,
     rejectOrderReturn,
     processRefund,
-    assignOrderToStaff
+    assignOrderToStaff,
+    downloadAdminOrderInvoice,
+    listReturnRequests,
+    reviewReturnRequest
 };
 

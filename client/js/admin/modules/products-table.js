@@ -211,7 +211,7 @@ window.renderProductTable = function() {
 
     const paginated = currentFilteredProducts;
 
-    tbody.innerHTML = paginated.length === 0 ? `<tr><td colspan="9" class="loading-cell">No matching products found.</td></tr>` : '';
+    tbody.innerHTML = paginated.length === 0 ? `<tr><td colspan="9" class="table-status-empty">📦 No products found</td></tr>` : '';
 
     paginated.forEach(prod => {
         // ইমেজ ইউআরএল প্রসেস লজিক (মাল্টিপল অ্যারে থেকে প্রথম ছবি নির্বাচন)

@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (typeof initLiveValidationEngine === 'function') initLiveValidationEngine();
         if (typeof initCheckoutWalletControls === 'function') initCheckoutWalletControls();
+        if (typeof initCheckoutLoyaltyControls === 'function') initCheckoutLoyaltyControls();
     } catch (err) {
         console.error('Checkout page initialization failed:', err);
     }

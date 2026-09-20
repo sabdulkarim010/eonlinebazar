@@ -399,6 +399,8 @@ window.handleFinalOrderSubmission = async function handleFinalOrderSubmission() 
             totalAmount: Number(sessionData.payableAfterWallet ?? sessionData.grandTotal ?? sessionData.totalAmount) || 0,
             walletApplied: Number(sessionData.walletApplied) || 0,
             applyWallet: sessionData.applyWallet === true,
+            applyLoyaltyPoints: sessionData.applyLoyaltyPoints === true,
+            loyaltyPointsToUse: Number(sessionData.loyaltyPointsToUse) || 0,
             paymentMethodId: isWallet ? undefined : method.id,
             paymentMethod: isWallet ? 'Wallet' : (method.code || method.name),
             status: 'Pending',

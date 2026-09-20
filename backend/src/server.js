@@ -12,7 +12,9 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 require('./utils/validateEnv')();
 
-global.SERVER_START_TIME = Date.now().toString();
+global.SERVER_START_TIME = Date.now();
+const errorLogger = require('./middlewares/errorLogger');
+const { getHealthPayload } = require('./services/healthService');
 const { applySecurityMiddleware } = require('./middlewares/securityMiddleware');
 const express = require('express');
 const requestIp = require('request-ip');
@@ -149,6 +151,14 @@ connectDB().then(async () => {
         console.error('Review reminder cron bootstrap error:', err.message);
     }
 
+    // Daily wishlist price-drop / back-in-stock emails (10:00 AM)
+    try {
+        const { startWishlistNotificationCron } = require('./jobs/wishlistNotificationJob');
+        startWishlistNotificationCron();
+    } catch (err) {
+        console.error('Wishlist notification cron bootstrap error:', err.message);
+    }
+
     const redisClient = require('./utils/redisClient');
     redisClient.on('connect', () => console.log('Redis Connected ✅'));
     redisClient.on('error', (err) => console.warn('Redis unavailable:', err.message));
@@ -226,6 +236,9 @@ app.use(passport.session());
 // Global store branding/settings from MongoDB — available as res.locals.settings on every request
 app.use(storeSettingsMiddleware);
 
+const { maintenanceModeMiddleware } = require('./middlewares/maintenanceModeMiddleware');
+app.use(maintenanceModeMiddleware);
+
 /********************************************************************
  # .HTML EXTENSION STRIPPER & REDIRECT MIDDLEWARE (🌟 ফিক্স করা হয়েছে)
  # ইউজার ইউআরএল-এ .html লিখলে সেটি কেটে ক্লিন ইউআরএল-এ রিডাইরেক্ট করবে
@@ -264,6 +277,28 @@ app.use((req, res, next) => {
     next();
 });
 
+// Public health probe — no auth
+app.get('/health', async (req, res) => {
+    try {
+        const payload = await getHealthPayload();
+        return res.status(200).json(payload);
+    } catch (err) {
+        return res.status(200).json({
+            status: 'degraded',
+            timestamp: new Date().toISOString(),
+            services: {
+                mongodb: 'unknown',
+                postgresql: 'unknown',
+                redis: 'unknown',
+                server: 'ok'
+            },
+            version: '1.0.0',
+            uptime: '0m',
+            error: err.message
+        });
+    }
+});
+
 // ৪. এপিআই রুটসমূহ যুক্ত করা (স্ট্যাটিক ফাইলের আগে — JSON/API সবসময় ব্র্যান্ডেড HTML-এর আগে মিলবে)
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
@@ -295,6 +330,8 @@ app.get('/admin/api/analytics', verifyFinanceToken, getFinanceAnalytics);
 
 // HTML views, static assets, CMS catch-all, and branded 404
 mountViewRoutes(app);
+
+app.use(errorLogger);
 
 app.use((err, req, res, next) => {
     console.error('Unhandled error:', err);

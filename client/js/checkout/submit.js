@@ -119,7 +119,10 @@ async function handleProceedToPaymentAsync() {
     }
 
     const deliveryCharge = calculateDeliveryCharge(subtotal);
-    const totalAmount = Math.round((merchandisePayable + deliveryCharge) * 100) / 100;
+    const loyaltySummary = typeof calculateLoyaltyApplication === 'function'
+        ? calculateLoyaltyApplication(merchandisePayable)
+        : { pointsUsed: 0, loyaltyDiscount: 0, merchandiseAfterLoyalty: merchandisePayable };
+    const totalAmount = Math.round((loyaltySummary.merchandiseAfterLoyalty + deliveryCharge) * 100) / 100;
     const walletSummary = calculateWalletApplication(totalAmount);
     const payableAfterWallet = walletSummary.payableTotal;
     const SE = window.ShippingEstimator;
@@ -154,6 +157,9 @@ async function handleProceedToPaymentAsync() {
         walletApplied: walletSummary.walletApplied,
         payableAfterWallet,
         applyWallet: applyWalletAtCheckout && walletSummary.walletApplied > 0,
+        applyLoyaltyPoints: applyLoyaltyAtCheckout && loyaltySummary.pointsUsed > 0,
+        loyaltyPointsToUse: loyaltySummary.pointsUsed || 0,
+        loyaltyDiscount: loyaltySummary.loyaltyDiscount || 0,
         status: "Pending",
         items: checkedItems,
         note: noteVal

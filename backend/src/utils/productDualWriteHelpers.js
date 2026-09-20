@@ -70,7 +70,13 @@ function mongoProductToPrismaShape(mongoDoc) {
     images: Array.isArray(plain.images) ? plain.images : [],
     
     rating: plain.rating != null ? Number(plain.rating) : 0,
-    numOfReviews: plain.numOfReviews != null ? Number(plain.numOfReviews) : 0
+    numOfReviews: plain.numOfReviews != null ? Number(plain.numOfReviews) : 0,
+
+    seoTitle: String(plain.seoTitle || '').trim(),
+    seoDescription: String(plain.seoDescription || '').trim(),
+    seoKeywords: String(plain.seoKeywords || '').trim(),
+    previousPrice: plain.previousPrice != null ? Number(plain.previousPrice) : null,
+    restockedAt: plain.restockedAt ? new Date(plain.restockedAt) : null
   };
   
   // ── Variants ───────────────────────────────────────────────────────────

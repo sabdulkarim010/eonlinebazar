@@ -35,6 +35,38 @@
                 </div>
             </div>
 
+            <div class="profile-card loyalty-dashboard-card card" id="loyaltyDashboardCard" hidden>
+                <div class="profile-card-header">
+                    <div class="profile-card-icon"><i class="fa-solid fa-crown"></i></div>
+                    <div>
+                        <h3 class="profile-card-title">Loyalty Rewards</h3>
+                        <p class="profile-card-subtitle">Earn points on every order and unlock tier benefits</p>
+                    </div>
+                </div>
+                <div class="profile-card-body loyalty-dashboard-body">
+                    <div class="loyalty-dashboard-stats">
+                        <div class="loyalty-stat">
+                            <span class="loyalty-stat-label">Current Points</span>
+                            <strong id="loyalty-card-points">0</strong>
+                        </div>
+                        <div class="loyalty-stat">
+                            <span class="loyalty-stat-label">Current Tier</span>
+                            <strong id="loyalty-card-tier">Member</strong>
+                        </div>
+                        <div class="loyalty-stat loyalty-stat-wide" id="loyalty-next-tier-wrap" hidden>
+                            <span class="loyalty-stat-label">Next Tier</span>
+                            <span id="loyalty-card-next-tier">—</span>
+                        </div>
+                    </div>
+                    <div class="loyalty-history-wrap">
+                        <h4>Points Activity</h4>
+                        <ul id="loyalty-points-history" class="loyalty-points-history">
+                            <li class="loyalty-history-empty">No point activity yet.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
             <div class="profile-card dashboard-orders-card card">
                 <div class="profile-card-header">
                     <div class="profile-card-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>

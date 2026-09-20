@@ -11,7 +11,13 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const hpp = require('hpp');
-const { dynamicApiRateLimiter, isLocalOrDev, shouldForceBypass } = require('./rateLimiter');
+const {
+    authLimiter,
+    otpLimiter,
+    apiLimiter,
+    isLocalOrDev,
+    shouldForceBypass
+} = require('./rateLimiter');
 
 /**
  * Configure and apply all security-related Express middleware.
@@ -107,25 +113,13 @@ function applySecurityMiddleware(app) {
     // Express 5: named wildcard required (path-to-regexp v8)
     app.options('/{*splat}', cors(corsOptions));
 
-    const authLimiter = rateLimit({
-        validate: { trustProxy: false },
-        windowMs: 15 * 60 * 1000,
-        max: 10,
-        standardHeaders: true,
-        legacyHeaders: false,
-        skip: isLocalOrDev,
-        message: { success: false, message: 'Too many requests, please try again later.' }
-    });
-
     const authRoutes = [
         '/api/customer/login',
         '/api/customer/register',
-        '/api/customer/forgot-password',
         '/api/customer/reset-password',
         '/api/customer/resend-verification',
         '/api/auth/login',
         '/api/auth/register',
-        '/api/auth/forgot-password',
         '/api/auth/reset-password',
         '/api/auth/resend-verification',
     ];
@@ -133,6 +127,22 @@ function applySecurityMiddleware(app) {
     authRoutes.forEach((route) => {
         app.post(route, authLimiter);
     });
+
+    const otpRoutes = [
+        '/api/customer/forgot-password',
+        '/api/auth/forgot-password',
+        '/api/admin/verify-otp',
+        '/api/admin/auth/otp',
+        '/api/admin/auth/forgot-password',
+        '/api/admin/forgot-password'
+    ];
+
+    otpRoutes.forEach((route) => {
+        app.post(route, otpLimiter);
+    });
+
+    app.post('/api/admin/login', authLimiter);
+    app.post('/api/admin/auth/login', authLimiter);
 
     app.post(
         '/api/coupons/apply',
@@ -162,7 +172,7 @@ function applySecurityMiddleware(app) {
 
     app.use('/api/', (req, res, next) => {
         if (req._rateLimitBypass || shouldForceBypass(req)) return next();
-        return dynamicApiRateLimiter(req, res, next);
+        return apiLimiter(req, res, next);
     });
 
     app.use((req, res, next) => {

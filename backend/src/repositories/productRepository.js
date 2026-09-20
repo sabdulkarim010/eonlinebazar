@@ -448,7 +448,12 @@ async function createProductInPG(mongoDoc) {
         image: main.image,
         images: main.images,
         rating: main.rating,
-        numOfReviews: main.numOfReviews
+        numOfReviews: main.numOfReviews,
+        seoTitle: main.seoTitle,
+        seoDescription: main.seoDescription,
+        seoKeywords: main.seoKeywords,
+        previousPrice: main.previousPrice,
+        restockedAt: main.restockedAt
       }
     });
 
@@ -570,6 +575,15 @@ async function updateProductInPG(mongoId, updateData) {
     if (updateData.images !== undefined) fields.images = updateData.images;
     if (updateData.rating !== undefined) fields.rating = Number(updateData.rating);
     if (updateData.numOfReviews !== undefined) fields.numOfReviews = Number(updateData.numOfReviews);
+    if (updateData.seoTitle !== undefined) fields.seoTitle = String(updateData.seoTitle).trim();
+    if (updateData.seoDescription !== undefined) fields.seoDescription = String(updateData.seoDescription).trim();
+    if (updateData.seoKeywords !== undefined) fields.seoKeywords = String(updateData.seoKeywords).trim();
+    if (updateData.previousPrice !== undefined) {
+        fields.previousPrice = updateData.previousPrice != null ? Number(updateData.previousPrice) : null;
+    }
+    if (updateData.restockedAt !== undefined) {
+        fields.restockedAt = updateData.restockedAt ? new Date(updateData.restockedAt) : null;
+    }
 
     if (Object.keys(fields).length > 0) {
       await prisma.product.update({

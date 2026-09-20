@@ -130,10 +130,11 @@ async function openGeneratePayrollModal() {
     if (modal) modal.style.display = 'flex';
 }
 
-async function submitGeneratePayroll() {
+function readGeneratePayrollPayload() {
     const staffValue = document.getElementById('generatePayrollStaff')?.value;
-    const payload = {
+    return {
         ...(window.hrmParseStaffSelect ? window.hrmParseStaffSelect(staffValue) : { staffUsername: staffValue }),
+        staffValue,
         month: Number(document.getElementById('generatePayrollMonth')?.value),
         year: Number(document.getElementById('generatePayrollYear')?.value),
         bonus: Number(document.getElementById('generatePayrollBonus')?.value) || 0,
@@ -141,8 +142,83 @@ async function submitGeneratePayroll() {
         paymentMethod: document.getElementById('generatePayrollPaymentMethod')?.value?.trim() || '',
         notes: document.getElementById('generatePayrollNotes')?.value?.trim() || ''
     };
+}
 
-    if (!staffValue || !payload.month || !payload.year) {
+function closePayrollBreakdownModal() {
+    const modal = document.getElementById('payrollBreakdownModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderPayrollBreakdown(preview) {
+    const body = document.getElementById('payrollBreakdownBody');
+    if (!body || !preview) return;
+
+    const b = preview.breakdown || {};
+    body.innerHTML = `
+        <table class="data-table">
+            <tbody>
+                <tr><td>Days Present</td><td><strong>${b.presentDays ?? 0}</strong></td><td>Absent</td><td><strong>${b.absentDays ?? 0}</strong></td></tr>
+                <tr><td>Late Days</td><td><strong>${b.lateDays ?? 0}</strong></td><td>Working Days</td><td><strong>${b.workingDays ?? 0}</strong></td></tr>
+                <tr><td>Base Salary</td><td colspan="3"><strong>${window.hrmFormatMoney(preview.baseSalary)}</strong></td></tr>
+                <tr><td>Earned Salary</td><td colspan="3"><strong>${window.hrmFormatMoney(preview.earnedSalary)}</strong></td></tr>
+                <tr><td>Deductions</td><td colspan="3"><strong>${window.hrmFormatMoney(preview.deductions)}</strong></td></tr>
+                <tr><td>Net Salary</td><td colspan="3"><strong style="color:#2563eb;">${window.hrmFormatMoney(preview.netSalary)}</strong></td></tr>
+            </tbody>
+        </table>
+        <p class="hrm-modal-hint">Absent deduction: ${window.hrmFormatMoney(b.absentDeduction)} · Late deduction: ${window.hrmFormatMoney(b.lateDeduction)}</p>
+    `;
+}
+
+async function calculatePayrollFromAttendance() {
+    const payload = readGeneratePayrollPayload();
+    if (!payload.staffValue || !payload.month || !payload.year) {
+        showToast('Staff, month, and year are required.', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('calculatePayrollBtn');
+    if (btn) btn.disabled = true;
+
+    try {
+        const params = new URLSearchParams({
+            employeeId: payload.staffId || payload.staffUsername || payload.staffValue,
+            month: String(payload.month),
+            year: String(payload.year),
+            bonus: String(payload.bonus),
+            deductions: String(payload.deductions)
+        });
+
+        const res = await fetch(`/api/admin/hrm/payroll/calculate?${params.toString()}`, {
+            headers: window.hrmAuthHeaders()
+        });
+        const result = await res.json();
+
+        if (!result.success) {
+            showToast(result.message || 'Failed to calculate payroll.', 'error');
+            return;
+        }
+
+        window.__payrollPreviewPayload = payload;
+        renderPayrollBreakdown(result.data);
+        const modal = document.getElementById('payrollBreakdownModal');
+        if (modal) modal.style.display = 'flex';
+    } catch (err) {
+        console.error('calculatePayrollFromAttendance:', err);
+        showToast('Server error while calculating payroll.', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function confirmGeneratePayrollFromBreakdown() {
+    closePayrollBreakdownModal();
+    await submitGeneratePayroll();
+}
+
+async function submitGeneratePayroll() {
+    const payload = readGeneratePayrollPayload();
+
+    if (!payload.staffValue || !payload.month || !payload.year) {
         showToast('Staff, month, and year are required.', 'warning');
         return;
     }
@@ -369,6 +445,9 @@ window.loadPayrollList = loadPayrollList;
 window.openGeneratePayrollModal = openGeneratePayrollModal;
 window.closeGeneratePayrollModal = closeGeneratePayrollModal;
 window.submitGeneratePayroll = submitGeneratePayroll;
+window.calculatePayrollFromAttendance = calculatePayrollFromAttendance;
+window.closePayrollBreakdownModal = closePayrollBreakdownModal;
+window.confirmGeneratePayrollFromBreakdown = confirmGeneratePayrollFromBreakdown;
 window.approvePayroll = approvePayroll;
 window.markPayrollPaid = markPayrollPaid;
 window.downloadPaySlip = downloadPaySlip;

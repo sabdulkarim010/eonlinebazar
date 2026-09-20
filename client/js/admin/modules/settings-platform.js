@@ -527,8 +527,21 @@ function applyMasterSettingsToUI(settings) {
     const maintenanceToggle = document.getElementById('settingsMaintenanceMode');
     if (maintenanceToggle) {
         maintenanceToggle.checked = settings.maintenanceMode === true;
+        if (!maintenanceToggle.dataset.boundMaintenanceWarn) {
+            maintenanceToggle.dataset.boundMaintenanceWarn = '1';
+            maintenanceToggle.addEventListener('change', () => {
+                const warn = document.getElementById('settingsMaintenanceWarning');
+                if (warn) warn.hidden = !maintenanceToggle.checked;
+            });
+        }
     }
+    const maintenanceWarn = document.getElementById('settingsMaintenanceWarning');
+    if (maintenanceWarn) maintenanceWarn.hidden = settings.maintenanceMode !== true;
     setVal('settingsMaintenanceMessage', settings.maintenanceMessage);
+    const allowedIps = Array.isArray(settings.maintenanceAllowedIPs)
+        ? settings.maintenanceAllowedIPs.join('\n')
+        : '';
+    setVal('settingsMaintenanceAllowedIPs', allowedIps);
 
     if (typeof window.applyTierSettingsToUI === 'function') {
         window.applyTierSettingsToUI(settings);

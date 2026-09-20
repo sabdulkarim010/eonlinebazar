@@ -191,16 +191,24 @@
                                         <label for="settingsDefaultProductsPerPage">Default Products Per Page</label>
                                         <input type="number" id="settingsDefaultProductsPerPage" min="1" max="100" step="1" placeholder="24">
                                     </div>
-                                    <div class="form-group form-group-full">
+                                    <div class="form-group form-group-full maintenance-mode-card">
                                         <label class="checkbox-label" for="settingsMaintenanceMode">
                                             <input type="checkbox" id="settingsMaintenanceMode">
-                                            Enable Maintenance Mode
+                                            🔧 Maintenance Mode
                                         </label>
-                                        <small class="field-hint">When enabled, storefront visitors see a maintenance notice instead of shopping pages.</small>
+                                        <small class="field-hint">When enabled, the customer storefront returns a maintenance page (admin panel stays available).</small>
+                                        <p class="maintenance-mode-warning" id="settingsMaintenanceWarning" hidden>
+                                            ⚠️ Customer site will be unavailable while maintenance mode is ON.
+                                        </p>
                                     </div>
                                     <div class="form-group form-group-full">
-                                        <label for="settingsMaintenanceMessage">Maintenance Message</label>
+                                        <label for="settingsMaintenanceMessage">Custom Message</label>
                                         <textarea id="settingsMaintenanceMessage" rows="2" placeholder="We are currently performing scheduled maintenance. Please check back soon."></textarea>
+                                    </div>
+                                    <div class="form-group form-group-full">
+                                        <label for="settingsMaintenanceAllowedIPs">Allowed IPs (one per line)</label>
+                                        <textarea id="settingsMaintenanceAllowedIPs" rows="3" placeholder="203.0.113.10&#10;198.51.100.5"></textarea>
+                                        <small class="field-hint">These IPs can browse the storefront during maintenance.</small>
                                     </div>
                                 </div>
                                 <div class="system-settings-card-footer">

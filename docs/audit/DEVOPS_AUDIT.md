@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20  
+**Last updated:** 2026-09-20 (Group 3 — /health + error logging)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -27,7 +27,9 @@
 | `backend/docs/DECOMMISSION_GUIDE.md` | Mongo decommission runbook |
 | `scripts/addEnterpriseIndexes.js` | DB index migration (`npm run migrate:indexes`) |
 | `mobile/eas.json` | Expo EAS build profiles (APK/AAB) |
-| `backend/src/server.js` | Main entry — env validation, health route |
+| `backend/src/server.js` | Main entry — env validation, `GET /health`, error logger |
+| `backend/src/services/healthService.js` | Mongo/PG/Redis/uptime health probe |
+| `backend/src/middlewares/errorLogger.js` | File error logs + admin notify on 500 |
 | `backend/src/controllers/admin/backupController.js` | Superadmin DB backup export |
 | `tests/mocks/prismaGeneratedClient.js` | Jest CJS substitute for `generated/prisma/client.mts` (ESM) |
 | `tests/setup.js` | Jest global setup — pins all `READ_PG_*` to `'false'` for in-memory Mongo |
@@ -41,13 +43,15 @@
 - [x] Docker + docker-compose (app + mongo + redis) — root `docker-compose.yml`
 - [x] Nginx reverse proxy + SSL — `devops/nginx.conf`
 - [x] PM2 chat service supervision — `ecosystem.config.js`
-- [x] Health check endpoint — `GET /api/store/health`
+- [x] Health check endpoint — `GET /health` (public) + `GET /api/store/health`
+- [x] Error logging middleware — `backend/logs/error-YYYY-MM-DD.log` (7-day retention)
 - [x] Chat proxy paths on store gateway — `/chat-api/*`, `/chat-socket/socket.io`
 - [x] GitHub Actions deploy workflow — `devops/.github/workflows/deploy.yml`
 - [x] First-time server setup guide — `devops/first-time-server-setup.md`
 - [x] Mobile EAS builds (preview APK, production AAB) — `mobile/eas.json`
 - [x] Enterprise DB index migration — `npm run migrate:indexes`
 - [x] Superadmin Mongoose JSON backup — `backupController.js`, `view-system-backup.html`
+- [x] PostgreSQL manual ZIP backup — `exportPostgresBackup()` in `backupService.js`, `GET /api/admin/system/backup-postgres`
 - [x] Env validation on server boot — `server.js`
 - [x] PG migration verification script — `verifyFullMigration.js`
 - [x] READ_PG flag rollout tooling — `enableFlags.js`, `monitorCutover.js`
@@ -64,6 +68,8 @@
 |-------|----------|--------|-------|
 | Chat-admin rebuild manual | Low | Open | `cd admin-dashboard && npm run build` → copy to `backend/public/chat-admin/` |
 | Prisma client Jest parse | — | Fixed | `generated/prisma/client.mts` mapped to CJS mock; repo tests still use `node --test` with real client |
+| Enterprise summary PG low-stock SQL | Medium | Fixed | `stock_quantity` → quoted `"stockQuantity"` / `"lowStockThreshold"` (Neon baseline uses camelCase columns) |
+| Admin profile + HRM attendance 404 | Medium | Fixed | Route order in `adminRoutes.js`; direct `adminProfileController` import; daily-sheet before bare `/hrm/attendance` |
 
 ---
 
@@ -76,6 +82,27 @@
 ---
 
 ## Change Log
+
+### Group 3 — Health check + error logging — 2026-09-20
+
+- Public `GET /health` — Mongo, PostgreSQL, Redis, uptime, version; always HTTP 200 with status field
+- `errorLogger.js` — route/method/status logged to daily files; AdminNotification on 500 errors
+- Tests: Jest **228/228** passing
+
+### PostgreSQL backup + gateway status — 2026-09-20
+
+- Added `exportPostgresBackup()` — critical PG tables exported to `pg-backup-YYYY-MM-DD.zip` via lazy-loaded `archiver`
+- New route `GET /api/admin/system/backup-postgres` (superadmin); `lastPostgresBackupAt` on Settings
+- Backup UI: separate MongoDB + PostgreSQL download buttons in `view-system-backup.html`
+- New `GET /api/admin/settings/gateway-status` for admin UI gateway health
+- Tests: Jest **228/228** passing
+
+### Production bug fix — 2026-09-20
+
+- **BUG 1:** `enterpriseSummaryController.countLowStockProductsFromPG()` raw SQL used non-existent `stock_quantity` / `low_stock_threshold` — fixed to Prisma/Neon column names `"stockQuantity"` / `"lowStockThreshold"`.
+- **BUG 2:** `GET /api/admin/profile/me/full` — route re-registered via direct `adminProfileController.getAdminProfileFull`, placed before bare `/profile`.
+- **BUG 3:** `GET /api/admin/hrm/attendance/daily-sheet` — attendance named routes moved before bare `GET /hrm/attendance` list route; all mark/bulk/manual/lock routes verified present.
+- **Tests:** Jest **228/228** passing; server boot shows no Prisma column errors (port bind only if already running).
 
 ### Jest + Prisma ESM compatibility fix — 2026-09-20
 

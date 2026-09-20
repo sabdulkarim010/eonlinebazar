@@ -69,11 +69,12 @@ function drawTableRow(doc, columns, y, options = {}) {
  * @param {object} order - Plain order object from MongoDB
  * @returns {Promise<Buffer>}
  */
-function generateOrderInvoicePdf(order = {}) {
+function generateOrderInvoicePdf(order = {}, branding = {}) {
     return new Promise((resolve, reject) => {
         try {
             const doc = new PDFDocument({ margin: 50, size: 'A4' });
             const chunks = [];
+            const storeName = String(branding.storeName || 'EOnlineBazar').trim() || 'EOnlineBazar';
 
             doc.on('data', (chunk) => chunks.push(chunk));
             doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -91,7 +92,7 @@ function generateOrderInvoicePdf(order = {}) {
             // Brand header bar
             doc.rect(0, 0, doc.page.width, 90).fill('#2563eb');
             doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(26)
-                .text('EOnlineBazar', 50, 28);
+                .text(storeName, 50, 28, { width: 320 });
             doc.font('Helvetica').fontSize(11)
                 .text('Your Trusted Online Marketplace', 50, 58);
 
@@ -220,7 +221,7 @@ function generateOrderInvoicePdf(order = {}) {
             // Footer
             doc.font('Helvetica').fontSize(9).fillColor('#94a3b8')
                 .text(
-                    'Thank you for shopping with EOnlineBazar. For support, visit your profile or contact our team.',
+                    `Thank you for shopping with ${storeName}. For support, visit your profile or contact our team.`,
                     50,
                     doc.page.height - 60,
                     { width: doc.page.width - 100, align: 'center' }

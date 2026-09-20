@@ -110,8 +110,11 @@ window.validationState = {
 window.checkoutCouponsAvailable = false;
 window.checkoutCouponController = null;
 window.checkoutWalletBalance = 0;
+window.checkoutLoyaltyPoints = 0;
+window.checkoutRewardSettings = null;
 window.checkoutBeginTracked = false;
 window.applyWalletAtCheckout = false;
+window.applyLoyaltyAtCheckout = false;
 
 function getAppliedCoupon() {
     return window.CouponUI ? window.CouponUI.getAppliedCoupon() : null;

@@ -36,6 +36,7 @@ function nlFormatDate(dateVal) {
 let nlCampaignsCache = [];
 let subscriberPg = null;
 let campaignPg = null;
+let nlGatewayStatus = { whatsapp: 'active', sms: 'active', email: 'active' };
 
 function initNewsletterPagination() {
     if (typeof AdminPagination === 'undefined') return;
@@ -418,6 +419,12 @@ async function sendNewsletterCampaign(id) {
 }
 
 async function sendNewsletterCampaignFromForm() {
+    const channel = document.getElementById('nlCampaignChannel')?.value || 'email';
+    if (channel === 'whatsapp' && !isWhatsAppGatewayUsable()) {
+        nlNotify('WhatsApp gateway is currently unavailable. Contact admin to reconfigure.', 'error');
+        return;
+    }
+
     let id = document.getElementById('nlCampaignEditId')?.value;
     if (!id) {
         const saved = await saveNewsletterCampaignDraft();
@@ -468,6 +475,43 @@ function loadNewsletterSubscribersSection() {
 function loadNewsletterCampaignsSection() {
     initNewsletterPagination();
     fetchNewsletterCampaigns();
+    refreshCampaignGatewayUi();
+}
+
+async function fetchGatewayStatusForCampaigns() {
+    const token = nlToken();
+    if (!token) return;
+
+    try {
+        const res = await fetch('/api/admin/settings/gateway-status', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+            nlGatewayStatus = data.data;
+        }
+    } catch (err) {
+        console.warn('[Newsletter] Gateway status unavailable:', err.message);
+    }
+}
+
+function isWhatsAppGatewayUsable() {
+    return nlGatewayStatus.whatsapp === 'active';
+}
+
+function refreshCampaignGatewayUi() {
+    const channel = document.getElementById('nlCampaignChannel')?.value || 'email';
+    const banner = document.getElementById('whatsappGatewayBanner');
+    const sendBtn = document.getElementById('nlCampaignSendBtn');
+    const whatsappBlocked = channel === 'whatsapp' && !isWhatsAppGatewayUsable();
+
+    if (banner) banner.hidden = !whatsappBlocked;
+    if (sendBtn) {
+        sendBtn.disabled = whatsappBlocked;
+        sendBtn.title = whatsappBlocked
+            ? 'WhatsApp gateway is unavailable'
+            : '';
+    }
 }
 
 function initNewsletterAdmin() {
@@ -497,6 +541,9 @@ function initNewsletterAdmin() {
     document.getElementById('nlCampaignSaveBtn')?.addEventListener('click', saveNewsletterCampaignDraft);
     document.getElementById('nlCampaignTestBtn')?.addEventListener('click', testNewsletterCampaignFromForm);
     document.getElementById('nlCampaignSendBtn')?.addEventListener('click', sendNewsletterCampaignFromForm);
+    document.getElementById('nlCampaignChannel')?.addEventListener('change', refreshCampaignGatewayUi);
+
+    fetchGatewayStatusForCampaigns().then(refreshCampaignGatewayUi);
 
     document.getElementById('nlCampaignViewModal')?.addEventListener('click', (e) => {
         if (e.target.id === 'nlCampaignViewModal') closeNlCampaignViewModal();

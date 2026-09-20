@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20 (Admin-Employee profile link)  
+**Last updated:** 2026-09-20 (Group 4 — auth rate limiting)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -27,6 +27,9 @@
 | `backend/src/controllers/admin/securityMonitorController.js` | Security monitoring |
 | `backend/src/middlewares/auth.js` | `verifyUser`, `verifyAdmin`, `optionalVerifyUser` |
 | `backend/src/middlewares/rbac.js` | `checkPermission()` RBAC gate |
+| `backend/src/middlewares/rateLimiter.js` | `authLimiter`, `otpLimiter`, `apiLimiter` fixed windows |
+| `backend/src/middlewares/securityMiddleware.js` | Wires limiters to auth/OTP routes + global `/api/*` |
+| `backend/src/middlewares/maintenanceModeMiddleware.js` | Storefront 503 gate with IP allowlist bypass |
 | `backend/src/config/permissions.js` | 9 granular permission constants |
 | `backend/src/config/passport.js` | Google OAuth strategy |
 | `backend/src/models/admin.js` | Admin account + permissions + 2FA fields |
@@ -61,7 +64,9 @@
 - [x] Login attempt tracking — `loginAttempt.js`
 - [x] IP blacklist + geo-fence — `blacklistController.js`
 - [x] Staff activity audit — `staffAuditController.js`
-- [x] Rate limiting middleware — `rateLimitMiddleware.js`
+- [x] Rate limiting middleware — `rateLimiter.js` + `securityMiddleware.js`
+- [x] Auth endpoint throttling — login/register 10/15min; OTP 5/10min; API 100/min
+- [x] Maintenance mode IP allowlist — `maintenanceAllowedIPs` on Settings + middleware bypass
 - [x] Emergency control panel — `emergencyRoutes.js`
 - [x] Finance dashboard scoped JWT — `financeRoutes.js`
 - [x] Account deletion (Play Store compliance) — `loginController.js`
@@ -88,6 +93,12 @@
 ---
 
 ## Change Log
+
+### Group 4 — Auth rate limiting — 2026-09-20
+
+- `authLimiter`, `otpLimiter`, `apiLimiter` exported from `rateLimiter.js`
+- Applied to customer/admin login, register, forgot-password, verify-otp; global `/api/*` uses `apiLimiter`
+- Tests: Jest **228/228** passing
 
 ### Admin-Employee Profile Link — 2026-09-20
 

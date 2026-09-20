@@ -20,10 +20,12 @@ function formatBackupTimestamp(value) {
     }
 }
 
-function updateBackupLastRunText(lastBackupAt) {
+function updateBackupLastRunText(lastBackupAt, lastPostgresBackupAt) {
     const el = document.getElementById('backupLastRunText');
     if (!el) return;
-    el.textContent = `Last backup: ${formatBackupTimestamp(lastBackupAt)}`;
+    const mongoLine = `MongoDB backup: ${formatBackupTimestamp(lastBackupAt)}`;
+    const pgLine = `PostgreSQL backup: ${formatBackupTimestamp(lastPostgresBackupAt)}`;
+    el.textContent = `${mongoLine} · ${pgLine}`;
 }
 
 async function fetchBackupStatus() {
@@ -35,7 +37,7 @@ async function fetchBackupStatus() {
         });
         const data = await res.json();
         if (data.success && data.data) {
-            updateBackupLastRunText(data.data.lastBackupAt);
+            updateBackupLastRunText(data.data.lastBackupAt, data.data.lastPostgresBackupAt);
         }
     } catch (err) {
         console.warn('[Backup] Status fetch failed:', err.message);
@@ -107,12 +109,70 @@ function loadSystemBackupSection() {
     fetchBackupStatus();
 }
 
+async function downloadPostgresBackup() {
+    if (!token) {
+        showToast('Please log in as Super Admin.', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('downloadPostgresBackupBtn');
+    const restore = typeof setButtonLoading === 'function'
+        ? setButtonLoading(btn, 'Exporting PostgreSQL...')
+        : () => {};
+
+    try {
+        const res = await fetch('/api/admin/system/backup-postgres', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!res.ok) {
+            let message = 'PostgreSQL backup download failed.';
+            try {
+                const errBody = await res.json();
+                message = errBody.message || message;
+            } catch {
+                // ignore
+            }
+            throw new Error(message);
+        }
+
+        const blob = await res.blob();
+        const disposition = res.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^";]+)"?/i);
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const filename = match?.[1] || `pg-backup-${dateStr}.zip`;
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+
+        if (typeof settingsHubToast === 'function') {
+            settingsHubToast('PostgreSQL backup downloaded successfully.', 'success');
+        } else {
+            showToast('PostgreSQL backup downloaded successfully.', 'success');
+        }
+    } catch (err) {
+        console.error('[Backup] PG download error:', err);
+        showToast(err.message || 'PostgreSQL backup download failed.', 'error');
+    } finally {
+        restore();
+        fetchBackupStatus();
+    }
+}
+
 window.downloadFullBackup = downloadFullBackup;
+window.downloadPostgresBackup = downloadPostgresBackup;
 window.loadSystemBackupSection = loadSystemBackupSection;
 window.fetchBackupStatus = fetchBackupStatus;
 
 Object.assign(window, {
     downloadFullBackup,
+    downloadPostgresBackup,
     loadSystemBackupSection,
     fetchBackupStatus
 });

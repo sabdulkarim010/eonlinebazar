@@ -10,6 +10,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const adminProfileController = require('../controllers/admin/adminProfileController');
 const { getDashboardAnalytics } = require('../controllers/analyticsController');
 const { getFinanceAnalytics } = require('../controllers/financeAnalyticsController');
 const {
@@ -21,8 +22,13 @@ const {
     updateOrderShippingAddress,
     masterUpdateOrder,
     bulkDeleteOrders,
-    assignOrderToStaff
+    bulkUpdateOrderStatus,
+    assignOrderToStaff,
+    downloadAdminOrderInvoice,
+    listReturnRequests,
+    reviewReturnRequest
 } = require('../controllers/orderAdminController');
+const financeExportController = require('../controllers/admin/financeExportController');
 const staffAuditController = require('../controllers/admin/staffAuditController');
 const activityFeedController = require('../controllers/admin/activityFeedController');
 const { adjustCustomerWallet } = require('../controllers/admin/walletAdminController');
@@ -74,7 +80,7 @@ const staffController = require('../controllers/staffController');
 const staffRoutes = require('./staffRoutes');
 const fileManagerRoutes = require('./fileManagerRoutes');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
-const { checkPermission, requireSuperAdmin } = require('../middlewares/rbac');
+const { checkPermission, requireSuperAdmin, requireHrOrSuperAdmin } = require('../middlewares/rbac');
 const { checkBlacklist, adminLoginLimiter } = require('../middlewares/adminSecurity');
 const { geoFence } = require('../middlewares/geoFencing');
 const { checkAndAlertLowStock } = require('../services/stockAlertService');
@@ -244,7 +250,13 @@ router.get('/orders/pending-payment-proof', verifyAdmin, checkPermission('manage
 router.patch('/orders/:orderId/review-payment-proof', verifyAdmin, checkPermission('manage_orders'), reviewPaymentProof);
 
 // URL: POST /api/admin/orders/bulk-delete — delete up to 50 orders at once
-router.post('/orders/bulk-delete', verifyAdmin, checkPermission('manage_orders'), bulkDeleteOrders);
+router.post('/orders/bulk-delete', verifyAdmin, checkPermission('manage_orders', 'update_order_status'), bulkDeleteOrders);
+router.put('/orders/bulk-status', verifyAdmin, checkPermission('manage_orders', 'update_order_status'), bulkUpdateOrderStatus);
+
+// URL: GET /api/admin/orders/:id/invoice — branded PDF invoice download
+router.get('/orders/return-requests', verifyAdmin, checkPermission('manage_orders'), listReturnRequests);
+router.put('/orders/:id/return-request', verifyAdmin, checkPermission('manage_orders'), reviewReturnRequest);
+router.get('/orders/:id/invoice', verifyAdmin, checkPermission('manage_orders'), downloadAdminOrderInvoice);
 
 // URL: GET /api/admin/payments/reconciliation — gateway/manual/COD payment overview
 router.get('/payments/reconciliation', verifyAdmin, checkPermission('manage_orders'), getPaymentReconciliation);
@@ -383,6 +395,9 @@ router.get('/rate-limit-settings', verifyAdmin, checkPermission('manage_settings
 router.put('/rate-limit-settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateRateLimitSettings);
 router.post('/rate-limit-settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateRateLimitSettings);
 router.post('/settings/cache', verifyAdmin, checkPermission('manage_settings'), settingsController.updateCacheSettings);
+router.get('/settings/gateway-status', verifyAdmin, settingsController.getGatewayStatus);
+router.get('/settings/attendance', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), settingsController.getAttendanceSettings);
+router.put('/settings/attendance', verifyAdmin, checkPermission('manage_staff'), settingsController.updateAttendanceSettings);
 
 // ৫খ. মাস্টার সেটিংস — অ্যানাউন্সমেন্ট, ফ্রি শিপিং, ক্যাশব্যাক, পয়েন্ট, রিফান্ড (Singleton)
 // একটি সেভ অ্যাকশনেই সব সেটিংস আপডেট হয়।
@@ -513,6 +528,7 @@ router.delete('/expense-categories/:id', verifyAdmin, checkPermission('manage_se
 router.get('/finance/profit-loss', verifyAdmin, requireSuperAdmin, profitLossController.getProfitLossReport);
 router.get('/finance/profit-loss/export-pdf', verifyAdmin, requireSuperAdmin, exportController.exportPLtoPDF);
 router.get('/finance/profit-loss/export-csv', verifyAdmin, requireSuperAdmin, exportController.exportPLtoCSV);
+router.get('/finance/export', verifyAdmin, requireSuperAdmin, financeExportController.exportFinanceReport);
 router.get('/orders/export', verifyAdmin, checkPermission('manage_orders'), exportController.exportOrdersCSV);
 router.get('/orders/export-csv', verifyAdmin, checkPermission('manage_orders'), exportController.exportOrdersCSV);
 router.get('/products/export', verifyAdmin, checkPermission('manage_inventory'), exportController.exportProductsCSV);
@@ -581,21 +597,28 @@ router.patch('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'),
 router.delete('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.deleteEmployee);
 
 // — Attendance —
-// Named sub-paths are declared before any /:id route so "summary" and
-// "late-report" are never read as record ids.
-router.get('/hrm/attendance', verifyAdmin, checkPermission('manage_staff'), attendanceController.getAttendanceList);
+// Named sub-paths are declared before the bare /hrm/attendance list route so
+// "daily-sheet", "summary", etc. are never swallowed by a catch-all.
 router.get('/hrm/attendance/daily-sheet', verifyAdmin, checkPermission('manage_staff'), attendanceController.getDailySheet);
 router.get('/hrm/attendance/summary', verifyAdmin, checkPermission('manage_staff'), attendanceController.getAttendanceSummary);
 router.get('/hrm/attendance/late-report', verifyAdmin, checkPermission('manage_staff'), attendanceController.getLateReport);
 router.get('/hrm/attendance/lock-status', verifyAdmin, checkPermission('manage_staff'), attendanceController.getLockStatus);
 router.get('/hrm/attendance/manual-entries', verifyAdmin, checkPermission('manage_staff'), attendanceController.getManualEntries);
+router.put('/hrm/attendance/update', verifyAdmin, checkPermission('manage_staff'), attendanceController.updateAttendanceDetails);
+router.delete('/hrm/attendance/remove', verifyAdmin, checkPermission('manage_staff'), attendanceController.removeAttendanceRecord);
 router.post('/hrm/attendance/mark', verifyAdmin, checkPermission('manage_staff'), attendanceController.markAttendance);
 router.post('/hrm/attendance/bulk-mark', verifyAdmin, checkPermission('manage_staff'), attendanceController.bulkMarkAttendance);
-router.post('/hrm/attendance/manual-entry', verifyAdmin, checkPermission('manage_staff'), attendanceController.manualEntry);
-router.post('/hrm/attendance/lock', verifyAdmin, requireSuperAdmin, attendanceController.lockAttendanceDate);
-router.delete('/hrm/attendance/lock', verifyAdmin, requireSuperAdmin, attendanceController.unlockAttendanceDate);
+router.post(
+    '/hrm/attendance/manual-entry',
+    verifyAdmin,
+    checkPermission('manual_attendance', 'manage_staff'),
+    attendanceController.manualEntry
+);
+router.post('/hrm/attendance/lock', verifyAdmin, checkPermission('lock_attendance_dates', 'manage_staff'), attendanceController.lockAttendanceDate);
+router.delete('/hrm/attendance/lock', verifyAdmin, checkPermission('lock_attendance_dates', 'manage_staff'), attendanceController.unlockAttendanceDate);
 router.post('/hrm/attendance/clock-in', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockIn);
 router.post('/hrm/attendance/clock-out', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockOut);
+router.get('/hrm/attendance', verifyAdmin, checkPermission('manage_staff'), attendanceController.getAttendanceList);
 
 // — Shifts —
 router.get('/hrm/shifts', verifyAdmin, checkPermission('manage_staff'), attendanceController.getShifts);
@@ -605,6 +628,7 @@ router.delete('/hrm/shifts/:id', verifyAdmin, checkPermission('manage_staff'), a
 
 // — Payroll —
 router.get('/hrm/payroll', verifyAdmin, checkPermission('manage_staff'), payrollController.getAllPayrolls);
+router.get('/hrm/payroll/calculate', verifyAdmin, checkPermission('manage_staff'), payrollController.previewPayrollFromAttendance);
 router.post('/hrm/payroll/generate', verifyAdmin, checkPermission('manage_staff'), payrollController.generatePayroll);
 router.post('/hrm/payroll/salary-config', verifyAdmin, checkPermission('manage_staff'), payrollController.updateSalaryConfig);
 router.get('/hrm/payroll/:id/payslip', verifyAdmin, checkPermission('manage_staff'), payrollController.generatePaySlip);
@@ -658,16 +682,18 @@ router.post(
 router.post('/update-profile-pic', verifyAdmin, upload.single('profilePic'), adminController.updateProfilePic);
 
 // ৮. অ্যাডমিন প্রোফাইল (GET ছবি / PUT প্রোফাইল ডিটেইলস)
+// Specific /profile/* paths must register before bare /profile.
+router.get('/profile/me/full', verifyAdmin, adminProfileController.getAdminProfileFull);
+router.put('/profile/link-employee', verifyAdmin, requireSuperAdmin, adminProfileController.linkAdminEmployee);
 router.get('/profile', verifyAdmin, adminController.getAdminProfile);
-router.get('/profile/me/full', verifyAdmin, adminController.getAdminProfileFull);
 router.put('/profile', verifyAdmin, adminController.updateAdminProfile);
-router.put('/profile/link-employee', verifyAdmin, requireSuperAdmin, adminController.linkAdminEmployee);
 
 /********************************************************************
  # Database backup — super-admin export only (no restore)
  # URL: /api/admin/system/backup-now | /api/admin/system/backup-status
  ********************************************************************/
 router.get('/system/backup-now', verifyAdmin, requireSuperAdmin, backupController.triggerBackup);
+router.get('/system/backup-postgres', verifyAdmin, requireSuperAdmin, backupController.triggerPostgresBackup);
 router.get('/system/backup-status', verifyAdmin, requireSuperAdmin, backupController.getBackupStatus);
 
 // 🧪 Sandbox mode — super-admin only (Stripe-style test/live data separation)

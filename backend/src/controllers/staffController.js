@@ -293,6 +293,53 @@ exports.updateStaff = async (req, res) => {
 };
 
 /* ==================================================================
+   PUT /api/admin/staff/:id/permissions — update permissions only
+   ================================================================== */
+exports.updateStaffPermissions = async (req, res) => {
+    try {
+        const staff = await findStaffById(req.params.id);
+        if (!staff) {
+            return res.status(404).json({ success: false, message: 'Staff account not found.' });
+        }
+
+        const permissions = sanitizePermissions(req.body.permissions);
+        if (permissions.length === 0) {
+            return res.status(400).json({ success: false, message: 'A staff member must keep at least one permission.' });
+        }
+
+        staff.permissions = permissions;
+
+        await adminDualWrite(
+            () => staff.save(),
+            (saved) => mirrorAdminUpdate(saved, { operation: 'updateStaffPermissions' }),
+            {
+                operation: 'updateStaffPermissions',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
+
+        await logSecurityEvent({
+            action: 'Staff Permissions Updated',
+            actor: req.adminAccount.username,
+            actorType: 'admin',
+            ipAddress: clientIp(req),
+            details: `Updated permissions for "${staff.username}": ${permissions.join(', ')}`,
+            resourceType: 'staff',
+            resourceId: String(staff._id)
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: `Permissions updated for "${staff.username}". Changes apply immediately.`,
+            data: staff.toSafeObject()
+        });
+    } catch (error) {
+        console.error('Update Staff Permissions Error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to update staff permissions.' });
+    }
+};
+
+/* ==================================================================
    PATCH /api/admin/staff/:id/status — block ⇄ activate instantly
    Body: { status: 'active' | 'blocked' }  (omit to toggle)
    ================================================================== */

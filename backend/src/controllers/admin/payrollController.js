@@ -29,6 +29,8 @@ function mirrorPayrollDoc(saved) {
 const { adminDualWrite, mirrorAdminUpdate } = require('../../utils/adminDualWriteHelpers');
 const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
 const { fetchPayrollsPage, decoratePayrollDesignations } = require('../../services/hrmReadService');
+const { getAttendanceSettings } = require('../../services/attendanceSettingsService');
+const { computeTotalSalary } = require('../../models/payroll');
 
 /** Bangladesh weekend — Friday (Date#getDay() === 5) is not a working day. */
 const WEEKEND_DAY = 5;
@@ -101,6 +103,134 @@ function summarizeAttendance(records) {
     };
 }
 
+const GRACE_LATE_ALLOWED = 3;
+const LATE_PENALTY_BDT = 50;
+
+async function calculatePayrollFromAttendance(employeeId, month, year, options = {}) {
+    const subject = await resolveHrmSubject({
+        staffId: employeeId,
+        staffUsername: employeeId,
+        ...options
+    });
+    if (!subject) {
+        const err = new Error('Staff member not found.');
+        err.status = 404;
+        throw err;
+    }
+
+    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const end = new Date(year, month, 0, 0, 0, 0, 0);
+
+    const records = await Attendance.find({
+        staffId: subject.staffId,
+        date: { $gte: start, $lte: end }
+    }).lean();
+
+    const summary = summarizeAttendance(records);
+    const calendarWorkingDays = countWorkingDays(year, month);
+    const attendanceSettings = await getAttendanceSettings();
+    const graceLateAllowed = Number(options.graceLateAllowed) >= 0
+        ? Number(options.graceLateAllowed)
+        : GRACE_LATE_ALLOWED;
+
+    const workingDays = options.workingDays !== undefined
+        ? Math.max(0, parseInt(options.workingDays, 10) || 0)
+        : Math.max(0, calendarWorkingDays - summary.holidays);
+
+    const baseSalary = options.baseSalary !== undefined
+        ? Math.max(0, Number(options.baseSalary) || 0)
+        : subject.baseSalary;
+
+    const dailyRate = workingDays > 0 ? baseSalary / workingDays : 0;
+    const earnedSalary = workingDays > 0
+        ? Math.round(baseSalary * Math.min(summary.presentDays / workingDays, 1) * 100) / 100
+        : baseSalary;
+
+    // Absent days are already reflected in presentDays pro-rating — show for breakdown only.
+    const absentDeduction = Math.round(summary.absentDays * dailyRate * 100) / 100;
+    const lateOverGrace = Math.max(0, summary.lateDays - graceLateAllowed);
+    const lateDeduction = Math.round(lateOverGrace * LATE_PENALTY_BDT * 100) / 100;
+    const attendanceDeductions = lateDeduction;
+
+    const hourlyRate = workingDays > 0
+        ? baseSalary / (workingDays * STANDARD_SHIFT_HOURS)
+        : 0;
+    const overtimeRate = options.overtimeRate !== undefined
+        ? Math.max(0, Number(options.overtimeRate) || 0)
+        : Math.round(hourlyRate * 100) / 100;
+    const overtimeHours = options.overtime !== undefined
+        ? Math.max(0, Number(options.overtime) || 0)
+        : summary.overtimeHours;
+    const bonus = Math.max(0, Number(options.bonus) || 0);
+    const manualDeductions = Math.max(0, Number(options.deductions) || 0);
+    const totalDeductions = Math.round((attendanceDeductions + manualDeductions) * 100) / 100;
+
+    const totals = computeTotalSalary({
+        baseSalary,
+        workingDays,
+        presentDays: summary.presentDays,
+        overtime: overtimeHours,
+        overtimeRate,
+        bonus,
+        deductions: totalDeductions
+    });
+
+    return {
+        staffId: subject.staffId,
+        staffUsername: subject.staffUsername,
+        staffName: subject.staffName,
+        month,
+        year,
+        baseSalary,
+        earnedSalary,
+        deductions: totalDeductions,
+        netSalary: totals.totalSalary,
+        breakdown: {
+            presentDays: summary.presentDays,
+            absentDays: summary.absentDays,
+            lateDays: summary.lateDays,
+            workingDays,
+            holidays: summary.holidays,
+            graceLateAllowed,
+            gracePeriodMinutes: attendanceSettings.gracePeriodMinutes,
+            absentDeduction,
+            lateDeduction,
+            manualDeductions,
+            overtimeHours,
+            overtimeRate,
+            overtimeAmount: totals.overtimeAmount,
+            bonus
+        },
+        attendanceRecordIds: records.map((row) => String(row._id))
+    };
+}
+
+/**
+ * GET /api/admin/hrm/payroll/calculate — preview payroll from attendance (not saved).
+ */
+exports.previewPayrollFromAttendance = async (req, res) => {
+    try {
+        const now = new Date();
+        const employeeId = String(req.query.employeeId || req.query.staffId || '').trim();
+        const month = Math.min(Math.max(parseInt(req.query.month, 10) || now.getMonth() + 1, 1), 12);
+        const year = parseInt(req.query.year, 10) || now.getFullYear();
+
+        if (!employeeId) {
+            return res.status(400).json({ success: false, message: 'employeeId is required.' });
+        }
+
+        const preview = await calculatePayrollFromAttendance(employeeId, month, year, req.query);
+        return res.status(200).json({ success: true, data: preview });
+    } catch (error) {
+        const status = error.status || 500;
+        if (status >= 500) console.error('calculatePayrollFromAttendance Error:', error);
+        return res.status(status).json({
+            success: false,
+            message: error.message || 'Failed to calculate payroll.'
+        });
+    }
+};
+
 /**
  * POST /api/admin/hrm/payroll/generate
  * Build (or rebuild) a draft run for one staff member and month. Approved
@@ -128,50 +258,24 @@ exports.generatePayroll = async (req, res) => {
             });
         }
 
-        const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
-        const end = new Date(year, month, 0, 0, 0, 0, 0);
-
-        const records = await Attendance.find({
-            staffId: subject.staffId,
-            date: { $gte: start, $lte: end }
-        }).lean();
-
-        const summary = summarizeAttendance(records);
-        const calendarWorkingDays = countWorkingDays(year, month);
-
-        // Explicit override wins; otherwise a marked holiday is not a day the
-        // staff member was expected to work.
-        const workingDays = body.workingDays !== undefined
-            ? Math.max(0, parseInt(body.workingDays, 10) || 0)
-            : Math.max(0, calendarWorkingDays - summary.holidays);
-
-        const baseSalary = body.baseSalary !== undefined
-            ? Math.max(0, Number(body.baseSalary) || 0)
-            : subject.baseSalary;
-
-        const hourlyRate = workingDays > 0
-            ? baseSalary / (workingDays * STANDARD_SHIFT_HOURS)
-            : 0;
-        const overtimeRate = body.overtimeRate !== undefined
-            ? Math.max(0, Number(body.overtimeRate) || 0)
-            : Math.round(hourlyRate * 100) / 100;
-
+        const preview = await calculatePayrollFromAttendance(subject.staffId, month, year, body);
         const record = existing || new Payroll({ staffId: subject.staffId, month, year });
 
         record.staffType = subject.staffType;
         record.staffUsername = subject.staffUsername;
         record.staffName = subject.staffName;
-        record.baseSalary = baseSalary;
-        record.bonus = Math.max(0, Number(body.bonus) || 0);
-        record.overtime = body.overtime !== undefined
-            ? Math.max(0, Number(body.overtime) || 0)
-            : summary.overtimeHours;
-        record.overtimeRate = overtimeRate;
-        record.deductions = Math.max(0, Number(body.deductions) || 0);
-        record.workingDays = workingDays;
-        record.presentDays = summary.presentDays;
-        record.absentDays = summary.absentDays;
-        record.lateDays = summary.lateDays;
+        record.baseSalary = preview.baseSalary;
+        record.bonus = preview.breakdown.bonus;
+        record.overtime = preview.breakdown.overtimeHours;
+        record.overtimeRate = preview.breakdown.overtimeRate;
+        record.deductions = preview.deductions;
+        record.earnedSalary = preview.earnedSalary;
+        record.attendanceDeductions = preview.breakdown.absentDeduction + preview.breakdown.lateDeduction;
+        record.workingDays = preview.breakdown.workingDays;
+        record.presentDays = preview.breakdown.presentDays;
+        record.absentDays = preview.breakdown.absentDays;
+        record.lateDays = preview.breakdown.lateDays;
+        record.attendanceRecordIds = preview.attendanceRecordIds;
         record.status = 'draft';
         record.paymentMethod = String(body.paymentMethod || record.paymentMethod || '').trim();
         record.notes = String(body.notes || '').trim();
@@ -201,7 +305,8 @@ exports.generatePayroll = async (req, res) => {
             success: true,
             message: 'Payroll generated.',
             data: record,
-            attendanceRecords: records.length
+            breakdown: preview.breakdown,
+            attendanceRecords: preview.attendanceRecordIds.length
         });
     } catch (error) {
         console.error('generatePayroll Error:', error);
@@ -459,3 +564,4 @@ exports.updateSalaryConfig = async (req, res) => {
 
 exports.countWorkingDays = countWorkingDays;
 exports.summarizeAttendance = summarizeAttendance;
+exports.calculatePayrollFromAttendance = calculatePayrollFromAttendance;

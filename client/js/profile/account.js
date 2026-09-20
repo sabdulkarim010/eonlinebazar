@@ -219,6 +219,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.applyAnnouncementUI(data.announcement);
                 }
 
+                renderLoyaltyDashboardCard(data);
+
                 cacheProfileAddressForCheckout(data);
 
             } else {
@@ -233,6 +235,47 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
     // ৬.১ ড্যাশবোর্ড স্ট্যাটাস ফেচ করা (Fetch Dashboard Stats)
     // =================================================================
+    function renderLoyaltyDashboardCard(profile) {
+        const card = document.getElementById('loyaltyDashboardCard');
+        if (!card || !profile) return;
+
+        const summary = profile.loyaltySummary || {};
+        const points = Number(summary.points ?? profile.loyaltyPoints) || 0;
+        card.hidden = false;
+
+        const pointsEl = document.getElementById('loyalty-card-points');
+        const tierEl = document.getElementById('loyalty-card-tier');
+        const nextWrap = document.getElementById('loyalty-next-tier-wrap');
+        const nextEl = document.getElementById('loyalty-card-next-tier');
+        const historyEl = document.getElementById('loyalty-points-history');
+
+        if (pointsEl) pointsEl.textContent = String(points);
+        if (tierEl) tierEl.textContent = summary.tierLabel || 'Member';
+
+        if (summary.nextTier && nextWrap && nextEl) {
+            nextWrap.hidden = false;
+            const needed = Math.ceil(Number(summary.nextTier.spendNeeded) || 0);
+            nextEl.textContent = `Spend ৳${needed.toLocaleString()} more for ${summary.nextTier.label}`;
+        } else if (nextWrap) {
+            nextWrap.hidden = true;
+        }
+
+        const history = Array.isArray(profile.pointsHistory) ? profile.pointsHistory : [];
+        if (historyEl) {
+            if (!history.length) {
+                historyEl.innerHTML = '<li class="loyalty-history-empty">No point activity yet.</li>';
+            } else {
+                historyEl.innerHTML = history.map((entry) => {
+                    const amount = Number(entry.amount) || 0;
+                    const sign = amount >= 0 ? '+' : '';
+                    const label = escapeHtml(entry.note || entry.type || 'Points update');
+                    const when = entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : '';
+                    return `<li><span>${label}</span><strong>${sign}${amount} pts</strong><small>${when}</small></li>`;
+                }).join('');
+            }
+        }
+    }
+
     function renderDashboardActivityFallback(message) {
         const dashboardTableBody = document.getElementById('dashboard-orders-tbody');
         if (!dashboardTableBody) return;

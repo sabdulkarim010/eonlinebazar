@@ -15,7 +15,7 @@
 
 const Admin = require('../models/admin');
 const AdminSession = require('../models/adminSession');
-const { ROLES, ACCOUNT_STATUS } = require('../config/permissions');
+const { ROLES, ACCOUNT_STATUS, accountHasPermission } = require('../config/permissions');
 
 const ACCESS_DENIED_PATH = '/admin/access-denied';
 const LOGIN_PATH = '/admin-login';
@@ -131,12 +131,45 @@ function checkPermission(...required) {
 
         if (wanted.length === 0) return next();
 
-        const granted = wanted.some(permission => account.hasPermission(permission));
+        const granted = wanted.some(permission => accountHasPermission(account, permission));
         if (granted) return next();
 
         return denyAccess(req, res, {
             permission: wanted[0],
             message: `Access denied. You do not have the "${wanted[0]}" permission. Contact the Super Admin if you need it.`
+        });
+    };
+}
+
+/** True when the account is Super Admin or has the HR role. */
+function isHrOrSuperAdmin(account) {
+    if (!account) return false;
+    if (account.isSuperAdmin()) return true;
+    const role = String(account.role || '').toLowerCase();
+    return role === 'hr' || role === 'super_admin';
+}
+
+/**
+ * HR or Super Admin only. Optional custom 403 message (e.g. manual entry).
+ * Must run after verifyAdmin.
+ */
+function requireHrOrSuperAdmin(message = 'This action requires HR or Super Admin access') {
+    return function hrOrSuperAdminGuard(req, res, next) {
+        const account = req.adminAccount;
+
+        if (!account) {
+            return res.status(401).json({
+                success: false,
+                message: 'Admin session could not be verified. Please log in again.',
+                redirect: LOGIN_PATH
+            });
+        }
+
+        if (isHrOrSuperAdmin(account)) return next();
+
+        return res.status(403).json({
+            success: false,
+            message
         });
     };
 }
@@ -164,6 +197,8 @@ module.exports = {
     attachAdminAccount,
     checkPermission,
     requireSuperAdmin,
+    requireHrOrSuperAdmin,
+    isHrOrSuperAdmin,
     denyAccess,
     ACCESS_DENIED_PATH
 };

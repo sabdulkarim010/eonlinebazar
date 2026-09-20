@@ -1,6 +1,6 @@
 # PAYMENTS & FINANCE AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20  
+**Last updated:** 2026-09-20 (Group 3 — unified finance export)  
 **Scope:** Payment gateways, reconciliation, wallet, expenses, P&L, finance analytics, accounts summary, VAT  
 **Status:** ✅ COMPLETE
 
@@ -16,6 +16,8 @@
 | `backend/src/controllers/paymentReconciliationController.js` | Manual payment reconciliation |
 | `backend/src/controllers/paymentMethodController.js` | Payment method CRUD |
 | `backend/src/controllers/financeAnalyticsController.js` | Finance KPI metrics |
+| `backend/src/services/exportService.js` | Shared Excel (xlsx) + PDF export helpers |
+| `backend/src/controllers/admin/financeExportController.js` | Unified finance export endpoint |
 | `backend/src/controllers/financeController.js` | Finance dashboard login |
 | `backend/src/controllers/admin/profitLossController.js` | P&L report API |
 | `backend/src/controllers/admin/accountsSummaryController.js` | Accounts overview API |
@@ -55,6 +57,7 @@
 - [x] Expense ledger CRUD — `expenseController.js`
 - [x] Dynamic expense categories + "Other" custom — `expenseCategoryController.js`
 - [x] Advanced P&L report — `profitLossController.js`, Chart.js charts, PDF/CSV export
+- [x] Unified finance export — `GET /api/admin/finance/export?type=excel|pdf&from=&to=` (Revenue/Expenses/Summary sheets)
 - [x] Finance analytics dashboard — `financeAnalyticsController.js`
 - [x] Accounts overview (cash flow, liquidity) — `accountsSummaryController.js`
 - [x] VAT/tax at checkout + invoice snapshot — Settings VAT fields
@@ -81,6 +84,12 @@
 ---
 
 ## Change Log
+
+### Group 3 — Unified finance export — 2026-09-20
+
+- `exportService.js` — `exportToExcel()` (3 sheets) + `exportToPDF()`
+- `GET /api/admin/finance/export` with date range; finance view **Export Excel** button
+- Tests: Jest **228/228** passing
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

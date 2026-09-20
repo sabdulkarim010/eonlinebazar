@@ -248,5 +248,53 @@ module.exports = {
             console.error('Update Rate Limit Settings Error:', error);
             res.status(500).json({ success: false, message: 'Failed to update rate limit settings.' });
         }
+    },
+
+    getGatewayStatus: async (req, res) => {
+        try {
+            const { getGatewayStatus } = require('../../services/gatewayStatusService');
+            const data = await getGatewayStatus();
+            return res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error('Get Gateway Status Error:', error);
+            return res.status(500).json({ success: false, message: 'Failed to load gateway status.' });
+        }
+    },
+
+    getAttendanceSettings: async (req, res) => {
+        try {
+            const { getAttendanceSettings } = require('../../services/attendanceSettingsService');
+            const data = await getAttendanceSettings();
+            return res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error('Get Attendance Settings Error:', error);
+            return res.status(500).json({ success: false, message: 'Failed to load attendance settings.' });
+        }
+    },
+
+    updateAttendanceSettings: async (req, res) => {
+        try {
+            const { saveAttendanceSettings } = require('../../services/attendanceSettingsService');
+            const data = await saveAttendanceSettings(req.body || {});
+
+            await logSecurityEvent({
+                action: 'Attendance Settings Updated',
+                actor: req.admin?.username || 'admin',
+                actorType: 'admin',
+                ipAddress: getClientIp(req),
+                details: `Office ${data.officeStart}-${data.officeEnd}, grace ${data.gracePeriodMinutes}min`,
+                resourceType: 'setting',
+                resourceId: 'attendance_settings'
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: 'Attendance settings saved.',
+                data
+            });
+        } catch (error) {
+            console.error('Update Attendance Settings Error:', error);
+            return res.status(500).json({ success: false, message: 'Failed to save attendance settings.' });
+        }
     }
 };

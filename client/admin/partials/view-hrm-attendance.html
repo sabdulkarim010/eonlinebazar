@@ -58,7 +58,7 @@
         <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-late">
             <i class="fa-solid fa-clock"></i> Late Report
         </button>
-        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-manual">
+        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-manual" id="hrmManualEntryTab">
             <i class="fa-solid fa-pen-to-square"></i> Manual Entry
         </button>
     </div>
@@ -169,12 +169,17 @@
                         <th>Hours</th>
                         <th>Status</th>
                         <th>Late</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="hrmAttendanceTableBody">
-                    <tr><td colspan="7" class="loading-container"><div class="spinner"></div><p>Loading attendance…</p></td></tr>
+                    <tr><td colspan="8" class="loading-container"><div class="spinner"></div><p>Loading attendance…</p></td></tr>
                 </tbody>
             </table>
+        </div>
+        <div id="hrmAttendancePagination" class="att-register-pagination" hidden>
+            <p id="hrmAttendancePageSummary" class="att-pagination-summary"></p>
+            <div id="hrmAttendancePaginationControls" class="att-pagination-controls"></div>
         </div>
     </div>
 
@@ -206,6 +211,52 @@
                     <tr><td colspan="7" class="loading-container"><div class="spinner"></div><p>Loading shifts…</p></td></tr>
                 </tbody>
             </table>
+        </div>
+
+        <div class="attendance-settings-card saas-settings-card" id="attendanceSettingsCard">
+            <div class="saas-settings-card-header">
+                <h4><i class="fa-solid fa-clock"></i> Attendance Settings</h4>
+                <p class="settings-card-sub">Default working hours used by Daily Sheet check-in and late detection.</p>
+            </div>
+            <form id="attendanceSettingsForm" class="saas-settings-form" onsubmit="event.preventDefault(); saveAttendanceSettings();">
+                <div class="saas-settings-card-body attendance-settings-grid">
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="attOfficeStart">Office Start</label>
+                            <input type="time" id="attOfficeStart" value="09:00" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="attOfficeEnd">Office End</label>
+                            <input type="time" id="attOfficeEnd" value="18:00" required>
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label for="attGracePeriod">Grace Period (late after)</label>
+                            <input type="number" id="attGracePeriod" min="0" max="180" value="15" required>
+                            <small class="form-hint">Minutes after office start</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="attHalfDayCutoff">Half-day cutoff</label>
+                            <input type="time" id="attHalfDayCutoff" value="13:00" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="attAutoAbsentAfter">Auto mark absent after</label>
+                        <input type="time" id="attAutoAbsentAfter" value="20:00" required>
+                    </div>
+                    <div class="form-group attendance-weekend-row">
+                        <label>Weekend</label>
+                        <label class="att-weekend-check"><input type="checkbox" id="attWeekendSat" checked> Sat</label>
+                        <label class="att-weekend-check"><input type="checkbox" id="attWeekendSun" checked> Sun</label>
+                    </div>
+                </div>
+                <div class="saas-settings-card-footer">
+                    <button type="submit" class="btn-primary" id="attendanceSettingsSaveBtn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Settings
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 

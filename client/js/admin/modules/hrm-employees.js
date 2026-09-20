@@ -664,6 +664,31 @@ async function uploadEmployeePhoto(id, file) {
     return res.json();
 }
 
+function ensureEmployeeSaveErrorEl(saveBtn) {
+    let errorEl = document.getElementById('employeeSaveError');
+    if (!errorEl && saveBtn?.parentElement) {
+        errorEl = document.createElement('p');
+        errorEl.id = 'employeeSaveError';
+        errorEl.className = 'hrm-save-error';
+        errorEl.hidden = true;
+        saveBtn.parentElement.appendChild(errorEl);
+    }
+    return errorEl;
+}
+
+function setEmployeeSaveError(message) {
+    const saveBtn = document.getElementById('employeeSaveBtn');
+    const errorEl = ensureEmployeeSaveErrorEl(saveBtn);
+    if (!errorEl) return;
+    if (message) {
+        errorEl.textContent = message;
+        errorEl.hidden = false;
+    } else {
+        errorEl.textContent = '';
+        errorEl.hidden = true;
+    }
+}
+
 async function saveEmployee() {
     const id = document.getElementById('employeeEditId')?.value?.trim();
     const payload = buildEmployeePayload();
@@ -674,7 +699,13 @@ async function saveEmployee() {
     }
 
     const saveBtn = document.getElementById('employeeSaveBtn');
-    if (saveBtn) saveBtn.disabled = true;
+    const defaultLabel = 'Save Employee';
+    setEmployeeSaveError('');
+
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner spinner-sm"></span> Saving...';
+    }
 
     try {
         const res = await fetch(id ? `/api/admin/hrm/employees/${id}` : '/api/admin/hrm/employees', {
@@ -685,7 +716,11 @@ async function saveEmployee() {
         const result = await res.json();
 
         if (!result.success) {
-            showToast(result.message || 'Failed to save employee.', 'error');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = defaultLabel;
+            }
+            setEmployeeSaveError(result.message || 'Failed to save employee.');
             return;
         }
 
@@ -705,16 +740,29 @@ async function saveEmployee() {
             await window.loadAdminSidebarProfile(true);
         }
 
-        showAdminSuccess(id ? 'Employee Updated' : 'Employee Added', result.message || 'Saved.');
-        closeEmployeeModal();
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span style="color:#4ade80">✓ Saved!</span>';
+        }
+
         if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
         await loadEmployeeStats();
         await loadEmployees();
+
+        setTimeout(() => {
+            closeEmployeeModal();
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = defaultLabel;
+            }
+        }, 1000);
     } catch (err) {
         console.error('saveEmployee:', err);
-        showToast('Server error while saving employee.', 'error');
-    } finally {
-        if (saveBtn) saveBtn.disabled = false;
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = defaultLabel;
+        }
+        setEmployeeSaveError('Server error while saving employee.');
     }
 }
 

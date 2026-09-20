@@ -114,7 +114,10 @@ async function fetchCustomerProfileForCheckout() {
         const data = await res.json();
         if (res.ok && data) {
             checkoutWalletBalance = Math.max(0, Number(data.walletBalance) || 0);
+            checkoutLoyaltyPoints = Math.max(0, Number(data.loyaltySummary?.points ?? data.loyaltyPoints) || 0);
+            checkoutRewardSettings = data.rewardSettings || null;
             updateCheckoutWalletUI();
+            if (typeof updateCheckoutLoyaltyUI === 'function') updateCheckoutLoyaltyUI();
             return data;
         }
     } catch (err) {
@@ -687,8 +690,12 @@ function updateCheckoutTotals(subtotal) {
     const grandTotalText = document.getElementById('checkoutGrandTotal');
 
     const merchandisePayable = syncCheckoutCouponUI(subtotal);
+    const loyaltySummary = typeof renderCheckoutLoyaltySummary === 'function'
+        ? renderCheckoutLoyaltySummary(merchandisePayable)
+        : { loyaltyDiscount: 0, merchandiseAfterLoyalty: merchandisePayable, pointsUsed: 0 };
+    const merchandiseAfterLoyalty = loyaltySummary.merchandiseAfterLoyalty ?? merchandisePayable;
     const deliveryCharge = calculateDeliveryCharge(subtotal);
-    const grandTotal = Math.round((merchandisePayable + deliveryCharge) * 100) / 100;
+    const grandTotal = Math.round((merchandiseAfterLoyalty + deliveryCharge) * 100) / 100;
 
     if (subtotalText) subtotalText.innerText = `৳${subtotal}`;
     if (deliveryChargeEl) {
@@ -707,7 +714,9 @@ function updateCheckoutTotals(subtotal) {
         deliveryCharge,
         grandTotal,
         walletApplied: walletSummary.walletApplied,
-        payableTotal: walletSummary.payableTotal
+        payableTotal: walletSummary.payableTotal,
+        loyaltyDiscount: loyaltySummary.loyaltyDiscount || 0,
+        loyaltyPointsUsed: loyaltySummary.pointsUsed || 0
     };
 }
 

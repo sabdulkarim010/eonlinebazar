@@ -269,9 +269,21 @@
                         </div>
                     </div>
 
-                    <!-- SEO Preview Card -->
+                    <!-- SEO Card -->
                     <div class="product-card">
-                        <div class="product-card-title">🔍 Search Preview</div>
+                        <div class="product-card-title">🔍 SEO &amp; Search Preview</div>
+                        <div class="form-group">
+                            <label for="prodSeoTitle">SEO Title</label>
+                            <input type="text" id="prodSeoTitle" class="pf-input" maxlength="120" placeholder="Custom title for search engines" oninput="updateSeoPreview()">
+                        </div>
+                        <div class="form-group">
+                            <label for="prodSeoDescription">SEO Description</label>
+                            <textarea id="prodSeoDescription" class="pf-input" rows="3" maxlength="320" placeholder="Meta description (160 chars recommended)" oninput="updateSeoPreview()"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="prodSeoKeywords">SEO Keywords</label>
+                            <input type="text" id="prodSeoKeywords" class="pf-input" placeholder="comma, separated, keywords">
+                        </div>
                         <div class="seo-preview-label">How it appears in Google</div>
                         <div class="seo-preview">
                             <div class="seo-title" id="seoTitle">Product Name | EOnlineBazar</div>

@@ -181,17 +181,36 @@ function buildOrderExpandedPanel(order) {
                     </dl>
                 </div>
                 <div class="order-expanded-section order-expanded-section--timeline">
-                    <h4>Status Timeline</h4>
+                    <div class="order-expanded-section-head">
+                        <h4>Status Timeline</h4>
+                        <button type="button" class="btn-secondary btn-order-invoice-download" onclick="event.stopPropagation(); downloadAdminOrderInvoice('${order._id}')">
+                            📄 Download Invoice
+                        </button>
+                    </div>
                     <div id="${timelineHostId}" class="order-expanded-timeline-host"></div>
                 </div>
             </div>
         </div>`;
 }
 
-function hydrateOrderExpandedTimeline(orderId, status) {
-    const host = document.getElementById(`order-timeline-${orderId}`);
-    if (!host || !window.OrderStatusTimeline?.renderOrderStatusTimeline) return;
-    window.OrderStatusTimeline.renderOrderStatusTimeline(host, status);
+function hydrateOrderExpandedTimeline(orderOrId, maybeStatus) {
+    const order = typeof orderOrId === 'object' && orderOrId !== null
+        ? orderOrId
+        : { _id: orderOrId, status: maybeStatus };
+    const host = document.getElementById(`order-timeline-${order._id}`);
+    if (!host) return;
+
+    if (window.OrderStatusTimeline?.renderVerticalStatusHistory) {
+        window.OrderStatusTimeline.renderVerticalStatusHistory(host, {
+            status: order.status,
+            history: order.statusHistory || []
+        });
+        return;
+    }
+
+    if (window.OrderStatusTimeline?.renderOrderStatusTimeline) {
+        window.OrderStatusTimeline.renderOrderStatusTimeline(host, order.status);
+    }
 }
 
 function updateOrderTabCounts() {
@@ -282,7 +301,7 @@ function renderCustomerTable(customers, totalFiltered) {
     if (!tbody) return;
 
     if (customers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" class="loading-container">No records found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="table-status-empty">👥 No customers found</td></tr>`;
         updateCustomersBulkToolbar();
         return;
     }

@@ -218,6 +218,9 @@ const buildUnifiedPayload = async (settingsDoc) => {
         maintenanceMode: settingsDoc.maintenanceMode === true,
         maintenanceMessage: String(settingsDoc.maintenanceMessage || '').trim()
             || 'We are currently performing scheduled maintenance. Please check back soon.',
+        maintenanceAllowedIPs: Array.isArray(settingsDoc.maintenanceAllowedIPs)
+            ? settingsDoc.maintenanceAllowedIPs.filter(Boolean)
+            : [],
         deliveryInsideCity: settingsDoc.deliveryInsideCity,
         deliveryOutsideCity: settingsDoc.deliveryOutsideCity,
         freeShippingMinAmount: announcement.freeShippingThreshold,
@@ -345,6 +348,19 @@ const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
         settings.maintenanceMessage = String(body.maintenanceMessage || '').trim()
             || 'We are currently performing scheduled maintenance. Please check back soon.';
         changes.push('Maintenance message updated');
+    }
+
+    if (body.maintenanceAllowedIPs !== undefined) {
+        const raw = Array.isArray(body.maintenanceAllowedIPs)
+            ? body.maintenanceAllowedIPs
+            : String(body.maintenanceAllowedIPs || '').split(/[\n,]+/);
+        settings.maintenanceAllowedIPs = raw
+            .map((ip) => String(ip || '').trim())
+            .filter(Boolean);
+        changes.push(`Maintenance allowlist: ${settings.maintenanceAllowedIPs.length} IP(s)`);
+        try {
+            require('../middlewares/maintenanceModeMiddleware').invalidateMaintenanceCache();
+        } catch (_) { /* noop */ }
     }
 
     if (body.vatEnabled !== undefined) {

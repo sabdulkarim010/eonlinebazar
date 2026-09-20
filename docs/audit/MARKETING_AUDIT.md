@@ -1,6 +1,6 @@
 # MARKETING AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20  
+**Last updated:** 2026-09-20 (Wishlist notifications)  
 **Scope:** Newsletter, coupons, email campaigns, loyalty tiers, referrals, abandoned carts, reviews, WhatsApp broadcasts  
 **Status:** ⚠️ PARTIAL
 
@@ -22,7 +22,11 @@
 | `backend/src/controllers/admin/crmController.js` | Abandoned carts + CRM KPIs |
 | `backend/src/controllers/admin/supportSlaController.js` | Support ticket SLA |
 | `backend/src/jobs/abandonedCartJob.js` | 24h+ cart recovery cron |
-| `backend/src/services/whatsappService.js` | WhatsApp gateway + broadcasts |
+| `backend/src/services/whatsappService.js` | WhatsApp gateway + broadcasts (suspended-safe) |
+| `backend/src/services/gatewayStatusService.js` | Cached gateway health for admin UI |
+| `backend/src/controllers/settingsController.js` | `GET /settings/gateway-status` |
+| `client/js/admin-newsletter.js` | Campaign UI + gateway banner/disable Send |
+| `client/admin/partials/view-catalog.html` | `#whatsappGatewayBanner` warning |
 | `backend/src/models/coupon.js` / `newsletter.js` / `review.js` | Marketing models |
 | `backend/src/repositories/couponRepository.js` | PG coupons |
 | `backend/src/repositories/newsletterRepository.js` | PG newsletter |
@@ -62,7 +66,7 @@
 
 | Issue | Severity | Status | Notes |
 |-------|----------|--------|-------|
-| UltraMsg WhatsApp subscription suspended | High | Open | Payment stopped; see `ADMIN_NOTES.md` — blocks WhatsApp campaigns |
+| UltraMsg WhatsApp subscription suspended | High | Mitigated | Gateway status endpoint + UI banner; Send disabled when suspended; server no longer crashes |
 | OpenAI API quota (chat AI overlap) | Medium | Open | AI chatbot credit exhausted; affects support automation |
 
 ---
@@ -76,6 +80,20 @@
 ---
 
 ## Change Log
+
+### Wishlist notification job — 2026-09-20
+
+- `wishlistNotificationJob.js` — daily 10:00 AM cron; price drop (>10%) + back-in-stock emails
+- `sendWishlistNotificationEmail()` in `mailer.js`; admin notification on send
+- Wishlist item tracking: `priceDropNotifiedAt`, `backInStockNotifiedAt`
+- Tests: Jest **228/228** passing
+
+### WhatsApp gateway hardening — 2026-09-20
+
+- `whatsappService.js`: UltraMsg wrapped in try/catch; `[WHATSAPP-SUSPENDED]` logging; safe `sendBroadcast` return shape
+- New `GET /api/admin/settings/gateway-status` (5-min cache) via `gatewayStatusService.js`
+- Campaign UI: warning banner + disabled Send when WhatsApp not `active` (`admin-newsletter.js`, `view-catalog.html`)
+- Tests: Jest **228/228** passing
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

@@ -1060,6 +1060,33 @@ async function updateOrderFieldsByLegacyId(legacyId, fieldUpdates) {
   return orderToShape({ ...record, items: [], returnItems: [], notificationsSent: null });
 }
 
+async function syncStatusHistoryByLegacyId(legacyId, statusHistory = []) {
+  const order = await prisma.order.findUnique({ where: { legacyId: String(legacyId) } });
+  if (!order) {
+    const err = new Error('Order not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  await prisma.orderStatusHistory.deleteMany({ where: { orderId: order.id } });
+
+  const rows = (Array.isArray(statusHistory) ? statusHistory : [])
+    .filter((entry) => entry && entry.status)
+    .map((entry) => ({
+      orderId: order.id,
+      status: String(entry.status).trim(),
+      changedAt: entry.changedAt ? new Date(entry.changedAt) : new Date(),
+      changedBy: String(entry.changedBy || 'system').trim(),
+      note: String(entry.note || '').trim()
+    }));
+
+  if (rows.length) {
+    await prisma.orderStatusHistory.createMany({ data: rows });
+  }
+
+  return findByLegacyId(legacyId);
+}
+
 async function updateNotificationsByLegacyId(legacyId, notificationsSent) {
   const order = await prisma.order.findUnique({ where: { legacyId: String(legacyId) } });
   if (!order) {
@@ -1538,6 +1565,7 @@ module.exports = {
   updateStatus,
   updateStatusByLegacyId,
   updateOrderFieldsByLegacyId,
+  syncStatusHistoryByLegacyId,
   updateNotificationsByLegacyId,
   syncReturnItemsByLegacyId,
   updatePaymentByLegacyId,

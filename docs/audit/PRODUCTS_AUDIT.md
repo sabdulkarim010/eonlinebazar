@@ -1,6 +1,6 @@
 # PRODUCTS & CATALOG AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20  
+**Last updated:** 2026-09-20 (Product SEO persistence)  
 **Scope:** Products, categories, brands, attributes, inventory, suppliers, warehouses, purchase orders  
 **Status:** ✅ COMPLETE
 
@@ -61,6 +61,7 @@
 - [x] ERP fields on product (supplierId, warehouseId, reorderPoint) — `product.js`
 - [x] Slug auto-generation — `productController.js`
 - [x] PG repositories for all catalog/ERP models — 38 repo files total
+- [x] Product SEO fields persisted — `seoTitle`, `seoDescription`, `seoKeywords` (Mongo + PG + form)
 - [ ] Product `slug` schema field | Index exists; no Mongoose field on schema
 
 ---
@@ -82,6 +83,14 @@
 ---
 
 ## Change Log
+
+### Product SEO persistence — 2026-09-20
+
+- Added `seoTitle`, `seoDescription`, `seoKeywords` to Product (Mongo + Prisma migration)
+- `productController` create/update + `productRepository` dual-write
+- Admin form fields + live preview in `view-products.html`, `products-form.js`
+- Price/stock tracking fields for wishlist job: `previousPrice`, `restockedAt`
+- Tests: Jest **228/228** passing
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

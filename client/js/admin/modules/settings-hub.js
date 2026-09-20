@@ -183,10 +183,12 @@ function setupUnifiedSettingsHub() {
                 ? setButtonLoading(submitBtn, 'Saving...')
                 : () => {};
 
+            const allowedRaw = document.getElementById('settingsMaintenanceAllowedIPs')?.value || '';
             const payload = {
                 orderPrefix: document.getElementById('settingsOrderPrefix')?.value?.trim(),
                 maintenanceMode: document.getElementById('settingsMaintenanceMode')?.checked === true,
                 maintenanceMessage: document.getElementById('settingsMaintenanceMessage')?.value?.trim(),
+                maintenanceAllowedIPs: allowedRaw.split(/[\n,]+/).map((ip) => ip.trim()).filter(Boolean),
                 defaultProductsPerPage: document.getElementById('settingsDefaultProductsPerPage')?.value
             };
 

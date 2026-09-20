@@ -9,4 +9,5 @@ import './modules/orders-editor.js';
 import './modules/orders-invoice.js';
 import './modules/orders-actions.js';
 import './modules/orders-table.js';
+import './modules/orders-return-requests.js';
 

@@ -409,9 +409,9 @@ function renderCouponTable() {
 
     if (!visibleCoupons.length) {
         const emptyMsg = globalCoupons.length
-            ? 'No coupons match this filter.'
-            : 'No coupons yet. Create one using the form above.';
-        tbody.innerHTML = `<tr><td colspan="8" class="cell-empty">${emptyMsg}</td></tr>`;
+            ? '🎟️ No coupons match this filter.'
+            : '🎟️ No coupons yet. Create one using the form above.';
+        tbody.innerHTML = `<tr><td colspan="8" class="table-status-empty">${emptyMsg}</td></tr>`;
         return;
     }
 

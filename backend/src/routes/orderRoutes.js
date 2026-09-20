@@ -51,6 +51,9 @@ router.get('/dashboard-stats', verifyUser, getDashboardStats);
 // URL: GET /api/orders/my-orders
 router.get('/my-orders', verifyUser, getMyOrders);
 
+// URL: GET /api/orders/my-orders/:id/invoice — customer invoice PDF
+router.get('/my-orders/:id/invoice', verifyUser, downloadOrderInvoice);
+
 // ক. ট্র্যাকিং এর জন্য পাবলিক API রুট
 // URL: GET /api/orders/track
 router.get('/track', trackOrder);
@@ -87,6 +90,9 @@ router.post('/:id/return', verifyUser, returnUserOrder);
 
 // URL: POST /api/orders/:id/return/items — per-line-item return request
 router.post('/:id/return/items', verifyUser, returnOrderItems);
+
+// URL: POST /api/orders/:id/return-request — structured return request (alias)
+router.post('/:id/return-request', verifyUser, returnOrderItems);
 
 // URL: PATCH /api/orders/:orderId/payment-proof — manual payment TRX proof
 router.patch('/:orderId/payment-proof', verifyUser, upload.single('screenshot'), submitPaymentProof);

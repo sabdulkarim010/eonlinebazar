@@ -1,6 +1,52 @@
 /* =================================================================
    12. WALLET & POINTS
    ================================================================= */
+
+.loyalty-dashboard-card .loyalty-dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.loyalty-stat {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.loyalty-stat-label {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.loyalty-points-history {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.loyalty-points-history li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.loyalty-points-history li small {
+    grid-column: 1 / -1;
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.loyalty-history-empty {
+    color: #64748b;
+    padding: 8px 0;
+}
 .wallet-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

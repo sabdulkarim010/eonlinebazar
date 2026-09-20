@@ -123,6 +123,42 @@ exports.getUserProfile = async (req, res) => {
         profile.tierUpgradedAt = profileDoc.tierUpgradedAt || null;
         profile.rewardSettings = rewardSettings;
         profile.tierSettings = tierSettings;
+
+        const spend = profile.lifetimeSpend;
+        const TIER_RANK = { none: 0, silver: 1, gold: 2, platinum: 3 };
+        const tierOrder = [
+            { key: 'silver', threshold: tierSettings.silverThreshold, label: 'Silver' },
+            { key: 'gold', threshold: tierSettings.goldThreshold, label: 'Gold' },
+            { key: 'platinum', threshold: tierSettings.platinumThreshold, label: 'Platinum' }
+        ];
+        const currentTier = String(profile.loyaltyTier || 'none').toLowerCase();
+        let nextTier = null;
+        for (const tier of tierOrder) {
+            if (spend < tier.threshold && TIER_RANK[tier.key] > (TIER_RANK[currentTier] || 0)) {
+                nextTier = {
+                    key: tier.key,
+                    label: tier.label,
+                    spendNeeded: Math.max(0, tier.threshold - spend)
+                };
+                break;
+            }
+        }
+        profile.loyaltySummary = {
+            points: Number(profileDoc.loyaltyPoints) || 0,
+            tier: currentTier,
+            tierLabel: currentTier === 'platinum' ? 'Platinum ⭐'
+                : currentTier === 'gold' ? 'Gold ⭐'
+                    : currentTier === 'silver' ? 'Silver ⭐'
+                        : 'Member',
+            lifetimeSpend: spend,
+            nextTier,
+            pointsPer100Spent: rewardSettings.takaToPointsRatio || 100,
+            redeemValuePerPoint: (rewardSettings.pointsToTakaConversionRate || 10)
+                / (rewardSettings.pointsConversionUnit || 100)
+        };
+        profile.pointsHistory = (Array.isArray(profileDoc.walletHistory) ? profileDoc.walletHistory : [])
+            .filter((entry) => /point|cashback|reward/i.test(String(entry.note || entry.type || '')))
+            .slice(0, 20);
         profile.deliverySettings = deliverySettings;
         profile.announcement = toPublicAnnouncementPayload(
             { ...masterSettings.toObject(), freeShippingThreshold: deliverySettings.freeShippingThreshold },

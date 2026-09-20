@@ -576,6 +576,9 @@ const createProduct = async (req, res) => {
             detailedDescription: detailedDescription || '', 
             highlights: parsedHighlights,
             tags: parsedTags,
+            seoTitle: String(req.body.seoTitle || '').trim(),
+            seoDescription: String(req.body.seoDescription || '').trim(),
+            seoKeywords: String(req.body.seoKeywords || '').trim(),
             images: [] 
         });
 
@@ -640,7 +643,7 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
     try {
         const productIdParam = req.params.id;
-        const { name, price, buyingPrice, stock, stockQuantity, lowStockThreshold, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags, supplierId, warehouseId, reorderPoint } = req.body;
+        const { name, price, buyingPrice, stock, stockQuantity, lowStockThreshold, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags, supplierId, warehouseId, reorderPoint, seoTitle, seoDescription, seoKeywords } = req.body;
 
         let updateFields = {};
         if (name) updateFields.name = name;
@@ -718,8 +721,27 @@ const updateProduct = async (req, res) => {
         if (tags !== undefined) {
             updateFields.tags = parseStringArray(tags);
         }
+        if (seoTitle !== undefined) updateFields.seoTitle = String(seoTitle).trim();
+        if (seoDescription !== undefined) updateFields.seoDescription = String(seoDescription).trim();
+        if (seoKeywords !== undefined) updateFields.seoKeywords = String(seoKeywords).trim();
 
-        let query = mongoose.Types.ObjectId.isValid(productIdParam) ? { _id: productIdParam } : { productId: String(productIdParam) }; 
+        let query = mongoose.Types.ObjectId.isValid(productIdParam) ? { _id: productIdParam } : { productId: String(productIdParam) };
+
+        const existingForTracking = await Product.findOne(query).select('price stock previousPrice').lean();
+        if (existingForTracking && updateFields.price !== undefined) {
+            const nextPrice = Number(updateFields.price);
+            const prevPrice = Number(existingForTracking.price);
+            if (Number.isFinite(nextPrice) && Number.isFinite(prevPrice) && nextPrice !== prevPrice) {
+                updateFields.previousPrice = prevPrice;
+            }
+        }
+        if (existingForTracking && updateFields.stock !== undefined) {
+            const prevStock = Number(existingForTracking.stock) || 0;
+            const nextStock = Number(updateFields.stock) || 0;
+            if (prevStock <= 0 && nextStock > 0) {
+                updateFields.restockedAt = new Date();
+            }
+        } 
 
         // slug রিফ্রেশ: ক্লায়েন্ট slug পাঠালে, নাম বদলালে, অথবা পুরোনো
         // প্রোডাক্টে slug না থাকলে (এডিটের সময় ব্যাকফিল) নতুন slug বসে।

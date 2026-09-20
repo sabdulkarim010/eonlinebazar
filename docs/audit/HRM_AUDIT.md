@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20  
+**Last updated:** 2026-09-20 (Group 3 — payroll calculate from attendance)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE
 
@@ -20,13 +20,14 @@
 | `backend/src/models/payroll.js` | Monthly payroll runs with attendance snapshot | ✅ |
 | `backend/src/models/designation.js` | Job title catalog | ✅ |
 | `backend/src/controllers/admin/employeeController.js` | Employee CRUD, photo/docs, grant/revoke access, `syncLinkedAdminName` | ✅ |
-| `backend/src/controllers/admin/attendanceController.js` | Attendance, shifts, clock-in/out, daily sheet, lock, past-date guard | ✅ |
+| `backend/src/controllers/admin/attendanceController.js` | Attendance, shifts, clock-in/out, daily sheet, lock, update/remove, past-date guard | ✅ |
+| `backend/src/middlewares/rbac.js` | `requireHrOrSuperAdmin`, `isHrOrSuperAdmin` for manual entry + remove | ✅ |
 | `backend/src/controllers/admin/payrollController.js` | Payroll generate/approve/paid, payslip PDF | ✅ |
 | `backend/src/controllers/admin/leaveController.js` | Leave apply/approve/reject, balance, calendar | ✅ |
 | `backend/src/controllers/admin/designationController.js` | Designation CRUD | ✅ |
 | `backend/src/controllers/admin/adminProfileController.js` | `GET /profile/me/full`, link-employee, photo/name sync | ✅ |
 | `backend/src/repositories/employeeRepository.js` | PG employee dual-write/read | ✅ |
-| `backend/src/repositories/attendanceRepository.js` | PG attendance; daily sheet, bulk mark, manual entries | ✅ |
+| `backend/src/repositories/attendanceRepository.js` | PG attendance; daily sheet, bulk mark, manual entries, `deleteByStaffAndDate` | ✅ |
 | `backend/src/repositories/attendanceLockRepository.js` | PG attendance date locks | ✅ |
 | `backend/src/repositories/shiftRepository.js` | PG shifts | ✅ |
 | `backend/src/repositories/payrollRepository.js` | PG payroll | ✅ |
@@ -55,14 +56,14 @@
 | `client/admin/partials/view-settings.html` | Link to Employee Record card (super-admin) | ✅ |
 | `client/admin/partials/sidebar.html` | Sidebar profile HTML (`#adminProfilePic`, `.admin-profile .info`) | ✅ |
 | `client/js/admin/modules/hrm-employees.js` | Employee UI + access tab; sidebar refresh after every save | ✅ |
-| `client/js/admin/modules/hrm-attendance.js` | Daily sheet auto-save, lock UI, manual entry, past-date view-only UI | ✅ |
+| `client/js/admin/modules/hrm-attendance.js` | Daily sheet auto-save, inline edit, per-row save feedback, lock UI, manual entry tab guard, toasts | ✅ |
 | `client/js/admin/modules/hrm-payroll.js` | Payroll UI | ✅ |
 | `client/js/admin/modules/hrm-leaves.js` | Leave UI | ✅ |
 | `client/js/admin/modules/adminSidebar.js` | `loadAdminSidebarProfile`, merged profile fetch | ✅ |
 | `client/js/admin/admin-core.js` | Imports `adminSidebar.js` (line 14) | ✅ |
-| `client/js/admin/modules/core-boot.js` | `fetchAdminProfile` delegates to sidebar loader | ✅ |
+| `client/js/admin/modules/core-boot.js` | `fetchAdminProfile` delegates to sidebar loader; sets `window.adminRole` | ✅ |
 | `client/js/admin/modules/core-nav.js` | Sidebar refresh after profile pic upload | ✅ |
-| `client/css/admin/_hrm.css` | Status pills, split buttons, lock bar styles | ✅ |
+| `client/css/admin/_hrm.css` | Status pills, split buttons, inline edit row, save feedback, lock bar styles | ✅ |
 
 ---
 
@@ -73,13 +74,14 @@
 - [x] Cloudinary photo + document uploads — `uploadEmployeePhoto`, `uploadEmployeeDocument`
 - [x] Designation catalog CRUD — `designationController.js`
 - [x] Attendance register (one row/staff/day) — `attendanceController.js`
-- [x] Daily Sheet tab — date/dept filter, per-row status split button, bulk mark present/absent — `getDailySheet`, `bulkMarkAttendance`
+- [x] Daily Sheet tab — date/dept filter, per-row status split button, inline check-in/out edit, bulk mark present/absent — `getDailySheet`, `bulkMarkAttendance`, `updateAttendanceDetails`, `removeAttendanceRecord`
 - [x] Attendance date lock (Super Admin lock/unlock, HTTP 423 on locked writes) — `attendanceLockRepository.js`
-- [x] Manual Entry tab — override locked dates (Super Admin), recent 30 entries — `manualEntry`, `getManualEntries`
+- [x] Manual Entry tab — HR/Super Admin only (`requireHrOrSuperAdmin`); override locked dates (Super Admin), recent 30 entries — `manualEntry`, `getManualEntries`
 - [x] Clock-in / clock-out with optional GPS — `clockIn`, `clockOut` (respects date lock + today-only for staff)
 - [x] Shift roster + late detection — shift CRUD in `attendanceController.js`
 - [x] Attendance summary + late report — `getAttendanceSummary`, `getLateReport`
 - [x] Payroll generation from attendance — `generatePayroll`
+- [x] Payroll calculate preview — `GET /hrm/payroll/calculate`; breakdown modal before save
 - [x] Payroll workflow draft → approved → paid — `approvePayroll`, `markPaid`
 - [x] PDF pay slip — `generatePaySlip`, `paySlipPdf.js`
 - [x] Leave apply/approve/reject — `leaveController.js`
@@ -94,8 +96,16 @@
 - [x] Employee photo upload → linked admin image sync — `uploadEmployeePhoto` + `syncLinkedAdminPhoto`
 - [x] Admin sidebar name sync from linked Employee — `buildAdminEmployeeProfileShape` prefers `employee.fullName`; `syncLinkedAdminName` on update
 - [x] Staff past-date attendance restriction — HTTP 403 on mark/clock/bulk for non-today dates; Daily Sheet view-only UI for staff
+- [x] HRM save feedback — per-row spinner/saved/failed on Daily Sheet; employee modal Saving/Saved; toasts for bulk/manual/lock
+- [x] Attendance Register tab loads on tab click — `hrm-tab-register` → `loadAttendanceList()` with pagination (50/page)
+- [x] HRM fetch error handling — `hrmFetchJson()` with 10s timeout + `res.ok` guard on read paths
+- [x] Daily Sheet "Set Now" clock buttons — inline check-in/out time helpers
+- [x] Register "Clock Out Now" — `POST /hrm/attendance/clock-out` from register rows missing checkout
+- [x] Attendance Settings panel — Shifts tab card; `GET/PUT /settings/attendance`
+- [x] Daily Sheet late detection — office start + grace from settings on Set Now / Present
+- [x] Granular attendance permissions — `view_attendance`, `mark_attendance_today`, `manual_attendance`, etc.
 
-**Summary: 26 of 26 features complete.**
+**Summary: 34 of 34 features complete.**
 
 ---
 
@@ -219,6 +229,37 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Group 3 — Payroll calculate from attendance — 2026-09-20
+
+- `calculatePayrollFromAttendance()` — earned salary, late deductions, net preview
+- `GET /api/admin/hrm/payroll/calculate`; payroll modal **Calculate from Attendance** + breakdown confirm
+- Payroll model stores `attendanceRecordIds`, `earnedSalary`, `attendanceDeductions`
+- Tests: Jest **228/228** passing
+
+### High Priority Features Group 2 — 2026-09-20
+
+- **Attendance Settings:** `attendanceSettingsService.js`, Settings model field, Shifts tab UI, Daily Sheet integration
+- **Granular permissions:** 15 new keys in `permissions.js`; manual entry uses `manual_attendance`; lock uses `lock_attendance_dates`
+- Files: `attendanceSettingsService.js`, `settingsController.js`, `permissions.js`, `hrm-attendance.js`, `view-hrm-attendance.html`, `_hrm.css`, `attendanceController.js`, `admin-staff.js`
+- Tests: Jest **228/228** passing
+
+### Critical Bug Fix Group 1 — 2026-09-20
+
+- **Register tab fix:** `hrmSetupTabs` now calls `loadAttendanceList()` for `hrm-tab-register`; pagination (50/page) with prev/next controls
+- **Fetch safety:** `hrmFetchJson()` helper — `res.ok` check, 10s timeout, error toast + non-infinite loading states
+- **Clock UI:** Daily Sheet "Set Now" on check-in/out fields; Register "Clock Out Now" button wired to `clock-out` API
+- **Backend:** `parsePagination` default limit 50 in `attendanceController.js`
+- Files: `hrm-attendance.js`, `view-hrm-attendance.html`, `_hrm.css`, `attendanceController.js`
+- Tests: Jest **228/228** passing
+
+### 2026-09-20 — Attendance edit controls + save feedback
+
+- **Manual Entry restricted:** `POST /manual-entry` requires HR or Super Admin (`requireHrOrSuperAdmin`); tab hidden for other roles via `window.adminRole`
+- **Daily Sheet inline edit:** ✏️ expands check-in/out/note row; `PUT /attendance/update`, `DELETE /attendance/remove` (HR/Super Admin for remove); lock guard HTTP 423
+- **Save feedback:** per-row spinner + ✓ Saved / ✗ Failed on Daily Sheet; employee Save button Saving…/✓ Saved!; `showHrmToast` for bulk/manual/lock
+- Files: `rbac.js`, `attendanceController.js`, `attendanceRepository.js`, `adminRoutes.js`, `hrm-attendance.js`, `hrm-employees.js`, `core-boot.js`, `view-hrm-attendance.html`, `_hrm.css`
+- Tests: Jest **228/228** passing
 
 ### 2026-09-20 — Bug Fix: Sidebar sync + date restriction
 

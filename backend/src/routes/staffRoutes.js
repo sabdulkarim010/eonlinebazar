@@ -24,6 +24,9 @@ router.get('/', staffController.listStaff);
 // POST /api/admin/staff — create a staff account with a permission set
 router.post('/', staffController.createStaff);
 
+// PUT /api/admin/staff/:id/permissions — update permissions only
+router.put('/:id/permissions', staffController.updateStaffPermissions);
+
 // PUT /api/admin/staff/:id — update name, email, permissions, 2FA requirement
 router.put('/:id', staffController.updateStaff);
 

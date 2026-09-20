@@ -54,6 +54,80 @@ async function exportFullBackup() {
     return { filePath, filename, cleanup, documentCount };
 }
 
+/**
+ * Export critical PostgreSQL tables via Prisma into a timestamped ZIP.
+ * Neon retains automatic backups — this is an additional manual export.
+ * @returns {Promise<{ filePath: string, filename: string, cleanup: Function, documentCount: number }>}
+ */
+async function exportPostgresBackup() {
+    let archiver;
+    try {
+        archiver = require('archiver');
+    } catch (err) {
+        throw new Error(`ZIP archiver unavailable: ${err.message}`);
+    }
+
+    let prisma;
+    try {
+        prisma = require('../config/prismaClient');
+    } catch (err) {
+        throw new Error(`PostgreSQL client unavailable: ${err.message}`);
+    }
+
+    const tableExports = [
+        { name: 'orders', fetch: () => prisma.order.findMany() },
+        { name: 'products', fetch: () => prisma.product.findMany() },
+        { name: 'users', fetch: () => prisma.user.findMany() },
+        { name: 'employees', fetch: () => prisma.employee.findMany() },
+        { name: 'attendance', fetch: () => prisma.attendance.findMany() },
+        { name: 'order_payments', fetch: () => prisma.orderPayment.findMany() }
+    ];
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `pg-backup-${dateStr}.zip`;
+    const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'eob-pg-backup-'));
+    const filePath = path.join(tmpDir, filename);
+
+    let documentCount = 0;
+    const manifest = {
+        exportedAt: new Date().toISOString(),
+        source: 'postgresql',
+        tables: {}
+    };
+
+    await new Promise((resolve, reject) => {
+        const output = fs.createWriteStream(filePath);
+        const archive = archiver('zip', { zlib: { level: 9 } });
+
+        output.on('close', resolve);
+        archive.on('error', reject);
+        archive.pipe(output);
+
+        (async () => {
+            for (const table of tableExports) {
+                // eslint-disable-next-line no-await-in-loop
+                const rows = await table.fetch();
+                documentCount += rows.length;
+                manifest.tables[table.name] = rows.length;
+                archive.append(JSON.stringify(rows, null, 2), { name: `${table.name}.json` });
+            }
+            archive.append(JSON.stringify(manifest, null, 2), { name: 'manifest.json' });
+            archive.finalize();
+        })().catch(reject);
+    });
+
+    const cleanup = async () => {
+        try {
+            await fs.promises.rm(tmpDir, { recursive: true, force: true });
+        } catch (err) {
+            console.warn('[Backup] PG temp cleanup failed:', err.message);
+        }
+    };
+
+    return { filePath, filename, cleanup, documentCount };
+}
+
 module.exports = {
-    exportFullBackup
+    exportFullBackup,
+    exportPostgresBackup
 };

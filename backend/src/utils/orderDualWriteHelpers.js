@@ -147,6 +147,22 @@ async function mirrorOrderReturnFlow(mongoDoc) {
   await mirrorOrderNotifications(mongoDoc);
 }
 
+async function mirrorOrderStatusHistory(mongoDoc) {
+  const plain = toPlain(mongoDoc);
+  const history = Array.isArray(plain.statusHistory) ? plain.statusHistory : [];
+  if (history.length === 0) return;
+
+  const repo = getOrderRepository();
+  const legacyId = String(mongoDoc._id);
+
+  try {
+    await repo.syncStatusHistoryByLegacyId(legacyId, history);
+  } catch (err) {
+    if (err.code === 'NOT_FOUND') return;
+    throw err;
+  }
+}
+
 module.exports = {
   mirrorOrderCreate,
   mirrorOrderStatusUpdate,
@@ -155,5 +171,6 @@ module.exports = {
   mirrorOrderNotifications,
   mirrorOrderReturnItems,
   mirrorOrderPaymentProof,
-  mirrorOrderReturnFlow
+  mirrorOrderReturnFlow,
+  mirrorOrderStatusHistory
 };

@@ -5,7 +5,7 @@
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { ROLES, ROLE_VALUES, ACCOUNT_STATUS, STATUS_VALUES } = require('../config/permissions');
+const { ROLES, ROLE_VALUES, ACCOUNT_STATUS, STATUS_VALUES, accountHasPermission } = require('../config/permissions');
 
 const BCRYPT_ROUNDS = 12;
 
@@ -202,11 +202,9 @@ adminSchema.methods.isBlocked = function isBlocked() {
     return this.status === ACCOUNT_STATUS.BLOCKED;
 };
 
-/** Super admins bypass every check; staff must hold the exact permission. */
+/** Super admins bypass every check; staff may hold permission directly or via parent grant. */
 adminSchema.methods.hasPermission = function hasPermission(permission) {
-    if (this.isSuperAdmin()) return true;
-    if (!permission) return true;
-    return Array.isArray(this.permissions) && this.permissions.includes(permission);
+    return accountHasPermission(this, permission);
 };
 
 /** Account shape safe to send to the browser (never includes secrets). */

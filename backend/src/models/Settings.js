@@ -328,6 +328,10 @@ const settingsSchema = new mongoose.Schema({
         type: Date,
         default: null
     },
+    lastPostgresBackupAt: {
+        type: Date,
+        default: null
+    },
     orderPrefix: {
         type: String,
         default: 'ORD',
@@ -342,6 +346,23 @@ const settingsSchema = new mongoose.Schema({
         type: String,
         default: 'We are currently performing scheduled maintenance. Please check back soon.',
         trim: true
+    },
+    maintenanceAllowedIPs: {
+        type: [String],
+        default: []
+    },
+    /** HRM attendance defaults — office hours, grace, weekend rules. */
+    attendanceSettings: {
+        type: mongoose.Schema.Types.Mixed,
+        default: () => ({
+            officeStart: '09:00',
+            officeEnd: '18:00',
+            gracePeriodMinutes: 15,
+            halfDayCutoff: '13:00',
+            autoMarkAbsentAfter: '20:00',
+            weekendSaturday: true,
+            weekendSunday: true
+        })
     }
 }, {
     timestamps: true

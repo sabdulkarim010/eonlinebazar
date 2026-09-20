@@ -786,6 +786,57 @@ async function sendTierUpgradeEmail({ to, customerName, tierLabel, message }) {
     }
 }
 
+async function sendWishlistNotificationEmail({ to, type, productName, price, previousPrice, productId }) {
+    const recipientEmail = String(to || '').trim();
+    if (!recipientEmail) {
+        return { delivered: false, reason: 'Missing recipient email' };
+    }
+    if (!SMTP_USER || !SMTP_PASS) {
+        return { delivered: false, reason: 'Email transport not configured' };
+    }
+
+    const name = String(productName || 'your wishlist item').trim();
+    const formattedPrice = Number(price || 0).toLocaleString('en-BD');
+    const isPriceDrop = type === 'price_drop';
+
+    const subject = isPriceDrop
+        ? `Good news! ${name} price dropped to ৳${formattedPrice}`
+        : `${name} is back in stock!`;
+
+    const bodyLine = isPriceDrop
+        ? `Good news! <strong>${name}</strong> price dropped to <strong>৳${formattedPrice}</strong>${previousPrice ? ` (was ৳${Number(previousPrice).toLocaleString('en-BD')})` : ''}.`
+        : `<strong>${name}</strong> is back in stock! Order now before it sells out again.`;
+
+    const mailOptions = {
+        from: `"EonlineBazar" <${SMTP_USER}>`,
+        to: recipientEmail,
+        subject: `${subject} - EonlineBazar`,
+        html: `
+            <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
+                <h2 style="color:#f97316;margin:0 0 12px;">Wishlist Update</h2>
+                <p style="color:#334155;line-height:1.6;">${bodyLine}</p>
+                <p style="margin-top:20px;">
+                    <a href="https://eonlinebazar.com/product-details?id=${encodeURIComponent(productId || '')}"
+                       style="background:#f97316;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;display:inline-block;">
+                        View Product
+                    </a>
+                </p>
+            </div>`
+    };
+
+    try {
+        const portUsed = await withTimeout(
+            sendWithFailover(mailOptions),
+            OVERALL_SEND_DEADLINE_MS,
+            'Wishlist notification email'
+        );
+        return { delivered: true, port: portUsed };
+    } catch (err) {
+        console.error('Wishlist notification email error:', err.message || err);
+        return { delivered: false, reason: err.message };
+    }
+}
+
 module.exports = {
     sendAdminOtpEmail,
     sendOrderConfirmationEmail,
@@ -798,6 +849,7 @@ module.exports = {
     sendNewsletterCampaignEmail,
     sendAbandonedCartEmail,
     sendTierUpgradeEmail,
+    sendWishlistNotificationEmail,
     buildOrderConfirmationHtml,
     buildInquiryReplyHtml,
     buildNewsletterWelcomeHtml,

@@ -2219,3 +2219,102 @@ td.col-actions button:last-child {
     }
 }
 
+/* Vertical order status timeline (admin expanded panel) */
+.order-expanded-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.order-expanded-section-head h4 {
+    margin: 0;
+}
+
+.btn-order-invoice-download {
+    font-size: 12px;
+    padding: 6px 10px;
+}
+
+.order-vtimeline {
+    position: relative;
+    padding-left: 4px;
+}
+
+.order-vtimeline__item {
+    position: relative;
+    display: flex;
+    gap: 12px;
+    padding: 0 0 18px 0;
+}
+
+.order-vtimeline__item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 16px;
+    bottom: 0;
+    width: 2px;
+    background: #e2e8f0;
+}
+
+.order-vtimeline__dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    flex-shrink: 0;
+    margin-top: 2px;
+    z-index: 1;
+}
+
+.order-vtimeline__item.is-complete .order-vtimeline__dot {
+    background: #10b981;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.order-vtimeline__item.is-current .order-vtimeline__dot {
+    background: #2563eb;
+    border-color: #2563eb;
+    animation: order-vtimeline-pulse 1.6s ease-in-out infinite;
+}
+
+.order-vtimeline__item.is-pending .order-vtimeline__dot {
+    background: #fff;
+    border-color: #cbd5e1;
+}
+
+.order-vtimeline__content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+}
+
+.order-vtimeline__content strong {
+    color: #0f172a;
+}
+
+.order-vtimeline__meta {
+    color: #64748b;
+    font-size: 12px;
+}
+
+.order-vtimeline__item.is-pending .order-vtimeline__content strong,
+.order-vtimeline__item.is-pending .order-vtimeline__meta {
+    color: #94a3b8;
+}
+
+.order-vtimeline--cancelled .order-vtimeline__item.is-cancelled .order-vtimeline__dot {
+    background: #ef4444;
+    border-color: #ef4444;
+}
+
+@keyframes order-vtimeline-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35); }
+    50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); }
+}
+

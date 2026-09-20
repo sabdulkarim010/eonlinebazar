@@ -333,6 +333,28 @@ const createOrder = async (req, res) => {
             }
         }
 
+        const { loadRewardSettings, calculatePointsCashValue } = require('../utils/rewardSettings');
+        let pointsRedeemed = 0;
+        let loyaltyDiscount = 0;
+
+        if (userId && (req.body.applyLoyaltyPoints === true || Number(req.body.loyaltyPointsToUse) > 0)) {
+            const pointsUser = await User.findById(userId).select('loyaltyPoints');
+            const availablePoints = Math.max(0, Number(pointsUser?.loyaltyPoints) || 0);
+            const requestedPoints = Math.min(
+                Math.max(0, Number(req.body.loyaltyPointsToUse) || availablePoints),
+                availablePoints
+            );
+
+            if (requestedPoints > 0) {
+                const rewardSettings = await loadRewardSettings();
+                loyaltyDiscount = roundMoney(calculatePointsCashValue(requestedPoints, rewardSettings));
+                if (loyaltyDiscount > 0) {
+                    pointsRedeemed = requestedPoints;
+                    discountAmount = roundMoney(discountAmount + loyaltyDiscount);
+                }
+            }
+        }
+
         const deliverySettings = await getDeliverySettings();
         const deliveryLocationType = resolveDeliveryZone(deliverySettings, shippingDistrict);
         const shippingLocationType = toShippingLocationLabel(deliveryLocationType);
@@ -441,6 +463,8 @@ const createOrder = async (req, res) => {
 
         const inSandbox = await isSandboxMode();
 
+        const { seedInitialStatusHistory } = require('../utils/orderStatusHistory');
+
         const newOrder = new Order({
             orderId,
             user: userId,
@@ -460,6 +484,8 @@ const createOrder = async (req, res) => {
             vatEnabled: vatSettings.vatEnabled,
             taxRegistrationNumber: vatSettings.taxRegistrationNumber,
             walletApplied,
+            pointsRedeemed,
+            loyaltyDiscount,
             couponCode: appliedCouponCode,
             deliveryLocationType,
             shippingFee: lockedDeliveryCharge,
@@ -475,10 +501,15 @@ const createOrder = async (req, res) => {
             isSandbox: inSandbox || isMockOrder
         });
 
+        seedInitialStatusHistory(newOrder, customerName || 'customer');
+
         try {
             await dualWrite(
                 () => newOrder.save(),
-                async (saved) => { await mirrorOrderCreate(saved); },
+                async (saved) => {
+                    await mirrorOrderCreate(saved);
+                    await require('../utils/orderDualWriteHelpers').mirrorOrderStatusHistory(saved);
+                },
                 {
                     model: 'Order',
                     operation: 'createCheckout',
@@ -494,6 +525,22 @@ const createOrder = async (req, res) => {
                 }
             }
             throw saveErr;
+        }
+
+        if (pointsRedeemed > 0 && userId) {
+            const pointsUser = await User.findById(userId).select('loyaltyPoints');
+            const currentPoints = Number(pointsUser?.loyaltyPoints) || 0;
+            if (currentPoints < pointsRedeemed) {
+                await Order.findByIdAndDelete(newOrder._id);
+                if (couponDocId) {
+                    try { await releaseCouponSlot(couponDocId); } catch (_) { /* noop */ }
+                }
+                return res.status(400).json({
+                    success: false,
+                    message: 'Insufficient loyalty points. Please refresh and try again.'
+                });
+            }
+            await User.findByIdAndUpdate(userId, { $inc: { loyaltyPoints: -pointsRedeemed } });
         }
 
         if (walletApplied > 0 && userId) {

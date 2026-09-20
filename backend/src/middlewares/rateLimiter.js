@@ -289,7 +289,45 @@ function getPublicRateLimitSettings(settings = cachedSettings) {
     };
 }
 
+function buildFixedLimiter({ windowMs, max, message }) {
+    const payload = typeof message === 'object' ? message : { error: String(message) };
+    return rateLimit({
+        validate: { trustProxy: false },
+        windowMs,
+        max,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message: payload,
+        skip: (req) => skipRateLimit(req) || isLocalOrDev(req),
+        handler: (req, res, next, options) => {
+            recordRateLimitHit(getClientIp(req)).catch(() => {});
+            res.status(options.statusCode || 429).json(payload);
+        }
+    });
+}
+
+const authLimiter = buildFixedLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { error: 'Too many login attempts. Try again in 15 minutes.' }
+});
+
+const otpLimiter = buildFixedLimiter({
+    windowMs: 10 * 60 * 1000,
+    max: 5,
+    message: { error: 'Too many OTP requests. Try again in 10 minutes.' }
+});
+
+const apiLimiter = buildFixedLimiter({
+    windowMs: 60 * 1000,
+    max: 100,
+    message: { error: 'Too many requests. Slow down.' }
+});
+
 module.exports = {
+    authLimiter,
+    otpLimiter,
+    apiLimiter,
     DEFAULTS,
     DEV_EXEMPT_PATH_PREFIXES,
     dynamicApiRateLimiter,

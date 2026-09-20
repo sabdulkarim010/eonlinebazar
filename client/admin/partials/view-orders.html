@@ -19,8 +19,22 @@
             <button type="button" class="order-tab" data-status="Cancelled" onclick="setOrderStatusTab('Cancelled')">
                 ❌ Cancelled <span class="tab-count cancelled" id="count-cancelled">0</span>
             </button>
+            <button type="button" class="order-tab order-tab-returns" data-status="return-requests" onclick="setOrderReturnRequestsView(true)">
+                ↩ Return Requests <span class="tab-count return-requests" id="returnRequestsTabCount">0</span>
+            </button>
         </div>
 
+        <div id="returnRequestsPanel" class="return-requests-panel" hidden>
+            <div class="return-requests-tabs" role="tablist">
+                <button type="button" class="return-requests-tab active" data-status="pending" onclick="setReturnRequestsTab('pending')">Pending</button>
+                <button type="button" class="return-requests-tab" data-status="approved" onclick="setReturnRequestsTab('approved')">Approved</button>
+                <button type="button" class="return-requests-tab" data-status="rejected" onclick="setReturnRequestsTab('rejected')">Rejected</button>
+                <button type="button" class="btn-secondary return-requests-back" onclick="setOrderReturnRequestsView(false)">← Back to Orders</button>
+            </div>
+            <div id="returnRequestsList" class="return-requests-list"></div>
+        </div>
+
+        <div id="ordersMainPanel">
         <div class="orders-toolbar">
             <div class="toolbar-left">
                 <div class="order-sandbox-filter" role="group" aria-label="Order data filter">
@@ -116,6 +130,7 @@
                 </button>
                 <span class="apg-info">Total: <strong id="order-total-count">0</strong></span>
             </div>
+        </div>
         </div>
     </div>
 </section>

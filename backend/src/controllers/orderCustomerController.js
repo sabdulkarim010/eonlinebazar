@@ -19,7 +19,7 @@ function getOrderRepository() {
     return require('../repositories/orderRepository');
 }
 
-const { generateOrderInvoicePdf, resolveInvoiceNumber } = require('../utils/invoicePdf');
+const { generateInvoicePDF } = require('../services/invoiceService');
 const { enrichOrderItemsWithImages, enrichOrdersWithImages } = require('../utils/orderItemImages');
 const { normalizeOrderStatus } = require('./orderControllerHelpers');
 const { sendAdminNotification } = require('../services/notificationService');
@@ -168,14 +168,12 @@ const downloadOrderInvoice = async (req, res) => {
         const orderObj = order.toObject ? order.toObject() : { ...order };
         await enrichOrderItemsWithImages(orderObj);
 
-        const pdfBuffer = await generateOrderInvoicePdf(orderObj);
-        const invoiceNo = resolveInvoiceNumber(orderObj);
-        const filename = `Invoice-${invoiceNo}.pdf`;
+        const { buffer, filename } = await generateInvoicePDF(orderObj);
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.setHeader('Content-Length', pdfBuffer.length);
-        return res.send(pdfBuffer);
+        res.setHeader('Content-Length', buffer.length);
+        return res.send(buffer);
     } catch (err) {
         console.error('Invoice PDF Error:', err);
         return res.status(500).json({ success: false, message: 'Failed to generate invoice PDF.' });
@@ -539,6 +537,9 @@ const returnOrderItems = async (req, res) => {
         order.actionReason = returnReason;
         order.status = 'Return Requested';
         order.returnRequestedAt = new Date();
+        const { buildReturnRequestFromOrder } = require('../utils/returnRequestHelpers');
+        order.returnRequest = buildReturnRequestFromOrder(order, { status: 'pending' });
+        order.markModified('returnRequest');
         if (!order.notificationsSent) order.notificationsSent = {};
         order.notificationsSent.returnReceived = true;
         order.markModified('returnItems');

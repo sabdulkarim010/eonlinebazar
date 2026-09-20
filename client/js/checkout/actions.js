@@ -72,6 +72,67 @@ function calculateWalletApplication(grandTotal) {
     return { walletApplied, payableTotal };
 }
 
+function initCheckoutLoyaltyControls() {
+    const checkbox = document.getElementById('applyLoyaltyCheckbox');
+    if (!checkbox) return;
+
+    checkbox.addEventListener('change', () => {
+        applyLoyaltyAtCheckout = checkbox.checked && checkoutLoyaltyPoints > 0;
+        updateCheckoutTotals(getCheckoutSubtotal());
+    });
+}
+
+function updateCheckoutLoyaltyUI() {
+    const panel = document.getElementById('checkoutLoyaltyPanel');
+    const balanceEl = document.getElementById('checkoutLoyaltyPointsBalance');
+    const labelEl = document.getElementById('checkoutLoyaltyApplyLabel');
+    const checkbox = document.getElementById('applyLoyaltyCheckbox');
+
+    if (!panel) return;
+
+    if (!customerToken || checkoutLoyaltyPoints <= 0) {
+        panel.style.display = 'none';
+        applyLoyaltyAtCheckout = false;
+        if (checkbox) checkbox.checked = false;
+        return;
+    }
+
+    panel.style.display = 'block';
+    const rate = Number(checkoutRewardSettings?.pointsToTakaConversionRate) || 10;
+    const cashValue = Math.round((checkoutLoyaltyPoints / 100) * rate);
+    if (balanceEl) balanceEl.textContent = String(checkoutLoyaltyPoints);
+    if (labelEl) {
+        labelEl.textContent = `Use ${checkoutLoyaltyPoints} loyalty points (৳${cashValue.toLocaleString('en-US')} discount)`;
+    }
+}
+
+function calculateLoyaltyApplication(merchandisePayable) {
+    if (!applyLoyaltyAtCheckout || checkoutLoyaltyPoints <= 0) {
+        return { pointsUsed: 0, loyaltyDiscount: 0, merchandiseAfterLoyalty: merchandisePayable };
+    }
+
+    const rate = Number(checkoutRewardSettings?.pointsToTakaConversionRate) || 10;
+    const maxDiscount = (checkoutLoyaltyPoints / 100) * rate;
+    const loyaltyDiscount = Math.min(maxDiscount, Math.max(0, merchandisePayable));
+    const pointsUsed = rate > 0
+        ? Math.min(checkoutLoyaltyPoints, Math.ceil((loyaltyDiscount / rate) * 100))
+        : 0;
+    const merchandiseAfterLoyalty = Math.round((merchandisePayable - loyaltyDiscount) * 100) / 100;
+
+    return { pointsUsed, loyaltyDiscount, merchandiseAfterLoyalty };
+}
+
+function renderCheckoutLoyaltySummary(merchandisePayable) {
+    const deductRow = document.getElementById('checkoutLoyaltyDeductRow');
+    const appliedEl = document.getElementById('checkoutLoyaltyApplied');
+    const { pointsUsed, loyaltyDiscount, merchandiseAfterLoyalty } = calculateLoyaltyApplication(merchandisePayable);
+
+    if (deductRow) deductRow.style.display = loyaltyDiscount > 0 ? 'flex' : 'none';
+    if (appliedEl) appliedEl.textContent = `-৳${loyaltyDiscount.toLocaleString('en-US')}`;
+
+    return { pointsUsed, loyaltyDiscount, merchandiseAfterLoyalty };
+}
+
 function renderCheckoutWalletSummary(grandTotal) {
     const deductRow = document.getElementById('checkoutWalletDeductRow');
     const payableRow = document.getElementById('checkoutPayableRow');
@@ -189,8 +250,12 @@ function temporarilyRemoveFromCheckout(productId, variantId = '') {
 Object.assign(window, {
     refreshCheckoutCouponAvailability,
     initCheckoutWalletControls,
+    initCheckoutLoyaltyControls,
     updateCheckoutWalletUI,
+    updateCheckoutLoyaltyUI,
     calculateWalletApplication,
+    calculateLoyaltyApplication,
+    renderCheckoutLoyaltySummary,
     renderCheckoutWalletSummary,
     changeItemQuantity,
     temporarilyRemoveFromCheckout

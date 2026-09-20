@@ -314,29 +314,52 @@ async function sendViaCallMeBot({ to, body, apiKey }) {
     return { delivered: true, provider: 'CallMeBot', id: responseText.slice(0, 120) };
 }
 
+function isUltraMsgSuspendedError(message) {
+    const lower = String(message || '').toLowerCase();
+    return lower.includes('suspend')
+        || lower.includes('subscription')
+        || lower.includes('payment')
+        || lower.includes('inactive')
+        || lower.includes('expired')
+        || lower.includes('unavailable');
+}
+
 async function sendViaUltraMsg({ to, body, apiKey, instanceId }) {
     const url = `https://api.ultramsg.com/${instanceId}/messages/chat`;
     console.log(`[WhatsApp] POST (UltraMsg) → ${to} · instance ${instanceId}`);
 
-    const res = await fetchWithTimeout(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: apiKey, to, body })
-    });
-
-    const responseText = await res.text();
-    let data = {};
     try {
-        data = responseText ? JSON.parse(responseText) : {};
-    } catch {
-        data = { raw: responseText };
-    }
+        const res = await fetchWithTimeout(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: apiKey, to, body })
+        });
 
-    if (!res.ok || data.error) {
-        throw new Error(data.error || data.message || data.raw || `UltraMsg HTTP ${res.status}`);
-    }
+        const responseText = await res.text();
+        let data = {};
+        try {
+            data = responseText ? JSON.parse(responseText) : {};
+        } catch {
+            data = { raw: responseText };
+        }
 
-    return { delivered: true, provider: 'UltraMsg', id: data.id || data.message_id || null };
+        if (!res.ok || data.error) {
+            const reason = data.error || data.message || data.raw || `UltraMsg HTTP ${res.status}`;
+            if (isUltraMsgSuspendedError(reason)) {
+                console.error('[WHATSAPP-SUSPENDED]', reason);
+                return { success: false, delivered: false, reason: 'WhatsApp gateway unavailable' };
+            }
+            throw new Error(reason);
+        }
+
+        return { success: true, delivered: true, provider: 'UltraMsg', id: data.id || data.message_id || null };
+    } catch (err) {
+        if (isUltraMsgSuspendedError(err.message)) {
+            console.error('[WHATSAPP-SUSPENDED]', err.message);
+            return { success: false, delivered: false, reason: 'WhatsApp gateway unavailable' };
+        }
+        throw err;
+    }
 }
 
 async function sendViaGreenApi({ to, body, apiKey, instanceId }) {
@@ -435,13 +458,18 @@ async function sendViaDirectWebhook({ to, body, webhookUrl }) {
 
 async function executeDriver(driver, { to, body, config }) {
     switch (driver) {
-        case 'UltraMsg':
-            return sendViaUltraMsg({
+        case 'UltraMsg': {
+            const ultraResult = await sendViaUltraMsg({
                 to,
                 body,
                 apiKey: config.apiKey,
                 instanceId: config.instanceId
             });
+            if (ultraResult.success === false) {
+                return { delivered: false, provider: 'UltraMsg', reason: ultraResult.reason };
+            }
+            return ultraResult;
+        }
         case 'Green API':
             return sendViaGreenApi({
                 to,
@@ -685,57 +713,76 @@ function isGatewayConfigured(config) {
  * @returns {Promise<{sent:number, failed:number, total:number, skipped:number, reason?:string}>}
  */
 async function sendBroadcast(recipients, templateMessage) {
-    const body = String(templateMessage || '').trim();
-    if (!body) {
-        return { sent: 0, failed: 0, total: 0, skipped: 0, reason: 'Empty broadcast message' };
-    }
+    try {
+        const body = String(templateMessage || '').trim();
+        if (!body) {
+            return { success: false, sent: 0, failed: 0, total: 0, skipped: 0, reason: 'Empty broadcast message' };
+        }
 
-    const numbers = [...new Set(
-        (Array.isArray(recipients) ? recipients : [])
-            .map((entry) => {
-                if (entry && typeof entry === 'object') {
-                    return sanitizeWhatsAppInput(entry.phone || entry.mobile || entry.to || '');
-                }
-                return sanitizeWhatsAppInput(entry);
-            })
-            .filter(Boolean)
-    )];
+        const numbers = [...new Set(
+            (Array.isArray(recipients) ? recipients : [])
+                .map((entry) => {
+                    if (entry && typeof entry === 'object') {
+                        return sanitizeWhatsAppInput(entry.phone || entry.mobile || entry.to || '');
+                    }
+                    return sanitizeWhatsAppInput(entry);
+                })
+                .filter(Boolean)
+        )];
 
-    if (numbers.length === 0) {
-        return { sent: 0, failed: 0, total: 0, skipped: 0, reason: 'No valid recipient numbers' };
-    }
+        if (numbers.length === 0) {
+            return { success: false, sent: 0, failed: 0, total: 0, skipped: 0, reason: 'No valid recipient numbers' };
+        }
 
-    const gatewayConfig = await loadWhatsAppAlertGatewayConfig();
-    if (!isGatewayConfigured(gatewayConfig)) {
+        const gatewayConfig = await loadWhatsAppAlertGatewayConfig();
+        if (!isGatewayConfigured(gatewayConfig)) {
+            return {
+                success: false,
+                sent: 0,
+                failed: 0,
+                total: numbers.length,
+                skipped: numbers.length,
+                reason: 'WhatsApp gateway unavailable'
+            };
+        }
+
+        let sent = 0;
+        let failed = 0;
+
+        for (const to of numbers) {
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                const result = await sendAdminAlertViaGateway({ to, body, gatewayConfig });
+                if (result.delivered) sent += 1;
+                else failed += 1;
+            } catch (err) {
+                console.error('[WHATSAPP-SUSPENDED]', err.message);
+                failed += 1;
+            }
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((resolve) => setTimeout(resolve, 350));
+        }
+
+        console.log(`[WhatsApp] Broadcast complete — ${sent} sent, ${failed} failed of ${numbers.length}`);
         return {
+            success: sent > 0,
+            sent,
+            failed,
+            total: numbers.length,
+            skipped: 0,
+            reason: sent === 0 ? 'WhatsApp gateway unavailable' : undefined
+        };
+    } catch (err) {
+        console.error('[WHATSAPP-SUSPENDED]', err.message);
+        return {
+            success: false,
             sent: 0,
             failed: 0,
-            total: numbers.length,
-            skipped: numbers.length,
-            reason: 'No WhatsApp gateway configured in Master Settings'
+            total: 0,
+            skipped: 0,
+            reason: 'WhatsApp gateway unavailable'
         };
     }
-
-    let sent = 0;
-    let failed = 0;
-
-    for (const to of numbers) {
-        try {
-            // eslint-disable-next-line no-await-in-loop
-            const result = await sendAdminAlertViaGateway({ to, body, gatewayConfig });
-            if (result.delivered) sent += 1;
-            else failed += 1;
-        } catch (err) {
-            console.warn('[WhatsApp] Broadcast send failed for', to, err.message);
-            failed += 1;
-        }
-        // Gentle spacing between messages to respect provider throughput limits.
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((resolve) => setTimeout(resolve, 350));
-    }
-
-    console.log(`[WhatsApp] Broadcast complete — ${sent} sent, ${failed} failed of ${numbers.length}`);
-    return { sent, failed, total: numbers.length, skipped: 0 };
 }
 
 module.exports = {

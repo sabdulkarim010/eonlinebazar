@@ -1,6 +1,6 @@
 # CMS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20  
+**Last updated:** 2026-09-20 (Group 4 — maintenance mode middleware + allowlist UI)  
 **Scope:** Banners, CMS pages, navbar links, footer settings, store branding, PWA  
 **Status:** ✅ COMPLETE
 
@@ -33,7 +33,8 @@
 | `client/js/admin/modules/settings-cms.js` | CMS pages admin |
 | `client/js/admin/modules/catalog-navbar.js` | Navbar + pages |
 | `client/js/admin/modules/settings-footer.js` | Footer settings |
-| `client/js/admin/modules/settings-platform.js` | Branding settings |
+| `client/js/admin/modules/settings-platform.js` | Branding + maintenance mode settings |
+| `backend/src/middlewares/maintenanceModeMiddleware.js` | Customer storefront 503 gate (admin bypass) |
 | `client/js/banner-slider.js` | Storefront banner carousel |
 | `client/js/page-content-loader.js` | CMS page renderer |
 | `client/js/footerRenderer.js` | Dynamic footer render |
@@ -55,6 +56,7 @@
 - [x] SEO sitemap consumer — `seoRoutes.js` (see storefront)
 - [x] PG dual-write + read cutover — `READ_PG_BANNER`, `READ_PG_PAGECONTENT`, `READ_PG_NAVBARLINK`, `READ_PG_FOOTERSETTINGS`, `READ_PG_SETTINGS`
 - [x] Stage 4 Step 2 CMS/Settings data sync verified — see `DATABASE_MIGRATION_AUDIT.md`
+- [x] Maintenance mode with custom message + IP allowlist — Settings Hub; `maintenanceModeMiddleware.js`
 
 ---
 
@@ -75,6 +77,12 @@
 ---
 
 ## Change Log
+
+### Group 4 — Maintenance mode — 2026-09-20
+
+- `maintenanceAllowedIPs` on Settings; admin toggle with warning banner; middleware serves branded 503 HTML
+- Admin panel and `/api/admin/*` remain available during maintenance
+- Tests: Jest **228/228** passing
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

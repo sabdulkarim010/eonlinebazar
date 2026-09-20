@@ -139,9 +139,36 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeGeneratePayrollModal()">Cancel</button>
+                <button type="button" class="btn-secondary" id="calculatePayrollBtn" onclick="calculatePayrollFromAttendance()">
+                    <i class="fa-solid fa-calendar-check"></i> Calculate from Attendance
+                </button>
                 <button type="submit" class="btn-primary" id="generatePayrollSaveBtn">Generate</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Payroll attendance breakdown preview -->
+<div id="payrollBreakdownModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closePayrollBreakdownModal()">
+    <div class="custom-modal-box" style="max-width:560px;">
+        <div class="modal-header">
+            <div>
+                <h3><i class="fa-solid fa-calculator"></i> Payroll Breakdown</h3>
+                <p class="edit-modal-subtitle">Preview from attendance before saving</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closePayrollBreakdownModal()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="payrollBreakdownBody">
+            <p class="hrm-modal-hint">Run Calculate from Attendance to see the breakdown.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closePayrollBreakdownModal()">Cancel</button>
+            <button type="button" class="btn-primary" id="confirmPayrollSaveBtn" onclick="confirmGeneratePayrollFromBreakdown()">
+                Confirm &amp; Save
+            </button>
+        </div>
     </div>
 </div>
 

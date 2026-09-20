@@ -39,8 +39,8 @@ async function countLowStockProductsFromPG() {
     const rows = await prisma.$queryRaw`
         SELECT COUNT(*)::int AS count
         FROM products
-        WHERE stock_quantity <= 0
-           OR (low_stock_threshold > 0 AND stock_quantity <= low_stock_threshold)
+        WHERE "stockQuantity" <= 0
+           OR ("lowStockThreshold" > 0 AND "stockQuantity" <= "lowStockThreshold")
     `;
     return Number(rows[0]?.count || 0);
 }

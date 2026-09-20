@@ -45,6 +45,12 @@ async function dualWriteDemotedShifts(excludeId) {
 function mirrorAttendanceDoc(saved) {
   return require('../../utils/hrmDualWriteHelpers').mirrorAttendanceDoc(saved);
 }
+const { isHrOrSuperAdmin } = require('../../middlewares/rbac');
+const { accountHasPermission } = require('../../config/permissions');
+const {
+    getAttendanceSettings,
+    isCheckInLate
+} = require('../../services/attendanceSettingsService');
 const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
 const {
     fetchAttendancePage,
@@ -56,7 +62,7 @@ const { ATTENDANCE_STATUSES, SHIFT_TYPES } = Attendance;
 
 function parsePagination(query) {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
-    const limit = Math.min(Math.max(parseInt(query.limit, 10) || 25, 1), 100);
+    const limit = Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 100);
     return { page, limit, skip: (page - 1) * limit };
 }
 
@@ -80,6 +86,8 @@ function resolveAdminRole(req) {
 
 function canEditPastAttendanceDates(req) {
     if (isRequestSuperAdmin(req)) return true;
+    const account = req.adminAccount;
+    if (account && accountHasPermission(account, 'mark_attendance_any_date')) return true;
     return resolveAdminRole(req) === 'hr';
 }
 
@@ -338,6 +346,8 @@ async function persistAttendanceMark(req, body) {
         ? String(body.shift).toLowerCase()
         : 'morning';
 
+    const attendanceSettings = await getAttendanceSettings();
+
     const record = await Attendance.findOne({ staffId: subject.staffId, date })
         || new Attendance({ staffId: subject.staffId, date });
 
@@ -345,17 +355,22 @@ async function persistAttendanceMark(req, body) {
     record.staffUsername = subject.staffUsername;
     record.status = status;
     record.shift = shiftType;
-    record.shiftStart = String(body.shiftStart || shiftWindow.startTime).trim();
-    record.shiftEnd = String(body.shiftEnd || shiftWindow.endTime).trim();
+    record.shiftStart = String(body.shiftStart || shiftWindow.startTime || attendanceSettings.officeStart).trim();
+    record.shiftEnd = String(body.shiftEnd || shiftWindow.endTime || attendanceSettings.officeEnd).trim();
     record.notes = String(body.note || body.notes || '').trim();
     record.markedBy = actorName(req);
     record.modifiedBy = actorDisplayName(req);
     record.modifiedAt = new Date();
     if (body.isManualEntry !== undefined) record.isManualEntry = Boolean(body.isManualEntry);
 
-    if (body.checkIn !== undefined) {
-        record.clockIn = body.checkIn
-            ? combineDateAndTime(date, body.checkIn) || new Date(body.checkIn)
+    let checkInTimeStr = body.checkIn;
+    if (checkInTimeStr === undefined && status === 'present' && !record.clockIn) {
+        checkInTimeStr = attendanceSettings.officeStart;
+    }
+
+    if (checkInTimeStr !== undefined) {
+        record.clockIn = checkInTimeStr
+            ? combineDateAndTime(date, checkInTimeStr) || new Date(checkInTimeStr)
             : null;
     }
     if (body.checkOut !== undefined) {
@@ -364,10 +379,30 @@ async function persistAttendanceMark(req, body) {
             : null;
     }
 
-    if (status === 'late') {
+    let resolvedCheckIn = checkInTimeStr;
+    if (!resolvedCheckIn && record.clockIn) {
+        const d = new Date(record.clockIn);
+        if (!Number.isNaN(d.getTime())) {
+            resolvedCheckIn = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        }
+    }
+
+    if ((status === 'present' || status === 'late') && resolvedCheckIn && isCheckInLate(resolvedCheckIn, attendanceSettings)) {
+        record.status = 'late';
+        record.isLate = true;
+        const startMin = Attendance.parseShiftMinutes(attendanceSettings.officeStart);
+        const checkMin = Attendance.parseShiftMinutes(resolvedCheckIn);
+        const computedLate = (startMin !== null && checkMin !== null)
+            ? Math.max(0, checkMin - startMin - attendanceSettings.gracePeriodMinutes)
+            : 0;
+        record.lateMinutes = Number(body.lateMinutes) || computedLate;
+    } else if (status === 'late') {
         record.isLate = true;
         if (!record.lateMinutes) record.lateMinutes = Number(body.lateMinutes) || 0;
     } else if (status !== 'present') {
+        record.isLate = false;
+        record.lateMinutes = 0;
+    } else {
         record.isLate = false;
         record.lateMinutes = 0;
     }
@@ -732,6 +767,159 @@ exports.bulkMarkAttendance = async (req, res) => {
     } catch (error) {
         console.error('bulkMarkAttendance Error:', error);
         res.status(500).json({ success: false, message: 'Failed to bulk mark attendance.' });
+    }
+};
+
+/**
+ * PUT /api/admin/hrm/attendance/update
+ * Body: { employeeId, date, checkIn, checkOut, note }
+ */
+exports.updateAttendanceDetails = async (req, res) => {
+    try {
+        const body = req.body || {};
+        const subject = await resolveHrmSubject({
+            employeeId: body.employeeId,
+            staffType: 'employee',
+            staffId: body.employeeId
+        });
+        if (!subject) {
+            return res.status(404).json({ success: false, message: 'Staff member not found.' });
+        }
+
+        const date = Attendance.normalizeDate(body.date);
+        if (!date) {
+            return res.status(400).json({ success: false, message: 'A valid date is required.' });
+        }
+
+        const pastDateBlock = assertStaffAttendanceDateAllowed(req, date);
+        if (pastDateBlock) {
+            return res.status(pastDateBlock.status).json(pastDateBlock.body);
+        }
+
+        const lockInfo = await getLockStatusMerged(date);
+        if (lockInfo?.isLocked && !isRequestSuperAdmin(req)) {
+            return res.status(423).json({ success: false, message: 'Date is locked' });
+        }
+
+        const record = await Attendance.findOne({ staffId: subject.staffId, date });
+        if (!record) {
+            return res.status(404).json({ success: false, message: 'Attendance record not found.' });
+        }
+
+        if (body.checkIn !== undefined) {
+            record.clockIn = body.checkIn
+                ? combineDateAndTime(date, body.checkIn) || new Date(body.checkIn)
+                : null;
+        }
+        if (body.checkOut !== undefined) {
+            record.clockOut = body.checkOut
+                ? combineDateAndTime(date, body.checkOut) || new Date(body.checkOut)
+                : null;
+        }
+        if (body.note !== undefined || body.notes !== undefined) {
+            record.notes = String(body.note || body.notes || '').trim();
+        }
+
+        record.modifiedBy = actorDisplayName(req);
+        record.modifiedAt = new Date();
+
+        await dualWrite(
+            () => record.save(),
+            async (saved) => { await mirrorAttendanceDoc(saved); },
+            {
+                model: 'Attendance',
+                operation: 'update',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
+
+        await logSecurityEvent({
+            action: 'Attendance Updated',
+            actor: actorName(req),
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${subject.staffUsername} — times/notes on ${date.toISOString().slice(0, 10)}`,
+            resourceType: 'attendance',
+            resourceId: String(record._id)
+        });
+
+        res.status(200).json({ success: true, message: 'Attendance updated.', data: record });
+    } catch (error) {
+        console.error('updateAttendanceDetails Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update attendance.' });
+    }
+};
+
+/**
+ * DELETE /api/admin/hrm/attendance/remove
+ * Body: { employeeId, date }
+ */
+exports.removeAttendanceRecord = async (req, res) => {
+    try {
+        if (!isHrOrSuperAdmin(req.adminAccount)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Removing attendance requires HR or Super Admin access.'
+            });
+        }
+
+        const body = req.body || {};
+        const subject = await resolveHrmSubject({
+            employeeId: body.employeeId,
+            staffType: 'employee',
+            staffId: body.employeeId
+        });
+        if (!subject) {
+            return res.status(404).json({ success: false, message: 'Staff member not found.' });
+        }
+
+        const date = Attendance.normalizeDate(body.date);
+        if (!date) {
+            return res.status(400).json({ success: false, message: 'A valid date is required.' });
+        }
+
+        const lockInfo = await getLockStatusMerged(date);
+        if (lockInfo?.isLocked && !isRequestSuperAdmin(req)) {
+            return res.status(423).json({ success: false, message: 'Date is locked' });
+        }
+
+        const record = await Attendance.findOne({ staffId: subject.staffId, date });
+        if (!record) {
+            return res.status(404).json({ success: false, message: 'Attendance record not found.' });
+        }
+
+        const mongoId = String(record._id);
+
+        await dualWrite(
+            () => Attendance.deleteOne({ _id: record._id }),
+            async () => {
+                try {
+                    await attendanceRepo.deleteByStaffAndDate(subject.staffId, date);
+                } catch (err) {
+                    if (err.code !== 'NOT_FOUND') throw err;
+                }
+            },
+            {
+                model: 'Attendance',
+                operation: 'delete',
+                mongoId
+            }
+        );
+
+        await logSecurityEvent({
+            action: 'Attendance Removed',
+            actor: actorName(req),
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${subject.staffUsername} — ${date.toISOString().slice(0, 10)}`,
+            resourceType: 'attendance',
+            resourceId: mongoId
+        });
+
+        res.status(200).json({ success: true, message: 'Attendance record removed.' });
+    } catch (error) {
+        console.error('removeAttendanceRecord Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to remove attendance.' });
     }
 };
 

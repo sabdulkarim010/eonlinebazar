@@ -760,31 +760,35 @@ window.bulkApplyOrderStatus = async function() {
     const newStatus = document.getElementById('bulk-order-status')?.value;
     if (!newStatus) return;
 
-    let successCount = 0;
-    for (const orderId of selected) {
-        try {
-            const response = await fetch(`/api/orders/${orderId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ status: newStatus })
-            });
-            const result = await response.json();
-            if (result.success) successCount += 1;
-        } catch (_) { /* continue */ }
-    }
-
-    if (successCount > 0) {
-        showToast(`Updated ${successCount} order(s) to ${newStatus}.`, 'success');
-        selected.forEach((orderId) => {
-            const idx = globalOrders.findIndex((o) => String(o._id) === String(orderId));
-            if (idx !== -1) globalOrders[idx] = { ...globalOrders[idx], status: newStatus };
+    try {
+        const response = await fetch('/api/admin/orders/bulk-status', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ orderIds: selected, status: newStatus })
         });
-        applyOrderFilters(false);
-    } else {
-        showToast('Could not update selected orders.', 'error');
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            showToast(result.message || 'Could not update selected orders.', 'error');
+            return;
+        }
+
+        const successCount = Number(result.updated) || 0;
+        if (successCount > 0) {
+            showToast(`${successCount} order(s) updated to ${newStatus}.`, 'success');
+            selected.forEach((orderId) => {
+                const idx = globalOrders.findIndex((o) => String(o._id) === String(orderId));
+                if (idx !== -1) globalOrders[idx] = { ...globalOrders[idx], status: newStatus };
+            });
+            applyOrderFilters(false);
+        } else {
+            showToast(result.message || 'Could not update selected orders.', 'error');
+        }
+    } catch (_) {
+        showToast('Server error during bulk status update.', 'error');
     }
 };
 

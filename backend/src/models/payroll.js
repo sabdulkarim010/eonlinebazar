@@ -38,7 +38,11 @@ const payrollSchema = new mongoose.Schema({
     paymentMethod: { type: String, default: '', trim: true },
     paySlipGenerated: { type: Boolean, default: false },
     notes: { type: String, default: '', trim: true },
-    createdBy: { type: String, default: '', trim: true }
+    createdBy: { type: String, default: '', trim: true },
+    /** Attendance rows used when this payroll run was generated. */
+    attendanceRecordIds: { type: [String], default: [] },
+    earnedSalary: { type: Number, default: 0 },
+    attendanceDeductions: { type: Number, default: 0 }
 }, { timestamps: true });
 
 // One run per staff member per month — regenerating overwrites the draft
