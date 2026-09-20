@@ -137,6 +137,12 @@ router.get('/me/avatar', verifyAdmin, (req, res) => {
     }
 });
 
+// Admin profile — specific /profile/* paths MUST register before bare /profile
+router.get('/profile/me/full', verifyAdmin, adminProfileController.getAdminProfileFull);
+router.put('/profile/link-employee', verifyAdmin, requireSuperAdmin, adminProfileController.linkAdminEmployee);
+router.get('/profile', verifyAdmin, adminController.getAdminProfile);
+router.put('/profile', verifyAdmin, adminController.updateAdminProfile);
+
 router.put('/me/avatar', verifyAdmin, async (req, res) => {
     try {
         const { avatar } = req.body || {};
@@ -597,16 +603,13 @@ router.patch('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'),
 router.delete('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.deleteEmployee);
 
 // — Attendance —
-// Named sub-paths are declared before the bare /hrm/attendance list route so
-// "daily-sheet", "summary", etc. are never swallowed by a catch-all.
-router.get('/hrm/attendance/daily-sheet', verifyAdmin, checkPermission('manage_staff'), attendanceController.getDailySheet);
-router.get('/hrm/attendance/summary', verifyAdmin, checkPermission('manage_staff'), attendanceController.getAttendanceSummary);
-router.get('/hrm/attendance/late-report', verifyAdmin, checkPermission('manage_staff'), attendanceController.getLateReport);
-router.get('/hrm/attendance/lock-status', verifyAdmin, checkPermission('manage_staff'), attendanceController.getLockStatus);
-router.get('/hrm/attendance/manual-entries', verifyAdmin, checkPermission('manage_staff'), attendanceController.getManualEntries);
-router.put('/hrm/attendance/update', verifyAdmin, checkPermission('manage_staff'), attendanceController.updateAttendanceDetails);
-router.delete('/hrm/attendance/remove', verifyAdmin, checkPermission('manage_staff'), attendanceController.removeAttendanceRecord);
-router.post('/hrm/attendance/mark', verifyAdmin, checkPermission('manage_staff'), attendanceController.markAttendance);
+// Named sub-paths MUST register before bare GET /hrm/attendance (list route last).
+router.get('/hrm/attendance/daily-sheet', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getDailySheet);
+router.get('/hrm/attendance/lock-status', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getLockStatus);
+router.get('/hrm/attendance/manual-entries', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getManualEntries);
+router.get('/hrm/attendance/summary', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getAttendanceSummary);
+router.get('/hrm/attendance/late-report', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getLateReport);
+router.post('/hrm/attendance/mark', verifyAdmin, checkPermission('manage_staff', 'mark_attendance_today'), attendanceController.markAttendance);
 router.post('/hrm/attendance/bulk-mark', verifyAdmin, checkPermission('manage_staff'), attendanceController.bulkMarkAttendance);
 router.post(
     '/hrm/attendance/manual-entry',
@@ -615,10 +618,12 @@ router.post(
     attendanceController.manualEntry
 );
 router.post('/hrm/attendance/lock', verifyAdmin, checkPermission('lock_attendance_dates', 'manage_staff'), attendanceController.lockAttendanceDate);
-router.delete('/hrm/attendance/lock', verifyAdmin, checkPermission('lock_attendance_dates', 'manage_staff'), attendanceController.unlockAttendanceDate);
+router.delete('/hrm/attendance/lock', verifyAdmin, requireSuperAdmin, attendanceController.unlockAttendanceDate);
+router.put('/hrm/attendance/update', verifyAdmin, checkPermission('manage_staff'), attendanceController.updateAttendanceDetails);
+router.delete('/hrm/attendance/remove', verifyAdmin, checkPermission('manage_staff'), attendanceController.removeAttendanceRecord);
 router.post('/hrm/attendance/clock-in', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockIn);
 router.post('/hrm/attendance/clock-out', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockOut);
-router.get('/hrm/attendance', verifyAdmin, checkPermission('manage_staff'), attendanceController.getAttendanceList);
+router.get('/hrm/attendance', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getAttendanceList);
 
 // — Shifts —
 router.get('/hrm/shifts', verifyAdmin, checkPermission('manage_staff'), attendanceController.getShifts);
@@ -680,13 +685,6 @@ router.post(
 
 // ৭. প্রোফাইল পিকচার আপলোড করার রাস্তা (POST)
 router.post('/update-profile-pic', verifyAdmin, upload.single('profilePic'), adminController.updateProfilePic);
-
-// ৮. অ্যাডমিন প্রোফাইল (GET ছবি / PUT প্রোফাইল ডিটেইলস)
-// Specific /profile/* paths must register before bare /profile.
-router.get('/profile/me/full', verifyAdmin, adminProfileController.getAdminProfileFull);
-router.put('/profile/link-employee', verifyAdmin, requireSuperAdmin, adminProfileController.linkAdminEmployee);
-router.get('/profile', verifyAdmin, adminController.getAdminProfile);
-router.put('/profile', verifyAdmin, adminController.updateAdminProfile);
 
 /********************************************************************
  # Database backup — super-admin export only (no restore)

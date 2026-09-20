@@ -2129,3 +2129,8 @@ docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD] loyalty card + checkout redemption
 docs/audit/CMS_AUDIT.md [MOD] maintenance middleware
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Final Polish Group 4 — 2026-09-20"
 README.md [MOD] Enterprise Ready 100% badge
+
+# Production Route Fix — 2026-09-20
+backend/src/routes/adminRoutes.js [MOD] /profile/me/full moved to top (before /me/*); attendance routes reordered; DELETE /hrm/attendance/lock uses requireSuperAdmin; view_attendance on daily-sheet
+backend/src/controllers/admin/enterpriseSummaryController.js [MOD] Prisma camelCase low-stock query; per-metric safeMetric + partial 200 response
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Production Route Fix — 2026-09-20"

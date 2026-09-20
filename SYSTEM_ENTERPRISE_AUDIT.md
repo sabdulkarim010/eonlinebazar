@@ -2716,6 +2716,18 @@ See `docs/audit/HRM_AUDIT.md` for file/line evidence and full inventory.
 | Bulk/manual/lock toasts | ✅ | `showHrmToast` wraps existing `showToast` |
 | Jest regression suite | ✅ | **228/228** passing |
 
+## Production Route Fix — 2026-09-20
+
+**Status:** ✅ Fixed — four production 404/500 errors resolved
+
+| Issue | Status | Fix |
+|-------|--------|-----|
+| `GET /api/admin/profile/me/full` 404 | ✅ | Route moved to top of `adminRoutes.js` (line ~140), before `/me/*` and all param routes |
+| `GET /api/admin/enterprise-summary` 500 | ✅ | `countLowStockProductsFromPG()` uses quoted `"stockQuantity"` / `"lowStockThreshold"` on `"products"`; per-metric `safeMetric()` returns partial 200 |
+| `GET /api/admin/hrm/attendance/daily-sheet` 404 | ✅ | Named attendance routes reordered; `daily-sheet` first; `view_attendance` permission added |
+| `DELETE /api/admin/hrm/attendance/lock` 404 | ✅ | Route confirmed + `requireSuperAdmin` middleware; `unlockAttendanceDate` export verified |
+| Jest regression suite | ✅ | **228/228** passing |
+
 ## Final Polish Group 4 — 2026-09-20
 
 **Status:** ✅ **100% Enterprise Ready** — full report: `docs/audit/MASTER_ENTERPRISE_AUDIT.md`
