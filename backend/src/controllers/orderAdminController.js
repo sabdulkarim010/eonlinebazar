@@ -10,6 +10,7 @@ const Product = require('../models/product');
 const Order = require('../models/order');
 const { dualWrite } = require('../services/dualWriteService');
 const { routedRead } = require('../services/readRouter');
+const { mongoLeanToListSummary } = require('../services/orderListShapeHelpers');
 
 function getOrderDualWriteHelpers() {
     return require('../utils/orderDualWriteHelpers');
@@ -505,8 +506,11 @@ const getOrders = async (req, res) => {
     try {
         const orders = await routedRead(
             'order',
-            // Mongo
-            async () => Order.find().sort({ createdAt: -1 }),
+            // Mongo — list summary shape (matches findAllDetailed, not full nested doc)
+            async () => {
+                const docs = await Order.find().sort({ createdAt: -1 }).lean();
+                return docs.map((doc) => mongoLeanToListSummary(doc));
+            },
             // Postgres
             async () => {
                 const repo = getOrderRepository();

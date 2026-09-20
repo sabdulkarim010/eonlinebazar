@@ -1747,10 +1747,15 @@ REFACTOR_MAP.md [MOD] this entry
 # PostgreSQL migration — Stage 4 Step 7 Part B: Order live verification — 2026-09-17
 
 scripts/verify-order-read-cutover.local.js [NEW] repository-level verification (5 real orders, 100% PASS)
+scripts/verify-order-read-cutover-http.local.js [NEW] full HTTP endpoint verification (6 endpoints, field-level parity, 0 fallbacks)
 scripts/search-unverified-cases-wide.local.js [NEW] full database search (10 null productId items found, 0 return items)
 scripts/verify-null-product-case.local.js [NEW] null productId case verification (1 order, PASS)
-Result: 3 of 4 cases verified (payment+IPN, payment proof, null productId); return items accepted gap; zero discrepancies on financial/identity fields; ready for ops sign-off
-DATABASE_MIGRATION_AUDIT.md [MOD] Stage 4 Step 7 Part B section added
+backend/src/repositories/orderRepository.js [MOD] user legacy ID resolution, list/detail parity (payment proof, notifications, item overlay, defaults)
+backend/src/services/orderListShapeHelpers.js [NEW] Prisma-free mongoLeanToListSummary / omitNullFields / notificationsToMongooseShape
+backend/src/controllers/orderCustomerController.js [MOD] getOrderById via routedRead; Mongo list paths use orderListShapeHelpers (Jest-safe)
+backend/src/controllers/orderAdminController.js [MOD] admin list Mongo path uses orderListShapeHelpers
+Result: 6/6 HTTP endpoints PASS (my-orders, :id×2, invoice, track, dashboard-stats, admin list); 3/4 edge cases verified; return items accepted gap; npm test 228/228; test:repositories 157/157; ready for ops sign-off
+DATABASE_MIGRATION_AUDIT.md [MOD] Stage 4 Step 7 Part B HTTP verification section (corrected from repository-only claim)
 REFACTOR_MAP.md [MOD] this entry
 
 # PostgreSQL migration — Stage 4 Step 5: Read-cutover Marketing/Support group — 2026-09-16

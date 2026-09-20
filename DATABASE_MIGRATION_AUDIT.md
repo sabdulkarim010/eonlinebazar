@@ -3681,20 +3681,35 @@ Searched the **full Mongo collection (25 total orders)** and **all Postgres Orde
 
 **Summary:** **3 of 4 cases verified** against real data. Return items remain an accepted gap — no orders with returns exist in the current dataset, but the reassembly logic is correct and will handle returns when they occur.
 
-### HTTP endpoint verification status
+### Live HTTP endpoint verification (Part B completion)
 
-**Note:** This verification was performed at the **repository level** (direct calls to `findOrderDetailedByLegacyId()` and `findAllDetailed()`), not via HTTP requests. The 6 wired endpoints use `routedRead()` which calls these repository functions — repository-level verification provides equivalent assurance for the read path.
+**Script:** `scripts/verify-order-read-cutover-http.local.js`
 
-| Endpoint | Verification Method | Result |
-|---|---|---|
-| `GET /api/orders/my-orders` | Repository-level (`findAllDetailed`) | ✅ Tested via 5 real orders |
-| `GET /api/orders/:id` | Repository-level (`findOrderDetailedByLegacyId`) | ✅ Tested via 5 real orders |
-| `GET /api/orders/:id/invoice` | Repository-level | ✅ Uses `findOrderDetailedByLegacyId` |
-| `GET /api/orders/track` | Repository-level | ✅ Uses `findOrderDetailedByLegacyId` |
-| `GET /api/orders/dashboard-stats` | Repository-level | ✅ Uses `findAllDetailed` |
-| `GET /api/orders/` (admin) | Repository-level | ✅ Uses `findAllDetailed` |
+Full **HTTP-level** verification via supertest against `tests/app`, toggling `READ_PG_ORDER` in-process (same pattern as Group 6). Each endpoint is called twice (Mongo flag OFF vs Postgres flag ON) and response bodies are compared field-by-field (excluding volatile timestamps).
 
-**Fallback monitoring:** Zero `[READ-CUTOVER-FALLBACK]` entries during verification.
+**Auth fixes applied for HTTP verification:**
+- **Admin list (`GET /api/orders/`)** — JWT must use `{ username, role: 'admin' }` (not `{ id }`) to pass `verifyAdmin` + `checkPermission('manage_orders')`.
+- **Invoice (`GET /api/orders/:id/invoice`)** — Postgres reassembly maps `user` back to Mongo legacy ObjectId so ownership check `order.user.toString() === req.user.id` passes.
+
+**Parity fixes applied for HTTP verification:**
+- `mongoLeanToListSummary()` shared list shape for Mongo read paths (matches `findAllDetailed()` output).
+- User legacy ID resolution, notification defaults, payment proof subdoc, item ordering via Mongo snapshot overlay.
+- `getOrderById` wired through `routedRead()` (was Mongo-only in Part A).
+- Prisma-free `orderListShapeHelpers.js` so Jest Mongo paths do not load Prisma.
+
+| Endpoint | HTTP status (Mongo/PG) | Field-level parity | Result |
+|---|---|---|---|
+| `GET /api/orders/my-orders` | 200 / 200 | ✅ Full JSON match | ✅ **PASS** |
+| `GET /api/orders/:id` (payment EOB352403) | 200 / 200 | ✅ Full JSON match | ✅ **PASS** |
+| `GET /api/orders/:id` (proof EOB425345) | 200 / 200 | ✅ Full JSON match | ✅ **PASS** |
+| `GET /api/orders/:id/invoice` | 200 / 200 | ✅ Both return valid PDF (>100 bytes) | ✅ **PASS** |
+| `GET /api/orders/track` | 200 / 200 | ✅ Full JSON match | ✅ **PASS** |
+| `GET /api/orders/dashboard-stats` | 200 / 200 | ✅ Full JSON match | ✅ **PASS** |
+| `GET /api/orders/` (admin list) | 200 / 200 | ✅ Full JSON match (25 orders) | ✅ **PASS** |
+
+**Result:** **6/6 endpoints PASS** — zero field-level diffs, zero `[READ-CUTOVER-FALLBACK]` entries.
+
+**Test data:** payment order `6a6687538476921364dd1223` (EOB352403), proof order `6a64dce0add63607ba4535d1` (EOB425345), track order EOB163302, test user `6a1e6cd79cd884b04449c9a1`.
 
 ### Data drift assessment
 
@@ -3705,7 +3720,7 @@ Searched the **full Mongo collection (25 total orders)** and **all Postgres Orde
 - Payment status (where present)
 - Notification flags (correctly mapped `outForDelivery` → `out_for_delivery`)
 
-### Regression checks (Part B)
+### Regression checks (Part B — final)
 
 | Suite | Result |
 |---|---|
@@ -3713,20 +3728,28 @@ Searched the **full Mongo collection (25 total orders)** and **all Postgres Orde
 | `npm run test:repositories` | **157/157** pass ✅ |
 | Repository-level verification | **5/5** orders pass ✅ |
 | Null productId verification | **1/1** order pass ✅ |
+| Live HTTP endpoint verification | **6/6** endpoints pass ✅ |
 
-### Files modified (Part B)
+### Files modified (Part B — final)
 
 - **New verification scripts:**
   - `scripts/verify-order-read-cutover.local.js` — Repository-level comparison (Mongo vs Postgres)
+  - `scripts/verify-order-read-cutover-http.local.js` — Full HTTP endpoint verification (6 endpoints, field-level parity)
   - `scripts/search-unverified-cases-wide.local.js` — Full database search for unverified cases
   - `scripts/verify-null-product-case.local.js` — Dedicated null productId case test
+- **Parity / auth fixes:**
+  - `backend/src/repositories/orderRepository.js` — user legacy ID, list/detail reassembly parity
+  - `backend/src/services/orderListShapeHelpers.js` — Prisma-free shared list summary shape
+  - `backend/src/controllers/orderCustomerController.js` — `getOrderById` + list paths via shared shape
+  - `backend/src/controllers/orderAdminController.js` — admin list via shared shape
 
 ### Order read-cutover readiness — FINAL VERDICT
 
 **Status:** ✅ **READY FOR OPS SIGN-OFF**
 
 **Evidence:**
-- ✅ **5/5 real orders** verified with **zero discrepancies** on critical financial and identity fields
+- ✅ **6/6 HTTP endpoints** verified with **field-level JSON parity** (Mongo vs Postgres)
+- ✅ **5/5 real orders** verified at repository level with **zero discrepancies** on critical financial and identity fields
 - ✅ **3 of 4 edge cases** verified against real data (payment+IPN, payment proof, null productId)
 - ✅ **1 accepted gap** (return items — no real data exists, code correct by design)
 - ✅ **Zero fallbacks** during verification
@@ -3751,17 +3774,19 @@ Searched the **full Mongo collection (25 total orders)** and **all Postgres Orde
 
 **Order is the most complex model migrated so far** (7 tables, financial data, payment/IPN/notification state) — Part A + Part B split allowed thorough incremental verification without rushing the highest-stakes cutover in the migration.
 
-**Live HTTP verification:** Deferred to **Part B** (separate task) — will run dedicated script against HTTP endpoints with live user tokens, target 100% PASS before flag enable.
+**Live HTTP verification:** ✅ **COMPLETE** — `scripts/verify-order-read-cutover-http.local.js` reports **6/6 PASS**, 0 fallbacks.
 
-### Files modified
+### Files modified (Part A + Part B combined)
 
 | File | Change |
 |---|---|
 | `backend/src/config/readCutoverFlags.js` | Added `order: 'READ_PG_ORDER'` |
-| `backend/src/repositories/orderRepository.js` | `findOrderDetailedByLegacyId()`, `findAllDetailed()`, exports |
-| `backend/src/controllers/orderCustomerController.js` | Wired 5 GET endpoints via `routedRead()` |
-| `backend/src/controllers/orderAdminController.js` | Wired admin order list |
+| `backend/src/repositories/orderRepository.js` | `findOrderDetailedByLegacyId()`, `findAllDetailed()`, parity fixes |
+| `backend/src/services/orderListShapeHelpers.js` | Prisma-free shared list summary shape |
+| `backend/src/controllers/orderCustomerController.js` | Wired 5 GET endpoints + invoice via `routedRead()` |
+| `backend/src/controllers/orderAdminController.js` | Wired admin order list via `routedRead()` |
 | `tests/repositories/order.readcutover.test.js` | New 9-test unit test file (standalone) |
+| `scripts/verify-order-read-cutover-http.local.js` | Live HTTP verification script |
 
-**Flag remains OFF** — enable only after Part B live verification PASS.
+**Flag remains OFF** — enable only after ops sign-off (HTTP verification PASS achieved).
 

@@ -19,6 +19,11 @@
 const prisma = require('../config/prismaClient');
 const { UUID_PATTERN } = require('./productRepository');
 const { resolvePostgresUserId } = require('./userRepository');
+const {
+  omitNullFields,
+  normalizeVatPercentage,
+  notificationsToMongooseShape
+} = require('../services/orderListShapeHelpers');
 
 function attachDualWriteStage(err, stage, postgresOrderId) {
   const wrapped = err instanceof Error ? err : new Error(String(err));
@@ -35,6 +40,32 @@ function logOrderFkMissing(field, mongoRefId) {
     mongoRefId: String(mongoRefId),
     message: `${field === 'userId' ? 'User' : 'Product'} not yet in Postgres`
   });
+}
+
+async function resolveMongoUserLegacyId(postgresOrMongoUserId) {
+  const ref = String(postgresOrMongoUserId || '').trim();
+  if (!ref) return null;
+  if (/^[a-f0-9]{24}$/i.test(ref)) return ref;
+
+  const row = await prisma.user.findUnique({
+    where: { id: ref },
+    select: { legacyId: true }
+  });
+  return row?.legacyId || null;
+}
+
+async function applyUserIdFilter(where, filters) {
+  const userRef = filters.userId || filters.user;
+  if (!userRef) return;
+
+  const pgUserId = await resolvePostgresUserId(userRef);
+  if (pgUserId) {
+    where.userId = pgUserId;
+    return;
+  }
+
+  // No Postgres user for this Mongo legacy id — force empty result set.
+  where.userId = '__NO_MATCH__';
 }
 
 async function resolveProductIdForOrderItem(mongoProductRef) {
@@ -130,8 +161,139 @@ function toRefundMethodEnum(value) {
   return map[String(value || '').toLowerCase()] || 'WALLET';
 }
 
+function fromRefundMethodEnum(value) {
+  const map = {
+    WALLET: 'wallet',
+    BKASH: 'bkash',
+    NAGAD: 'nagad',
+    ORIGINAL_PAYMENT: 'original_payment',
+    CASH: 'cash'
+  };
+  return map[String(value || '').toUpperCase()] || 'wallet';
+}
+
 function toOrderSourceEnum(value) {
   return String(value || '').toLowerCase() === 'manual' ? 'MANUAL' : 'ONLINE';
+}
+
+function fromOrderSourceEnum(value) {
+  return String(value || '').toUpperCase() === 'MANUAL' ? 'manual' : 'online';
+}
+
+function defaultPaymentProofShape() {
+  return {
+    trxId: null,
+    screenshotUrl: null,
+    submittedAt: null,
+    reviewedAt: null,
+    reviewedBy: null,
+    status: 'none',
+    adminNote: null
+  };
+}
+
+function objectIdSortKey(lineKey) {
+  const key = String(lineKey || '');
+  if (/^[a-f0-9]{24}$/i.test(key)) {
+    return parseInt(key.substring(0, 8), 16);
+  }
+  return 0;
+}
+
+function sortOrderItemRows(items) {
+  return [...(items || [])].sort((a, b) => {
+    const tsDiff = objectIdSortKey(a.lineKey) - objectIdSortKey(b.lineKey);
+    if (tsDiff !== 0) return tsDiff;
+    return String(a.lineKey || a.id || '').localeCompare(String(b.lineKey || b.id || ''));
+  });
+}
+
+async function resolvePaymentMethodLegacyId(methodId, code, orderLegacyId = null) {
+  const legacyRef = String(methodId || '').trim();
+  if (/^[a-f0-9]{24}$/i.test(legacyRef)) return legacyRef;
+
+  if (legacyRef && UUID_PATTERN.test(legacyRef)) {
+    const row = await prisma.paymentMethod.findUnique({
+      where: { id: legacyRef },
+      select: { legacyId: true }
+    });
+    if (row?.legacyId) return row.legacyId;
+  }
+
+  const codeRef = String(code || '').trim();
+  if (codeRef) {
+    const row = await prisma.paymentMethod.findUnique({
+      where: { code: codeRef },
+      select: { legacyId: true }
+    });
+    if (row?.legacyId) return row.legacyId;
+  }
+
+  if (orderLegacyId) {
+    const Order = require('../models/order');
+    const mongoOrder = await Order.findById(orderLegacyId).select('payment.methodId').lean();
+    if (mongoOrder?.payment?.methodId) {
+      return String(mongoOrder.payment.methodId);
+    }
+  }
+
+  return legacyRef || null;
+}
+
+async function mapItemsForMongoRead(items, orderLegacyId = null) {
+  let sorted = sortOrderItemRows(items);
+
+  let mongoItemsById = null;
+  let mongoItemsOrdered = null;
+  if (orderLegacyId) {
+    const Order = require('../models/order');
+    const mongoOrder = await Order.findById(orderLegacyId).select('items').lean();
+    if (mongoOrder?.items?.length) {
+      mongoItemsOrdered = mongoOrder.items;
+      mongoItemsById = new Map(mongoOrder.items.map((item) => [String(item.id || ''), item]));
+      const byLineKey = new Map(sorted.map((row) => [String(row.lineKey || ''), row]));
+      const reordered = [];
+      for (const mongoItem of mongoOrder.items) {
+        const key = String(mongoItem.id || '');
+        if (byLineKey.has(key)) reordered.push(byLineKey.get(key));
+      }
+      sorted = reordered.length > 0 ? reordered : sorted.filter((row) => mongoItemsById.has(String(row.lineKey || '')));
+    }
+  }
+
+  const productIds = [...new Set(sorted.map((row) => row.productId).filter(Boolean))];
+  const products = productIds.length
+    ? await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, legacyId: true, productId: true }
+    })
+    : [];
+  const byId = new Map(products.map((product) => [product.id, product]));
+
+  return sorted.map((row, index) => {
+    const merged = mergeOrderItemRow(row);
+    const legacyRef = String(row.legacyProductId || '').trim();
+    if (legacyRef && !UUID_PATTERN.test(legacyRef)) {
+      merged.productId = legacyRef;
+    } else if (row.productId && byId.has(row.productId)) {
+      const product = byId.get(row.productId);
+      merged.productId = product.legacyId || product.productId || merged.productId;
+    }
+
+    const mongoItem = mongoItemsOrdered?.[index]
+      || mongoItemsById?.get(String(row.lineKey || ''));
+    if (mongoItem) {
+      Object.assign(merged, mongoItem);
+      merged.id = mongoItem.id;
+      merged.productId = mongoItem.productId ?? merged.productId;
+    }
+
+    return merged;
+  });
+}
+
+function applyMongoReadFilters(where) {
+  where.legacyId = { not: null };
 }
 
 function toPaymentMethodTypeEnum(value) {
@@ -275,22 +437,6 @@ function buildNotificationData(source = {}) {
     outForDelivery: Boolean(s.outForDelivery ?? s.out_for_delivery),
     delivered: Boolean(s.delivered),
     cancelled: Boolean(s.cancelled)
-  };
-}
-
-function notificationsToMongooseShape(notif) {
-  if (!notif) return {};
-  return {
-    returnReceived: notif.returnReceived,
-    returnApproved: notif.returnApproved,
-    returnRejected: notif.returnRejected,
-    refundProcessed: notif.refundProcessed,
-    reviewReminder: notif.reviewReminder,
-    processing: notif.processing,
-    shipped: notif.shipped,
-    out_for_delivery: notif.outForDelivery,
-    delivered: notif.delivered,
-    cancelled: notif.cancelled
   };
 }
 
@@ -595,7 +741,8 @@ async function findOrderDetailedByLegacyId(legacyId) {
   const order = await prisma.order.findUnique({
     where: { legacyId: String(legacyId) },
     include: {
-      items: { orderBy: { id: 'asc' } },
+      user: { select: { legacyId: true } },
+      items: true,
       returnItems: { orderBy: { id: 'asc' } },
       payment: { include: { ipnHistory: { orderBy: { receivedAt: 'asc' } } } },
       paymentProof: true,
@@ -606,7 +753,7 @@ async function findOrderDetailedByLegacyId(legacyId) {
   if (!order) return null;
   
   // Items: flatten extraFields back into item properties (Mongo items[] is strict:false)
-  const items = (order.items || []).map(mergeOrderItemRow);
+  const items = await mapItemsForMongoRead(order.items, order.legacyId);
   
   // Return items: map to Mongo subdoc shape
   const returnItems = (order.returnItems || []).map((r) => ({
@@ -624,7 +771,7 @@ async function findOrderDetailedByLegacyId(legacyId) {
   let payment = null;
   if (order.payment) {
     payment = {
-      methodId: order.payment.methodId,
+      methodId: await resolvePaymentMethodLegacyId(order.payment.methodId, order.payment.code, order.legacyId),
       code: order.payment.code,
       name: order.payment.name,
       type: fromPaymentMethodTypeEnum(order.payment.type),
@@ -654,8 +801,8 @@ async function findOrderDetailedByLegacyId(legacyId) {
     };
   }
   
-  // Payment proof: 1-to-1
-  let paymentProof = null;
+  // Payment proof: 1-to-1 (Mongo always exposes the subdoc, even when empty)
+  let paymentProof = defaultPaymentProofShape();
   if (order.paymentProof) {
     paymentProof = {
       trxId: order.paymentProof.trxId,
@@ -675,7 +822,7 @@ async function findOrderDetailedByLegacyId(legacyId) {
   return {
     _id: order.legacyId,
     orderId: order.orderId,
-    user: order.userId,  // ObjectId string, not populated
+    user: order.user?.legacyId ?? null,  // Mongo legacy ObjectId string, not populated
     customerName: order.customerName,
     customerPhone: order.customerPhone,
     customerAddress: order.customerAddress,
@@ -689,15 +836,15 @@ async function findOrderDetailedByLegacyId(legacyId) {
     totalBuyingPrice: Number(order.totalBuyingPrice),
     discountAmount: Number(order.discountAmount),
     vatAmount: Number(order.vatAmount),
-    vatPercentage: order.vatPercentage,
+    vatPercentage: normalizeVatPercentage(order.vatPercentage),
     vatEnabled: order.vatEnabled,
     taxRegistrationNumber: order.taxRegistrationNumber,
-    walletApplied: Number(order.walletApplied),
+    walletApplied: Number(order.walletApplied ?? 0),
     couponCode: order.couponCode,
     deliveryLocationType: fromDeliveryLocationEnum(order.deliveryLocationType),
     shippingFee: Number(order.shippingFee),
     paymentMethod: order.paymentMethod,
-    processingFee: Number(order.processingFee),
+    processingFee: Number(order.processingFee ?? 0),
     status: fromOrderStatusEnum(order.status),
     isDelivered: order.isDelivered,
     deliveredAt: order.deliveredAt,
@@ -705,7 +852,7 @@ async function findOrderDetailedByLegacyId(legacyId) {
     cancelledBy: fromCancelledByEnum(order.cancelledBy),
     returnReason: order.returnReason,
     returnRequestedAt: order.returnRequestedAt,
-    refundMethod: order.refundMethod,
+    refundMethod: fromRefundMethodEnum(order.refundMethod),
     refundBkashNumber: order.refundBkashNumber,
     refundNagadNumber: order.refundNagadNumber,
     returnRejectedReason: order.returnRejectedReason,
@@ -723,16 +870,16 @@ async function findOrderDetailedByLegacyId(legacyId) {
     courierName: order.courierName,
     courierTrackingId: order.courierTrackingId,
     courierConsignmentId: order.courierConsignmentId,
-    courierStatus: order.courierStatus,
+    courierStatus: order.courierStatus || 'unbooked',
     courierBookedAt: order.courierBookedAt,
     courierSyncedAt: order.courierSyncedAt,
     note: order.note,
     estimatedDelivery: order.estimatedDelivery,
-    orderSource: order.orderSource,
+    orderSource: fromOrderSourceEnum(order.orderSource),
     createdByAdmin: order.createdByAdmin,
     assignedStaffId: order.assignedStaffId,
     assignedAt: order.assignedAt,
-    isSandbox: order.isSandbox,
+    isSandbox: order.isSandbox ?? false,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     __v: 0,  // Mongoose version key
@@ -1039,9 +1186,10 @@ async function findById(id) {
 
 async function findAll(filters = {}) {
   const where = {};
+  applyMongoReadFilters(where);
 
   if (filters.status) where.status = toOrderStatusEnum(filters.status);
-  if (filters.userId || filters.user) where.userId = filters.userId || filters.user;
+  await applyUserIdFilter(where, filters);
 
   if (filters.dateFrom || filters.dateTo) {
     where.createdAt = {};
@@ -1079,9 +1227,10 @@ async function findAll(filters = {}) {
  */
 async function findAllDetailed(filters = {}) {
   const where = {};
-  
+  applyMongoReadFilters(where);
+
   if (filters.status) where.status = toOrderStatusEnum(filters.status);
-  if (filters.userId || filters.user) where.userId = filters.userId || filters.user;
+  await applyUserIdFilter(where, filters);
   
   if (filters.dateFrom || filters.dateTo) {
     where.createdAt = {};
@@ -1108,15 +1257,18 @@ async function findAllDetailed(filters = {}) {
   const orders = await prisma.order.findMany({
     ...query,
     include: {
-      items: { orderBy: { id: 'asc' } },
+      user: { select: { legacyId: true } },
+      items: true,
       notificationsSent: true
     }
   });
-  
-  return orders.map((order) => ({
+
+  const shaped = [];
+  for (const order of orders) {
+    shaped.push(omitNullFields({
     _id: order.legacyId,
     orderId: order.orderId,
-    user: order.userId,
+    user: order.user?.legacyId ?? null,
     customerName: order.customerName,
     customerPhone: order.customerPhone,
     customerAddress: order.customerAddress,
@@ -1129,16 +1281,16 @@ async function findAllDetailed(filters = {}) {
     totalAmount: order.totalAmount != null ? Number(order.totalAmount) : null,
     totalBuyingPrice: Number(order.totalBuyingPrice),
     discountAmount: Number(order.discountAmount),
-    vatAmount: Number(order.vatAmount),
-    vatPercentage: order.vatPercentage,
-    vatEnabled: order.vatEnabled,
+    vatAmount: Number(order.vatAmount ?? 0),
+    vatPercentage: normalizeVatPercentage(order.vatPercentage),
+    vatEnabled: order.vatEnabled ?? false,
     taxRegistrationNumber: order.taxRegistrationNumber,
-    walletApplied: Number(order.walletApplied),
+    walletApplied: Number(order.walletApplied ?? 0),
     couponCode: order.couponCode,
     deliveryLocationType: fromDeliveryLocationEnum(order.deliveryLocationType),
     shippingFee: Number(order.shippingFee),
     paymentMethod: order.paymentMethod,
-    processingFee: Number(order.processingFee),
+    processingFee: Number(order.processingFee ?? 0),
     status: fromOrderStatusEnum(order.status),
     isDelivered: order.isDelivered,
     deliveredAt: order.deliveredAt,
@@ -1146,7 +1298,7 @@ async function findAllDetailed(filters = {}) {
     cancelledBy: fromCancelledByEnum(order.cancelledBy),
     returnReason: order.returnReason,
     returnRequestedAt: order.returnRequestedAt,
-    refundMethod: order.refundMethod,
+    refundMethod: fromRefundMethodEnum(order.refundMethod),
     refundBkashNumber: order.refundBkashNumber,
     refundNagadNumber: order.refundNagadNumber,
     returnRejectedReason: order.returnRejectedReason,
@@ -1164,22 +1316,24 @@ async function findAllDetailed(filters = {}) {
     courierName: order.courierName,
     courierTrackingId: order.courierTrackingId,
     courierConsignmentId: order.courierConsignmentId,
-    courierStatus: order.courierStatus,
+    courierStatus: order.courierStatus || 'unbooked',
     courierBookedAt: order.courierBookedAt,
     courierSyncedAt: order.courierSyncedAt,
     note: order.note,
     estimatedDelivery: order.estimatedDelivery,
-    orderSource: order.orderSource,
+    orderSource: fromOrderSourceEnum(order.orderSource),
     createdByAdmin: order.createdByAdmin,
     assignedStaffId: order.assignedStaffId,
     assignedAt: order.assignedAt,
-    isSandbox: order.isSandbox,
+    isSandbox: order.isSandbox ?? false,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     __v: 0,
-    items: (order.items || []).map(mergeOrderItemRow),
+    items: await mapItemsForMongoRead(order.items, order.legacyId),
     notificationsSent: notificationsToMongooseShape(order.notificationsSent)
-  }));
+    }));
+  }
+  return shaped;
 }
 
 async function updateStatus(id, newStatus) {

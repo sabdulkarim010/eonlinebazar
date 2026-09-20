@@ -9,6 +9,7 @@ const Order = require('../models/order');
 const User = require('../models/user');
 const { dualWrite } = require('../services/dualWriteService');
 const { routedRead } = require('../services/readRouter');
+const { mongoLeanToListSummary } = require('../services/orderListShapeHelpers');
 
 function getOrderDualWriteHelpers() {
     return require('../utils/orderDualWriteHelpers');
@@ -69,12 +70,14 @@ const getMyOrders = async (req, res) => {
 
         const myOrders = await routedRead(
             'order',
-            // Mongo
+            // Mongo — list summary shape (matches findAllDetailed)
             async () => {
-                return Order.find(filter)
+                const docs = await Order.find(filter)
                     .sort({ updatedAt: -1 })
                     .skip((safePage - 1) * limit)
-                    .limit(limit);
+                    .limit(limit)
+                    .lean();
+                return docs.map((doc) => mongoLeanToListSummary(doc));
             },
             // Postgres
             async () => {
@@ -111,7 +114,14 @@ const getMyOrders = async (req, res) => {
 // 🌟 ৪. নির্দিষ্ট একটি অর্ডারের বিস্তারিত দেখা (আপডেট: প্রোডাক্টের ছবি যুক্ত করার লজিক সহ)
 const getOrderById = async (req, res) => {
     try {
-        const order = await Order.findById(req.params.id);
+        const order = await routedRead(
+            'order',
+            async () => Order.findById(req.params.id),
+            async () => {
+                const repo = getOrderRepository();
+                return repo.findOrderDetailedByLegacyId(req.params.id);
+            }
+        );
         if (!order) {
             return res.status(404).json({ success: false, message: "অর্ডারটি খুঁজে পাওয়া যায়নি!" });
         }
@@ -122,7 +132,7 @@ const getOrderById = async (req, res) => {
         }
 
         // 🟢 মঙ্গুজ ডকুমেন্টকে প্লেইন অবজেক্টে রূপান্তর করা, যাতে ডাইনামিকভাবে 'image' ফিল্ড পুশ করা যায়
-        const orderObj = order.toObject();
+        const orderObj = order.toObject ? order.toObject() : { ...order };
 
         // আইটেমগুলোর ইমেজ ডাটাবেজের Product কালেকশন থেকে লাইভ খুঁজে নিয়ে আসা
         await enrichOrderItemsWithImages(orderObj);
@@ -577,8 +587,11 @@ const getDashboardStats = async (req, res) => {
         const userId = req.user.id;
         const orders = await routedRead(
             'order',
-            // Mongo
-            async () => Order.find({ user: userId }).sort({ createdAt: -1 }),
+            // Mongo — list summary shape (matches findAllDetailed)
+            async () => {
+                const docs = await Order.find({ user: userId }).sort({ createdAt: -1 }).lean();
+                return docs.map((doc) => mongoLeanToListSummary(doc));
+            },
             // Postgres
             async () => {
                 const repo = getOrderRepository();
