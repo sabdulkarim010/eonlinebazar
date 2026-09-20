@@ -12,6 +12,7 @@ const Expense = require('../../models/expense');
 const ExpenseCategory = require('../../models/expenseCategory');
 const { slugifyCategoryName } = require('../../services/expenseCategoryService');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const expenseCategoryRepo = require('../../repositories/expenseCategoryRepository');
 
 function formatCategory(row) {
     return {
@@ -119,6 +120,13 @@ exports.createExpenseCategory = async (req, res) => {
             allowCustomInput: false
         });
 
+        // Dual-write to PostgreSQL
+        try {
+            await expenseCategoryRepo.upsertExpenseCategoryInPG(category);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-EXPENSECATEGORY-FAIL] create:', pgErr);
+        }
+
         await logSecurityEvent({
             action: 'Expense Category Created',
             actor: req.admin?.username || 'admin',
@@ -167,6 +175,13 @@ exports.toggleOtherCustomInput = async (req, res) => {
         other.allowCustomInput = enabled;
         await other.save();
 
+        // Dual-write to PostgreSQL
+        try {
+            await expenseCategoryRepo.upsertExpenseCategoryInPG(other);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-EXPENSECATEGORY-FAIL] toggleOtherCustom:', pgErr);
+        }
+
         await logSecurityEvent({
             action: 'Expense Other Custom Input Toggled',
             actor: req.admin?.username || 'admin',
@@ -208,6 +223,13 @@ exports.toggleExpenseCategoryActive = async (req, res) => {
 
         category.isActive = !category.isActive;
         await category.save();
+
+        // Dual-write to PostgreSQL
+        try {
+            await expenseCategoryRepo.upsertExpenseCategoryInPG(category);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-EXPENSECATEGORY-FAIL] toggle:', pgErr);
+        }
 
         await logSecurityEvent({
             action: 'Expense Category Toggled',
@@ -262,6 +284,13 @@ exports.deleteExpenseCategory = async (req, res) => {
         }
 
         await category.deleteOne();
+
+        // Dual-write to PostgreSQL
+        try {
+            await expenseCategoryRepo.deleteExpenseCategoryInPG(category._id);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-EXPENSECATEGORY-FAIL] delete:', pgErr);
+        }
 
         await logSecurityEvent({
             action: 'Expense Category Deleted',

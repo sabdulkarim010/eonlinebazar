@@ -14,6 +14,7 @@ const Expense = require('../../models/expense');
 const ExpenseCategory = require('../../models/expenseCategory');
 const upload = require('../../middlewares/uploadMiddleware');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const expenseRepo = require('../../repositories/expenseRepository');
 
 function parsePagination(query) {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -150,6 +151,13 @@ exports.createExpense = async (req, res) => {
             attachmentUrl: String(req.body.attachmentUrl || '').trim()
         });
 
+        // Dual-write to PostgreSQL
+        try {
+            await expenseRepo.upsertExpenseInPG(expense);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-EXPENSE-FAIL] create:', pgErr);
+        }
+
         const label = resolved.category.slug === 'other' && customCheck.customCategoryName
             ? customCheck.customCategoryName
             : resolved.category.name;
@@ -280,6 +288,13 @@ exports.updateExpense = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Expense not found.' });
         }
 
+        // Dual-write to PostgreSQL
+        try {
+            await expenseRepo.upsertExpenseInPG(expense);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-EXPENSE-FAIL] update:', pgErr);
+        }
+
         await logSecurityEvent({
             action: 'Expense Updated',
             actor: req.admin?.username || 'admin',
@@ -310,6 +325,13 @@ exports.deleteExpense = async (req, res) => {
         const expense = await Expense.findByIdAndDelete(id);
         if (!expense) {
             return res.status(404).json({ success: false, message: 'Expense not found.' });
+        }
+
+        // Dual-write to PostgreSQL
+        try {
+            await expenseRepo.deleteExpenseInPG(expense._id);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-EXPENSE-FAIL] delete:', pgErr);
         }
 
         await logSecurityEvent({

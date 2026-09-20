@@ -1552,5 +1552,6 @@ module.exports = {
   splitOrderItem,
   buildNotificationData,
   toOrderStatusEnum,
-  fromOrderStatusEnum
+  fromOrderStatusEnum,
+  fromOrderPaymentStatusEnum
 };

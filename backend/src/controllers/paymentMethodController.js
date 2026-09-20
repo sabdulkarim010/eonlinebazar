@@ -20,6 +20,7 @@ const {
     isCheckoutReady,
     clearPaymentMethodCache
 } = require('../services/paymentMethodService');
+const paymentMethodRepo = require('../repositories/paymentMethodRepository');
 const { paymentLogoPublicPath, deleteLocalPaymentLogo } = require('../utils/paymentLogoPaths');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 
@@ -271,6 +272,17 @@ const createPaymentMethod = async (req, res) => {
         await method.save();
         clearPaymentMethodCache();
 
+        // Dual-write: mirror to PostgreSQL
+        try {
+            await paymentMethodRepo.upsertPaymentMethodInPG(method);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-PAYMENTMETHOD-FAIL]', {
+                operation: 'create',
+                methodId: String(method._id),
+                error: pgErr.message
+            });
+        }
+
         const paymentMethod = toAdminPayload(method, req);
 
         await logSecurityEvent({
@@ -365,6 +377,17 @@ const updatePaymentMethod = async (req, res) => {
         await method.save();
         clearPaymentMethodCache();
 
+        // Dual-write: mirror to PostgreSQL
+        try {
+            await paymentMethodRepo.upsertPaymentMethodInPG(method);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-PAYMENTMETHOD-FAIL]', {
+                operation: 'update',
+                methodId: String(method._id),
+                error: pgErr.message
+            });
+        }
+
         const paymentMethod = toAdminPayload(method, req);
 
         await logSecurityEvent({
@@ -414,6 +437,17 @@ const togglePaymentMethod = async (req, res) => {
         method.updatedByAdmin = req.admin?.username || 'admin';
         await method.save();
         clearPaymentMethodCache();
+
+        // Dual-write: mirror to PostgreSQL
+        try {
+            await paymentMethodRepo.upsertPaymentMethodInPG(method);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-PAYMENTMETHOD-FAIL]', {
+                operation: 'toggle',
+                methodId: String(method._id),
+                error: pgErr.message
+            });
+        }
 
         // Turning off the last usable method would leave checkout with nothing
         // to select, so the response carries a warning the panel surfaces.
@@ -472,6 +506,20 @@ const reorderPaymentMethods = async (req, res) => {
         await PaymentMethod.bulkWrite(operations);
         clearPaymentMethodCache();
 
+        // Dual-write: mirror reordered methods to PostgreSQL
+        try {
+            const updatedIds = operations.map(op => op.updateOne.filter._id);
+            const updatedMethods = await PaymentMethod.find({ _id: { $in: updatedIds } });
+            for (const method of updatedMethods) {
+                await paymentMethodRepo.upsertPaymentMethodInPG(method);
+            }
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-PAYMENTMETHOD-FAIL]', {
+                operation: 'reorder',
+                error: pgErr.message
+            });
+        }
+
         const methods = await PaymentMethod.find().sort({ sortOrder: 1, name: 1 });
         return res.status(200).json({
             success: true,
@@ -497,9 +545,21 @@ const deletePaymentMethod = async (req, res) => {
 
         // Past orders keep their own denormalized payment snapshot, so deleting
         // a method never breaks historical reporting or the ledger.
+        const methodId = method._id;
         if (method.logoUrl) deleteLocalPaymentLogo(method.logoUrl);
         await method.deleteOne();
         clearPaymentMethodCache();
+
+        // Dual-write: mirror delete to PostgreSQL
+        try {
+            await paymentMethodRepo.deletePaymentMethodInPG(methodId);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-PAYMENTMETHOD-FAIL]', {
+                operation: 'delete',
+                methodId: String(methodId),
+                error: pgErr.message
+            });
+        }
 
         await logSecurityEvent({
             action: 'Payment Method Deleted',

@@ -3,7 +3,7 @@
  * File: loginAttemptRepository.js
  * Location: backend/src/repositories/loginAttemptRepository.js
  * Description: Prisma repository for LoginAttempt audit records.
- *   Mongo 30-day TTL has no Postgres equivalent — sweep job is out of scope.
+ *   Mongo 30-day TTL is mirrored by deleteExpiredLoginAttemptsFromPG() + pgTtlSweepJob.
  *
  *   Stage 2 Step 3, Part 4 — Security/Audit dual-write (2026-09-14).
  ********************************************************************/
@@ -90,6 +90,24 @@ async function aggregateTopFailedIps({ since, limit = 5, statuses = ['failed', '
   }));
 }
 
+const LOGIN_ATTEMPT_RETENTION_DAYS = 30;
+
+async function deleteExpiredLoginAttemptsFromPG() {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - LOGIN_ATTEMPT_RETENTION_DAYS);
+
+    const result = await prisma.loginAttempt.deleteMany({
+      where: { createdAt: { lt: thirtyDaysAgo } }
+    });
+
+    return result.count;
+  } catch (err) {
+    console.error('[PG-TTL-LOGIN-ATTEMPT-FAIL]', err.message);
+    return 0;
+  }
+}
+
 async function create(data) {
   const record = await prisma.loginAttempt.create({
     data: {
@@ -114,6 +132,8 @@ module.exports = {
   count,
   aggregateTopFailedIps,
   create,
+  deleteExpiredLoginAttemptsFromPG,
   buildWhere,
-  toStatus
+  toStatus,
+  LOGIN_ATTEMPT_RETENTION_DAYS
 };

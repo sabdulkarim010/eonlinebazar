@@ -33,12 +33,29 @@ const GROUP_ENV = {
   emailcampaign: 'READ_PG_EMAILCAMPAIGN',
   contactmessage: 'READ_PG_CONTACTMESSAGE',
   review: 'READ_PG_REVIEW',
+  attribute: 'READ_PG_ATTRIBUTE',
+  coupon: 'READ_PG_COUPON',
+  paymentmethod: 'READ_PG_PAYMENT_METHOD',
+  expensecategory: 'READ_PG_EXPENSE_CATEGORY',
+  expense: 'READ_PG_EXPENSE',
+  purchaseorder: 'READ_PG_PURCHASE_ORDER',
+  shift: 'READ_PG_SHIFT',
+  note: 'READ_PG_NOTE',
+  adminnotification: 'READ_PG_ADMIN_NOTIFICATION',
+  usersession: 'READ_PG_USER_SESSION',
+  adminsession: 'READ_PG_ADMIN_SESSION',
+  product: 'READ_PG_PRODUCT',
   user: 'READ_PG_USER',
   address: 'READ_PG_ADDRESS',
   wishlist: 'READ_PG_WISHLIST',
   wallet: 'READ_PG_WALLET',
   cart: 'READ_PG_CART',
-  order: 'READ_PG_ORDER'
+  order: 'READ_PG_ORDER',
+  financeanalytics: 'READ_PG_FINANCE_ANALYTICS',
+  profitloss: 'READ_PG_PROFIT_LOSS',
+  accountssummary: 'READ_PG_ACCOUNTS_SUMMARY',
+  crm: 'READ_PG_CRM',
+  enterprisesummary: 'READ_PG_ENTERPRISE_SUMMARY'
 };
 
 /**

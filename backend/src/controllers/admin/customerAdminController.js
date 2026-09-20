@@ -526,6 +526,12 @@ const deleteCustomer = async (req, res) => {
         const mobile = customer.mobile || '';
 
         await UserSession.deleteMany({ userId: customer._id });
+        try {
+            const userSessionRepo = require('../../repositories/userSessionRepository');
+            await userSessionRepo.deleteUserSessionsByUserIdInPG(customer._id);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-USERSESSION-FAIL] adminDeleteCustomer:', pgErr);
+        }
         await User.deleteOne({ _id: customer._id });
 
         await logSecurityEvent({

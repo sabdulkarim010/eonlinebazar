@@ -599,6 +599,19 @@ const createProduct = async (req, res) => {
         await syncCategoryProductCount(newProduct.category);
         await invalidateProductCaches();
 
+        // Dual-write to Postgres (Stage 2 Step 3, Part 1.1)
+        try {
+            const productRepo = require('../repositories/productRepository');
+            await productRepo.createProductInPG(newProduct);
+        } catch (err) {
+            // Never surface PG failures to user
+            console.error('[DUAL-WRITE-PRODUCT-CONTROLLER]', {
+                operation: 'create',
+                mongoId: String(newProduct._id),
+                error: err.message || String(err)
+            });
+        }
+
         await logSecurityEvent({
             action: 'Product Created',
             actor: req.admin?.username || 'admin',
@@ -780,6 +793,19 @@ const updateProduct = async (req, res) => {
 
         await invalidateProductCaches(productIdParam);
 
+        // Dual-write to Postgres (Stage 2 Step 3, Part 1.1)
+        try {
+            const productRepo = require('../repositories/productRepository');
+            await productRepo.updateProductInPG(updatedProduct._id, updateFields);
+        } catch (err) {
+            // Never surface PG failures to user
+            console.error('[DUAL-WRITE-PRODUCT-CONTROLLER]', {
+                operation: 'update',
+                mongoId: String(updatedProduct._id),
+                error: err.message || String(err)
+            });
+        }
+
         await logSecurityEvent({
             action: 'Product Updated',
             actor: req.admin?.username || 'admin',
@@ -827,6 +853,19 @@ const deleteProduct = async (req, res) => {
         await Product.findOneAndDelete(query);
         await syncCategoryProductCount(productToDelete.category);
         await invalidateProductCaches(productIdParam);
+
+        // Dual-write to Postgres (Stage 2 Step 3, Part 1.1)
+        try {
+            const productRepo = require('../repositories/productRepository');
+            await productRepo.deleteProductInPG(productToDelete._id);
+        } catch (err) {
+            // Never surface PG failures to user
+            console.error('[DUAL-WRITE-PRODUCT-CONTROLLER]', {
+                operation: 'delete',
+                mongoId: String(productToDelete._id),
+                error: err.message || String(err)
+            });
+        }
 
         await logSecurityEvent({
             action: 'Product Deleted',

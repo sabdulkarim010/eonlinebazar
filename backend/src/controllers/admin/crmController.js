@@ -10,6 +10,8 @@ const Cart = require('../../models/cart');
 const { ABANDON_THRESHOLD_MS } = require('../../jobs/abandonedCartJob');
 const { sendAbandonedCartEmail } = require('../../services/mailer');
 const { sendSms, isCustomerSmsEnabled } = require('../../services/smsService');
+const { isPgReadEnabled } = require('../../config/readCutoverFlags');
+const prisma = require('../../config/prismaClient');
 
 function computeCartValue(items = []) {
     if (!Array.isArray(items)) return 0;
@@ -56,6 +58,124 @@ function mapCartRow(cart) {
     };
 }
 
+function mapPgCartRow(cart) {
+    const user = cart.user;
+    const items = (cart.items || []).map((item) => ({
+        price: Number(item.price),
+        quantity: item.quantity
+    }));
+
+    return mapCartRow({
+        userId: user
+            ? {
+                _id: user.legacyId || user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                mobile: user.mobile,
+                isDeleted: user.isDeleted
+            }
+            : cart.userId,
+        items,
+        lastActivityAt: cart.lastActivityAt,
+        abandonedNotifiedAt: cart.abandonedNotifiedAt,
+        updatedAt: cart.updatedAt
+    });
+}
+
+function buildPgListFilter(cutoff, filterParam) {
+    const where = {
+        lastActivityAt: { lt: cutoff },
+        items: { some: {} }
+    };
+
+    if (filterParam === 'notified') {
+        where.abandonedNotifiedAt = { not: null };
+    } else if (filterParam === 'not_notified' || filterParam === 'not-notified') {
+        where.abandonedNotifiedAt = null;
+    }
+
+    return where;
+}
+
+async function loadAbandonedCartStatsFromPG(cutoff, filterParam) {
+    const listFilter = buildPgListFilter(cutoff, filterParam);
+
+    const [abandonedCarts, notified, recovered, filteredCarts] = await Promise.all([
+        prisma.cart.findMany({
+            where: {
+                lastActivityAt: { lt: cutoff },
+                items: { some: {} }
+            },
+            select: { items: { select: { price: true, quantity: true } } }
+        }),
+        prisma.cart.count({
+            where: { abandonedNotifiedAt: { not: null } }
+        }),
+        prisma.cart.count({
+            where: {
+                abandonedNotifiedAt: { not: null },
+                items: { none: {} }
+            }
+        }),
+        prisma.cart.findMany({
+            where: listFilter,
+            include: {
+                user: {
+                    select: {
+                        legacyId: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                        mobile: true,
+                        isDeleted: true
+                    }
+                },
+                items: { select: { price: true, quantity: true } }
+            },
+            orderBy: { lastActivityAt: 'desc' },
+            take: 200
+        })
+    ]);
+
+    return { abandonedCarts, notified, recovered, filteredCarts };
+}
+
+async function loadAbandonedCartStatsFromMongo(cutoff, filterParam) {
+    const listFilter = {
+        lastActivityAt: { $lt: cutoff },
+        'items.0': { $exists: true }
+    };
+
+    if (filterParam === 'notified') {
+        listFilter.abandonedNotifiedAt = { $ne: null };
+    } else if (filterParam === 'not_notified' || filterParam === 'not-notified') {
+        listFilter.abandonedNotifiedAt = null;
+    }
+
+    const [abandonedCarts, notified, recovered, filteredCarts] = await Promise.all([
+        Cart.find({
+            lastActivityAt: { $lt: cutoff },
+            'items.0': { $exists: true }
+        }).select('items').lean(),
+        Cart.countDocuments({ abandonedNotifiedAt: { $ne: null } }),
+        Cart.countDocuments({
+            abandonedNotifiedAt: { $ne: null },
+            'items.0': { $exists: false }
+        }),
+        Cart.find(listFilter)
+            .populate('userId', 'firstName lastName name email phone mobile isDeleted')
+            .sort({ lastActivityAt: -1 })
+            .limit(200)
+            .lean()
+    ]);
+
+    return { abandonedCarts, notified, recovered, filteredCarts };
+}
+
 /**
  * GET /api/admin/crm/abandoned-carts
  * Returns KPI stats plus a filterable cart list.
@@ -66,33 +186,10 @@ const getAbandonedCartStats = async (req, res) => {
         const cutoff = new Date(Date.now() - ABANDON_THRESHOLD_MS);
         const filterParam = String(req.query.filter || 'all').trim().toLowerCase();
 
-        const listFilter = {
-            lastActivityAt: { $lt: cutoff },
-            'items.0': { $exists: true }
-        };
-
-        if (filterParam === 'notified') {
-            listFilter.abandonedNotifiedAt = { $ne: null };
-        } else if (filterParam === 'not_notified' || filterParam === 'not-notified') {
-            listFilter.abandonedNotifiedAt = null;
-        }
-
-        const [abandonedCarts, notified, recovered, filteredCarts] = await Promise.all([
-            Cart.find({
-                lastActivityAt: { $lt: cutoff },
-                'items.0': { $exists: true }
-            }).select('items').lean(),
-            Cart.countDocuments({ abandonedNotifiedAt: { $ne: null } }),
-            Cart.countDocuments({
-                abandonedNotifiedAt: { $ne: null },
-                'items.0': { $exists: false }
-            }),
-            Cart.find(listFilter)
-                .populate('userId', 'firstName lastName name email phone mobile isDeleted')
-                .sort({ lastActivityAt: -1 })
-                .limit(200)
-                .lean()
-        ]);
+        const usePg = isPgReadEnabled('crm');
+        const { abandonedCarts, notified, recovered, filteredCarts } = usePg
+            ? await loadAbandonedCartStatsFromPG(cutoff, filterParam)
+            : await loadAbandonedCartStatsFromMongo(cutoff, filterParam);
 
         const count = abandonedCarts.length;
         const value = Math.round(
@@ -104,10 +201,10 @@ const getAbandonedCartStats = async (req, res) => {
 
         const carts = filteredCarts
             .filter((cart) => {
-                const user = cart.userId;
+                const user = usePg ? cart.user : cart.userId;
                 return user && !user.isDeleted;
             })
-            .map(mapCartRow);
+            .map((cart) => (usePg ? mapPgCartRow(cart) : mapCartRow(cart)));
 
         res.json({
             success: true,

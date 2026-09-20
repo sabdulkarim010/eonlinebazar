@@ -9,6 +9,9 @@
 const mongoose = require('mongoose');
 const Order = require('../models/order');
 const Product = require('../models/product');
+const prisma = require('../config/prismaClient');
+const { isPgReadEnabled } = require('../config/readCutoverFlags');
+const orderRepository = require('../repositories/orderRepository');
 
 /* =========================================================================
    কনফিগারেশন (Config)
@@ -102,7 +105,30 @@ function computeItemFinance(item, productCostMap) {
 }
 
 // প্রোডাক্ট ক্যাটালগ থেকে costPrice ম্যাপ তৈরি করা (যদি ফিল্ডটি থাকে)
+async function buildProductCostMapFromPG() {
+    const map = new Map();
+    try {
+        const products = await prisma.product.findMany({
+            select: { legacyId: true, productId: true, buyingPrice: true }
+        });
+        for (const p of products) {
+            const cost = p.buyingPrice;
+            if (cost === undefined || cost === null) continue;
+            const numericCost = toNumber(cost, NaN);
+            if (!Number.isFinite(numericCost)) continue;
+            if (p.legacyId) map.set(String(p.legacyId), numericCost);
+            if (p.productId) map.set(String(p.productId), numericCost);
+        }
+    } catch (err) {
+        console.error('⚠️ buildProductCostMapFromPG warning:', err.message);
+    }
+    return map;
+}
+
 async function buildProductCostMap() {
+    if (isPgReadEnabled('financeanalytics')) {
+        return buildProductCostMapFromPG();
+    }
     const map = new Map();
     try {
         // buyingPrice হলো মূল ফিল্ড; পুরোনো ডাটার জন্য costPrice/cost/purchasePrice ও রাখা হলো
@@ -122,7 +148,27 @@ async function buildProductCostMap() {
 }
 
 // প্রোডাক্ট আইডি → ক্যাটাগরি ম্যাপ (পাই চার্ট / ফিল্টার API)
+async function buildCategoryMapFromPG() {
+    const map = new Map();
+    try {
+        const products = await prisma.product.findMany({
+            select: { legacyId: true, productId: true, categoryName: true }
+        });
+        for (const p of products) {
+            const cat = p.categoryName || 'General';
+            if (p.legacyId) map.set(String(p.legacyId), cat);
+            if (p.productId) map.set(String(p.productId), cat);
+        }
+    } catch (err) {
+        console.error('⚠️ buildCategoryMapFromPG warning:', err.message);
+    }
+    return map;
+}
+
 async function buildCategoryMap() {
+    if (isPgReadEnabled('financeanalytics')) {
+        return buildCategoryMapFromPG();
+    }
     const map = new Map();
     try {
         const products = await Product.find({}, { _id: 1, productId: 1, category: 1 }).lean();
@@ -380,6 +426,28 @@ function computeOrderFinance(order, productCostMap, categoryMap, categoryRevenue
  * Reliable JS-based metrics engine (MongoDB date filter + in-memory P&L).
  * Primary calculation path — resilient to missing fields and legacy documents.
  */
+async function computeFinanceMetricsPg(startDate, endDate, groupBy) {
+    const productCostMap = await buildProductCostMapFromPG();
+    const categoryMap = await buildCategoryMapFromPG();
+
+    let orders = [];
+    try {
+        orders = await orderRepository.findAll({ dateFrom: startDate, dateTo: endDate });
+    } catch (err) {
+        console.error('⚠️ Finance PG date-range query failed:', err.message);
+        orders = [];
+    }
+
+    return computeFinanceMetricsFromOrders(
+        orders,
+        startDate,
+        endDate,
+        groupBy,
+        productCostMap,
+        categoryMap
+    );
+}
+
 async function computeFinanceMetricsJs(startDate, endDate, groupBy) {
     const productCostMap = await buildProductCostMap();
     const categoryMap = await buildCategoryMap();
@@ -396,6 +464,25 @@ async function computeFinanceMetricsJs(startDate, endDate, groupBy) {
             orders = [];
         }
     }
+
+    return computeFinanceMetricsFromOrders(
+        orders,
+        startDate,
+        endDate,
+        groupBy,
+        productCostMap,
+        categoryMap
+    );
+}
+
+function computeFinanceMetricsFromOrders(
+    orders,
+    startDate,
+    endDate,
+    groupBy,
+    productCostMap,
+    categoryMap
+) {
 
     const bucketTotals = new Map();
     const categoryRevenue = new Map();
@@ -450,11 +537,30 @@ async function computeFinanceMetricsJs(startDate, endDate, groupBy) {
     };
 }
 
+async function computeFinanceMetrics(startDate, endDate, groupBy) {
+    if (isPgReadEnabled('financeanalytics')) {
+        return computeFinanceMetricsPg(startDate, endDate, groupBy);
+    }
+    return computeFinanceMetricsJs(startDate, endDate, groupBy);
+}
+
 /**
  * MongoDB aggregation: $match → $unwind → cost fields → $group (time buckets + totals).
  * COGS prefers order-item buyingPrice snapshot, then product catalog, then ratio fallback.
  */
 async function aggregateFinanceByDateRange(startDate, endDate, groupBy) {
+    if (isPgReadEnabled('financeanalytics')) {
+        const pg = await computeFinanceMetricsPg(startDate, endDate, groupBy);
+        return {
+            totalRevenue: pg.totalRevenue,
+            totalCOGS: pg.totalCOGS,
+            netProfit: pg.netProfit,
+            totalOrders: pg.totalOrders,
+            bucketTotals: pg.bucketTotals,
+            categoryRevenue: pg.categoryRevenue
+        };
+    }
+
     const dateFormat = groupBy === 'day' ? '%Y-%m-%d' : '%Y-%m';
     const costRatio = DEFAULT_COST_RATIO;
 
@@ -734,7 +840,7 @@ const getFinanceAnalytics = async (req, res) => {
 
         // JS ইঞ্জিন প্রাইমারি — সম্পূর্ণ P&L (COGS, ডিসকাউন্ট, শিপিং) হিসাব করে
         // এবং পুরোনো/অসম্পূর্ণ ডকুমেন্টেও নিরাপদে কাজ করে।
-        let agg = await computeFinanceMetricsJs(range.startDate, range.endDate, groupBy);
+        let agg = await computeFinanceMetrics(range.startDate, range.endDate, groupBy);
 
         if (!agg || typeof agg.totalOrders !== 'number') {
             agg = {

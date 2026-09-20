@@ -19,6 +19,7 @@ const Order = require('../../models/order');
 const Note = require('../../models/note');
 const UserSession = require('../../models/userSession');
 const { logSecurityEvent } = require('../../utils/securityLogger');
+const userSessionRepo = require('../../repositories/userSessionRepository');
 const {
     mergeGuestCartIntoUserCart,
     normalizeGuestCartItems,
@@ -90,6 +91,12 @@ exports.deleteSession = async (req, res) => {
         const isCurrent = req.user.sid && target.sessionId === req.user.sid;
         await target.deleteOne();
 
+        try {
+            await userSessionRepo.deleteUserSessionInPG(target._id);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-USERSESSION-FAIL] delete:', pgErr);
+        }
+
         res.status(200).json({
             success: true,
             message: isCurrent ? "This device has been logged out." : "Device logged out remotely.",
@@ -116,6 +123,12 @@ exports.logoutOtherSessions = async (req, res) => {
             userId: req.user.id,
             sessionId: { $ne: currentSid }
         });
+
+        try {
+            await userSessionRepo.deleteUserSessionsExceptSessionIdInPG(req.user.id, currentSid);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-USERSESSION-FAIL] logoutOthers:', pgErr);
+        }
 
         res.status(200).json({
             success: true,
@@ -227,7 +240,7 @@ exports.loginUser = async (req, res) => {
         const sessionId = crypto.randomUUID();
         const clientIp = getClientIp(req);
 
-        await UserSession.create({
+        const userSession = await UserSession.create({
             sessionId,
             userId: user._id,
             userAgent: req.headers['user-agent'] || '',
@@ -236,6 +249,12 @@ exports.loginUser = async (req, res) => {
             ipAddress: clientIp,
             location: getLocationFromIp(clientIp)
         });
+
+        try {
+            await userSessionRepo.upsertUserSessionInPG(userSession);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-USERSESSION-FAIL] create:', pgErr);
+        }
 
         const token = jwt.sign(
             { id: user._id, sid: sessionId }, 
@@ -353,6 +372,12 @@ exports.deleteAccount = async (req, res) => {
             UserSession.deleteMany({ userId }),
             Note.deleteMany({ user: userId })
         ]);
+
+        try {
+            await userSessionRepo.deleteUserSessionsByUserIdInPG(userId);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-USERSESSION-FAIL] deleteAll:', pgErr);
+        }
 
         const { dualWrite } = require('../../services/dualWriteService');
 

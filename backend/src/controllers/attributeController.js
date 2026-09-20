@@ -8,6 +8,7 @@
  ********************************************************************/
 
 const Attribute = require('../models/attribute');
+const attributeRepo = require('../repositories/attributeRepository');
 
 // Parse comma-separated strings, JSON arrays, or plain arrays into unique trimmed values
 function normalizeValues(raw) {
@@ -102,6 +103,17 @@ const createAttribute = async (req, res, next) => {
         const newAttribute = new Attribute({ name, values, status });
         await newAttribute.save();
 
+        // Dual-write: mirror to PostgreSQL
+        try {
+            await attributeRepo.upsertAttributeInPG(newAttribute);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-ATTRIBUTE-FAIL]', {
+                operation: 'create',
+                attributeId: String(newAttribute._id),
+                error: pgErr.message
+            });
+        }
+
         res.status(201).json({
             success: true,
             message: 'Attribute saved successfully.',
@@ -152,6 +164,17 @@ const updateAttribute = async (req, res) => {
 
         await attribute.save();
 
+        // Dual-write: mirror to PostgreSQL
+        try {
+            await attributeRepo.upsertAttributeInPG(attribute);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-ATTRIBUTE-FAIL]', {
+                operation: 'update',
+                attributeId: String(attribute._id),
+                error: pgErr.message
+            });
+        }
+
         res.status(200).json({
             success: true,
             message: 'Attribute updated successfully.',
@@ -172,6 +195,18 @@ const deleteAttribute = async (req, res) => {
         if (!deleted) {
             return res.status(404).json({ success: false, message: 'Attribute not found.' });
         }
+        
+        // Dual-write: delete from PostgreSQL
+        try {
+            await attributeRepo.deleteAttributeInPG(deleted._id);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-ATTRIBUTE-FAIL]', {
+                operation: 'delete',
+                attributeId: String(deleted._id),
+                error: pgErr.message
+            });
+        }
+        
         res.status(200).json({ success: true, message: 'Attribute deleted successfully.' });
     } catch (error) {
         console.error('Attribute Delete Error:', error);

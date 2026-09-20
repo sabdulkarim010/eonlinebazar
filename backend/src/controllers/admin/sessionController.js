@@ -11,6 +11,7 @@
 
 const mongoose = require('mongoose');
 const AdminSession = require('../../models/adminSession');
+const adminSessionRepo = require('../../repositories/adminSessionRepository');
 const { fingerprint } = require('../../utils/deviceParser');
 const { logSecurityEvent } = require('../../utils/securityLogger');
 
@@ -57,9 +58,19 @@ exports.logoutCurrent = async (req, res) => {
 
         if (sid) {
             await AdminSession.deleteOne({ sessionId: sid, adminUsername: username });
+            try {
+                await adminSessionRepo.deleteAdminSessionBySessionIdInPG(sid);
+            } catch (pgErr) {
+                console.error('[DUAL-WRITE-ADMINSESSION-FAIL] logoutCurrent:', pgErr);
+            }
         } else if (username) {
             // Legacy tokens without sid: wipe all sessions for this admin
             await AdminSession.deleteMany({ adminUsername: username });
+            try {
+                await adminSessionRepo.deleteAdminSessionsByUsernameInPG(username);
+            } catch (pgErr) {
+                console.error('[DUAL-WRITE-ADMINSESSION-FAIL] logoutAll:', pgErr);
+            }
         }
 
         await logSecurityEvent({
@@ -105,6 +116,12 @@ exports.logoutSession = async (req, res) => {
         const isCurrent = req.admin.sid && target.sessionId === req.admin.sid;
         await target.deleteOne();
 
+        try {
+            await adminSessionRepo.deleteAdminSessionInPG(target._id);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-ADMINSESSION-FAIL] logoutSession:', pgErr);
+        }
+
         await logSecurityEvent({
             action: 'Admin Session Terminated',
             actor: req.admin.username,
@@ -136,6 +153,12 @@ exports.logoutOtherSessions = async (req, res) => {
             adminUsername: req.admin.username,
             sessionId: { $ne: currentSid }
         });
+
+        try {
+            await adminSessionRepo.deleteAdminSessionsExceptSessionIdInPG(req.admin.username, currentSid);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-ADMINSESSION-FAIL] logoutOthers:', pgErr);
+        }
 
         await logSecurityEvent({
             action: 'Admin Sessions Purged',

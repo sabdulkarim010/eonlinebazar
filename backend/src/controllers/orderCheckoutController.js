@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const Product = require('../models/product');
 const Order = require('../models/order');
 const { dualWrite } = require('../services/dualWriteService');
+const productRepo = require('../repositories/productRepository');
 
 function mirrorOrderCreate(saved) {
     return require('../utils/orderDualWriteHelpers').mirrorOrderCreate(saved);
@@ -561,10 +562,26 @@ const createOrder = async (req, res) => {
                 const vIdx = findVariantIndex(product, item);
                 if (vIdx > -1) {
                     const current = Number(product.variants[vIdx].stock) || 0;
-                    product.variants[vIdx].stock = Math.max(0, current - quantityOrdered);
+                    const newVariantStock = Math.max(0, current - quantityOrdered);
+                    product.variants[vIdx].stock = newVariantStock;
                     product.stock = Math.max(0, (Number(product.stock) || 0) - quantityOrdered);
                     product.markModified('variants');
                     await product.save();
+                    
+                    // Dual-write: mirror variant stock update to PostgreSQL
+                    try {
+                        const variantSku = product.variants[vIdx].sku;
+                        if (variantSku) {
+                            await productRepo.updateStockInPG(product._id, variantSku, newVariantStock);
+                        }
+                    } catch (pgErr) {
+                        console.error('[DUAL-WRITE-STOCK-FAIL]', {
+                            productId: String(product._id),
+                            variantSku: product.variants[vIdx].sku,
+                            context: 'checkout',
+                            error: pgErr.message
+                        });
+                    }
                 } else {
                     // সাধারণ প্রোডাক্ট (ভ্যারিয়েন্ট নেই) — মূল stock ফিল্ড কমানো
                     await Product.updateOne(query, { $inc: { stock: -quantityOrdered } });

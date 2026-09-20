@@ -6,6 +6,7 @@ const Admin = require('../models/admin');
 const AdminNotification = require('../models/adminNotification');
 const { ROLES, ACCOUNT_STATUS } = require('../config/permissions');
 const { emitToAdmins } = require('./socketService');
+const adminNotificationRepo = require('../repositories/adminNotificationRepository');
 
 const { NOTIFICATION_TYPES } = AdminNotification;
 
@@ -47,6 +48,12 @@ async function createNotification(recipientId, type, title, message, link = '') 
         link: link ? String(link).trim() : '',
         isRead: false
     });
+
+    try {
+        await adminNotificationRepo.upsertAdminNotificationInPG(doc);
+    } catch (pgErr) {
+        console.error('[DUAL-WRITE-ADMINNOTIFICATION-FAIL] create:', pgErr);
+    }
 
     try {
         emitToAdmins('admin_notification', {

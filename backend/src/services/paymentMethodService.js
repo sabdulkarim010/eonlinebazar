@@ -12,6 +12,7 @@ const PaymentMethod = require('../models/PaymentMethod');
 const Settings = require('../models/Settings');
 const { normalizePaymentGateways } = require('./paymentGatewayService');
 const { envGatewayConfigured } = require('./paymentGatewayAdapters');
+const paymentMethodRepo = require('../repositories/paymentMethodRepository');
 
 const IPN_ROUTE_PREFIX = '/api/payments/ipn';
 const CACHE_TTL_MS = 15 * 1000;
@@ -338,8 +339,20 @@ async function seedDefaultPaymentMethods() {
 
     documents.push({ ...BANK_TRANSFER_SEED, feeType: 'percentage', processingFee: 0 });
 
-    await PaymentMethod.create(documents);
+    const createdMethods = await PaymentMethod.create(documents);
     clearPaymentMethodCache();
+
+    // Dual-write: mirror seeded methods to PostgreSQL
+    try {
+        for (const method of createdMethods) {
+            await paymentMethodRepo.upsertPaymentMethodInPG(method);
+        }
+    } catch (pgErr) {
+        console.error('[DUAL-WRITE-PAYMENTMETHOD-FAIL]', {
+            operation: 'seed',
+            error: pgErr.message
+        });
+    }
 
     if (process.env.NODE_ENV !== 'test') {
         console.log(`💳 Payment catalog seeded with ${documents.length} method(s) migrated from legacy settings.`);

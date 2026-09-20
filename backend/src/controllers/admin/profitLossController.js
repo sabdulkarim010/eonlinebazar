@@ -14,6 +14,10 @@
 const Order = require('../../models/order');
 const Expense = require('../../models/expense');
 const ExpenseCategory = require('../../models/expenseCategory');
+const { isPgReadEnabled } = require('../../config/readCutoverFlags');
+const orderRepository = require('../../repositories/orderRepository');
+const { getExpenseSummaryByCategory } = require('../../repositories/expenseRepository');
+const expenseCategoryRepository = require('../../repositories/expenseCategoryRepository');
 /** Delivered orders count as realized revenue. */
 const DELIVERED_STATUSES = ['delivered'];
 /** Returned/refunded orders are deducted from gross revenue. */
@@ -149,9 +153,14 @@ async function computeProfitLoss(query = {}) {
     const { start, end } = parseRange(query);
     const groupBy = resolveGroupBy(query, start, end);
 
-    const orders = await Order.find({
-        createdAt: { $gte: start, $lte: end }
-    }).lean();
+    let orders;
+    if (isPgReadEnabled('profitloss')) {
+        orders = await orderRepository.findAll({ dateFrom: start, dateTo: end });
+    } else {
+        orders = await Order.find({
+            createdAt: { $gte: start, $lte: end }
+        }).lean();
+    }
 
     let grossRevenue = 0;
     let returnsAmount = 0;
@@ -218,13 +227,23 @@ async function computeProfitLoss(query = {}) {
     }
 
     // Operating expenses for the period, grouped by category (incl. courier_charges).
-    const categoryCatalog = await ExpenseCategory.find({}).select('slug').lean();
-    const catalogSlugs = categoryCatalog.map((row) => row.slug);
+    let catalogSlugs;
+    let expenseRows;
 
-    const expenseRows = await Expense.aggregate([
-        { $match: { date: { $gte: start, $lte: end } } },
-        { $group: { _id: '$category', total: { $sum: '$amount' } } }
-    ]);
+    if (isPgReadEnabled('profitloss')) {
+        const categoryCatalog = await expenseCategoryRepository.listExpenseCategoriesFromPG();
+        catalogSlugs = (categoryCatalog || []).map((row) => row.slug);
+        const summary = await getExpenseSummaryByCategory(start, end);
+        expenseRows = summary.map((row) => ({ _id: row.category, total: row.total }));
+    } else {
+        const categoryCatalog = await ExpenseCategory.find({}).select('slug').lean();
+        catalogSlugs = categoryCatalog.map((row) => row.slug);
+
+        expenseRows = await Expense.aggregate([
+            { $match: { date: { $gte: start, $lte: end } } },
+            { $group: { _id: '$category', total: { $sum: '$amount' } } }
+        ]);
+    }
     const expensesByCategory = {};
     catalogSlugs.forEach((cat) => { expensesByCategory[cat] = 0; });
     let expensesTotal = 0;

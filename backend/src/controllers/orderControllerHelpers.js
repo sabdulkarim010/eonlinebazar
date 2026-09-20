@@ -11,6 +11,7 @@ const { notifyAdminOrderPlaced } = require('../services/whatsappService');
 const { findVariantIndex, getVariantAttributes, getVariantLineId } = require('../utils/variantHelpers');
 const { resolveProductFlashPrice } = require('../services/flashSaleService');
 const { roundMoney } = require('../services/deliveryChargeService');
+const productRepo = require('../repositories/productRepository');
 
 /** Fire-and-forget WhatsApp alert — must never block or fail order placement. */
 function dispatchAdminWhatsAppAlertSafely(order) {
@@ -144,15 +145,33 @@ async function adjustProductStockForItem(item, quantityDelta) {
     if (!product) return;
 
     const vIdx = findVariantIndex(product, item);
+    let variantSku = null;
+    let newVariantStock = null;
     if (vIdx > -1) {
         const current = Number(product.variants[vIdx].stock) || 0;
-        product.variants[vIdx].stock = Math.max(0, current + delta);
+        newVariantStock = Math.max(0, current + delta);
+        product.variants[vIdx].stock = newVariantStock;
+        variantSku = product.variants[vIdx].sku;
         product.markModified('variants');
     }
 
     product.stock = Math.max(0, (Number(product.stock) || 0) + delta);
     product.stockQuantity = Math.max(0, (Number(product.stockQuantity) || 0) + delta);
     await product.save();
+
+    // Dual-write: mirror stock update to PostgreSQL
+    try {
+        if (vIdx > -1 && variantSku) {
+            await productRepo.updateStockInPG(product._id, variantSku, newVariantStock);
+        }
+    } catch (pgErr) {
+        console.error('[DUAL-WRITE-STOCK-FAIL]', {
+            productId: String(product._id),
+            variantSku,
+            delta,
+            error: pgErr.message
+        });
+    }
 }
 
 async function deductOrderStock(normalizedItems) {

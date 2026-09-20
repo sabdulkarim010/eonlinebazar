@@ -143,7 +143,13 @@ PostgreSQL repository integration tests (157 tests, real Neon) run separately �
 
 ```bash
 npm test                  # 22 suites, 198 tests — MongoDB in-memory
-npm run test:repositories # 19 files, 157 tests — Neon PostgreSQL (serial concurrency)
+npm run test:repositories # 32 files, 241 tests — Neon PostgreSQL (serial concurrency)
+
+**Stage 4 analytics read cutover (Part 3.1):** set any of `READ_PG_FINANCE_ANALYTICS`, `READ_PG_PROFIT_LOSS`, `READ_PG_ACCOUNTS_SUMMARY`, `READ_PG_CRM`, or `READ_PG_ENTERPRISE_SUMMARY=true` to switch dashboard analytics reads from Mongo aggregates to Prisma (default OFF).
+
+**Pre-launch migration verify (Part 3.2):** `cd backend && node scripts/verifyFullMigration.js` — compares Mongo vs Postgres row counts (28 models), SUM(grandTotal) financial integrity, and read-cutover flag snapshot; prints `MIGRATION READY: YES/NO`. Orphan PG cleanup: `cd backend && node scripts/ops/cleanTestDataFromPG.js`.
+
+**Production flag rollout (Part 3.3):** see [`backend/docs/ROLLOUT_GUIDE.md`](backend/docs/ROLLOUT_GUIDE.md) — `enableFlags.js` (doctl env commands), `monitorCutover.js` (live fallback dashboard), and [`DECOMMISSION_GUIDE.md`](backend/docs/DECOMMISSION_GUIDE.md) for Phase 4 Mongo removal.
 ```
 
 | Suite | File | Tests | Focus |
@@ -334,7 +340,7 @@ eonlinebazar-fullstack/
 ├── ecommerce-chat/              # Live-chat microservice (port 5001)
 ├── admin-dashboard/             # Vite React chat-admin SPA → /chat-admin
 ├── devops/                      # Nginx, droplet first-time setup
-├── tests/                       # 17 Jest suites / 169 tests (+ 157 Neon repository tests)
+├── tests/                       # 22 Jest suites / 198 tests (+ 241 Neon repository tests)
 ├── scripts/                     # Seed and index migration
 ├── prisma/schema.prisma         # PostgreSQL (Neon) target schema — 67 models; app does not read it yet
 ├── prisma/migrations/           # Applied SQL migration history (baseline: 2026-09-13)

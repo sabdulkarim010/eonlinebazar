@@ -16,6 +16,8 @@ const Warehouse = require('../../models/warehouse');
 const Product = require('../../models/product');
 const { getDefaultWarehouseId } = require('../../services/warehouseService');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { isPgReadEnabled } = require('../../config/readCutoverFlags');
+const poRepo = require('../../repositories/purchaseOrderRepository');
 
 /** A PO may only be edited while nothing has been received against it. */
 const EDITABLE_STATUSES = ['draft', 'sent'];
@@ -117,16 +119,28 @@ exports.getAllPOs = async (req, res) => {
 
         const { page, limit, skip } = parsePagination(req.query);
 
-        const [orders, total] = await Promise.all([
-            PurchaseOrder.find(filter)
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(limit)
-                .populate('supplierId', 'name contactPerson phone')
-                .populate('warehouseId', 'name location')
-                .lean(),
-            PurchaseOrder.countDocuments(filter)
-        ]);
+        let orders;
+        let total;
+
+        if (isPgReadEnabled('purchaseorder')) {
+            const pgFilters = {};
+            if (filter.status) pgFilters.status = filter.status;
+            if (filter.supplierId) pgFilters.supplierId = String(filter.supplierId);
+            const allRows = await poRepo.listPurchaseOrdersFromPG(pgFilters);
+            total = allRows.length;
+            orders = allRows.slice(skip, skip + limit);
+        } else {
+            [orders, total] = await Promise.all([
+                PurchaseOrder.find(filter)
+                    .sort({ createdAt: -1 })
+                    .skip(skip)
+                    .limit(limit)
+                    .populate('supplierId', 'name contactPerson phone')
+                    .populate('warehouseId', 'name location')
+                    .lean(),
+                PurchaseOrder.countDocuments(filter)
+            ]);
+        }
 
         res.status(200).json({
             success: true,
@@ -152,11 +166,16 @@ exports.getPOById = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid purchase order id.' });
         }
 
-        const order = await PurchaseOrder.findById(id)
-            .populate('supplierId', 'name contactPerson phone email address')
-            .populate('warehouseId', 'name location address')
-            .populate('items.productId', 'name productId stockQuantity')
-            .lean();
+        let order;
+        if (isPgReadEnabled('purchaseorder')) {
+            order = await poRepo.getPurchaseOrderWithItems(id);
+        } else {
+            order = await PurchaseOrder.findById(id)
+                .populate('supplierId', 'name contactPerson phone email address')
+                .populate('warehouseId', 'name location address')
+                .populate('items.productId', 'name productId stockQuantity')
+                .lean();
+        }
 
         if (!order) {
             return res.status(404).json({ success: false, message: 'Purchase order not found.' });
@@ -218,6 +237,12 @@ exports.createPO = async (req, res) => {
             } catch (err) {
                 if (err?.code !== 11000 || attempt === 2) throw err;
             }
+        }
+
+        try {
+            await poRepo.upsertPurchaseOrderInPG(purchaseOrder);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-PURCHASEORDER-FAIL] create:', pgErr);
         }
 
         await logSecurityEvent({
@@ -305,6 +330,12 @@ exports.updatePO = async (req, res) => {
         }
 
         await purchaseOrder.save();
+
+        try {
+            await poRepo.upsertPurchaseOrderInPG(purchaseOrder);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-PURCHASEORDER-FAIL] update:', pgErr);
+        }
 
         await logSecurityEvent({
             action: 'Purchase Order Updated',
@@ -434,6 +465,12 @@ exports.receivePO = async (req, res) => {
 
         await purchaseOrder.save();
 
+        try {
+            await poRepo.upsertPurchaseOrderInPG(purchaseOrder);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-PURCHASEORDER-FAIL] receive:', pgErr);
+        }
+
         const receivedUnits = deltas.reduce((sum, d) => sum + d.delta, 0);
 
         await logSecurityEvent({
@@ -498,6 +535,12 @@ exports.cancelPO = async (req, res) => {
         }
 
         await purchaseOrder.save();
+
+        try {
+            await poRepo.upsertPurchaseOrderInPG(purchaseOrder);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-PURCHASEORDER-FAIL] cancel:', pgErr);
+        }
 
         await logSecurityEvent({
             action: 'Purchase Order Cancelled',

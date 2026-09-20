@@ -404,6 +404,521 @@ async function addEmbeddedReview(productId, reviewData) {
   return { ...row, _id: row.id, user: row.userId };
 }
 
+// ── Dual-Write Helpers (Stage 2 Step 3, Part 1.1) ─────────────────────────
+// Safe wrappers — never throw, only log failures with [DUAL-WRITE-PRODUCT-FAIL].
+const { mongoProductToPrismaShape } = require('../utils/productDualWriteHelpers');
+
+/**
+ * Create product in Postgres from Mongoose document.
+ * Never throws — logs failure and returns silently.
+ */
+async function createProductInPG(mongoDoc) {
+  try {
+    const shape = mongoProductToPrismaShape(mongoDoc);
+    const { main, variants, costHistory, embeddedReviews } = shape;
+
+    // Create main product row
+    const product = await prisma.product.create({
+      data: {
+        legacyId: main.legacyId,
+        productId: main.productId,
+        name: main.name,
+        slug: main.slug,
+        price: main.price,
+        buyingPrice: main.buyingPrice,
+        categoryName: main.categoryName,
+        categoryId: main.categoryId,
+        brandId: main.brandId,
+        brandName: main.brandName,
+        hasVariants: main.hasVariants,
+        stockQuantity: main.stockQuantity,
+        lowStockThreshold: main.lowStockThreshold,
+        supplierId: main.supplierId,
+        warehouseId: main.warehouseId,
+        reorderPoint: main.reorderPoint,
+        stock: main.stock,
+        description: main.description,
+        detailedDescription: main.detailedDescription,
+        highlights: main.highlights,
+        tags: main.tags,
+        weight: main.weight,
+        status: main.status,
+        createdById: main.createdById,
+        icon: main.icon,
+        image: main.image,
+        images: main.images,
+        rating: main.rating,
+        numOfReviews: main.numOfReviews
+      }
+    });
+
+    // Create variants
+    for (const v of variants) {
+      const variant = await prisma.productVariant.create({
+        data: {
+          productId: product.id,
+          legacyId: v.legacyId,
+          name: v.name,
+          sku: v.sku,
+          price: v.price,
+          buyingPrice: v.buyingPrice,
+          stock: v.stock,
+          image: v.image,
+          attribute: v.attribute,
+          value: v.value
+        }
+      });
+
+      // Create variant attributes
+      for (const attr of v.attributes) {
+        await prisma.productVariantAttribute.create({
+          data: {
+            variantId: variant.id,
+            name: attr.name,
+            value: attr.value
+          }
+        });
+      }
+    }
+
+    // Create cost history
+    for (const entry of costHistory) {
+      await prisma.productCostHistory.create({
+        data: {
+          productId: product.id,
+          cost: entry.cost,
+          date: entry.date,
+          supplierId: entry.supplierId
+        }
+      });
+    }
+
+    // Create embedded reviews
+    for (const review of embeddedReviews) {
+      await prisma.productEmbeddedReview.create({
+        data: {
+          productId: product.id,
+          legacyId: review.legacyId,
+          userId: review.userId,
+          name: review.name,
+          rating: review.rating,
+          comment: review.comment,
+          createdAt: review.createdAt
+        }
+      });
+    }
+  } catch (err) {
+    console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+      timestamp: new Date().toISOString(),
+      operation: 'create',
+      mongoId: String(mongoDoc._id || ''),
+      error: err.message || String(err)
+    });
+  }
+}
+
+/**
+ * Update product in Postgres by MongoDB _id.
+ * Never throws — logs failure and returns silently.
+ */
+async function updateProductInPG(mongoId, updateData) {
+  try {
+    const legacyId = String(mongoId);
+    const product = await prisma.product.findUnique({
+      where: { legacyId }
+    });
+
+    if (!product) {
+      console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+        timestamp: new Date().toISOString(),
+        operation: 'update',
+        mongoId: legacyId,
+        error: 'Product not found in Postgres'
+      });
+      return;
+    }
+
+    const fields = {};
+    
+    if (updateData.name !== undefined) fields.name = String(updateData.name).trim();
+    if (updateData.slug !== undefined) fields.slug = String(updateData.slug).trim().toLowerCase();
+    if (updateData.price !== undefined) fields.price = Number(updateData.price);
+    if (updateData.buyingPrice !== undefined) fields.buyingPrice = Number(updateData.buyingPrice);
+    if (updateData.category !== undefined) fields.categoryName = String(updateData.category).trim();
+    if (updateData.categoryName !== undefined) fields.categoryName = String(updateData.categoryName).trim();
+    if (updateData.categoryId !== undefined) fields.categoryId = updateData.categoryId;
+    if (updateData.brand !== undefined) fields.brandId = updateData.brand;
+    if (updateData.brandId !== undefined) fields.brandId = updateData.brandId;
+    if (updateData.brandName !== undefined) fields.brandName = String(updateData.brandName).trim();
+    if (updateData.hasVariants !== undefined) fields.hasVariants = Boolean(updateData.hasVariants);
+    if (updateData.stockQuantity !== undefined) fields.stockQuantity = Number(updateData.stockQuantity);
+    if (updateData.lowStockThreshold !== undefined) fields.lowStockThreshold = Number(updateData.lowStockThreshold);
+    if (updateData.stock !== undefined) fields.stock = Number(updateData.stock);
+    if (updateData.supplierId !== undefined) fields.supplierId = updateData.supplierId;
+    if (updateData.warehouseId !== undefined) fields.warehouseId = updateData.warehouseId;
+    if (updateData.reorderPoint !== undefined) fields.reorderPoint = Number(updateData.reorderPoint);
+    if (updateData.description !== undefined) fields.description = String(updateData.description).trim();
+    if (updateData.detailedDescription !== undefined) fields.detailedDescription = String(updateData.detailedDescription).trim();
+    if (updateData.highlights !== undefined) fields.highlights = updateData.highlights;
+    if (updateData.tags !== undefined) fields.tags = updateData.tags;
+    if (updateData.weight !== undefined) fields.weight = updateData.weight;
+    if (updateData.status !== undefined) {
+      fields.status = String(updateData.status).toLowerCase() === 'inactive' ? 'INACTIVE' : 'ACTIVE';
+    }
+    if (updateData.icon !== undefined) fields.icon = String(updateData.icon).trim();
+    if (updateData.image !== undefined) fields.image = String(updateData.image).trim();
+    if (updateData.images !== undefined) fields.images = updateData.images;
+    if (updateData.rating !== undefined) fields.rating = Number(updateData.rating);
+    if (updateData.numOfReviews !== undefined) fields.numOfReviews = Number(updateData.numOfReviews);
+
+    if (Object.keys(fields).length > 0) {
+      await prisma.product.update({
+        where: { legacyId },
+        data: fields
+      });
+    }
+
+    // Handle variants update if provided
+    if (updateData.variants !== undefined) {
+      // Delete existing variants and recreate (simpler than diff)
+      await prisma.productVariant.deleteMany({
+        where: { productId: product.id }
+      });
+
+      const variants = Array.isArray(updateData.variants) ? updateData.variants : [];
+      for (const v of variants) {
+        const vPlain = v.toObject ? v.toObject() : { ...v };
+        const variant = await prisma.productVariant.create({
+          data: {
+            productId: product.id,
+            legacyId: vPlain._id != null ? String(vPlain._id) : null,
+            name: String(vPlain.name || '').trim(),
+            sku: String(vPlain.sku || '').trim(),
+            price: vPlain.price != null ? Number(vPlain.price) : 0,
+            buyingPrice: vPlain.buyingPrice != null ? Number(vPlain.buyingPrice) : 0,
+            stock: vPlain.stock != null ? Number(vPlain.stock) : 0,
+            image: String(vPlain.image || '').trim(),
+            attribute: String(vPlain.attribute || '').trim(),
+            value: String(vPlain.value || '').trim()
+          }
+        });
+
+        // Handle attributes Map
+        const attrs = vPlain.attributes;
+        if (attrs) {
+          const attrEntries = attrs instanceof Map 
+            ? Array.from(attrs.entries())
+            : Object.entries(attrs || {});
+          
+          for (const [name, value] of attrEntries) {
+            await prisma.productVariantAttribute.create({
+              data: {
+                variantId: variant.id,
+                name: String(name),
+                value: String(value ?? '')
+              }
+            });
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+      timestamp: new Date().toISOString(),
+      operation: 'update',
+      mongoId: String(mongoId),
+      error: err.message || String(err)
+    });
+  }
+}
+
+/**
+ * Delete product in Postgres by MongoDB _id.
+ * Never throws — logs failure and returns silently.
+ */
+async function deleteProductInPG(mongoId) {
+  try {
+    const legacyId = String(mongoId);
+    const product = await prisma.product.findUnique({
+      where: { legacyId }
+    });
+
+    if (!product) {
+      console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+        timestamp: new Date().toISOString(),
+        operation: 'delete',
+        mongoId: legacyId,
+        error: 'Product not found in Postgres'
+      });
+      return;
+    }
+
+    // Cascade deletes: ProductVariant (+ attributes), ProductCostHistory, ProductEmbeddedReview
+    await prisma.product.delete({
+      where: { legacyId }
+    });
+  } catch (err) {
+    console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+      timestamp: new Date().toISOString(),
+      operation: 'delete',
+      mongoId: String(mongoId),
+      error: err.message || String(err)
+    });
+  }
+}
+
+/**
+ * Update stock for a specific variant by SKU.
+ * Never throws — logs failure and returns silently.
+ */
+async function updateStockInPG(mongoId, variantSku, newQty) {
+  try {
+    const legacyId = String(mongoId);
+    const product = await prisma.product.findUnique({
+      where: { legacyId },
+      include: { variants: true }
+    });
+
+    if (!product) {
+      console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+        timestamp: new Date().toISOString(),
+        operation: 'updateStock',
+        mongoId: legacyId,
+        variantSku: String(variantSku),
+        error: 'Product not found in Postgres'
+      });
+      return;
+    }
+
+    const variant = product.variants.find(v => v.sku === String(variantSku));
+    if (!variant) {
+      console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+        timestamp: new Date().toISOString(),
+        operation: 'updateStock',
+        mongoId: legacyId,
+        variantSku: String(variantSku),
+        error: 'Variant not found'
+      });
+      return;
+    }
+
+    await prisma.productVariant.update({
+      where: { id: variant.id },
+      data: { stock: Number(newQty) }
+    });
+
+    // Recalculate total stock
+    const allVariants = await prisma.productVariant.findMany({
+      where: { productId: product.id }
+    });
+    const totalStock = allVariants.reduce((sum, v) => sum + Number(v.stock), 0);
+
+    await prisma.product.update({
+      where: { id: product.id },
+      data: { stock: totalStock }
+    });
+  } catch (err) {
+    console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+      timestamp: new Date().toISOString(),
+      operation: 'updateStock',
+      mongoId: String(mongoId),
+      variantSku: String(variantSku),
+      error: err.message || String(err)
+    });
+  }
+}
+
+// ── Read Helpers for Stage 4 Cutover ──────────────────────────────────────
+/**
+ * Get product by MongoDB _id from Postgres (for read cutover).
+ * Returns Mongo-shaped document or null.
+ */
+async function getProductByIdFromPG(mongoId) {
+  try {
+    const product = await prisma.product.findUnique({
+      where: { legacyId: String(mongoId) },
+      include: {
+        variants: { include: { attributes: true } },
+        costHistory: true,
+        embeddedReviews: true
+      }
+    });
+
+    if (!product) return null;
+
+    // Map to Mongo shape
+    return {
+      _id: product.legacyId,
+      productId: product.productId,
+      name: product.name,
+      slug: product.slug,
+      price: Number(product.price),
+      buyingPrice: Number(product.buyingPrice),
+      category: product.categoryName,
+      brand: product.brandId,
+      brandName: product.brandName,
+      hasVariants: product.hasVariants,
+      stockQuantity: product.stockQuantity,
+      lowStockThreshold: product.lowStockThreshold,
+      supplierId: product.supplierId,
+      warehouseId: product.warehouseId,
+      reorderPoint: product.reorderPoint,
+      stock: product.stock,
+      description: product.description,
+      detailedDescription: product.detailedDescription,
+      highlights: product.highlights,
+      tags: product.tags,
+      weight: product.weight,
+      status: product.status === 'INACTIVE' ? 'inactive' : 'active',
+      createdBy: product.createdById,
+      icon: product.icon,
+      image: product.image,
+      images: product.images,
+      rating: Number(product.rating),
+      numOfReviews: product.numOfReviews,
+      variants: product.variants.map(v => ({
+        _id: v.legacyId,
+        name: v.name,
+        sku: v.sku,
+        price: Number(v.price),
+        buyingPrice: Number(v.buyingPrice),
+        stock: v.stock,
+        image: v.image,
+        attribute: v.attribute,
+        value: v.value,
+        attributes: v.attributes.reduce((map, attr) => {
+          map[attr.name] = attr.value;
+          return map;
+        }, {})
+      })),
+      costHistory: product.costHistory.map(c => ({
+        _id: c.id,
+        cost: Number(c.cost),
+        date: c.date,
+        supplierId: c.supplierId
+      })),
+      reviews: product.embeddedReviews.map(r => ({
+        _id: r.legacyId,
+        user: r.userId,
+        name: r.name,
+        rating: r.rating,
+        comment: r.comment,
+        createdAt: r.createdAt
+      })),
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt
+    };
+  } catch (err) {
+    console.error('[DUAL-READ-PRODUCT-FAIL]', {
+      timestamp: new Date().toISOString(),
+      operation: 'getById',
+      mongoId: String(mongoId),
+      error: err.message || String(err)
+    });
+    return null;
+  }
+}
+
+/**
+ * List products from Postgres with filters (for read cutover).
+ * Returns array of Mongo-shaped documents.
+ */
+async function listProductsFromPG(filters = {}) {
+  try {
+    const where = {};
+    
+    if (filters.status !== undefined) {
+      where.status = String(filters.status).toLowerCase() === 'inactive' ? 'INACTIVE' : 'ACTIVE';
+    }
+    if (filters.categoryName) where.categoryName = String(filters.categoryName);
+    if (filters.categoryId) where.categoryId = filters.categoryId;
+    if (filters.brandId) where.brandId = filters.brandId;
+    if (filters.supplierId) where.supplierId = filters.supplierId;
+
+    const search = String(filters.search || filters.q || '').trim();
+    if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
+
+    if (filters.minPrice != null || filters.maxPrice != null) {
+      where.price = {};
+      if (filters.minPrice != null) where.price.gte = filters.minPrice;
+      if (filters.maxPrice != null) where.price.lte = filters.maxPrice;
+    }
+
+    const query = {
+      where,
+      orderBy: { createdAt: 'desc' }
+    };
+
+    const limit = Number(filters.limit);
+    if (Number.isFinite(limit) && limit > 0) {
+      const page = Math.max(1, Number(filters.page) || 1);
+      query.skip = (page - 1) * limit;
+      query.take = limit;
+    }
+
+    const products = await prisma.product.findMany({
+      ...query,
+      include: {
+        variants: { include: { attributes: true } }
+      }
+    });
+
+    return products.map(product => ({
+      _id: product.legacyId,
+      productId: product.productId,
+      name: product.name,
+      slug: product.slug,
+      price: Number(product.price),
+      buyingPrice: Number(product.buyingPrice),
+      category: product.categoryName,
+      brand: product.brandId,
+      brandName: product.brandName,
+      hasVariants: product.hasVariants,
+      stockQuantity: product.stockQuantity,
+      lowStockThreshold: product.lowStockThreshold,
+      stock: product.stock,
+      description: product.description,
+      detailedDescription: product.detailedDescription,
+      highlights: product.highlights,
+      tags: product.tags,
+      weight: product.weight,
+      status: product.status === 'INACTIVE' ? 'inactive' : 'active',
+      icon: product.icon,
+      image: product.image,
+      images: product.images,
+      rating: Number(product.rating),
+      numOfReviews: product.numOfReviews,
+      variants: product.variants.map(v => ({
+        _id: v.legacyId,
+        name: v.name,
+        sku: v.sku,
+        price: Number(v.price),
+        buyingPrice: Number(v.buyingPrice),
+        stock: v.stock,
+        image: v.image,
+        attribute: v.attribute,
+        value: v.value,
+        attributes: v.attributes.reduce((map, attr) => {
+          map[attr.name] = attr.value;
+          return map;
+        }, {})
+      })),
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt
+    }));
+  } catch (err) {
+    console.error('[DUAL-READ-PRODUCT-FAIL]', {
+      timestamp: new Date().toISOString(),
+      operation: 'list',
+      filters: JSON.stringify(filters),
+      error: err.message || String(err)
+    });
+    return [];
+  }
+}
+
 module.exports = {
   slugifyProduct,
   resolveUniqueSlug,
@@ -422,5 +937,13 @@ module.exports = {
   addCostEntry,
   listEmbeddedReviews,
   addEmbeddedReview,
-  UUID_PATTERN
+  UUID_PATTERN,
+  // Dual-write functions (Stage 2 Step 3, Part 1.1)
+  createProductInPG,
+  updateProductInPG,
+  deleteProductInPG,
+  updateStockInPG,
+  // Read cutover functions (Stage 4)
+  getProductByIdFromPG,
+  listProductsFromPG
 };

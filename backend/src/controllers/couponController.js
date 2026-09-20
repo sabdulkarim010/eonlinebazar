@@ -14,6 +14,7 @@ const {
     getApplicationTimeContext,
     isExpiryReached
 } = require('../utils/applicationTime');
+const couponRepo = require('../repositories/couponRepository');
 
 /** Run time-based expiry sweep before coupon reads / availability checks. */
 async function runCouponAutoExpiry(now = getApplicationNow()) {
@@ -104,6 +105,17 @@ async function validateCouponForCart({ code, subtotal, userId, now = getApplicat
         coupon.status = 'EXPIRED';
         coupon.isActive = false;
         await coupon.save();
+        
+        // Dual-write: deactivate in PostgreSQL
+        try {
+            await couponRepo.deactivateCouponInPG(coupon._id);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-COUPON-FAIL]', {
+                operation: 'auto-expiry',
+                couponId: String(coupon._id),
+                error: pgErr.message
+            });
+        }
     }
 
     const eligibility = assertCouponActiveAndUnexpired(coupon, now);
@@ -160,7 +172,7 @@ async function validateCouponForCart({ code, subtotal, userId, now = getApplicat
 async function redeemCoupon(couponId, now = getApplicationNow()) {
     if (!couponId) return null;
 
-    return Coupon.findOneAndUpdate(
+    const updated = await Coupon.findOneAndUpdate(
         {
             _id: couponId,
             status: 'ACTIVE',
@@ -171,6 +183,21 @@ async function redeemCoupon(couponId, now = getApplicationNow()) {
         { $inc: { usedCount: 1 } },
         { returnDocument: 'after' }
     );
+    
+    // Dual-write: update usedCount in PostgreSQL
+    if (updated) {
+        try {
+            await couponRepo.upsertCouponInPG(updated);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-COUPON-FAIL]', {
+                operation: 'redeem',
+                couponId: String(couponId),
+                error: pgErr.message
+            });
+        }
+    }
+    
+    return updated;
 }
 
 /** Record per-user redemption after the order is persisted. */
@@ -186,11 +213,26 @@ async function recordCouponUserUse(couponId, userId) {
 /** Undo a claimed usage slot if order persistence fails. */
 async function releaseCouponSlot(couponId) {
     if (!couponId) return null;
-    return Coupon.findOneAndUpdate(
+    const updated = await Coupon.findOneAndUpdate(
         { _id: couponId, usedCount: { $gt: 0 } },
         { $inc: { usedCount: -1 } },
         { returnDocument: 'after' }
     );
+    
+    // Dual-write: update usedCount in PostgreSQL
+    if (updated) {
+        try {
+            await couponRepo.upsertCouponInPG(updated);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-COUPON-FAIL]', {
+                operation: 'releaseSlot',
+                couponId: String(couponId),
+                error: pgErr.message
+            });
+        }
+    }
+    
+    return updated;
 }
 
 // ─── Admin CRUD ───────────────────────────────────────────────────────────
@@ -299,6 +341,17 @@ const createCoupon = async (req, res) => {
         const coupon = new Coupon(fields);
         await coupon.save();
 
+        // Dual-write: mirror to PostgreSQL
+        try {
+            await couponRepo.upsertCouponInPG(coupon);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-COUPON-FAIL]', {
+                operation: 'create',
+                couponId: String(coupon._id),
+                error: pgErr.message
+            });
+        }
+
         res.status(201).json({
             success: true,
             message: 'Coupon created successfully!',
@@ -346,6 +399,17 @@ const updateCoupon = async (req, res) => {
 
         await coupon.save();
 
+        // Dual-write: mirror to PostgreSQL
+        try {
+            await couponRepo.upsertCouponInPG(coupon);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-COUPON-FAIL]', {
+                operation: 'update',
+                couponId: String(coupon._id),
+                error: pgErr.message
+            });
+        }
+
         res.status(200).json({
             success: true,
             message: 'Coupon updated successfully!',
@@ -363,6 +427,18 @@ const deleteCoupon = async (req, res) => {
         if (!deleted) {
             return res.status(404).json({ success: false, message: 'Coupon not found.' });
         }
+        
+        // Dual-write: delete from PostgreSQL
+        try {
+            await couponRepo.deleteCouponInPG(deleted._id);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-COUPON-FAIL]', {
+                operation: 'delete',
+                couponId: String(deleted._id),
+                error: pgErr.message
+            });
+        }
+        
         res.status(200).json({ success: true, message: 'Coupon deleted successfully!' });
     } catch (error) {
         console.error('Coupon Delete Error:', error);
@@ -382,6 +458,18 @@ const toggleCouponStatus = async (req, res) => {
             coupon.status = 'EXPIRED';
             coupon.isActive = false;
             await coupon.save();
+            
+            // Dual-write: deactivate in PostgreSQL
+            try {
+                await couponRepo.deactivateCouponInPG(coupon._id);
+            } catch (pgErr) {
+                console.error('[DUAL-WRITE-COUPON-FAIL]', {
+                    operation: 'toggle-expired',
+                    couponId: String(coupon._id),
+                    error: pgErr.message
+                });
+            }
+            
             return res.status(400).json({
                 success: false,
                 message: 'Cannot activate an expired coupon. Update the expiry date and time first.'
@@ -391,6 +479,17 @@ const toggleCouponStatus = async (req, res) => {
         coupon.status = coupon.status === 'ACTIVE' ? 'EXPIRED' : 'ACTIVE';
         coupon.isActive = coupon.status === 'ACTIVE';
         await coupon.save();
+
+        // Dual-write: mirror toggle to PostgreSQL
+        try {
+            await couponRepo.upsertCouponInPG(coupon);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-COUPON-FAIL]', {
+                operation: 'toggle',
+                couponId: String(coupon._id),
+                error: pgErr.message
+            });
+        }
 
         res.status(200).json({
             success: true,

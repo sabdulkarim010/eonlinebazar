@@ -4,7 +4,7 @@
  * Location: backend/src/repositories/blacklistedIpRepository.js
  * Description: Prisma repository for BlacklistedIp rows.
  *   null expiresAt = permanent ban (must not default to a placeholder date).
- *   Mongo TTL sweep on expiresAt is out of scope for this task.
+ *   Mongo TTL sweep on expiresAt is mirrored by deleteExpiredBlacklistedIpsFromPG() + pgTtlSweepJob.
  *
  *   Stage 2 Step 3, Part 4 — Security/Audit dual-write (2026-09-14).
  ********************************************************************/
@@ -100,6 +100,21 @@ async function upsertFromMongo(mongoDoc) {
   return toShape(record);
 }
 
+async function deleteExpiredBlacklistedIpsFromPG() {
+  try {
+    const now = new Date();
+    const result = await prisma.blacklistedIp.deleteMany({
+      where: {
+        expiresAt: { not: null, lt: now }
+      }
+    });
+    return result.count;
+  } catch (err) {
+    console.error('[PG-TTL-BLACKLISTED-IP-FAIL]', err.message);
+    return 0;
+  }
+}
+
 async function remove(id) {
   const existing = await prisma.blacklistedIp.findUnique({ where: { id } });
   if (!existing) {
@@ -118,6 +133,7 @@ module.exports = {
   countActive,
   findByLegacyId,
   upsertFromMongo,
+  deleteExpiredBlacklistedIpsFromPG,
   remove,
   normalizeExpiresAt
 };

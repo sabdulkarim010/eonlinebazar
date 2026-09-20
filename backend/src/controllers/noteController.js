@@ -8,6 +8,7 @@
 
 const mongoose = require('mongoose');
 const Note = require('../models/note');
+const noteRepo = require('../repositories/noteRepository');
 
 const NOTE_TYPES = ['note', 'general', 'expense', 'income', 'shopping'];
 const NOTE_CATEGORIES = ['food', 'transport', 'shopping', 'bill', 'health', 'education', 'other'];
@@ -193,6 +194,13 @@ exports.createNote = async (req, res) => {
         if (parsed.error) return res.status(400).json({ success: false, message: parsed.error });
 
         const note = await Note.create({ user: req.user.id, ...parsed.payload });
+
+        try {
+            await noteRepo.upsertNoteInPG(note);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-NOTE-FAIL] create:', pgErr);
+        }
+
         res.status(201).json({ success: true, message: 'Note saved.', note: toNoteDto(note) });
     } catch (error) {
         console.error('Create Note Error:', error);
@@ -220,6 +228,12 @@ exports.updateNote = async (req, res) => {
         );
         if (!note) return res.status(404).json({ success: false, message: 'Note not found.' });
 
+        try {
+            await noteRepo.upsertNoteInPG(note);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-NOTE-FAIL] update:', pgErr);
+        }
+
         res.status(200).json({ success: true, message: 'Note updated.', note: toNoteDto(note) });
     } catch (error) {
         console.error('Update Note Error:', error);
@@ -234,6 +248,12 @@ exports.deleteNote = async (req, res) => {
         }
         const note = await Note.findOneAndDelete(ownedFilter(req, { _id: req.params.id }));
         if (!note) return res.status(404).json({ success: false, message: 'Note not found.' });
+
+        try {
+            await noteRepo.deleteNoteInPG(note._id);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-NOTE-FAIL] delete:', pgErr);
+        }
 
         res.status(200).json({ success: true, message: 'Note deleted.' });
     } catch (error) {

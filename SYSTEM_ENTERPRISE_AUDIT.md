@@ -2487,3 +2487,100 @@ OFF; Mongo remains the live read path until deliberately enabled per environment
 | Live HTTP verification | ✅ 8/8 PASS, 0 fallbacks |
 | `npm test` / `test:repositories` | ✅ 228/228, 157/157 |
 
+## Stage 2 Step 3, Part 2.4 — Dual-Write: PurchaseOrder + PurchaseOrderItem — 2026-09-20
+
+**Status:** ✅ COMPLETE
+
+| Item | Status |
+|------|--------|
+| `purchaseOrderRepository.js` — upsert with item delete/re-insert | ✅ |
+| `getPurchaseOrderWithItems()` — Prisma include replaces `.populate()` | ✅ |
+| `listPurchaseOrdersFromPG()` — status + dateFrom/dateTo filters | ✅ |
+| `updatePurchaseOrderStatusInPG()` + `deletePurchaseOrderInPG()` | ✅ |
+| Controller dual-write on create / update / receive / cancel | ✅ |
+| PG read cutover for list + detail when `READ_PG_PURCHASE_ORDER=true` | ✅ default OFF |
+| Backfill script `backfillPurchaseOrders.js` | ✅ idempotent batch-100 |
+| Repository integration tests | ✅ 7/7 pass (`node --test`) |
+| `[DUAL-WRITE-PURCHASEORDER-FAIL]` never throws to caller | ✅ |
+
+## Stage 2 Step 3, Part 2.5 — Dual-Write: Shift, Note, AdminNotification, UserSession, AdminSession — 2026-09-20
+
+**Status:** ✅ COMPLETE
+
+| Model | Repository | Controller wired | Backfill | Tests |
+|-------|------------|------------------|----------|-------|
+| Shift + ShiftAssignment | ✅ | ✅ attendanceController | ✅ backfillShifts.js | ✅ 5/5 |
+| Note + NoteShoppingItem | ✅ | ✅ noteController | ✅ backfillNotes.js (4 migrated) | ✅ 5/5 |
+| AdminNotification | ✅ | ✅ notificationService + controller | ✅ no-op (fresh start) | ✅ 4/4 |
+| UserSession | ✅ | ✅ login/authHelpers/middleware | ✅ no-op (ephemeral) | ✅ 4/4 |
+| AdminSession | ✅ | ✅ authController/sessionController/middleware | ✅ no-op (ephemeral) | ✅ 4/4 |
+
+| Item | Status |
+|------|--------|
+| READ_PG_SHIFT / NOTE / ADMIN_NOTIFICATION / USER_SESSION / ADMIN_SESSION flags | ✅ default OFF |
+| Combined repository tests (Part 2.5) | ✅ 22/22 pass |
+
+## Stage 2 Step 3, Part 2.6 — PG TTL Sweep Job — 2026-09-20
+
+**Status:** ✅ COMPLETE — **Phase 2 dual-write rollout complete**
+
+| Item | Status |
+|------|--------|
+| `deleteExpiredLoginAttemptsFromPG()` — 30-day retention | ✅ |
+| `deleteExpiredBlacklistedIpsFromPG()` — expiresAt < now, null preserved | ✅ |
+| `deleteExpiredUserSessionsFromPG()` — confirmed (Part 2.5) | ✅ |
+| `deleteExpiredAdminSessionsFromPG()` — confirmed (Part 2.5) | ✅ |
+| `pgTtlSweepJob.js` — daily 02:00 cron | ✅ |
+| Registered in `server.js` | ✅ |
+| `READ_PG_USER_SESSION` + `READ_PG_ADMIN_SESSION` flags | ✅ present |
+| TTL integration tests | ✅ 4/4 pass |
+
+## Stage 4 Step 1, Part 3.1 — Analytics Aggregate → Prisma — 2026-09-20
+
+**Status:** ✅ COMPLETE
+
+| Controller | Mongo aggregate / count converted | Prisma equivalent | Flag |
+|------------|-----------------------------------|-------------------|------|
+| `financeAnalyticsController.js` | Order `$facet`/`$group` pipeline in `aggregateFinanceByDateRange` | `orderRepository.findAll()` + in-memory P&L (`computeFinanceMetricsPg`) | `READ_PG_FINANCE_ANALYTICS` |
+| `profitLossController.js` | Expense `$match` + `$group` by category | `getExpenseSummaryByCategory()` (`prisma.expense.groupBy`) | `READ_PG_PROFIT_LOSS` |
+| `accountsSummaryController.js` | Expense `$sum` all-time; PO open `$match` + `$sum` | `getTotalExpensesAllFromPG()`; `sumOpenPurchaseOrderTotalFromPG()` | `READ_PG_ACCOUNTS_SUMMARY` |
+| `crmController.js` | *(no `.aggregate()`)* — `countDocuments`/`find` | `prisma.cart.count` / `findMany` with `items: { some: {} }` | `READ_PG_CRM` |
+| `enterpriseSummaryController.js` | *(no `.aggregate()`)* — 17× `countDocuments` | `prisma.*.count`, repo helpers, raw SQL low-stock | `READ_PG_ENTERPRISE_SUMMARY` |
+
+All flags default **OFF** (Mongo reads unchanged until env `=true`).
+
+## Stage 4 Step 1, Part 3.2 — Master Verification Script — 2026-09-20
+
+**Status:** ✅ COMPLETE
+
+| Item | Status |
+|------|--------|
+| `backend/scripts/verifyFullMigration.js` | ✅ |
+| Section 1 — 28 model count comparison table | ✅ |
+| Section 2 — SUM(grandTotal) financial integrity (±0.01) | ✅ |
+| Section 3 — all `readCutoverFlags` ON/OFF snapshot | ✅ |
+| Section 4 — MIGRATION READY verdict | ✅ |
+| Run: `cd backend && node scripts/verifyFullMigration.js` | ✅ |
+
+## Stage 4 Step 1, Part 3.2b — Verification Fixes — 2026-09-20
+
+**Status:** ✅ COMPLETE — `MIGRATION READY: YES ✅`
+
+| Fix | Action |
+|-----|--------|
+| PaymentMethod backfill | Ran `backfillPaymentMethods.js` — 6 upserted |
+| Orphan PG cleanup | `cleanTestDataFromPG.js` — 7 categories, 5 orders deleted; 1 cart re-synced |
+| Expected skips | AdminNotification + Settings excluded from mismatch verdict |
+| Re-verify | `verifyFullMigration.js` — 0 mismatches, financial PASS |
+
+## Stage 4 Step 1, Part 3.3 — Flag Rollout System — 2026-09-20
+
+**Status:** ✅ COMPLETE
+
+| Item | Status |
+|------|--------|
+| `enableFlags.js` — doctl env helper + `--status` (45 flags) | ✅ |
+| `monitorCutover.js` — fallback / dual-write / TTL log monitor | ✅ |
+| `backend/docs/ROLLOUT_GUIDE.md` | ✅ |
+| `backend/docs/DECOMMISSION_GUIDE.md` | ✅ |
+

@@ -15,6 +15,27 @@ const Shift = require('../../models/shift');
 const Admin = require('../../models/admin');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { dualWrite } = require('../../services/dualWriteService');
+const shiftRepo = require('../../repositories/shiftRepository');
+
+async function dualWriteShiftDoc(mongoDoc) {
+    try {
+        await shiftRepo.upsertShiftInPG(mongoDoc);
+    } catch (pgErr) {
+        console.error('[DUAL-WRITE-SHIFT-FAIL] controller:', pgErr);
+    }
+}
+
+async function dualWriteDemotedShifts(excludeId) {
+    try {
+        const others = await Shift.find({ _id: { $ne: excludeId } }).lean();
+        for (const row of others) {
+            // eslint-disable-next-line no-await-in-loop
+            await shiftRepo.upsertShiftInPG(row);
+        }
+    } catch (pgErr) {
+        console.error('[DUAL-WRITE-SHIFT-FAIL] demote:', pgErr);
+    }
+}
 
 function mirrorAttendanceDoc(saved) {
   return require('../../utils/hrmDualWriteHelpers').mirrorAttendanceDoc(saved);
@@ -460,7 +481,10 @@ exports.createShift = async (req, res) => {
         // Exactly one default shift — promoting this one demotes the rest.
         if (shift.isDefault) {
             await Shift.updateMany({ _id: { $ne: shift._id } }, { $set: { isDefault: false } });
+            await dualWriteDemotedShifts(shift._id);
         }
+
+        await dualWriteShiftDoc(shift);
 
         await logSecurityEvent({
             action: 'Shift Created',
@@ -508,7 +532,10 @@ exports.updateShift = async (req, res) => {
 
         if (fields.isDefault) {
             await Shift.updateMany({ _id: { $ne: shift._id } }, { $set: { isDefault: false } });
+            await dualWriteDemotedShifts(shift._id);
         }
+
+        await dualWriteShiftDoc(shift);
 
         await logSecurityEvent({
             action: 'Shift Updated',
@@ -548,6 +575,12 @@ exports.deleteShift = async (req, res) => {
         }
 
         await Shift.findByIdAndDelete(id);
+
+        try {
+            await shiftRepo.deleteShiftInPG(shift._id);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-SHIFT-FAIL] delete:', pgErr);
+        }
 
         await logSecurityEvent({
             action: 'Shift Deleted',

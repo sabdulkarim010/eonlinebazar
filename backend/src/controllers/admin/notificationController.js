@@ -6,6 +6,7 @@
  ********************************************************************/
 
 const AdminNotification = require('../../models/adminNotification');
+const adminNotificationRepo = require('../../repositories/adminNotificationRepository');
 
 function recipientFilter(adminId) {
     return { recipientId: { $in: [String(adminId), 'all'] } };
@@ -80,6 +81,12 @@ exports.markAsRead = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Notification not found.' });
         }
 
+        try {
+            await adminNotificationRepo.markAdminNotificationReadInPG(doc._id);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-ADMINNOTIFICATION-FAIL] markRead:', pgErr);
+        }
+
         return res.status(200).json({ success: true, data: doc });
     } catch (err) {
         console.error('markAsRead error:', err);
@@ -97,6 +104,12 @@ exports.markAllAsRead = async (req, res) => {
             { ...recipientFilter(adminId), isRead: false },
             { $set: { isRead: true } }
         );
+
+        try {
+            await adminNotificationRepo.markAllAdminNotificationsReadInPG(adminId);
+        } catch (pgErr) {
+            console.error('[DUAL-WRITE-ADMINNOTIFICATION-FAIL] markAllRead:', pgErr);
+        }
 
         return res.status(200).json({ success: true, message: 'All notifications marked as read.' });
     } catch (err) {

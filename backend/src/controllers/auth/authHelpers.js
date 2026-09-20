@@ -19,6 +19,7 @@ const User = require('../../models/user');
 const Cart = require('../../models/cart');
 const UserSession = require('../../models/userSession');
 const { logSecurityEvent } = require('../../utils/securityLogger');
+const userSessionRepo = require('../../repositories/userSessionRepository');
 const { isValidDistrict, resolveDistrictLabel } = require('../../utils/bangladeshDistricts');
 const {
     mergeGuestCartIntoUserCart,
@@ -94,7 +95,7 @@ async function createCustomerLoginSession(req, user) {
     const sessionId = crypto.randomUUID();
     const clientIp = getClientIp(req);
 
-    await UserSession.create({
+    const userSession = await UserSession.create({
         sessionId,
         userId: user._id,
         userAgent: req.headers['user-agent'] || '',
@@ -103,6 +104,12 @@ async function createCustomerLoginSession(req, user) {
         ipAddress: clientIp,
         location: getLocationFromIp(clientIp)
     });
+
+    try {
+        await userSessionRepo.upsertUserSessionInPG(userSession);
+    } catch (pgErr) {
+        console.error('[DUAL-WRITE-USERSESSION-FAIL] create:', pgErr);
+    }
 
     const token = jwt.sign(
         { id: user._id, sid: sessionId },

@@ -16,6 +16,7 @@ const speakeasy = require('speakeasy');
 
 const Admin = require('../../models/admin');
 const AdminSession = require('../../models/adminSession');
+const adminSessionRepo = require('../../repositories/adminSessionRepository');
 const BlacklistedIP = require('../../models/blacklistedIp');
 const LoginAttempt = require('../../models/loginAttempt');
 
@@ -232,7 +233,7 @@ function isTwoFactorRequired(admin) {
  */
 async function issueAdminSession(admin, fp) {
     const sessionId = crypto.randomUUID();
-    await AdminSession.create({
+    const adminSession = await AdminSession.create({
         sessionId,
         adminUsername: admin.username,
         ipAddress: fp.ipAddress,
@@ -245,6 +246,12 @@ async function issueAdminSession(admin, fp) {
         status: 'active',
         lastActive: new Date()
     });
+
+    try {
+        await adminSessionRepo.upsertAdminSessionInPG(adminSession);
+    } catch (pgErr) {
+        console.error('[DUAL-WRITE-ADMINSESSION-FAIL] create:', pgErr);
+    }
 
     const loginAt = new Date();
     await adminDualWrite(
@@ -277,6 +284,11 @@ async function rejectIfBlocked(res, admin, fp) {
     if (!admin.isBlocked || !admin.isBlocked()) return false;
 
     await AdminSession.deleteMany({ adminUsername: admin.username });
+    try {
+        await adminSessionRepo.deleteAdminSessionsByUsernameInPG(admin.username);
+    } catch (pgErr) {
+        console.error('[DUAL-WRITE-ADMINSESSION-FAIL] blockDelete:', pgErr);
+    }
     await recordLoginAttempt({
         fingerprint: fp,
         username: admin.username,

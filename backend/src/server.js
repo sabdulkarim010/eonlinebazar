@@ -176,6 +176,14 @@ connectDB().then(async () => {
     } catch (err) {
         console.error('Loyalty tier cron bootstrap error:', err.message);
     }
+
+    // Daily PostgreSQL TTL sweep (login attempts, expired bans, stale sessions — 2am)
+    try {
+        const { startPgTtlSweepCron } = require('./jobs/pgTtlSweepJob');
+        startPgTtlSweepCron();
+    } catch (err) {
+        console.error('PG TTL sweep cron bootstrap error:', err.message);
+    }
 });
 
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ

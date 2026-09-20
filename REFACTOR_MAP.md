@@ -1807,3 +1807,69 @@ Result: npm test 211/211; test:repositories 157/157; verification script scripts
 DATABASE_MIGRATION_AUDIT.md [DONE] STAGE 4, STEP 4 section added
 SYSTEM_ENTERPRISE_AUDIT.md [DONE] Stage 4 Step 4 note added
 README.md [DONE] test count 211 + Stage 4 Step 4 note
+
+# PostgreSQL migration — Stage 2 Step 3, Part 2.4 — PurchaseOrder dual-write — 2026-09-20
+backend/src/repositories/purchaseOrderRepository.js [NEW] upsert/get/list/updateStatus/delete + item sync
+backend/src/controllers/admin/purchaseOrderController.js [MOD] dual-write on create/update/receive/cancel; PG read when READ_PG_PURCHASE_ORDER=true
+backend/src/config/readCutoverFlags.js [MOD] READ_PG_PURCHASE_ORDER flag (default OFF)
+backend/scripts/backfill/backfillPurchaseOrders.js [NEW] batch-100 idempotent PO+items backfill
+tests/repositories/purchaseOrderRepository.test.js [NEW] 7 integration tests (node --test)
+
+# PostgreSQL migration — Stage 2 Step 3, Part 2.5 — Shift/Note/Notification/Session dual-write — 2026-09-20
+backend/src/repositories/shiftRepository.js [NEW] upsert/get/list/delete + ShiftAssignment sync
+backend/src/repositories/noteRepository.js [NEW] upsert/get/list/delete + NoteShoppingItem sync
+backend/src/repositories/adminNotificationRepository.js [NEW] upsert/list/markRead/delete
+backend/src/repositories/userSessionRepository.js [NEW] upsert/getByToken/delete/deleteExpired
+backend/src/repositories/adminSessionRepository.js [NEW] upsert/getByToken/delete/deleteExpired
+backend/src/controllers/admin/attendanceController.js [MOD] shift dual-write on create/update/delete
+backend/src/controllers/noteController.js [MOD] note dual-write on create/update/delete
+backend/src/services/notificationService.js [MOD] notification dual-write on create
+backend/src/controllers/admin/notificationController.js [MOD] mark read dual-write
+backend/src/controllers/auth/loginController.js [MOD] user session dual-write
+backend/src/controllers/auth/authHelpers.js [MOD] user session dual-write
+backend/src/middlewares/authMiddleware.js [MOD] session heartbeat dual-write
+backend/src/controllers/admin/authController.js [MOD] admin session dual-write
+backend/src/controllers/admin/sessionController.js [MOD] admin session delete dual-write
+backend/src/controllers/admin/customerAdminController.js [MOD] user session purge dual-write
+backend/src/config/readCutoverFlags.js [MOD] READ_PG_SHIFT, NOTE, ADMIN_NOTIFICATION, USER_SESSION, ADMIN_SESSION
+backend/scripts/backfill/backfillShifts.js [NEW]
+backend/scripts/backfill/backfillNotes.js [NEW]
+backend/scripts/backfill/backfillAdminNotifications.js [NEW] no-op (fresh start)
+backend/scripts/backfill/backfillUserSessions.js [NEW] no-op (ephemeral)
+backend/scripts/backfill/backfillAdminSessions.js [NEW] no-op (ephemeral)
+tests/repositories/shiftRepository.test.js [NEW] 5 tests
+tests/repositories/noteRepository.test.js [NEW] 5 tests
+tests/repositories/adminNotificationRepository.test.js [NEW] 4 tests
+tests/repositories/userSessionRepository.test.js [NEW] 4 tests
+tests/repositories/adminSessionRepository.test.js [NEW] 4 tests
+
+# PostgreSQL migration — Stage 2 Step 3, Part 2.6 — PG TTL sweep job — 2026-09-20
+backend/src/repositories/loginAttemptRepository.js [MOD] deleteExpiredLoginAttemptsFromPG() (30-day retention)
+backend/src/repositories/blacklistedIpRepository.js [MOD] deleteExpiredBlacklistedIpsFromPG()
+backend/src/jobs/pgTtlSweepJob.js [NEW] daily 02:00 TTL sweep (login attempts, bans, sessions)
+backend/src/server.js [MOD] register startPgTtlSweepCron()
+tests/repositories/pgTtlSweep.test.js [NEW] 4 tests
+
+# PostgreSQL migration — Stage 4 Step 1, Part 3.1 — Analytics aggregate → Prisma — 2026-09-20
+backend/src/config/readCutoverFlags.js [MOD] READ_PG_FINANCE_ANALYTICS, READ_PG_PROFIT_LOSS, READ_PG_ACCOUNTS_SUMMARY, READ_PG_CRM, READ_PG_ENTERPRISE_SUMMARY
+backend/src/repositories/expenseRepository.js [MOD] getTotalExpensesAllFromPG()
+backend/src/repositories/purchaseOrderRepository.js [MOD] sumOpenPurchaseOrderTotalFromPG(), countOpenPurchaseOrdersFromPG()
+backend/src/repositories/orderRepository.js [MOD] export fromOrderPaymentStatusEnum
+backend/src/controllers/financeAnalyticsController.js [MOD] PG metrics path + aggregateFinanceByDateRange cutover
+backend/src/controllers/admin/profitLossController.js [MOD] expense $group → getExpenseSummaryByCategory
+backend/src/controllers/admin/accountsSummaryController.js [MOD] expense/PO $sum aggregates → Prisma
+backend/src/controllers/admin/crmController.js [MOD] abandoned-cart counts → Prisma cart queries
+backend/src/controllers/admin/enterpriseSummaryController.js [MOD] KPI countDocuments → Prisma counts
+
+# PostgreSQL migration — Stage 4 Step 1, Part 3.2 — Master verification script — 2026-09-20
+backend/scripts/verifyFullMigration.js [NEW] pre-launch Mongo vs PG count + financial + flag report
+
+# PostgreSQL migration — Stage 4 Step 1, Part 3.2b — Verification fixes — 2026-09-20
+backend/scripts/ops/cleanTestDataFromPG.js [NEW] delete orphaned PG categories/orders/carts + cart re-sync
+backend/scripts/verifyFullMigration.js [MOD] skip AdminNotification + Settings from mismatch verdict
+
+# PostgreSQL migration — Stage 4 Step 1, Part 3.3 — Flag rollout system — 2026-09-20
+backend/scripts/ops/enableFlags.js [NEW] CLI doctl env commands + --status
+backend/scripts/ops/monitorCutover.js [NEW] live cutover fallback / dual-write dashboard
+backend/docs/ROLLOUT_GUIDE.md [NEW] pre-launch production rollout steps
+backend/docs/DECOMMISSION_GUIDE.md [NEW] Phase 4 Mongo decommission runbook

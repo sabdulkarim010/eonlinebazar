@@ -8,6 +8,11 @@
 const Order = require('../../models/order');
 const Expense = require('../../models/expense');
 const PurchaseOrder = require('../../models/purchaseOrder');
+const { isPgReadEnabled } = require('../../config/readCutoverFlags');
+const { getTotalExpensesAllFromPG } = require('../../repositories/expenseRepository');
+const { sumOpenPurchaseOrderTotalFromPG } = require('../../repositories/purchaseOrderRepository');
+const prisma = require('../../config/prismaClient');
+const { fromOrderStatusEnum, fromOrderPaymentStatusEnum } = require('../../repositories/orderRepository');
 
 const OPEN_PO_STATUSES = ['draft', 'sent', 'partial'];
 const RECEIVABLE_PAYMENT_STATUSES = ['unpaid', 'pending'];
@@ -38,6 +43,66 @@ function isPaidOrder(order) {
     return paymentStatus(order) === 'paid';
 }
 
+function mapPgOrderForSummary(row) {
+    return {
+        status: fromOrderStatusEnum(row.status),
+        grandTotal: row.grandTotal != null ? Number(row.grandTotal) : null,
+        totalAmount: row.totalAmount != null ? Number(row.totalAmount) : null,
+        paymentMethod: row.paymentMethod,
+        createdAt: row.createdAt,
+        payment: row.payment
+            ? {
+                code: row.payment.code,
+                status: fromOrderPaymentStatusEnum(row.payment.status)
+            }
+            : null
+    };
+}
+
+async function loadAccountsSummaryDataFromPG() {
+    const [orders, expensesTotal, supplierPayable] = await Promise.all([
+        prisma.order.findMany({
+            select: {
+                status: true,
+                grandTotal: true,
+                totalAmount: true,
+                paymentMethod: true,
+                createdAt: true,
+                payment: { select: { code: true, status: true } }
+            }
+        }),
+        getTotalExpensesAllFromPG(),
+        sumOpenPurchaseOrderTotalFromPG(OPEN_PO_STATUSES)
+    ]);
+
+    return {
+        orders: orders.map(mapPgOrderForSummary),
+        expensesTotal,
+        supplierPayable
+    };
+}
+
+async function loadAccountsSummaryDataFromMongo() {
+    const [orders, expenseAgg, poAgg] = await Promise.all([
+        Order.find({})
+            .select('status grandTotal totalAmount payment paymentMethod createdAt')
+            .lean(),
+        Expense.aggregate([
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]),
+        PurchaseOrder.aggregate([
+            { $match: { status: { $in: OPEN_PO_STATUSES } } },
+            { $group: { _id: null, total: { $sum: '$totalCost' } } }
+        ])
+    ]);
+
+    return {
+        orders,
+        expensesTotal: expenseAgg[0]?.total || 0,
+        supplierPayable: poAgg[0]?.total || 0
+    };
+}
+
 /**
  * GET /api/admin/accounts-summary
  * Aggregates cash flow and account balance indicators from live orders,
@@ -48,18 +113,9 @@ exports.getAccountsSummary = async (req, res) => {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        const [orders, expenseAgg, poAgg] = await Promise.all([
-            Order.find({})
-                .select('status grandTotal totalAmount payment paymentMethod createdAt')
-                .lean(),
-            Expense.aggregate([
-                { $group: { _id: null, total: { $sum: '$amount' } } }
-            ]),
-            PurchaseOrder.aggregate([
-                { $match: { status: { $in: OPEN_PO_STATUSES } } },
-                { $group: { _id: null, total: { $sum: '$totalCost' } } }
-            ])
-        ]);
+        const { orders, expensesTotal, supplierPayable } = isPgReadEnabled('accountssummary')
+            ? await loadAccountsSummaryDataFromPG()
+            : await loadAccountsSummaryDataFromMongo();
 
         const activeOrders = orders.filter((o) => !isCancelledOrder(o));
         const paidOrders = activeOrders.filter(isPaidOrder);
@@ -69,8 +125,6 @@ exports.getAccountsSummary = async (req, res) => {
             .filter((o) => new Date(o.createdAt) >= startOfMonth)
             .reduce((sum, o) => sum + getOrderTotal(o), 0);
 
-        const expensesTotal = expenseAgg[0]?.total || 0;
-        const supplierPayable = poAgg[0]?.total || 0;
         const cashOutflow = expensesTotal + supplierPayable;
 
         const netLiquidity = roundMoney(cashInflow - cashOutflow);

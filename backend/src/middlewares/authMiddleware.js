@@ -12,6 +12,8 @@ const User = require('../models/user');
 const UserSession = require('../models/userSession');
 const AdminSession = require('../models/adminSession');
 const { attachAdminAccount } = require('./rbac');
+const userSessionRepo = require('../repositories/userSessionRepository');
+const adminSessionRepo = require('../repositories/adminSessionRepository');
 
 // ১. অ্যাডমিন ভেরিফাই করার জন্য (🌟 role-based + session-aware, নিরাপত্তা-হার্ডেনড)
 const verifyAdmin = async (req, res, next) => {
@@ -63,6 +65,12 @@ const verifyAdmin = async (req, res, next) => {
                     message: "This admin session was logged out or expired. Please log in again.",
                     redirect: "/admin-login"
                 });
+            }
+
+            try {
+                await adminSessionRepo.upsertAdminSessionInPG(session);
+            } catch (pgErr) {
+                console.error('[DUAL-WRITE-ADMINSESSION-FAIL] heartbeat:', pgErr);
             }
         }
 
@@ -118,6 +126,12 @@ const verifyUser = async (req, res, next) => {
             if (!session) {
                 return res.status(401).json({ success: false, message: "Session expired or logged out. Please log in again." });
             }
+
+            try {
+                await userSessionRepo.upsertUserSessionInPG(session);
+            } catch (pgErr) {
+                console.error('[DUAL-WRITE-USERSESSION-FAIL] heartbeat:', pgErr);
+            }
         }
 
         next(); 
@@ -150,6 +164,12 @@ const optionalVerifyUser = async (req, res, next) => {
             );
             if (!session) {
                 return next();
+            }
+
+            try {
+                await userSessionRepo.upsertUserSessionInPG(session);
+            } catch (pgErr) {
+                console.error('[DUAL-WRITE-USERSESSION-FAIL] heartbeat:', pgErr);
             }
         }
 
