@@ -345,6 +345,36 @@
                                 </form>
                             </div>
 
+                            <div id="menuLabelsSettingsCard" class="saas-settings-card" data-superadmin-only="true" hidden>
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-solid fa-bars-staggered"></i> Customize Menu Labels</h4>
+                                    <p class="settings-card-sub">Rename sidebar menu items to match your business. Changes are visible only to Super Admin.</p>
+                                </div>
+                                <div class="saas-settings-card-body">
+                                    <div class="table-container menu-labels-table-wrap">
+                                        <table class="data-table menu-labels-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Menu Item</th>
+                                                    <th>Custom Label</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="menuLabelsTableBody">
+                                                <tr><td colspan="2" class="loading-container"><div class="spinner"></div></td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="saas-settings-card-footer menu-labels-footer">
+                                    <button type="button" class="btn-secondary" id="menuLabelsResetBtn">
+                                        <i class="fa-solid fa-rotate-left"></i> Reset All
+                                    </button>
+                                    <button type="button" class="btn-submit saas-settings-save-btn" id="menuLabelsSaveBtn">
+                                        <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                                    </button>
+                                </div>
+                            </div>
+
                             <div class="saas-settings-card" data-superadmin-only="true">
                                 <div class="saas-settings-card-header">
                                     <h4><i class="fa-solid fa-link"></i> Link to Employee Record</h4>

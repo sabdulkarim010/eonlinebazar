@@ -37,3 +37,13 @@ exports.upsertSidebarLabel = async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to save sidebar label.' });
     }
 };
+
+exports.resetSidebarLabels = async (req, res) => {
+    try {
+        const removed = await sidebarLabelRepository.deleteAll();
+        res.status(200).json({ success: true, removed });
+    } catch (error) {
+        console.error('resetSidebarLabels Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to reset sidebar labels.' });
+    }
+};

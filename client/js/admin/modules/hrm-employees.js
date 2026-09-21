@@ -1027,6 +1027,9 @@ async function openEmployeeProfile(id) {
         renderProfileAttendance(result.data);
         renderProfilePayroll(result.data.payrollHistory || []);
         renderProfileLeave(result.data);
+
+        const accessPreview = await fetchEmployeeAccessPayload(id).catch(() => ({}));
+        setEmployeeAccessTabVisible(!accessPreview.isSuperAdmin);
         await renderProfileAccess(e);
 
         switchProfileTab('profile-tab-overview');
@@ -1230,28 +1233,25 @@ function renderAccessTabState1(section, employee) {
         </div>`;
 
     section.querySelector('#employeeGrantAccessBtn')?.addEventListener('click', () => {
-        openEmployeeGrantAccess(
-            employee._id,
-            employee.fullName || '',
-            employee.employeeId || '',
-            employee.email || '',
-            employee.phone || ''
-        );
+        openQuickGrantModal(employee._id, employee.fullName || '', employee.employeeId || '');
     });
 }
 
-window.openEmployeeGrantAccess = function openEmployeeGrantAccess(employeeId, name, employeeCode, email, phone) {
-    const localModal = document.getElementById('grantAccessModal');
-    if (localModal && typeof window.openGrantAccessModal === 'function') {
-        window.openGrantAccessModal(employeeId, name, email, phone);
-        return;
+function renderAccessTabSuperAdmin(section) {
+    section.innerHTML = `
+        <div class="super-admin-notice">
+            <span class="super-admin-notice-icon" aria-hidden="true">👑</span>
+            <p><strong>Super Admin — Full system access</strong></p>
+            <small>This account has unrestricted access and cannot be modified here.</small>
+        </div>`;
+}
+
+function setEmployeeAccessTabVisible(show) {
+    const accessTabBtn = document.querySelector('#employeeProfileTabs [data-profile-tab="profile-tab-access"]');
+    if (accessTabBtn) {
+        accessTabBtn.style.display = show ? '' : 'none';
     }
-    if (typeof window.openStaffAssignModalForEmployee === 'function') {
-        window.openStaffAssignModalForEmployee(employeeId, name, employeeCode, email, phone);
-        return;
-    }
-    showToast('Grant access modal is not available on this page.', 'warning');
-};
+}
 
 function renderAccessTabLinkedState(section, employee, data) {
     const isActive = data.admin.status === 'active';
@@ -1309,9 +1309,15 @@ window.openEmployeeEditPermissions = function openEmployeeEditPermissions(adminI
 };
 
 async function fetchEmployeeAccessPayload(employeeId) {
-    const res = await fetch(`/api/admin/hrm/employees/${employeeId}/access-status`, {
+    const res = await fetch(`/api/admin/hrm/employees/${employeeId}/access-info`, {
         headers: employeeAuthHeaders()
     });
+    if (!res.ok) {
+        const fallback = await fetch(`/api/admin/hrm/employees/${employeeId}/access-status`, {
+            headers: employeeAuthHeaders()
+        });
+        return fallback.json();
+    }
     return res.json();
 }
 
@@ -1324,6 +1330,14 @@ async function renderProfileAccess(employee) {
 
     try {
         const data = await fetchEmployeeAccessPayload(employee._id);
+
+        if (data.isSuperAdmin) {
+            setEmployeeAccessTabVisible(false);
+            renderAccessTabSuperAdmin(section);
+            return;
+        }
+
+        setEmployeeAccessTabVisible(true);
 
         if (!data.hasAccess) {
             renderAccessTabState1(section, employee);
@@ -1346,6 +1360,14 @@ window.refreshEmployeeAccessTab = async function refreshEmployeeAccessTab(employ
     try {
         const data = await fetchEmployeeAccessPayload(employeeId);
 
+        if (data.isSuperAdmin) {
+            setEmployeeAccessTabVisible(false);
+            renderAccessTabSuperAdmin(section);
+            return;
+        }
+
+        setEmployeeAccessTabVisible(true);
+
         if (!data.hasAccess) {
             if (activeProfileData?.employee?._id === employeeId) {
                 activeProfileData.employee.linkedAdminId = null;
@@ -1353,6 +1375,7 @@ window.refreshEmployeeAccessTab = async function refreshEmployeeAccessTab(employ
             renderAccessTabState1(section, {
                 _id: employeeId,
                 fullName: activeProfileData?.employee?.fullName || '',
+                employeeId: activeProfileData?.employee?.employeeId || '',
                 email: activeProfileData?.employee?.email || '',
                 phone: activeProfileData?.employee?.phone || ''
             });
@@ -1653,7 +1676,7 @@ const GRANT_ROLE_PRESETS = {
 };
 
 let grantPermissionCatalog = [];
-let grantAccessSubmitInFlight = false;
+let quickGrantSubmitInFlight = false;
 
 async function ensureGrantPermissionCatalog() {
     if (grantPermissionCatalog.length) return grantPermissionCatalog;
@@ -1707,8 +1730,8 @@ function syncGrantPermissionRowState(box) {
     if (row) row.classList.toggle('is-on', box.checked);
 }
 
-function renderGrantAccessPermissionGrid(selectedKeys = []) {
-    const container = document.getElementById('grantAccessPermissionGrid');
+function renderQuickGrantPermissionGrid(selectedKeys = []) {
+    const container = document.getElementById('quickGrantPermissionGrid');
     if (!container) return;
 
     if (!grantPermissionCatalog.length) {
@@ -1770,8 +1793,8 @@ function renderGrantAccessPermissionGrid(selectedKeys = []) {
     });
 }
 
-function applyGrantPermissionPreset(presetKey) {
-    const grid = document.getElementById('grantAccessPermissionGrid');
+function applyQuickGrantPermissionPreset(presetKey) {
+    const grid = document.getElementById('quickGrantPermissionGrid');
     if (!grid) return;
 
     let keys = GRANT_ROLE_PRESETS[presetKey] || [];
@@ -1785,25 +1808,37 @@ function applyGrantPermissionPreset(presetKey) {
     });
 
     grid.closest('.staff-enterprise-card-body')
-        ?.querySelectorAll('[data-grant-preset]')
-        ?.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-grant-preset') === presetKey && presetKey !== 'clear'));
+        ?.querySelectorAll('[data-quick-grant-preset]')
+        ?.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-quick-grant-preset') === presetKey && presetKey !== 'clear'));
 }
 
-function setupGrantAccessPermissionPresets() {
-    const presetsBar = document.querySelector('[data-grant-permission-presets="grant"]');
+function setupQuickGrantPermissionPresets() {
+    const presetsBar = document.querySelector('[data-grant-permission-presets="quickGrant"]');
     if (!presetsBar || presetsBar.dataset.bound === '1') return;
     presetsBar.dataset.bound = '1';
 
-    presetsBar.querySelectorAll('[data-grant-preset]').forEach((btn) => {
+    presetsBar.querySelectorAll('[data-quick-grant-preset]').forEach((btn) => {
         btn.addEventListener('click', () => {
-            applyGrantPermissionPreset(btn.getAttribute('data-grant-preset') || 'clear');
+            applyQuickGrantPermissionPreset(btn.getAttribute('data-quick-grant-preset') || 'clear');
         });
     });
 }
 
-function closeGrantAccessModal() {
-    const modal = document.getElementById('grantAccessModal');
+function closeQuickGrantModal() {
+    const modal = document.getElementById('quickGrantModal');
     if (modal) modal.style.display = 'none';
+}
+
+function suggestQuickGrantUsername(employeeName, empCode) {
+    const code = String(empCode || '').trim().toLowerCase();
+    if (code) return code.replace(/[^a-z0-9-]/g, '');
+    return String(employeeName || '')
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean)
+        .join('-')
+        .replace(/[^a-z-]/g, '');
 }
 
 function closeManageAccessModal() {
@@ -1811,43 +1846,55 @@ function closeManageAccessModal() {
     if (modal) modal.style.display = 'none';
 }
 
-window.openGrantAccessModal = async function openGrantAccessModal(employeeId, name, email, phone) {
-    document.getElementById('grantEmpId').value = employeeId;
-    document.getElementById('grantEmpName').value = name;
-    document.getElementById('grantEmpEmail').value = email || '';
-    document.getElementById('grantEmpPhone').value = phone || '';
-    document.getElementById('grantPassword').value = '';
-    document.getElementById('grantConfirmPassword').value = '';
-    const suggested = String(name || '')
-        .trim()
-        .toLowerCase()
-        .split(/\s+/)
-        .filter(Boolean)
-        .join('-')
-        .replace(/[^a-z-]/g, '');
-    document.getElementById('grantUsername').value = suggested;
-
-    await ensureGrantPermissionCatalog();
-    renderGrantAccessPermissionGrid([]);
-    setupGrantAccessPermissionPresets();
-
-    const submitBtn = document.getElementById('grantAccessSubmitBtn');
-    if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Link Account';
+window.openQuickGrantModal = async function openQuickGrantModal(employeeId, employeeName, empCode) {
+    const modal = document.getElementById('quickGrantModal');
+    if (!modal) {
+        showToast('Grant access modal is not available on this page.', 'warning');
+        return;
     }
 
-    document.getElementById('grantAccessModal').style.display = 'flex';
+    document.getElementById('quickGrantEmpId').value = employeeId;
+    const labelEl = document.getElementById('quickGrantEmployeeLabel');
+    if (labelEl) {
+        labelEl.textContent = empCode
+            ? `Grant admin login for ${employeeName} (${empCode})`
+            : `Grant admin login for ${employeeName}`;
+    }
+    document.getElementById('quickGrantUsername').value = suggestQuickGrantUsername(employeeName, empCode);
+    document.getElementById('quickGrantPassword').value = '';
+    document.getElementById('quickGrantConfirmPassword').value = '';
+
+    await ensureGrantPermissionCatalog();
+    renderQuickGrantPermissionGrid([]);
+    setupQuickGrantPermissionPresets();
+
+    const submitBtn = document.getElementById('quickGrantSubmitBtn');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Grant Access';
+    }
+
+    modal.style.display = 'flex';
 };
 
-window.submitGrantAccess = async function submitGrantAccess() {
-    if (grantAccessSubmitInFlight) return;
+/** @deprecated Use openQuickGrantModal — kept for Staff Directory fallback */
+window.openGrantAccessModal = async function openGrantAccessModal(employeeId, name, email, phone) {
+    const employee = activeProfileData?.employee;
+    await openQuickGrantModal(
+        employeeId,
+        name,
+        employee?.employeeId || ''
+    );
+};
 
-    const id = document.getElementById('grantEmpId').value;
-    const username = document.getElementById('grantUsername').value.trim();
-    const password = document.getElementById('grantPassword').value;
-    const confirmPwd = document.getElementById('grantConfirmPassword').value;
-    const submitBtn = document.getElementById('grantAccessSubmitBtn');
+window.submitQuickGrantAccess = async function submitQuickGrantAccess() {
+    if (quickGrantSubmitInFlight) return;
+
+    const id = document.getElementById('quickGrantEmpId').value;
+    const username = document.getElementById('quickGrantUsername').value.trim();
+    const password = document.getElementById('quickGrantPassword').value;
+    const confirmPwd = document.getElementById('quickGrantConfirmPassword').value;
+    const submitBtn = document.getElementById('quickGrantSubmitBtn');
     if (!username || !password) {
         Swal.fire({
             icon: 'warning',
@@ -1876,22 +1923,22 @@ window.submitGrantAccess = async function submitGrantAccess() {
         return;
     }
     const permissions = Array.from(
-        document.querySelectorAll('#grantAccessPermissionGrid .grant-permission-toggle:checked')
+        document.querySelectorAll('#quickGrantPermissionGrid .grant-permission-toggle:checked')
     ).map((cb) => cb.value);
     if (permissions.length === 0) {
         Swal.fire({
             icon: 'warning',
             title: 'Missing Information',
-            text: 'Select at least one permission before linking the account.',
+            text: 'Select at least one permission before granting access.',
             confirmButtonColor: '#2563eb'
         });
         return;
     }
 
-    grantAccessSubmitInFlight = true;
+    quickGrantSubmitInFlight = true;
     if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Linking…';
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Granting…';
     }
 
     try {
@@ -1902,32 +1949,21 @@ window.submitGrantAccess = async function submitGrantAccess() {
         });
         const data = await res.json();
         if (res.status === 409 || (data.error && /already granted/i.test(data.error))) {
-            closeGrantAccessModal();
-            Swal.fire({
-                icon: 'info',
-                title: 'Access Already Granted',
-                text: 'This employee already has system access. Check the Staff Directory list below.',
-                confirmButtonColor: '#2563eb'
-            });
+            closeQuickGrantModal();
+            showToast('This employee already has system access.', 'warning');
             if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
             await loadEmployees();
+            if (activeProfileData?.employee?._id === id) {
+                await refreshEmployeeAccessTab(id);
+            }
             if (typeof window.fetchStaffAccounts === 'function') {
                 await window.fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
-            }
-            if (typeof window.refreshStaffAssignCandidates === 'function') {
-                await window.refreshStaffAssignCandidates();
             }
             return;
         }
         if (data.success) {
-            Swal.fire({
-                icon: 'success',
-                title: 'Account Linked',
-                text: `System access linked for ${data.username}.`,
-                timer: 2000,
-                showConfirmButton: false
-            });
-            closeGrantAccessModal();
+            showToast(`System access granted for ${data.username}.`, 'success');
+            closeQuickGrantModal();
             if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
             await loadEmployees();
             if (activeProfileData?.employee?._id === id) {
@@ -1940,29 +1976,21 @@ window.submitGrantAccess = async function submitGrantAccess() {
                 await window.refreshStaffAssignCandidates();
             }
         } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Link Failed',
-                text: data.error || 'Failed to link system account.',
-                confirmButtonColor: '#2563eb'
-            });
+            showToast(data.error || 'Failed to grant system access.', 'error');
         }
     } catch (err) {
-        console.error('submitGrantAccess:', err);
-        Swal.fire({
-            icon: 'error',
-            title: 'Link Failed',
-            text: 'Failed to link system account.',
-            confirmButtonColor: '#2563eb'
-        });
+        console.error('submitQuickGrantAccess:', err);
+        showToast('Failed to grant system access.', 'error');
     } finally {
-        grantAccessSubmitInFlight = false;
+        quickGrantSubmitInFlight = false;
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Link Account';
+            submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Grant Access';
         }
     }
 };
+
+window.submitGrantAccess = window.submitQuickGrantAccess;
 
 window.applyPermissionPreset = function applyPermissionPreset(preset) {
     const presetMap = {
@@ -1972,7 +2000,7 @@ window.applyPermissionPreset = function applyPermissionPreset(preset) {
         pos: 'posOperator',
         hr: 'hrManager'
     };
-    applyGrantPermissionPreset(presetMap[preset] || preset || 'clear');
+    applyQuickGrantPermissionPreset(presetMap[preset] || preset || 'clear');
 };
 
 window.openManageAccessModal = async function openManageAccessModal(employeeId) {
@@ -2064,5 +2092,6 @@ window.revokeAccess = async function revokeAccess() {
     }
 };
 
-window.closeGrantAccessModal = closeGrantAccessModal;
+window.closeQuickGrantModal = closeQuickGrantModal;
+window.closeGrantAccessModal = closeQuickGrantModal;
 window.closeManageAccessModal = closeManageAccessModal;

@@ -51,16 +51,16 @@
 
 /* ── Stats + filter bar ───────────────────────────────── */
 .hrm-stats-grid {
-    margin-bottom: 4px;
+    margin-bottom: 0.75rem;
 }
 
 .hrm-filter-bar {
     display: flex;
-    gap: 14px;
+    gap: 12px;
     flex-wrap: wrap;
     align-items: flex-end;
-    padding: 14px 16px;
-    margin-bottom: 16px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
     background: var(--card-bg, #161b27);
     border: 1px solid var(--border-color, #2d3748);
     border-radius: 10px;
@@ -819,7 +819,7 @@
 /* Viewport-safe HRM modals */
 #employeeProfileModal.custom-modal-box,
 #employeeModal.custom-modal-box,
-#grantAccessModal.custom-modal-box {
+#quickGrantModal.custom-modal-box {
     display: flex;
     flex-direction: column;
     max-height: calc(100vh - 2rem);
@@ -833,7 +833,7 @@
 
 #employeeProfileModal .modal-body,
 #employeeModal .employee-form-body,
-#grantAccessModal .modal-body {
+#quickGrantModal .modal-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -841,7 +841,7 @@
 
 #employeeProfileModal .modal-footer,
 #employeeModal .modal-footer,
-#grantAccessModal .modal-footer {
+#quickGrantModal .modal-footer {
     flex-shrink: 0;
 }
 
@@ -893,4 +893,80 @@
 .employee-access-empty-text {
     margin: 0 0 16px;
     color: #64748b;
+}
+
+/* HRM table density */
+.admin-section[id^="view-hrm-"] .data-table th,
+.admin-section[id^="view-hrm-"] .data-table td,
+#view-hrm-employees .data-table th,
+#view-hrm-employees .data-table td {
+    padding: 0.5rem 0.75rem;
+}
+
+/* Employee profile modal sections */
+.employee-profile-grid section,
+.employee-profile-refs,
+.employee-profile-panel > section {
+    margin-bottom: 0.75rem;
+}
+
+.employee-profile-grid h4,
+.employee-section-title,
+.modal-section-title {
+    font-size: 0.7rem;
+    margin-bottom: 0.375rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+.modal-section {
+    margin-bottom: 0.75rem;
+}
+
+.super-admin-notice {
+    text-align: center;
+    padding: 2rem 1.25rem;
+    background: linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%);
+    border: 1px solid #fcd34d;
+    border-radius: 10px;
+}
+
+.super-admin-notice-icon {
+    display: block;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.super-admin-notice p {
+    margin: 0 0 0.35rem;
+    color: #92400e;
+    font-size: 1rem;
+}
+
+.super-admin-notice small {
+    color: #b45309;
+    font-size: 0.8rem;
+}
+
+/* Settings — menu labels editor */
+.menu-labels-table-wrap {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.menu-labels-table .menu-label-input {
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 6px;
+    font: inherit;
+    font-size: 0.875rem;
+}
+
+.menu-labels-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 }

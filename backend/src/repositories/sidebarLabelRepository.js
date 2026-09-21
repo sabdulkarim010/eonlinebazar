@@ -22,7 +22,13 @@ async function upsertLabel(menuKey, label, adminId) {
   return record;
 }
 
+async function deleteAll() {
+  const result = await prisma.sidebarLabel.deleteMany({});
+  return result.count || 0;
+}
+
 module.exports = {
   findAllMap,
-  upsertLabel
+  upsertLabel,
+  deleteAll
 };

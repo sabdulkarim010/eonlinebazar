@@ -1,8 +1,8 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (HRM modal fix + sidebar labels + access tab)  
+**Last updated:** 2026-09-21 (HRM Access Fix Round 2)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
-**Status:** ⚠️ PARTIAL — modal/access flows complete; broader pagination gaps remain
+**Status:** ⚠️ PARTIAL — grant access + super-admin access tab complete; broader pagination gaps remain
 
 ---
 
@@ -55,12 +55,14 @@
 | `client/admin/partials/view-hrm-leaves.html` | Leave management | ✅ |
 | `client/admin/partials/view-settings.html` | Link to Employee Record card (super-admin) | ✅ |
 | `client/admin/partials/sidebar.html` | Sidebar profile HTML (`#adminProfilePic`, `.admin-profile .info`) | ✅ |
-| `client/js/admin/modules/sidebarLabels.js` | Super Admin sidebar menu rename (✏️ inline edit) | ✅ |
-| `client/js/admin/modules/hrm-employees.js` | Employee UI + Access tab; Grant/Edit/Suspend/Revoke | ✅ |
+| `client/js/admin/modules/sidebarLabels.js` | Super Admin sidebar label apply (read-only in sidebar) | ✅ |
+| `client/js/admin/modules/settings-menu-labels.js` | Settings → Customize Menu Labels editor (Super Admin) | ✅ |
+| `client/js/admin/modules/hrm-employees.js` | Employee UI + Access tab; `#quickGrantModal`; Super Admin notice | ✅ |
 | `client/js/admin-staff.js` | Assign System Access modal; employee search; 25-permission grid; Link Account flow | ✅ |
 | `client/css/admin/_modals.css` | Viewport-safe `.admin-modal` pattern (max-height, scrollable body) | ✅ |
 | `client/css/admin/_hrm.css` | HRM modal viewport rules; Access tab permission groups | ✅ |
-| `client/css/admin/_layout.css` | Sidebar label edit pencil hover styles | ✅ |
+| `client/css/admin/_layout.css` | Compact HRM page header/stats spacing | ✅ |
+| `client/admin/partials/view-settings.html` | Customize Menu Labels card (Security tab) | ✅ |
 | `backend/src/repositories/sidebarLabelRepository.js` | PG sidebar label CRUD | ✅ |
 | `backend/src/controllers/admin/sidebarLabelController.js` | GET/PUT `/api/admin/sidebar-labels` | ✅ |
 | `prisma/schema.prisma` | `SidebarLabel` model | ✅ |
@@ -247,6 +249,15 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### HRM Access Fix Round 2 — 2026-09-21
+
+- **Quick Grant Access modal:** `#quickGrantModal` on Employees page; `openQuickGrantModal(employeeId, name, empCode)`; username from EMP-ID or name; 25-permission grid + presets; POST grant-access; toast + Access tab refresh
+- **Super Admin Access tab:** `GET /api/admin/hrm/employees/:id/access-info` returns `isSuperAdmin`; Access tab hidden for linked super-admin employees; 👑 notice if rendered
+- **Sidebar labels moved to Settings:** Removed ✏️ pencil from sidebar; **Customize Menu Labels** in Settings → Security (Super Admin); `DELETE /api/admin/sidebar-labels` reset
+- **Compact HRM layout:** Reduced header, stats, filter bar, table, and modal section spacing in `_hrm.css` / `_layout.css`
+- Files: `view-hrm-employees.html`, `hrm-employees.js`, `employeeController.js`, `adminRoutes.js`, `sidebarLabels.js`, `settings-menu-labels.js`, `view-settings.html`, `sidebarLabelController.js`, `sidebarLabelRepository.js`, `_hrm.css`, `_layout.css`
+- Tests: Jest **228/228** passing
 
 ### HRM Modal Fix + Access Tab + Sidebar Labels — 2026-09-21
 

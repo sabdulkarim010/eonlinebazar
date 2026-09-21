@@ -590,6 +590,7 @@ router.get('/hrm/employees/stats', verifyAdmin, checkPermission('manage_staff'),
 router.get('/hrm/employees/export', verifyAdmin, checkPermission('manage_staff'), exportController.exportEmployeesCSV);
 router.get('/hrm/employees', verifyAdmin, checkPermission('manage_staff'), employeeController.getAllEmployees);
 router.get('/hrm/employees/:id/profile', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeProfile);
+router.get('/hrm/employees/:id/access-info', verifyAdmin, checkPermission('manage_staff'), employeeController.getAccessInfo);
 router.get('/hrm/employees/:id/access-status', verifyAdmin, checkPermission('manage_staff'), employeeController.getAccessStatus);
 router.post('/hrm/employees/:id/grant-access', verifyAdmin, checkPermission('manage_staff'), employeeController.grantSystemAccess);
 router.post('/hrm/employees/:id/revoke-access', verifyAdmin, checkPermission('manage_staff'), employeeController.revokeSystemAccess);
@@ -704,5 +705,6 @@ router.post('/sandbox/reset-real-data', verifyAdmin, requireSuperAdmin, sandboxC
 // Super Admin sidebar menu label customization
 router.get('/sidebar-labels', verifyAdmin, requireSuperAdmin, sidebarLabelController.listSidebarLabels);
 router.put('/sidebar-labels/:key', verifyAdmin, requireSuperAdmin, sidebarLabelController.upsertSidebarLabel);
+router.delete('/sidebar-labels', verifyAdmin, requireSuperAdmin, sidebarLabelController.resetSidebarLabels);
 
 module.exports = router;

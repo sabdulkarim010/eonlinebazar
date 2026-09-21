@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (HRM modal fix + sidebar label customization)  
+**Last updated:** 2026-09-21 (HRM Access Fix Round 2 — menu labels in Settings)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -34,7 +34,9 @@
 | `backend/src/middlewares/maintenanceModeMiddleware.js` | Storefront 503 gate with IP allowlist bypass |
 | `backend/src/controllers/admin/sidebarLabelController.js` | Super Admin sidebar menu rename API |
 | `backend/src/repositories/sidebarLabelRepository.js` | PG `SidebarLabel` reads/writes |
-| `client/js/admin/modules/sidebarLabels.js` | Inline ✏️ sidebar label edit (Super Admin only) |
+| `client/js/admin/modules/sidebarLabels.js` | Sidebar label apply on load (Super Admin only) |
+| `client/js/admin/modules/settings-menu-labels.js` | Settings page menu label editor |
+| `client/admin/partials/view-settings.html` | Customize Menu Labels section |
 | `prisma/schema.prisma` | `SidebarLabel` model (`menuKey`, `label`, `adminId`) |
 | `backend/src/config/passport.js` | Google OAuth strategy |
 | `backend/src/models/admin.js` | Admin account + permissions + 2FA fields |
@@ -57,7 +59,8 @@
 
 ## Feature Checklist
 
-- [x] Super Admin sidebar menu label customization — `GET/PUT /api/admin/sidebar-labels/:key` (`requireSuperAdmin`)
+- [x] Super Admin sidebar menu label customization — `GET/PUT /api/admin/sidebar-labels/:key`, `DELETE /api/admin/sidebar-labels` reset (`requireSuperAdmin`); edit UI in Settings → Security
+- [x] HRM employee access-info — `GET /api/admin/hrm/employees/:id/access-info` detects linked Super Admin accounts
 - [x] 25 granular RBAC permissions — `permissions.js` + dynamic grant/edit modals
 - [x] Admin JWT login — `loginController.js` (admin branch)
 - [x] Google OAuth — `oauthController.js`, passport config
@@ -99,6 +102,14 @@
 ---
 
 ## Change Log
+
+### HRM Access Fix Round 2 — 2026-09-21
+
+- **Menu label editing** moved from sidebar ✏️ pencils to Settings → Security → Customize Menu Labels
+- **API:** `DELETE /api/admin/sidebar-labels` clears all custom labels (reset to defaults)
+- **HRM access-info:** `GET /api/admin/hrm/employees/:id/access-info` — `isSuperAdmin` flag for profile Access tab
+- **Quick grant modal:** Employees page self-contained `#quickGrantModal` with permission presets
+- Tests: Jest **228/228** passing
 
 ### HRM Modal Fix + Sidebar Labels — 2026-09-21
 

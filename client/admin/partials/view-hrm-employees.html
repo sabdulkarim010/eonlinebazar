@@ -541,49 +541,37 @@
     </div>
 </div>
 
-<!-- Link system account -->
-<div id="grantAccessModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeGrantAccessModal()">
+<!-- Quick Grant System Access (Employees page — self-contained) -->
+<div id="quickGrantModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeQuickGrantModal()">
     <div class="custom-modal-box admin-modal employee-modal-wide admin-modal--wide">
         <div class="modal-header">
             <div>
-                <h3><i class="fa-solid fa-link"></i> Link System Account</h3>
-                <p class="edit-modal-subtitle">Create an admin login linked to this employee record</p>
+                <h3><i class="fa-solid fa-user-shield"></i> Grant System Access</h3>
+                <p class="edit-modal-subtitle" id="quickGrantEmployeeLabel">Create admin login for this employee</p>
             </div>
-            <button type="button" class="close-icon-btn" onclick="closeGrantAccessModal()" aria-label="Close">
+            <button type="button" class="close-icon-btn" onclick="closeQuickGrantModal()" aria-label="Close">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <form onsubmit="event.preventDefault(); submitGrantAccess();">
-            <input type="hidden" id="grantEmpId">
+        <form id="quickGrantForm" onsubmit="event.preventDefault(); submitQuickGrantAccess();">
+            <input type="hidden" id="quickGrantEmpId" value="">
             <div class="modal-body">
                 <div class="form-grid-2">
                     <div class="form-group">
-                        <label for="grantEmpName">Employee Name</label>
-                        <input type="text" id="grantEmpName" disabled>
+                        <label for="quickGrantUsername">Username *</label>
+                        <input type="text" id="quickGrantUsername" required autocomplete="off" placeholder="e.g. emp-003">
                     </div>
                     <div class="form-group">
-                        <label for="grantEmpEmail">Email</label>
-                        <input type="email" id="grantEmpEmail" disabled>
+                        <label for="quickGrantPassword">Password *</label>
+                        <input type="password" id="quickGrantPassword" required autocomplete="new-password" minlength="8">
                     </div>
-                    <div class="form-group">
-                        <label for="grantEmpPhone">Phone</label>
-                        <input type="text" id="grantEmpPhone" disabled>
-                    </div>
-                    <div class="form-group">
-                        <label for="grantUsername">Username *</label>
-                        <input type="text" id="grantUsername" required autocomplete="off">
-                    </div>
-                    <div class="form-group">
-                        <label for="grantPassword">Password *</label>
-                        <input type="password" id="grantPassword" required autocomplete="new-password">
-                    </div>
-                    <div class="form-group">
-                        <label for="grantConfirmPassword">Confirm Password *</label>
-                        <input type="password" id="grantConfirmPassword" required autocomplete="new-password">
+                    <div class="form-group form-group-full">
+                        <label for="quickGrantConfirmPassword">Confirm Password *</label>
+                        <input type="password" id="quickGrantConfirmPassword" required autocomplete="new-password" minlength="8">
                     </div>
                 </div>
 
-                <div class="staff-enterprise-card" style="margin-top:16px;">
+                <div class="staff-enterprise-card" style="margin-top:12px;">
                     <div class="staff-enterprise-card-head">
                         <span class="staff-enterprise-card-icon"><i class="fa-solid fa-shield-halved"></i></span>
                         <div>
@@ -592,24 +580,24 @@
                         </div>
                     </div>
                     <div class="staff-enterprise-card-body">
-                        <div class="staff-presets-bar" data-grant-permission-presets="grant">
+                        <div class="staff-presets-bar" data-grant-permission-presets="quickGrant">
                             <span class="staff-presets-label">Quick Presets</span>
                             <div class="staff-presets-actions">
-                                <button type="button" class="staff-preset-btn" data-grant-preset="fullAdmin">Full Admin</button>
-                                <button type="button" class="staff-preset-btn" data-grant-preset="inventoryManager">Inventory Manager</button>
-                                <button type="button" class="staff-preset-btn" data-grant-preset="orderManager">Order Manager</button>
-                                <button type="button" class="staff-preset-btn" data-grant-preset="posOperator">POS Operator</button>
-                                <button type="button" class="staff-preset-btn" data-grant-preset="hrManager">HR Manager</button>
-                                <button type="button" class="staff-preset-btn staff-preset-btn--ghost" data-grant-preset="clear">Reset</button>
+                                <button type="button" class="staff-preset-btn" data-quick-grant-preset="fullAdmin">Full Admin</button>
+                                <button type="button" class="staff-preset-btn" data-quick-grant-preset="inventoryManager">Inventory Manager</button>
+                                <button type="button" class="staff-preset-btn" data-quick-grant-preset="orderManager">Order Manager</button>
+                                <button type="button" class="staff-preset-btn" data-quick-grant-preset="posOperator">POS Operator</button>
+                                <button type="button" class="staff-preset-btn" data-quick-grant-preset="hrManager">HR Manager</button>
+                                <button type="button" class="staff-preset-btn staff-preset-btn--ghost" data-quick-grant-preset="clear">Reset</button>
                             </div>
                         </div>
-                        <div id="grantAccessPermissionGrid" class="permission-grid permission-grid--modules grant-access-permissions"></div>
+                        <div id="quickGrantPermissionGrid" class="permission-grid permission-grid--modules grant-access-permissions"></div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-secondary" onclick="closeGrantAccessModal()">Cancel</button>
-                <button type="submit" class="btn-primary" id="grantAccessSubmitBtn"><i class="fa-solid fa-link"></i> Link Account</button>
+                <button type="button" class="btn-secondary" onclick="closeQuickGrantModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="quickGrantSubmitBtn"><i class="fa-solid fa-link"></i> Grant Access</button>
             </div>
         </form>
     </div>

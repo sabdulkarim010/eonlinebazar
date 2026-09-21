@@ -2226,3 +2226,21 @@ docs/audit/PRODUCTION_ISSUES_AUDIT.md [MOD] Critical Production Bugs section
 docs/audit/DEVOPS_AUDIT.md [MOD] IPv6 SMTP + health probe notes
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Critical Production Bugs section
 README.md [MOD] critical bugs fix
+#
+# HRM Access Fix Round 2: 2026-09-21
+client/admin/partials/view-hrm-employees.html [MOD] #quickGrantModal replaces #grantAccessModal
+client/js/admin/modules/hrm-employees.js [MOD] openQuickGrantModal; access-info; Super Admin tab hide
+client/admin/partials/view-settings.html [MOD] Customize Menu Labels card (Security tab)
+client/js/admin/modules/settings-menu-labels.js [NEW] Settings menu label editor
+client/js/admin/modules/sidebarLabels.js [MOD] apply-only — no inline edit
+client/js/admin/admin-settings.js [MOD] import settings-menu-labels.js
+client/css/admin/_hrm.css [MOD] compact spacing; super-admin-notice; quickGrantModal viewport
+client/css/admin/_layout.css [MOD] compact HRM headers/stats; removed sidebar pencil styles
+backend/src/controllers/admin/employeeController.js [MOD] getAccessInfo + buildEmployeeAccessPayload
+backend/src/routes/adminRoutes.js [MOD] GET access-info; DELETE sidebar-labels reset
+backend/src/controllers/admin/sidebarLabelController.js [MOD] resetSidebarLabels
+backend/src/repositories/sidebarLabelRepository.js [MOD] deleteAll()
+docs/audit/HRM_AUDIT.md [MOD] HRM Access Fix Round 2 changelog
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] menu labels in Settings
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Access Fix Round 2 section
+README.md [MOD] HRM Access Fix Round 2

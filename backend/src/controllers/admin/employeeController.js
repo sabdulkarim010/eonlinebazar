@@ -1024,26 +1024,33 @@ exports.unlinkSystemAccess = async (req, res) => {
  */
 exports.getAccessStatus = async (req, res) => {
     try {
-        const employee = await findEmployeeRecord(req.params.id);
-        if (!employee || !employee.linkedAdminId) {
-            return res.json({ hasAccess: false, linkedAdminId: null });
+        const payload = await buildEmployeeAccessPayload(req.params.id);
+        if (!payload.hasAccess) {
+            return res.json({ hasAccess: false, linkedAdminId: payload.linkedAdminId || null });
         }
-
-        const admin = await Admin.findById(employee.linkedAdminId)
-            .select('username email status permissions lastLoginAt');
-        if (!admin) {
-            return res.json({ hasAccess: false, linkedAdminId: employee.linkedAdminId });
+        if (payload.isSuperAdmin) {
+            return res.json({
+                hasAccess: true,
+                isSuperAdmin: true,
+                linkedAdminId: payload.linkedAdminId,
+                admin: {
+                    username: payload.username,
+                    email: payload.email || '',
+                    status: payload.status,
+                    permissions: [],
+                    lastLoginAt: payload.lastLogin || null
+                }
+            });
         }
-
         res.json({
             hasAccess: true,
-            linkedAdminId: employee.linkedAdminId,
+            linkedAdminId: payload.linkedAdminId,
             admin: {
-                username: admin.username,
-                email: admin.email || '',
-                status: admin.status,
-                permissions: Array.isArray(admin.permissions) ? admin.permissions : [],
-                lastLoginAt: admin.lastLoginAt || null
+                username: payload.username,
+                email: payload.email || '',
+                status: payload.status,
+                permissions: payload.permissions || [],
+                lastLoginAt: payload.lastLogin || null
             }
         });
     } catch (error) {
@@ -1051,3 +1058,69 @@ exports.getAccessStatus = async (req, res) => {
         res.status(500).json({ error: 'Failed to load access status.' });
     }
 };
+
+/**
+ * GET /api/admin/hrm/employees/:id/access-info
+ * Rich access summary for the employee profile Access tab.
+ */
+exports.getAccessInfo = async (req, res) => {
+    try {
+        const payload = await buildEmployeeAccessPayload(req.params.id);
+        res.json(payload);
+    } catch (error) {
+        console.error('getAccessInfo Error:', error);
+        res.status(500).json({ error: 'Failed to load access info.' });
+    }
+};
+
+async function buildEmployeeAccessPayload(employeeId) {
+    const employee = await findEmployeeRecord(employeeId);
+    if (!employee || !employee.linkedAdminId) {
+        return { hasAccess: false, isSuperAdmin: false, linkedAdminId: null };
+    }
+
+    const admin = await Admin.findById(employee.linkedAdminId)
+        .select('username email role status permissions lastLoginAt');
+    if (!admin) {
+        return {
+            hasAccess: false,
+            isSuperAdmin: false,
+            linkedAdminId: employee.linkedAdminId
+        };
+    }
+
+    const role = admin.role || ROLES.SUPER_ADMIN;
+    const isSuperAdmin = role === ROLES.SUPER_ADMIN;
+
+    if (isSuperAdmin) {
+        return {
+            hasAccess: true,
+            isSuperAdmin: true,
+            linkedAdminId: employee.linkedAdminId,
+            username: admin.username,
+            role,
+            status: admin.status,
+            permissions: [],
+            lastLogin: admin.lastLoginAt || null
+        };
+    }
+
+    return {
+        hasAccess: true,
+        isSuperAdmin: false,
+        linkedAdminId: employee.linkedAdminId,
+        username: admin.username,
+        role,
+        email: admin.email || '',
+        status: admin.status,
+        permissions: Array.isArray(admin.permissions) ? admin.permissions : [],
+        lastLogin: admin.lastLoginAt || null,
+        admin: {
+            username: admin.username,
+            email: admin.email || '',
+            status: admin.status,
+            permissions: Array.isArray(admin.permissions) ? admin.permissions : [],
+            lastLoginAt: admin.lastLoginAt || null
+        }
+    };
+}

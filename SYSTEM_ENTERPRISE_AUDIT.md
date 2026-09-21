@@ -2894,5 +2894,19 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | PG health disconnected | ✅ Fixed | 3s query timeout; returns `degraded` on Neon cold start |
 | Jest regression suite | ✅ | **228/228** passing |
 
+## HRM Access Fix Round 2 — 2026-09-21
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Quick Grant Access modal | ✅ Fixed | `#quickGrantModal` on Employees page; `openQuickGrantModal()`; EMP-ID username; 25-permission grid + presets |
+| Super Admin Access tab | ✅ Fixed | `GET /hrm/employees/:id/access-info` → `isSuperAdmin`; tab hidden; 👑 notice when applicable |
+| Sidebar label edit | ✅ Fixed | ✏️ pencils removed from sidebar; **Customize Menu Labels** in Settings → Security |
+| HRM compact layout | ✅ Fixed | Tighter header, stats, filter bar, table, modal sections in `_hrm.css` / `_layout.css` |
+| gateway-status 500 | ✅ Verified | `require('../services/gatewayStatusService')` path correct; service loads |
+| SMTP IPv6 | ✅ Verified | `mailer.js` + `userProfileController` use `family: 4` |
+| Jest regression suite | ✅ | **228/228** passing |
+
 
 
