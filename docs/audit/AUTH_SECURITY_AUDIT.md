@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (HRM Access Fix Round 2 — menu labels in Settings)  
+**Last updated:** 2026-09-21 (HRM Access Final Redesign — Bearer auth on admin fetch)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -36,6 +36,8 @@
 | `backend/src/repositories/sidebarLabelRepository.js` | PG `SidebarLabel` reads/writes |
 | `client/js/admin/modules/sidebarLabels.js` | Sidebar label apply on load (Super Admin only) |
 | `client/js/admin/modules/settings-menu-labels.js` | Settings page menu label editor |
+| `client/js/admin/modules/hrm-employees.js` | `authHeaders()` — Bearer token on all HRM admin API calls |
+| `client/js/admin-staff.js` | `authHeaders()` + `staffApi()` — Bearer token on Staff Directory API calls |
 | `client/admin/partials/view-settings.html` | Customize Menu Labels section |
 | `prisma/schema.prisma` | `SidebarLabel` model (`menuKey`, `label`, `adminId`) |
 | `backend/src/config/passport.js` | Google OAuth strategy |
@@ -61,6 +63,7 @@
 
 - [x] Super Admin sidebar menu label customization — `GET/PUT /api/admin/sidebar-labels/:key`, `DELETE /api/admin/sidebar-labels` reset (`requireSuperAdmin`); edit UI in Settings → Security
 - [x] HRM employee access-info — `GET /api/admin/hrm/employees/:id/access-info` detects linked Super Admin accounts
+- [x] Admin frontend Bearer auth — `verifyAdmin` reads `Authorization: Bearer`; `hrm-employees.js` + `admin-staff.js` send token from `localStorage.adminToken`
 - [x] 25 granular RBAC permissions — `permissions.js` + dynamic grant/edit modals
 - [x] Admin JWT login — `loginController.js` (admin branch)
 - [x] Google OAuth — `oauthController.js`, passport config
@@ -102,6 +105,13 @@
 ---
 
 ## Change Log
+
+### HRM Access Final Redesign — 2026-09-21
+
+- **Frontend auth fix:** `authHeaders()` helper added to `hrm-employees.js` and `admin-staff.js`; all `/api/admin/*` fetch calls send `Authorization: Bearer ${localStorage.adminToken}` (matches `verifyAdmin` in `authMiddleware.js` — header-based, not cookie)
+- **Photo upload:** FormData POST sends Bearer header without Content-Type (browser sets multipart boundary)
+- **Staff Directory:** `staffApi()` wraps fetch with shared auth headers; grant-access 409 handled gracefully
+- Tests: Jest **228/228** passing
 
 ### HRM Access Fix Round 2 — 2026-09-21
 

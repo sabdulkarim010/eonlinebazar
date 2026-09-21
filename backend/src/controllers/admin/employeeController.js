@@ -1076,24 +1076,35 @@ exports.getAccessInfo = async (req, res) => {
 async function buildEmployeeAccessPayload(employeeId) {
     const employee = await findEmployeeRecord(employeeId);
     if (!employee || !employee.linkedAdminId) {
-        return { hasAccess: false, isSuperAdmin: false, linkedAdminId: null };
+        return {
+            hasAccount: false,
+            hasAccess: false,
+            isSuperAdmin: false,
+            linkedAdminId: null,
+            permissions: []
+        };
     }
 
     const admin = await Admin.findById(employee.linkedAdminId)
         .select('username email role status permissions lastLoginAt');
     if (!admin) {
         return {
+            hasAccount: false,
             hasAccess: false,
             isSuperAdmin: false,
-            linkedAdminId: employee.linkedAdminId
+            linkedAdminId: employee.linkedAdminId,
+            permissions: []
         };
     }
 
     const role = admin.role || ROLES.SUPER_ADMIN;
     const isSuperAdmin = role === ROLES.SUPER_ADMIN;
+    const permissions = Array.isArray(admin.permissions) ? admin.permissions : [];
+    const lastLogin = admin.lastLoginAt || null;
 
     if (isSuperAdmin) {
         return {
+            hasAccount: true,
             hasAccess: true,
             isSuperAdmin: true,
             linkedAdminId: employee.linkedAdminId,
@@ -1101,11 +1112,12 @@ async function buildEmployeeAccessPayload(employeeId) {
             role,
             status: admin.status,
             permissions: [],
-            lastLogin: admin.lastLoginAt || null
+            lastLogin
         };
     }
 
     return {
+        hasAccount: true,
         hasAccess: true,
         isSuperAdmin: false,
         linkedAdminId: employee.linkedAdminId,
@@ -1113,14 +1125,14 @@ async function buildEmployeeAccessPayload(employeeId) {
         role,
         email: admin.email || '',
         status: admin.status,
-        permissions: Array.isArray(admin.permissions) ? admin.permissions : [],
-        lastLogin: admin.lastLoginAt || null,
+        permissions,
+        lastLogin,
         admin: {
             username: admin.username,
             email: admin.email || '',
             status: admin.status,
-            permissions: Array.isArray(admin.permissions) ? admin.permissions : [],
-            lastLoginAt: admin.lastLoginAt || null
+            permissions,
+            lastLoginAt: lastLogin
         }
     };
 }

@@ -37,8 +37,15 @@ function employeeEscape(value) {
     }[ch]));
 }
 
+/** Bearer token for /api/admin/* — verifyAdmin reads Authorization header, not cookies. */
+function authHeaders(json = false) {
+    const headers = { Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}` };
+    if (json) headers['Content-Type'] = 'application/json';
+    return headers;
+}
+
 function employeeAuthHeaders(json = false) {
-    return window.hrmAuthHeaders ? window.hrmAuthHeaders(json) : { Authorization: `Bearer ${token}` };
+    return authHeaders(json);
 }
 
 function employeeFormatMoney(amount) {
@@ -1029,8 +1036,12 @@ async function openEmployeeProfile(id) {
         renderProfileLeave(result.data);
 
         const accessPreview = await fetchEmployeeAccessPayload(id).catch(() => ({}));
-        setEmployeeAccessTabVisible(!accessPreview.isSuperAdmin);
-        await renderProfileAccess(e);
+        if (accessPreview.isSuperAdmin) {
+            removeEmployeeAccessTab();
+        } else {
+            restoreEmployeeAccessTab();
+            await renderProfileAccess(e);
+        }
 
         switchProfileTab('profile-tab-overview');
         document.getElementById('employeeProfileModal').style.display = 'flex';
@@ -1195,99 +1206,152 @@ function formatRelativeAccessTime(value) {
     return formatDate(value);
 }
 
-function deriveAccessRoleLabel(permissions = []) {
-    const permSet = new Set(permissions);
-    const hrKeys = ['view_attendance', 'mark_attendance_today', 'mark_attendance_any_date', 'lock_attendance_dates', 'manual_attendance', 'view_employees', 'edit_employees', 'manage_payroll', 'manage_leave'];
-    if (hrKeys.every((k) => permSet.has(k))) return 'HR Manager';
-    if (permissions.length >= 20) return 'Full Admin';
-    if (permissions.length >= 4) return 'Manager';
-    return 'Operator';
-}
+let accessTabTemplate = null;
 
-function renderAccessPermissionGroups(permissions = []) {
-    if (!permissions.length) return '<p class="table-subtext">No permissions assigned.</p>';
-    const groups = new Map();
-    const catalog = grantPermissionCatalog.length ? grantPermissionCatalog : permissions.map((key) => ({ key, label: key, group: 'Other' }));
-    permissions.forEach((key) => {
-        const meta = catalog.find((p) => p.key === key) || { key, label: key, group: 'Other' };
-        const groupName = meta.group || 'Other';
-        if (!groups.has(groupName)) groups.set(groupName, []);
-        groups.get(groupName).push(meta.label || key);
-    });
-    return Array.from(groups.entries()).map(([group, labels]) => `
-        <div class="employee-access-perm-group">
-            <strong>${employeeEscape(group)}</strong>
-            <ul>${labels.map((label) => `<li>${employeeEscape(label)}</li>`).join('')}</ul>
-        </div>
-    `).join('');
-}
-
-function renderAccessTabState1(section, employee) {
-    section.innerHTML = `
-        <div class="employee-access-empty-state">
-            <div class="employee-access-empty-icon" aria-hidden="true"><i class="fa-solid fa-user-lock"></i></div>
-            <p class="employee-access-empty-text">No Admin/System login access</p>
-            <button type="button" class="btn-primary employee-grant-access-btn" id="employeeGrantAccessBtn">
-                Grant System Access
-            </button>
-        </div>`;
-
-    section.querySelector('#employeeGrantAccessBtn')?.addEventListener('click', () => {
-        openQuickGrantModal(employee._id, employee.fullName || '', employee.employeeId || '');
-    });
-}
-
-function renderAccessTabSuperAdmin(section) {
-    section.innerHTML = `
-        <div class="super-admin-notice">
-            <span class="super-admin-notice-icon" aria-hidden="true">👑</span>
-            <p><strong>Super Admin — Full system access</strong></p>
-            <small>This account has unrestricted access and cannot be modified here.</small>
-        </div>`;
-}
-
-function setEmployeeAccessTabVisible(show) {
-    const accessTabBtn = document.querySelector('#employeeProfileTabs [data-profile-tab="profile-tab-access"]');
-    if (accessTabBtn) {
-        accessTabBtn.style.display = show ? '' : 'none';
+function captureAccessTabTemplate() {
+    if (accessTabTemplate) return;
+    const btn = document.querySelector('#employeeProfileTabs [data-profile-tab="profile-tab-access"]');
+    const panel = document.getElementById('profile-tab-access');
+    if (btn && panel) {
+        accessTabTemplate = { btn: btn.cloneNode(true), panel: panel.cloneNode(true) };
     }
 }
 
-function renderAccessTabLinkedState(section, employee, data) {
-    const isActive = data.admin.status === 'active';
+function removeEmployeeAccessTab() {
+    document.querySelector('#employeeProfileTabs [data-profile-tab="profile-tab-access"]')?.remove();
+    document.getElementById('profile-tab-access')?.remove();
+}
+
+function restoreEmployeeAccessTab() {
+    captureAccessTabTemplate();
+    if (!accessTabTemplate || document.querySelector('[data-profile-tab="profile-tab-access"]')) return;
+    const tabs = document.getElementById('employeeProfileTabs');
+    const modalBody = document.querySelector('#employeeProfileModal .modal-body');
+    if (tabs) tabs.appendChild(accessTabTemplate.btn.cloneNode(true));
+    if (modalBody) modalBody.appendChild(accessTabTemplate.panel.cloneNode(true));
+}
+
+function goToStaffDirectory() {
+    closeEmployeeProfileModal();
+    const nav = document.querySelector('[data-target="view-staff"]');
+    if (nav && typeof window.navigateAdminSection === 'function') {
+        window.navigateAdminSection('view-staff', nav);
+        return;
+    }
+    window.location.href = '/admin#view-staff';
+}
+window.goToStaffDirectory = goToStaffDirectory;
+
+function syncAccessPermRowState(box) {
+    const row = box.closest('.permission-toggle-row');
+    if (row) row.classList.toggle('is-on', box.checked);
+}
+
+function renderProfileAccessPermissionGrid(selectedKeys = [], { readOnly = false } = {}) {
+    const container = document.getElementById('profileAccessPermissionGrid');
+    if (!container) return;
+
+    if (!grantPermissionCatalog.length) {
+        container.innerHTML = '<p class="table-status-error">Could not load permissions.</p>';
+        return;
+    }
+
+    const selected = new Set(selectedKeys);
+    const modules = buildGrantPermissionGroups(grantPermissionCatalog);
+
+    container.innerHTML = modules.map((module) => {
+        const items = module.items;
+        if (!items.length) return '';
+        return `
+        <div class="permission-category-card permission-category-card--${module.id}">
+            <div class="permission-category-header">
+                <span class="permission-category-emoji" aria-hidden="true">${module.emoji}</span>
+                <span class="permission-category-title">${employeeEscape(module.label)}</span>
+            </div>
+            <div class="permission-category-items">
+                ${items.map((permission) => `
+                    <label class="permission-toggle-row ${selected.has(permission.key) ? 'is-on' : ''} ${readOnly ? 'is-readonly' : ''}">
+                        <span class="permission-toggle-main">
+                            <span class="permission-toggle-icon"><i class="fa-solid ${employeeEscape(permission.icon || 'fa-key')}"></i></span>
+                            <span class="permission-toggle-copy">
+                                <strong>${employeeEscape(permission.label)}</strong>
+                            </span>
+                        </span>
+                        <span class="toggle-switch">
+                            <input type="checkbox" class="toggle-switch-input permission-toggle-input access-perm-toggle"
+                                   value="${employeeEscape(permission.key)}"
+                                   ${selected.has(permission.key) ? 'checked' : ''}
+                                   ${readOnly ? 'disabled' : ''}>
+                            <span class="toggle-switch-slider" aria-hidden="true"></span>
+                        </span>
+                    </label>
+                `).join('')}
+            </div>
+        </div>`;
+    }).join('');
+
+    if (!readOnly) {
+        container.querySelectorAll('.access-perm-toggle').forEach((box) => {
+            box.addEventListener('change', () => syncAccessPermRowState(box));
+        });
+    }
+}
+
+function renderAccessTabNoAccount(section) {
+    section.innerHTML = `
+        <div class="employee-access-empty-state employee-access-no-account">
+            <div class="employee-access-empty-icon" aria-hidden="true"><i class="fa-solid fa-lock"></i></div>
+            <p class="employee-access-empty-text"><strong>No System Account</strong></p>
+            <p class="table-subtext">This employee has no admin login. Go to System Staff Directory to assign access.</p>
+            <button type="button" class="btn-primary" id="employeeGoStaffDirBtn">
+                <i class="fa-solid fa-arrow-right"></i> Go to Staff Directory
+            </button>
+        </div>
+        <div class="employee-access-preview-block">
+            <h4 class="modal-section-title">Permission Preview</h4>
+            <p class="table-subtext">Preview only — assign an account in Staff Directory to enable saving.</p>
+            <div id="profileAccessPermissionGrid" class="permission-grid permission-grid--modules"></div>
+        </div>`;
+
+    section.querySelector('#employeeGoStaffDirBtn')?.addEventListener('click', goToStaffDirectory);
+    renderProfileAccessPermissionGrid([], { readOnly: true });
+}
+
+function renderAccessTabWithAccount(section, employee, data) {
+    const adminUser = data.admin?.username || data.username || '—';
+    const adminStatus = data.admin?.status || data.status || 'active';
+    const isActive = adminStatus === 'active';
     const statusLabel = isActive ? 'Active' : 'Suspended';
     const statusClass = isActive ? 'status-verified' : 'status-blocked';
     const linkedAdminId = data.linkedAdminId || employee.linkedAdminId;
-    const roleLabel = deriveAccessRoleLabel(data.admin.permissions || []);
+    const permissions = data.admin?.permissions || data.permissions || [];
+    const lastLogin = data.admin?.lastLoginAt || data.lastLogin;
 
     section.innerHTML = `
         <div class="employee-access-linked-card">
-            <dl class="employee-access-summary">
-                <div><dt>Username</dt><dd>${employeeEscape(data.admin.username)}</dd></div>
-                <div><dt>Role</dt><dd>${employeeEscape(roleLabel)}</dd></div>
-                <div><dt>Status</dt><dd><span class="status-badge ${statusClass}"><i class="fa-solid fa-circle"></i> ${statusLabel}</span></dd></div>
-                <div><dt>Last Login</dt><dd>${formatRelativeAccessTime(data.admin.lastLoginAt)}</dd></div>
+            <dl class="employee-access-summary employee-access-summary--compact">
+                <div><dt>Username</dt><dd>${employeeEscape(adminUser)}</dd></div>
+                <div><dt>Status</dt><dd>
+                    <span class="status-badge ${statusClass}"><i class="fa-solid fa-circle"></i> ${statusLabel}</span>
+                    <button type="button" class="btn-secondary btn-sm" id="employeeAccessToggleBtn">
+                        ${isActive ? 'Suspend' : 'Activate'}
+                    </button>
+                </dd></div>
+                <div><dt>Last Login</dt><dd>${formatRelativeAccessTime(lastLogin)}</dd></div>
             </dl>
             <div class="employee-access-permissions-block">
-                <h4>Permissions</h4>
-                ${renderAccessPermissionGroups(data.admin.permissions || [])}
+                <h4 class="modal-section-title">Permissions</h4>
+                <div id="profileAccessPermissionGrid" class="permission-grid permission-grid--modules"></div>
             </div>
             <div class="employee-access-action-row">
-                <button type="button" class="btn-secondary btn-sm" id="employeeAccessEditBtn">
-                    Edit Permissions
-                </button>
-                <button type="button" class="btn-secondary btn-sm ${isActive ? 'employee-access-warn-btn' : 'employee-access-success-btn'}" id="employeeAccessToggleBtn">
-                    ${isActive ? 'Suspend Account' : 'Activate Account'}
-                </button>
-                <button type="button" class="btn-danger btn-sm" id="employeeAccessRevokeBtn">
-                    Revoke Access
+                <button type="button" class="btn-primary btn-sm" id="employeeAccessSaveBtn">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Permissions
                 </button>
             </div>
         </div>`;
 
-    section.querySelector('#employeeAccessEditBtn')?.addEventListener('click', () => {
-        openEmployeeEditPermissions(linkedAdminId);
-    });
+    renderProfileAccessPermissionGrid(permissions, { readOnly: false });
+
     section.querySelector('#employeeAccessToggleBtn')?.addEventListener('click', () => {
         if (isActive) {
             suspendEmployeeAccess(employee._id, linkedAdminId);
@@ -1295,18 +1359,56 @@ function renderAccessTabLinkedState(section, employee, data) {
             reactivateEmployeeAccess(employee._id, linkedAdminId);
         }
     });
-    section.querySelector('#employeeAccessRevokeBtn')?.addEventListener('click', () => {
-        revokeEmployeeAccess(employee._id, linkedAdminId);
+
+    section.querySelector('#employeeAccessSaveBtn')?.addEventListener('click', () => {
+        saveEmployeeAccessPermissions(linkedAdminId, employee._id);
     });
 }
 
-window.openEmployeeEditPermissions = function openEmployeeEditPermissions(adminId) {
-    if (typeof window.openStaffEditModal === 'function') {
-        window.openStaffEditModal(adminId);
+async function saveEmployeeAccessPermissions(adminId, employeeId) {
+    const permissions = Array.from(
+        document.querySelectorAll('#profileAccessPermissionGrid .access-perm-toggle:checked')
+    ).map((cb) => cb.value);
+
+    if (!permissions.length) {
+        showToast('Select at least one permission.', 'warning');
         return;
     }
-    showToast('Staff directory module is not loaded.', 'warning');
-};
+
+    const saveBtn = document.getElementById('employeeAccessSaveBtn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
+    }
+
+    try {
+        const res = await fetch(`/api/admin/staff/${adminId}/permissions`, {
+            method: 'PUT',
+            headers: authHeaders(true),
+            body: JSON.stringify({ permissions })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || data.success === false) {
+            throw new Error(data.message || 'Failed to save permissions.');
+        }
+
+        showToast('Permissions saved.', 'success');
+        if (typeof window.fetchStaffAccounts === 'function') {
+            await window.fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
+        }
+        if (employeeId) await refreshEmployeeAccessTab(employeeId);
+    } catch (err) {
+        console.error('saveEmployeeAccessPermissions:', err);
+        showToast(err.message || 'Could not save permissions.', 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Permissions';
+        }
+    }
+}
+window.saveEmployeeAccessPermissions = saveEmployeeAccessPermissions;
 
 async function fetchEmployeeAccessPayload(employeeId) {
     const res = await fetch(`/api/admin/hrm/employees/${employeeId}/access-info`, {
@@ -1330,21 +1432,14 @@ async function renderProfileAccess(employee) {
 
     try {
         const data = await fetchEmployeeAccessPayload(employee._id);
+        const hasAccount = data.hasAccount ?? data.hasAccess;
 
-        if (data.isSuperAdmin) {
-            setEmployeeAccessTabVisible(false);
-            renderAccessTabSuperAdmin(section);
+        if (!hasAccount) {
+            renderAccessTabNoAccount(section);
             return;
         }
 
-        setEmployeeAccessTabVisible(true);
-
-        if (!data.hasAccess) {
-            renderAccessTabState1(section, employee);
-            return;
-        }
-
-        renderAccessTabLinkedState(section, employee, data);
+        renderAccessTabWithAccount(section, employee, data);
     } catch (err) {
         console.error('renderProfileAccess:', err);
         section.innerHTML = '<p class="table-status-error">Failed to load access details.</p>';
@@ -1360,25 +1455,13 @@ window.refreshEmployeeAccessTab = async function refreshEmployeeAccessTab(employ
     try {
         const data = await fetchEmployeeAccessPayload(employeeId);
 
-        if (data.isSuperAdmin) {
-            setEmployeeAccessTabVisible(false);
-            renderAccessTabSuperAdmin(section);
-            return;
-        }
+        const hasAccount = data.hasAccount ?? data.hasAccess;
 
-        setEmployeeAccessTabVisible(true);
-
-        if (!data.hasAccess) {
+        if (!hasAccount) {
             if (activeProfileData?.employee?._id === employeeId) {
                 activeProfileData.employee.linkedAdminId = null;
             }
-            renderAccessTabState1(section, {
-                _id: employeeId,
-                fullName: activeProfileData?.employee?.fullName || '',
-                employeeId: activeProfileData?.employee?.employeeId || '',
-                email: activeProfileData?.employee?.email || '',
-                phone: activeProfileData?.employee?.phone || ''
-            });
+            renderAccessTabNoAccount(section);
             return;
         }
 
@@ -1386,7 +1469,7 @@ window.refreshEmployeeAccessTab = async function refreshEmployeeAccessTab(employ
             activeProfileData.employee.linkedAdminId = data.linkedAdminId || activeProfileData.employee.linkedAdminId;
         }
 
-        renderAccessTabLinkedState(section, {
+        renderAccessTabWithAccount(section, {
             _id: employeeId,
             linkedAdminId: data.linkedAdminId
         }, data);
@@ -1610,7 +1693,10 @@ function setupHrmEmployeesSection() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', setupHrmEmployeesSection);
+document.addEventListener('DOMContentLoaded', () => {
+    captureAccessTabTemplate();
+    setupHrmEmployeesSection();
+});
 
 // Backward-compatible alias
 async function viewEmployeeDetails(id) {
@@ -1666,17 +1752,7 @@ const GRANT_GROUP_EMOJI = {
     System: '🖥️'
 };
 
-const GRANT_ROLE_PRESETS = {
-    fullAdmin: null,
-    inventoryManager: ['view_products', 'edit_products', 'manage_stock', 'manage_catalog'],
-    orderManager: ['view_orders', 'update_order_status', 'process_refunds', 'manage_customers'],
-    posOperator: ['view_orders', 'update_order_status', 'view_products', 'manage_stock'],
-    hrManager: ['view_attendance', 'mark_attendance_today', 'mark_attendance_any_date', 'lock_attendance_dates', 'manual_attendance', 'view_employees', 'edit_employees', 'manage_payroll', 'manage_leave'],
-    clear: []
-};
-
 let grantPermissionCatalog = [];
-let quickGrantSubmitInFlight = false;
 
 async function ensureGrantPermissionCatalog() {
     if (grantPermissionCatalog.length) return grantPermissionCatalog;
@@ -1690,10 +1766,6 @@ async function ensureGrantPermissionCatalog() {
         grantPermissionCatalog = [];
     }
     return grantPermissionCatalog;
-}
-
-function grantPermissionByKey(key) {
-    return grantPermissionCatalog.find((p) => p.key === key);
 }
 
 function grantGroupSlug(groupName) {
@@ -1725,373 +1797,4 @@ function buildGrantPermissionGroups(catalog = []) {
     return groups;
 }
 
-function syncGrantPermissionRowState(box) {
-    const row = box.closest('.permission-toggle-row');
-    if (row) row.classList.toggle('is-on', box.checked);
-}
-
-function renderQuickGrantPermissionGrid(selectedKeys = []) {
-    const container = document.getElementById('quickGrantPermissionGrid');
-    if (!container) return;
-
-    if (!grantPermissionCatalog.length) {
-        container.innerHTML = '<p class="table-status-error">Could not load permissions. Check your connection and try again.</p>';
-        return;
-    }
-
-    const selected = new Set(selectedKeys);
-    const modules = buildGrantPermissionGroups(grantPermissionCatalog);
-
-    container.innerHTML = modules.map((module) => {
-        const items = module.items;
-        if (!items.length) return '';
-
-        const allChecked = items.every((p) => selected.has(p.key));
-
-        return `
-        <div class="permission-category-card permission-category-card--${module.id}">
-            <div class="permission-category-header">
-                <span class="permission-category-emoji" aria-hidden="true">${module.emoji}</span>
-                <span class="permission-category-title">${employeeEscape(module.label)}</span>
-                <label class="permission-module-select-all">
-                    <input type="checkbox" class="permission-module-select-all-input" data-grant-module="${module.id}" ${allChecked ? 'checked' : ''}>
-                    <span>Select all</span>
-                </label>
-            </div>
-            <div class="permission-category-items" data-grant-module-items="${module.id}">
-                ${items.map((permission) => `
-                    <label class="permission-toggle-row ${selected.has(permission.key) ? 'is-on' : ''}">
-                        <span class="permission-toggle-main">
-                            <span class="permission-toggle-icon"><i class="fa-solid ${employeeEscape(permission.icon || 'fa-key')}"></i></span>
-                            <span class="permission-toggle-copy">
-                                <strong>${employeeEscape(permission.label)}</strong>
-                                <small>${employeeEscape(permission.description || '')}</small>
-                            </span>
-                        </span>
-                        <span class="toggle-switch">
-                            <input type="checkbox" class="toggle-switch-input permission-toggle-input grant-permission-toggle" data-grant-module="${module.id}" value="${employeeEscape(permission.key)}" ${selected.has(permission.key) ? 'checked' : ''}>
-                            <span class="toggle-switch-slider" aria-hidden="true"></span>
-                        </span>
-                    </label>
-                `).join('')}
-            </div>
-        </div>`;
-    }).join('');
-
-    container.querySelectorAll('.grant-permission-toggle').forEach((box) => {
-        box.addEventListener('change', () => syncGrantPermissionRowState(box));
-    });
-
-    container.querySelectorAll('.permission-module-select-all-input').forEach((master) => {
-        master.addEventListener('change', () => {
-            const moduleId = master.getAttribute('data-grant-module');
-            container.querySelectorAll(`.grant-permission-toggle[data-grant-module="${moduleId}"]`).forEach((box) => {
-                box.checked = master.checked;
-                syncGrantPermissionRowState(box);
-            });
-        });
-    });
-}
-
-function applyQuickGrantPermissionPreset(presetKey) {
-    const grid = document.getElementById('quickGrantPermissionGrid');
-    if (!grid) return;
-
-    let keys = GRANT_ROLE_PRESETS[presetKey] || [];
-    if (presetKey === 'fullAdmin') {
-        keys = grantPermissionCatalog.map((p) => p.key);
-    }
-
-    grid.querySelectorAll('.grant-permission-toggle').forEach((box) => {
-        box.checked = keys.includes(box.value);
-        syncGrantPermissionRowState(box);
-    });
-
-    grid.closest('.staff-enterprise-card-body')
-        ?.querySelectorAll('[data-quick-grant-preset]')
-        ?.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-quick-grant-preset') === presetKey && presetKey !== 'clear'));
-}
-
-function setupQuickGrantPermissionPresets() {
-    const presetsBar = document.querySelector('[data-grant-permission-presets="quickGrant"]');
-    if (!presetsBar || presetsBar.dataset.bound === '1') return;
-    presetsBar.dataset.bound = '1';
-
-    presetsBar.querySelectorAll('[data-quick-grant-preset]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            applyQuickGrantPermissionPreset(btn.getAttribute('data-quick-grant-preset') || 'clear');
-        });
-    });
-}
-
-function closeQuickGrantModal() {
-    const modal = document.getElementById('quickGrantModal');
-    if (modal) modal.style.display = 'none';
-}
-
-function suggestQuickGrantUsername(employeeName, empCode) {
-    const code = String(empCode || '').trim().toLowerCase();
-    if (code) return code.replace(/[^a-z0-9-]/g, '');
-    return String(employeeName || '')
-        .trim()
-        .toLowerCase()
-        .split(/\s+/)
-        .filter(Boolean)
-        .join('-')
-        .replace(/[^a-z-]/g, '');
-}
-
-function closeManageAccessModal() {
-    const modal = document.getElementById('manageAccessModal');
-    if (modal) modal.style.display = 'none';
-}
-
-window.openQuickGrantModal = async function openQuickGrantModal(employeeId, employeeName, empCode) {
-    const modal = document.getElementById('quickGrantModal');
-    if (!modal) {
-        showToast('Grant access modal is not available on this page.', 'warning');
-        return;
-    }
-
-    document.getElementById('quickGrantEmpId').value = employeeId;
-    const labelEl = document.getElementById('quickGrantEmployeeLabel');
-    if (labelEl) {
-        labelEl.textContent = empCode
-            ? `Grant admin login for ${employeeName} (${empCode})`
-            : `Grant admin login for ${employeeName}`;
-    }
-    document.getElementById('quickGrantUsername').value = suggestQuickGrantUsername(employeeName, empCode);
-    document.getElementById('quickGrantPassword').value = '';
-    document.getElementById('quickGrantConfirmPassword').value = '';
-
-    await ensureGrantPermissionCatalog();
-    renderQuickGrantPermissionGrid([]);
-    setupQuickGrantPermissionPresets();
-
-    const submitBtn = document.getElementById('quickGrantSubmitBtn');
-    if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Grant Access';
-    }
-
-    modal.style.display = 'flex';
-};
-
-/** @deprecated Use openQuickGrantModal — kept for Staff Directory fallback */
-window.openGrantAccessModal = async function openGrantAccessModal(employeeId, name, email, phone) {
-    const employee = activeProfileData?.employee;
-    await openQuickGrantModal(
-        employeeId,
-        name,
-        employee?.employeeId || ''
-    );
-};
-
-window.submitQuickGrantAccess = async function submitQuickGrantAccess() {
-    if (quickGrantSubmitInFlight) return;
-
-    const id = document.getElementById('quickGrantEmpId').value;
-    const username = document.getElementById('quickGrantUsername').value.trim();
-    const password = document.getElementById('quickGrantPassword').value;
-    const confirmPwd = document.getElementById('quickGrantConfirmPassword').value;
-    const submitBtn = document.getElementById('quickGrantSubmitBtn');
-    if (!username || !password) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Missing Information',
-            text: 'Username and password are required.',
-            confirmButtonColor: '#2563eb'
-        });
-        return;
-    }
-    if (password !== confirmPwd) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Passwords Do Not Match',
-            text: 'Please confirm the password exactly.',
-            confirmButtonColor: '#2563eb'
-        });
-        return;
-    }
-    if (password.length < 8) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Password Too Short',
-            text: 'Password must be at least 8 characters.',
-            confirmButtonColor: '#2563eb'
-        });
-        return;
-    }
-    const permissions = Array.from(
-        document.querySelectorAll('#quickGrantPermissionGrid .grant-permission-toggle:checked')
-    ).map((cb) => cb.value);
-    if (permissions.length === 0) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Missing Information',
-            text: 'Select at least one permission before granting access.',
-            confirmButtonColor: '#2563eb'
-        });
-        return;
-    }
-
-    quickGrantSubmitInFlight = true;
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Granting…';
-    }
-
-    try {
-        const res = await fetch(`/api/admin/hrm/employees/${id}/grant-access`, {
-            method: 'POST',
-            headers: { ...employeeAuthHeaders(true) },
-            body: JSON.stringify({ username, password, permissions })
-        });
-        const data = await res.json();
-        if (res.status === 409 || (data.error && /already granted/i.test(data.error))) {
-            closeQuickGrantModal();
-            showToast('This employee already has system access.', 'warning');
-            if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
-            await loadEmployees();
-            if (activeProfileData?.employee?._id === id) {
-                await refreshEmployeeAccessTab(id);
-            }
-            if (typeof window.fetchStaffAccounts === 'function') {
-                await window.fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
-            }
-            return;
-        }
-        if (data.success) {
-            showToast(`System access granted for ${data.username}.`, 'success');
-            closeQuickGrantModal();
-            if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
-            await loadEmployees();
-            if (activeProfileData?.employee?._id === id) {
-                await refreshEmployeeAccessTab(id);
-            }
-            if (typeof window.fetchStaffAccounts === 'function') {
-                await window.fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
-            }
-            if (typeof window.refreshStaffAssignCandidates === 'function') {
-                await window.refreshStaffAssignCandidates();
-            }
-        } else {
-            showToast(data.error || 'Failed to grant system access.', 'error');
-        }
-    } catch (err) {
-        console.error('submitQuickGrantAccess:', err);
-        showToast('Failed to grant system access.', 'error');
-    } finally {
-        quickGrantSubmitInFlight = false;
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Grant Access';
-        }
-    }
-};
-
-window.submitGrantAccess = window.submitQuickGrantAccess;
-
-window.applyPermissionPreset = function applyPermissionPreset(preset) {
-    const presetMap = {
-        full: 'fullAdmin',
-        inventory: 'inventoryManager',
-        orders: 'orderManager',
-        pos: 'posOperator',
-        hr: 'hrManager'
-    };
-    applyQuickGrantPermissionPreset(presetMap[preset] || preset || 'clear');
-};
-
-window.openManageAccessModal = async function openManageAccessModal(employeeId) {
-    try {
-        const res = await fetch(`/api/admin/hrm/employees/${employeeId}/access-status`, {
-            headers: employeeAuthHeaders()
-        });
-        const data = await res.json();
-        if (!data.hasAccess) {
-            Swal.fire({
-                icon: 'info',
-                title: 'No Linked Account',
-                text: 'No system access found for this employee.',
-                confirmButtonColor: '#2563eb'
-            });
-            return;
-        }
-
-        document.getElementById('manageAccessUsername').textContent = data.admin.username;
-        const statusEl = document.getElementById('manageAccessStatus');
-        statusEl.textContent = data.admin.status;
-        statusEl.className = `status-badge ${data.admin.status === 'active' ? 'status-verified' : 'status-blocked'}`;
-        document.getElementById('manageAccessLastLogin').textContent = data.admin.lastLoginAt
-            ? formatDate(data.admin.lastLoginAt)
-            : 'Never';
-        document.getElementById('manageAccessPermissions').textContent = (data.admin.permissions || []).join(', ') || '—';
-        document.getElementById('manageAccessEmpId').value = employeeId;
-        document.getElementById('manageAccessModal').style.display = 'flex';
-    } catch (err) {
-        console.error('openManageAccessModal:', err);
-        Swal.fire({
-            icon: 'error',
-            title: 'Load Failed',
-            text: 'Failed to load access status.',
-            confirmButtonColor: '#2563eb'
-        });
-    }
-};
-
-window.revokeAccess = async function revokeAccess() {
-    const id = document.getElementById('manageAccessEmpId').value;
-    const result = await Swal.fire({
-        icon: 'question',
-        title: 'Suspend this account?',
-        text: 'The user will lose access immediately. You can re-enable it later.',
-        showCancelButton: true,
-        confirmButtonColor: '#f59e0b',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, suspend',
-        cancelButtonText: 'Cancel'
-    });
-    if (!result.isConfirmed) return;
-
-    try {
-        const res = await fetch(`/api/admin/hrm/employees/${id}/revoke-access`, {
-            method: 'POST',
-            headers: employeeAuthHeaders(true)
-        });
-        const data = await res.json();
-        if (data.success) {
-            Swal.fire({
-                icon: 'success',
-                title: 'Access Suspended',
-                text: 'The linked admin account has been suspended.',
-                timer: 2000,
-                showConfirmButton: false
-            });
-            closeManageAccessModal();
-            await loadEmployees();
-            if (activeProfileData?.employee?._id === id) {
-                await renderProfileAccess(activeProfileData.employee);
-            }
-        } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Suspend Failed',
-                text: data.error || 'Failed to suspend access.',
-                confirmButtonColor: '#2563eb'
-            });
-        }
-    } catch (err) {
-        console.error('revokeAccess:', err);
-        Swal.fire({
-            icon: 'error',
-            title: 'Suspend Failed',
-            text: 'Failed to suspend access.',
-            confirmButtonColor: '#2563eb'
-        });
-    }
-};
-
-window.closeQuickGrantModal = closeQuickGrantModal;
-window.closeGrantAccessModal = closeQuickGrantModal;
-window.closeManageAccessModal = closeManageAccessModal;
+window.authHeaders = authHeaders;

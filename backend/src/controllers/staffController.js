@@ -119,13 +119,21 @@ exports.listStaff = async (req, res) => {
             };
         });
 
+        const activeCount = data.filter(s => s.status === ACCOUNT_STATUS.ACTIVE).length;
         const summary = {
             total: data.length,
-            active: data.filter(s => s.status === ACCOUNT_STATUS.ACTIVE).length,
+            active: activeCount,
             blocked: data.filter(s => s.status === ACCOUNT_STATUS.BLOCKED).length
         };
 
-        res.status(200).json({ success: true, summary, data });
+        res.status(200).json({
+            success: true,
+            summary,
+            data,
+            staff: data,
+            total: data.length,
+            activeCount
+        });
     } catch (error) {
         console.error('List Staff Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load staff accounts.' });

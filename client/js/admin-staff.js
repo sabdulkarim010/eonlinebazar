@@ -10,6 +10,13 @@
 
 const staffToken = () => localStorage.getItem('adminToken');
 
+/** Bearer token headers for every /api/admin/* request (verifyAdmin reads Authorization header). */
+function authHeaders(json = true) {
+    const headers = { Authorization: `Bearer ${staffToken() || ''}` };
+    if (json) headers['Content-Type'] = 'application/json';
+    return headers;
+}
+
 /* ==========================================================================
    STATE
    ========================================================================== */
@@ -55,11 +62,11 @@ function escapeHtml(value) {
 
 /** Every staff API call shares the same auth header + error surfacing. */
 async function staffApi(url, options = {}) {
+    const useJson = options.body !== undefined && !(options.headers || {})['Content-Type'];
     const response = await fetch(url, {
         ...options,
         headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${staffToken()}`,
+            ...authHeaders(useJson),
             ...(options.headers || {})
         }
     });
@@ -524,7 +531,7 @@ function renderStaffSummary(summary) {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
     };
-    const active = summary?.active ?? staffAccounts.filter(s => s.status === 'active').length;
+    const active = summary?.active ?? summary?.activeCount ?? staffAccounts.filter(s => s.status === 'active').length;
     const without2fa = staffAccounts.filter(s => s.twoFactorEnabled === false).length;
 
     set('staffActiveCount', active);
@@ -563,8 +570,8 @@ async function fetchStaffAccounts(options = {}) {
 
     try {
         const result = await staffApi(url);
-        staffAccounts = result.data || [];
-        renderStaffSummary(result.summary);
+        staffAccounts = result.data || result.staff || [];
+        renderStaffSummary(result.summary || { active: result.activeCount, total: result.total });
         renderStaffTable();
         return true;
     } catch (error) {
@@ -579,6 +586,7 @@ async function fetchStaffAccounts(options = {}) {
     }
 }
 window.fetchStaffAccounts = fetchStaffAccounts;
+window.refreshStaffList = fetchStaffAccounts;
 
 const STAFF_REFRESH_BTN_IDLE_HTML =
     '<i class="fa-solid fa-rotate staff-refresh-btn__icon" aria-hidden="true"></i>' +
@@ -816,15 +824,6 @@ async function openStaffAssignModal(prefillEmployee = null) {
 
     const modal = document.getElementById('staffAssignAccessModal');
     if (!modal) {
-        if (prefillEmployee && typeof window.openGrantAccessModal === 'function') {
-            window.openGrantAccessModal(
-                prefillEmployee._id,
-                prefillEmployee.fullName,
-                prefillEmployee.email,
-                prefillEmployee.phone
-            );
-            return;
-        }
         notify('Assign access modal is not available on this page.', 'warning');
         return;
     }
@@ -892,27 +891,25 @@ async function submitStaffAssignAccess(event) {
     try {
         const response = await fetch(`/api/admin/hrm/employees/${employeeId}/grant-access`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${staffToken()}`
-            },
+            headers: authHeaders(true),
             body: JSON.stringify({ username, password, permissions })
         });
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
-        if (response.status === 409 || (data.error && /already granted/i.test(data.error))) {
-            notify('This employee already has system access.', 'warning');
+        if (response.status === 409 || (data.error && /already granted/i.test(String(data.error)))) {
+            notify('This employee already has system access.', 'info');
             closeStaffAssignModal();
             await fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
             await refreshStaffAssignCandidates();
             return;
         }
 
-        if (!response.ok || !data.success) {
-            throw new Error(data.error || data.message || 'Failed to link account.');
+        if (!response.ok || data.success === false) {
+            notify(data.error || data.message || 'Failed to grant access.', 'error');
+            return;
         }
 
-        notify(`Access granted for ${data.username}.`, 'success');
+        notify('Access granted successfully!', 'success');
         closeStaffAssignModal();
         await fetchStaffAccounts({ showTableLoading: false });
         await refreshStaffAssignCandidates();

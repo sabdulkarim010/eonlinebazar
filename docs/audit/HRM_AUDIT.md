@@ -1,8 +1,8 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (HRM Access Fix Round 2)  
+**Last updated:** 2026-09-21 (HRM Access Final Redesign)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
-**Status:** ⚠️ PARTIAL — grant access + super-admin access tab complete; broader pagination gaps remain
+**Status:** ⚠️ PARTIAL — separated Access tab vs Staff Directory flows complete; broader pagination gaps remain
 
 ---
 
@@ -57,8 +57,10 @@
 | `client/admin/partials/sidebar.html` | Sidebar profile HTML (`#adminProfilePic`, `.admin-profile .info`) | ✅ |
 | `client/js/admin/modules/sidebarLabels.js` | Super Admin sidebar label apply (read-only in sidebar) | ✅ |
 | `client/js/admin/modules/settings-menu-labels.js` | Settings → Customize Menu Labels editor (Super Admin) | ✅ |
-| `client/js/admin/modules/hrm-employees.js` | Employee UI + Access tab; `#quickGrantModal`; Super Admin notice | ✅ |
-| `client/js/admin-staff.js` | Assign System Access modal; employee search; 25-permission grid; Link Account flow | ✅ |
+| `client/js/admin/modules/hrm-employees.js` | Employee UI + Access tab (permissions-only); `authHeaders()`; Super Admin tab removed from DOM | ✅ |
+| `client/js/admin-staff.js` | Staff Directory — Assign New Access modal; `authHeaders()`; 409 handling; `activeCount` stats | ✅ |
+| `client/admin/partials/view-staff.html` | System Staff Directory — Assign New Access, Active Admins stat card | ✅ |
+| `backend/src/controllers/staffController.js` | `listStaff` returns `{ staff, total, activeCount }` | ✅ |
 | `client/css/admin/_modals.css` | Viewport-safe `.admin-modal` pattern (max-height, scrollable body) | ✅ |
 | `client/css/admin/_hrm.css` | HRM modal viewport rules; Access tab permission groups | ✅ |
 | `client/css/admin/_layout.css` | Compact HRM page header/stats spacing | ✅ |
@@ -83,7 +85,10 @@
 
 - [x] Viewport-safe modals (Assign Access, Edit Permissions, employee profile) — `_modals.css`, `_hrm.css`
 - [x] Assign System Access full flow (employee search, 25 permissions, presets, Link Account) — `admin-staff.js`, `view-staff.html`
-- [x] Employee profile Access tab (no access / has access states, Grant/Edit/Suspend/Revoke) — `hrm-employees.js`
+- [x] Employee profile Access tab — permissions-only (no account → preview + Staff Directory link; has account → toggles + Save/Suspend) — `hrm-employees.js`
+- [x] Super Admin employee — Access tab removed entirely (not hidden) — `access-info` + `removeEmployeeAccessTab()`
+- [x] Staff Directory Assign New Access — sole login-creation flow (username/password + Link Account) — `admin-staff.js`, `view-staff.html`
+- [x] Active Admins stat card — `GET /api/admin/staff` returns `activeCount` — `staffController.js`
 - [x] Super Admin sidebar menu label customization — `sidebarLabels.js`, `sidebarLabelController.js`
 - [x] Employee profile modal (attendance/payroll/leave tabs) — `getEmployeeProfile`
 - [x] Cloudinary photo + document uploads — `uploadEmployeePhoto`, `uploadEmployeeDocument`
@@ -249,6 +254,19 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### HRM Access Final Redesign — 2026-09-21
+
+- **Separated flows:** Employee modal Access tab = permissions only (no Grant/Revoke); Staff Directory = login creation via Assign New Access modal
+- **Access tab Case A (no account):** "No System Account" message + Go to Staff Directory button + read-only permission preview toggles
+- **Access tab Case B (has account):** Username, status, Last Login, grouped permission toggles, Save Permissions (`PUT /api/admin/staff/:id/permissions`), Suspend/Activate
+- **Access tab Case C (Super Admin):** Access tab removed from DOM via `removeEmployeeAccessTab()`; restored for other employees via `restoreEmployeeAccessTab()`
+- **Auth fix:** `authHeaders()` in `hrm-employees.js` and `admin-staff.js` — Bearer token from `localStorage.adminToken` on all `/api/admin/*` fetch calls
+- **409 handling:** Assign modal shows info toast, closes modal, refreshes staff list when employee already has access
+- **Active Admins count:** `listStaff` returns `{ staff, total, activeCount }`; `fetchStaffAccounts` updates stat card after grant/suspend/revoke
+- **Removed:** `#quickGrantModal`, `#manageAccessModal`, quick-grant JS from Employees page
+- Files: `view-hrm-employees.html`, `hrm-employees.js`, `admin-staff.js`, `view-staff.html`, `employeeController.js`, `staffController.js`, `_hrm.css`
+- Tests: Jest **228/228** passing
 
 ### HRM Access Fix Round 2 — 2026-09-21
 

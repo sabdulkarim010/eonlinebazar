@@ -2908,5 +2908,21 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | SMTP IPv6 | ✅ Verified | `mailer.js` + `userProfileController` use `family: 4` |
 | Jest regression suite | ✅ | **228/228** passing |
 
+## HRM Access Final Redesign — 2026-09-21
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Separated Access vs Staff Directory flows | ✅ Fixed | Employee Access tab = permissions only; Staff Directory = login creation (Assign New Access) |
+| Access tab — no account | ✅ Fixed | "No System Account" + Staff Directory link + read-only permission preview; no Grant button |
+| Access tab — has account | ✅ Fixed | Username, status, Last Login, grouped toggles, Save Permissions, Suspend/Activate |
+| Super Admin Access tab | ✅ Fixed | Tab removed from DOM entirely for linked super-admin employees (e.g. EMP-003) |
+| Bearer auth on admin fetch | ✅ Fixed | `authHeaders()` in `hrm-employees.js` + `admin-staff.js`; matches `verifyAdmin` Authorization header |
+| Grant-access 409 handling | ✅ Fixed | Info toast, close modal, refresh staff list |
+| Active Admins stat count | ✅ Fixed | `GET /api/admin/staff` returns `activeCount`; refreshed after grant/suspend/revoke |
+| Removed quick-grant modal | ✅ Fixed | `#quickGrantModal` / `#manageAccessModal` removed from Employees page |
+| Jest regression suite | ✅ | **228/228** passing |
+
 
 

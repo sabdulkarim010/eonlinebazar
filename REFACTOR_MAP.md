@@ -2244,3 +2244,16 @@ docs/audit/HRM_AUDIT.md [MOD] HRM Access Fix Round 2 changelog
 docs/audit/AUTH_SECURITY_AUDIT.md [MOD] menu labels in Settings
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Access Fix Round 2 section
 README.md [MOD] HRM Access Fix Round 2
+#
+# HRM Access Final Redesign: 2026-09-21
+client/admin/partials/view-hrm-employees.html [MOD] removed #quickGrantModal/#manageAccessModal; Access tab permissions-only layout
+client/js/admin/modules/hrm-employees.js [MOD] authHeaders(); separated Access tab flows; removeEmployeeAccessTab/restore; no Grant button
+client/js/admin-staff.js [MOD] authHeaders(); staffApi Bearer auth; 409 grant-access handling; activeCount stats; refreshStaffList
+client/admin/partials/view-staff.html [MOD] System Staff Directory Assign New Access (unchanged shell, wired to separated flow)
+client/css/admin/_hrm.css [MOD] access-no-account, preview block, readonly toggles; removed quickGrantModal rules
+backend/src/controllers/admin/employeeController.js [MOD] buildEmployeeAccessPayload hasAccount/isSuperAdmin/permissions/lastLogin
+backend/src/controllers/staffController.js [MOD] listStaff returns staff/total/activeCount
+docs/audit/HRM_AUDIT.md [MOD] HRM Access Final Redesign changelog
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] Bearer auth on admin fetch
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Access Final Redesign section
+README.md [MOD] HRM Access Final Redesign

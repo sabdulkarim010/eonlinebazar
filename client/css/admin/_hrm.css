@@ -818,8 +818,7 @@
 
 /* Viewport-safe HRM modals */
 #employeeProfileModal.custom-modal-box,
-#employeeModal.custom-modal-box,
-#quickGrantModal.custom-modal-box {
+#employeeModal.custom-modal-box {
     display: flex;
     flex-direction: column;
     max-height: calc(100vh - 2rem);
@@ -832,16 +831,14 @@
 }
 
 #employeeProfileModal .modal-body,
-#employeeModal .employee-form-body,
-#quickGrantModal .modal-body {
+#employeeModal .employee-form-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
 }
 
 #employeeProfileModal .modal-footer,
-#employeeModal .modal-footer,
-#quickGrantModal .modal-footer {
+#employeeModal .modal-footer {
     flex-shrink: 0;
 }
 
@@ -877,6 +874,28 @@
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 16px;
+}
+
+.employee-access-summary--compact dd {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.employee-access-no-account {
+    margin-bottom: 1rem;
+}
+
+.employee-access-preview-block {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+.permission-toggle-row.is-readonly {
+    opacity: 0.65;
+    pointer-events: none;
 }
 
 .employee-access-empty-state {
