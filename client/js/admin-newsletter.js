@@ -36,7 +36,11 @@ function nlFormatDate(dateVal) {
 let nlCampaignsCache = [];
 let subscriberPg = null;
 let campaignPg = null;
-let nlGatewayStatus = { whatsapp: 'active', sms: 'active', email: 'active' };
+let nlGatewayStatus = {
+    whatsapp: { provider: 'baileys', status: 'disconnected', enabled: false },
+    sms: { provider: 'none', configured: false },
+    email: { provider: 'none', configured: false }
+};
 
 function ensureSubscriberPagination() {
     if (typeof AdminPagination === 'undefined') return null;
@@ -498,7 +502,19 @@ async function fetchGatewayStatusForCampaigns() {
 }
 
 function isWhatsAppGatewayUsable() {
-    return nlGatewayStatus.whatsapp === 'active';
+    const wa = nlGatewayStatus.whatsapp;
+    if (wa && typeof wa === 'object') {
+        return wa.status === 'connected' && wa.enabled !== false;
+    }
+    return wa === 'active';
+}
+
+function isEmailGatewayUsable() {
+    const email = nlGatewayStatus.email;
+    if (email && typeof email === 'object') {
+        return email.configured === true && email.provider !== 'none';
+    }
+    return email === 'active';
 }
 
 function refreshCampaignGatewayUi() {

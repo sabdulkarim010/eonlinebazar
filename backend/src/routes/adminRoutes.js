@@ -403,6 +403,14 @@ router.put('/rate-limit-settings', verifyAdmin, checkPermission('manage_settings
 router.post('/rate-limit-settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateRateLimitSettings);
 router.post('/settings/cache', verifyAdmin, checkPermission('manage_settings'), settingsController.updateCacheSettings);
 router.get('/settings/gateway-status', verifyAdmin, settingsController.getGatewayStatus);
+router.get('/settings/notification-config', verifyAdmin, checkPermission('manage_settings'), settingsController.getNotificationConfig);
+router.post('/settings/notification-config', verifyAdmin, checkPermission('manage_settings'), settingsController.saveNotificationConfig);
+router.put('/settings/notification-config', verifyAdmin, checkPermission('manage_settings'), settingsController.saveNotificationConfig);
+router.post('/settings/test-email', verifyAdmin, checkPermission('manage_settings'), settingsController.testNotificationEmail);
+router.get('/settings/whatsapp-status', verifyAdmin, checkPermission('manage_settings'), settingsController.getWhatsAppConnectionStatus);
+router.post('/settings/whatsapp-enable', verifyAdmin, checkPermission('manage_settings'), settingsController.enableWhatsAppNotifications);
+router.post('/settings/whatsapp-disconnect', verifyAdmin, checkPermission('manage_settings'), settingsController.disconnectWhatsAppNotifications);
+router.post('/settings/test-whatsapp', verifyAdmin, checkPermission('manage_settings'), settingsController.testNotificationWhatsApp);
 router.get('/settings/attendance', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), settingsController.getAttendanceSettings);
 router.put('/settings/attendance', verifyAdmin, checkPermission('manage_staff'), settingsController.updateAttendanceSettings);
 

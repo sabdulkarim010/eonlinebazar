@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (Critical production bugs — IPv6 SMTP + PG health probe)  
+**Last updated:** 2026-09-21 (Email + WhatsApp notification overhaul — Resend + Baileys)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -35,6 +35,13 @@
 | `tests/setup.js` | Jest global setup — pins all `READ_PG_*` to `'false'` for in-memory Mongo |
 | `tests/app.js` | Test Express app — re-pins `READ_PG_*` after `dotenv.config()` |
 | `package.json` | Jest `moduleNameMapper` for Prisma generated client |
+| `backend/src/services/emailService.js` | Resend → Brevo → log email delivery |
+| `backend/src/services/whatsappService.js` | Baileys self-hosted WhatsApp (QR connect) |
+| `backend/src/services/notificationConfigService.js` | Admin notification settings + test sends |
+| `backend/src/services/gatewayStatusService.js` | Structured gateway health (email/whatsapp/sms) |
+| `docs/NOTIFICATION_SETUP.md` | Resend, Brevo, Baileys setup guide |
+| `client/js/admin/modules/settings-notifications.js` | Admin Notifications tab UI |
+| `.wa-auth/` | Baileys session state (gitignored) |
 
 ---
 
@@ -98,6 +105,14 @@
 - Tests: Jest **228/228** passing
 
 ## Change Log
+
+### Email + WhatsApp Notification Overhaul — 2026-09-21
+
+- Replaced SMTP/UltraMsg with **Resend API** (primary) + **Brevo** (fallback) and **Baileys** WhatsApp (QR scan)
+- New admin routes: `/settings/notification-config`, `/settings/test-email`, `/settings/whatsapp-*`
+- `GET /settings/gateway-status` returns structured `{ email, whatsapp, sms }` — never 500
+- Env: `RESEND_*`, `BREVO_*`, `WA_ENABLED`, `ADMIN_WHATSAPP_NUMBER`
+- Tests: Jest **228/228** passing
 
 ### Critical Production Bugs — 2026-09-21
 

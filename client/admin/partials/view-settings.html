@@ -18,6 +18,9 @@
                         <button type="button" class="admin-settings-tab" role="tab" id="adminTabFinance" aria-selected="false" aria-controls="adminPanelFinance" data-tab="finance" data-permission="manage_settings">
                             <i class="fa-solid fa-coins" aria-hidden="true"></i> Finance Settings
                         </button>
+                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabNotifications" aria-selected="false" aria-controls="adminPanelNotifications" data-tab="notifications" data-permission="manage_settings">
+                            <i class="fa-solid fa-bell" aria-hidden="true"></i> Notifications
+                        </button>
                         <button type="button" class="admin-settings-tab" role="tab" id="adminTabSecurity" aria-selected="false" aria-controls="adminPanelSecurity" data-tab="security">
                             <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Security &amp; Access
                         </button>
@@ -272,6 +275,100 @@
                                                 <tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading categories…</p></td></tr>
                                             </tbody>
                                         </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Notifications -->
+                    <div class="admin-settings-panel" role="tabpanel" id="adminPanelNotifications" aria-labelledby="adminTabNotifications" data-panel="notifications" hidden>
+                        <div class="admin-settings-stack notif-settings-grid" data-permission="manage_settings">
+                            <div class="saas-settings-card">
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-solid fa-envelope"></i> Email Notifications</h4>
+                                    <p class="settings-card-sub">Resend (primary) with Brevo fallback — no SMTP required.</p>
+                                </div>
+                                <form id="notifEmailForm" class="saas-settings-form">
+                                    <div class="saas-settings-card-body">
+                                        <div class="notif-provider-row" role="radiogroup" aria-label="Email provider">
+                                            <label class="notif-provider-option"><input type="radio" name="notifEmailProvider" value="resend" checked> Resend</label>
+                                            <label class="notif-provider-option"><input type="radio" name="notifEmailProvider" value="brevo"> Brevo</label>
+                                            <label class="notif-provider-option"><input type="radio" name="notifEmailProvider" value="disabled"> Disabled</label>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="notifResendKey">Resend API Key</label>
+                                            <div class="notif-inline-actions">
+                                                <input type="password" id="notifResendKey" placeholder="re_..." autocomplete="off">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="notifResendFrom">From Email</label>
+                                            <input type="text" id="notifResendFrom" placeholder="EonlineBazar &lt;noreply@eonlinebazar.com&gt;">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="notifBrevoKey">Brevo API Key</label>
+                                            <input type="password" id="notifBrevoKey" placeholder="xkeysib-..." autocomplete="off">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="notifBrevoFrom">Brevo From</label>
+                                            <input type="email" id="notifBrevoFrom" placeholder="noreply@eonlinebazar.com">
+                                        </div>
+                                        <div class="notif-inline-actions">
+                                            <button type="button" class="btn-secondary" id="notifTestEmailBtn"><i class="fa-solid fa-paper-plane"></i> Test Email</button>
+                                        </div>
+                                        <p id="notifEmailTestResult" class="notif-test-result" hidden></p>
+                                    </div>
+                                    <div class="saas-settings-card-footer">
+                                        <button type="submit" class="btn-submit saas-settings-save-btn">
+                                            <i class="fa-solid fa-floppy-disk"></i> Save Email Settings
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="saas-settings-card">
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-brands fa-whatsapp"></i> WhatsApp Notifications</h4>
+                                    <p class="settings-card-sub">Self-hosted Baileys — scan QR with your phone (WhatsApp Web style).</p>
+                                </div>
+                                <div class="saas-settings-card-body">
+                                    <p><span id="notifWaStatusPill" class="notif-wa-status-pill" data-status="disconnected">○ Off</span></p>
+
+                                    <div id="notifWaQrWrap" class="notif-qr-wrap" hidden>
+                                        <div class="notif-qr-box">
+                                            <img id="notifWaQrImg" alt="WhatsApp QR code" width="150" height="150">
+                                        </div>
+                                        <div class="notif-qr-steps">
+                                            <strong>Scan this QR code with your WhatsApp:</strong>
+                                            <ol>
+                                                <li>Open WhatsApp on your phone</li>
+                                                <li>Tap ⋮ → Linked Devices</li>
+                                                <li>Scan this code</li>
+                                            </ol>
+                                            <button type="button" class="btn-secondary btn-compact" id="notifRefreshQrBtn"><i class="fa-solid fa-rotate"></i> Refresh QR</button>
+                                        </div>
+                                    </div>
+
+                                    <div id="notifWaConnectedPanel" class="notif-connected-panel" hidden>
+                                        <p>✅ WhatsApp connected</p>
+                                        <p id="notifWaPhoneHint" class="settings-card-sub"></p>
+                                        <div class="notif-inline-actions">
+                                            <button type="button" class="btn-secondary" id="notifTestWaBtn"><i class="fa-solid fa-comment"></i> Send Test Message</button>
+                                            <button type="button" class="btn-danger" id="notifWaDisconnectBtn"><i class="fa-solid fa-link-slash"></i> Disconnect</button>
+                                        </div>
+                                        <p id="notifWaTestResult" class="notif-test-result" hidden></p>
+                                    </div>
+
+                                    <div class="form-group" style="margin-top:1rem">
+                                        <label class="checkbox-label" for="notifWaEnabledToggle">
+                                            Enable WhatsApp
+                                            <label class="toggle-switch" style="margin-left:0.75rem">
+                                                <input type="checkbox" id="notifWaEnabledToggle">
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </label>
+                                        <small class="form-hint">When enabled, the server starts Baileys on boot (or immediately from this panel).</small>
                                     </div>
                                 </div>
                             </div>

@@ -1,141 +1,64 @@
 /********************************************************************
- * Project: EonlineBazar — Fortified Admin Security Suite
+ * Project: EonlineBazar
  * File: mailer.js
- * Location: services/mailer.js
- * Author: Abdul Karim Sheikh
- * Description: Nodemailer SMTP for store mail (orders, inquiries, newsletter).
- * Admin login OTP is NOT sent from this file — see utils/sendEmail.js (Resend HTTPS).
+ * Description: Branded store mail templates — delivery via emailService
+ * (Resend → Brevo → log). Admin OTP remains in utils/sendEmail.js.
  ********************************************************************/
 
-const nodemailer = require('nodemailer');
+const { sendEmail: coreSendEmail, resolveEmailConfig } = require('./emailService');
 const { sendAdminOtpEmail } = require('../utils/sendEmail');
 
-const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
-const SMTP_USER = process.env.SMTP_USER || process.env.EMAIL_USER || '';
-const SMTP_PASS = process.env.SMTP_PASS || process.env.EMAIL_PASS || '';
-const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
+const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL
+    || process.env.RESEND_FROM
+    || 'EonlineBazar <noreply@eonlinebazar.com>';
 
-// The admin-configured port is tried first; 587/465 are always kept as
-// automatic fallbacks so a blocked handshake transparently self-heals.
-const CONFIGURED_PORT = Number(process.env.SMTP_PORT) || 465;
-
-// Timeouts are deliberately short. On a blocked cloud network we would
-// rather fail fast, fall back to the next port, and (worst case) return
-// { delivered: false } quickly than let the login request hang for 30s+.
-const CONNECTION_TIMEOUT_MS = Number(process.env.SMTP_CONNECTION_TIMEOUT_MS) || 8000;
-const GREETING_TIMEOUT_MS = Number(process.env.SMTP_GREETING_TIMEOUT_MS) || 8000;
-const SOCKET_TIMEOUT_MS = Number(process.env.SMTP_SOCKET_TIMEOUT_MS) || 12000;
-
-// Absolute ceiling for the whole send (all port attempts combined). Past
-// this the request resolves as "not delivered" so the frontend never freezes.
-const OVERALL_SEND_DEADLINE_MS = Number(process.env.SMTP_SEND_DEADLINE_MS) || 20000;
-
-/** Cache one pooled transport per port so we don't rebuild sockets each send. */
-const transportCache = new Map();
-
-/**
- * Build a pooled Nodemailer transport for a specific port.
- *   Port 465 → implicit TLS (secure: true, strict cert validation)
- *   Port 587 → STARTTLS   (secure: false, relaxed cert validation so
- *                          cloud relays with imperfect chains still work)
- */
-function buildTransportForPort(port) {
-    const secure = port === 465; // implicit TLS is only correct on 465
-
-    return nodemailer.createTransport({
-        host: SMTP_HOST,
-        port,
-        family: 4, // Force IPv4 to avoid ENETUNREACH on IPv6-blocked hosts
-        secure,
-        auth: { user: SMTP_USER, pass: SMTP_PASS },
-
-        // Pooling keeps a warm connection open so slow cloud networks don't
-        // pay the full TLS/handshake cost on every OTP and don't get their
-        // handshake killed mid-flight.
-        pool: true,
-        maxConnections: 3,
-        maxMessages: 50,
-
-        connectionTimeout: CONNECTION_TIMEOUT_MS,
-        greetingTimeout: GREETING_TIMEOUT_MS,
-        socketTimeout: SOCKET_TIMEOUT_MS,
-
-        tls: {
-            // Strict on the secure 465 path; relaxed on the 587 STARTTLS
-            // fallback so a blocked/upgraded network path still delivers.
-            rejectUnauthorized: secure,
-            minVersion: 'TLSv1.2',
-            servername: SMTP_HOST
-        }
-    });
+/** Legacy stubs — SMTP removed; tests may still import these symbols. */
+function buildTransportForPort() {
+    return null;
 }
 
-/** Get (or lazily create + cache) the pooled transport for a port. */
-function getTransportForPort(port) {
-    if (!SMTP_USER || !SMTP_PASS) return null;
-    if (!transportCache.has(port)) {
-        transportCache.set(port, buildTransportForPort(port));
+function getTransportForPort() {
+    return null;
+}
+
+async function deliverViaApi({ to, subject, html, from }) {
+    const result = await coreSendEmail({ to, subject, html, from: from || DEFAULT_FROM });
+    return {
+        delivered: result.success === true,
+        provider: result.provider,
+        reason: result.message
+    };
+}
+
+function isEmailConfigured() {
+    const status = require('./emailService').getEmailProviderStatus();
+    return status.configured === true;
+}
+
+async function sendBrandedMail({ to, subject, html, from, logLabel }) {
+    const recipientEmail = String(to || '').trim();
+    if (!recipientEmail) {
+        return { delivered: false, reason: 'Missing recipient email' };
     }
-    return transportCache.get(port);
-}
-
-/**
- * Ordered list of ports to attempt: the admin-configured port first, then
- * 587 (STARTTLS — the cloud-friendly path), then 465, de-duplicated.
- */
-function candidatePorts() {
-    const ordered = [CONFIGURED_PORT, 587, 465];
-    return [...new Set(ordered)];
-}
-
-/**
- * Auth failures (bad user/pass) will never be fixed by switching ports, so
- * we stop immediately. Everything else (timeouts, refused/blocked handshakes,
- * DNS, TLS negotiation) is treated as retryable on the next port.
- */
-function isAuthError(err) {
-    return err && (err.code === 'EAUTH' || err.responseCode === 535);
-}
-
-/** Reject if a promise doesn't settle before `ms` — our anti-freeze guard. */
-function withTimeout(promise, ms, label) {
-    let timer;
-    const timeout = new Promise((_, reject) => {
-        timer = setTimeout(() => {
-            const e = new Error(`${label} exceeded ${ms}ms deadline`);
-            e.code = 'ETIMEDOUT';
-            reject(e);
-        }, ms);
-    });
-    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-
-/**
- * Attempt delivery across each candidate port until one succeeds.
- * Returns the port used on success, or throws the last error.
- */
-async function sendWithFailover(mailOptions) {
-    const ports = candidatePorts();
-    let lastError;
-
-    for (const port of ports) {
-        const transport = getTransportForPort(port);
-        if (!transport) throw new Error('Email transport not configured');
-
-        try {
-            await transport.sendMail(mailOptions);
-            return port;
-        } catch (err) {
-            lastError = err;
-            console.error(`SMTP email failed on port ${port}: ${err.message}`);
-
-            // Bad credentials won't be fixed by another port — bail out now.
-            if (isAuthError(err)) break;
-            // Otherwise fall through and try the next candidate port.
-        }
+    if (!isEmailConfigured()) {
+        return { delivered: false, reason: 'Email transport not configured' };
     }
 
-    throw lastError || new Error('All SMTP delivery routes failed');
+    try {
+        const result = await deliverViaApi({
+            to: recipientEmail,
+            subject,
+            html,
+            from: from || DEFAULT_FROM
+        });
+        if (result.delivered && logLabel) {
+            console.log(`SUCCESS: ${logLabel} sent to ${recipientEmail}`);
+        }
+        return result;
+    } catch (err) {
+        console.error(`EMAIL ERROR (${logLabel || 'mail'}):`, err.message || err);
+        return { delivered: false, reason: err.message };
+    }
 }
 
 function escapeHtml(value) {
@@ -247,30 +170,13 @@ async function sendOrderConfirmationEmail({ to, order }) {
         return { delivered: false, reason: 'Missing recipient email' };
     }
 
-    if (!SMTP_USER || !SMTP_PASS) {
-        console.error('EMAIL ERROR: SMTP not configured (set SMTP_USER / SMTP_PASS in .env).');
-        return { delivered: false, reason: 'Email transport not configured' };
-    }
-
-    const mailOptions = {
-        from: `"EonlineBazar Orders" <${SMTP_USER}>`,
+    return sendBrandedMail({
         to: recipientEmail,
+        from: `"EonlineBazar Orders" <${resolveEmailConfig().resendFromEmail || DEFAULT_FROM}>`,
         subject: `Order Confirmed: #${orderId} - EonlineBazar`,
-        html: buildOrderConfirmationHtml(order)
-    };
-
-    try {
-        const portUsed = await withTimeout(
-            sendWithFailover(mailOptions),
-            OVERALL_SEND_DEADLINE_MS,
-            'Order confirmation email'
-        );
-        console.log(`SUCCESS: Order email sent to ${recipientEmail}`);
-        return { delivered: true, port: portUsed };
-    } catch (err) {
-        console.error('EMAIL ERROR:', err.message || err);
-        return { delivered: false, reason: err.message };
-    }
+        html: buildOrderConfirmationHtml(order),
+        logLabel: 'Order confirmation email'
+    });
 }
 
 /** Fire-and-forget order email — never blocks or crashes order creation. */
@@ -361,21 +267,10 @@ async function sendInquiryReplyEmail({
     replyMessage,
     storeName = 'EonlineBazar'
 }) {
-    const recipientEmail = String(to || '').trim();
-
-    if (!recipientEmail) {
-        return { delivered: false, reason: 'Missing recipient email' };
-    }
-
-    if (!SMTP_USER || !SMTP_PASS) {
-        console.error('EMAIL ERROR: SMTP not configured (set SMTP_USER / SMTP_PASS in .env).');
-        return { delivered: false, reason: 'Email transport not configured' };
-    }
-
     const safeSubject = String(subject || 'Your inquiry').trim() || 'Your inquiry';
-    const mailOptions = {
-        from: `"${storeName} Support" <${SMTP_FROM || SMTP_USER}>`,
-        to: recipientEmail,
+    return sendBrandedMail({
+        to,
+        from: `"${storeName} Support" <${DEFAULT_FROM}>`,
         subject: `Re: ${safeSubject} — ${storeName}`,
         html: buildInquiryReplyHtml({
             storeName,
@@ -384,21 +279,9 @@ async function sendInquiryReplyEmail({
             inquiryDate,
             originalMessage,
             replyMessage
-        })
-    };
-
-    try {
-        const portUsed = await withTimeout(
-            sendWithFailover(mailOptions),
-            OVERALL_SEND_DEADLINE_MS,
-            'Inquiry reply email'
-        );
-        console.log(`SUCCESS: Inquiry reply email sent to ${recipientEmail}`);
-        return { delivered: true, port: portUsed };
-    } catch (err) {
-        console.error('EMAIL ERROR (inquiry reply):', err.message || err);
-        return { delivered: false, reason: err.message };
-    }
+        }),
+        logLabel: 'Inquiry reply email'
+    });
 }
 
 /**
@@ -406,36 +289,13 @@ async function sendInquiryReplyEmail({
  * Never throws — returns { delivered }.
  */
 async function sendStockAlertEmail({ to, subject, html }) {
-    const recipient = String(to || '').trim();
-
-    if (!recipient) {
-        return { delivered: false, reason: 'Missing recipient email' };
-    }
-
-    if (!SMTP_USER || !SMTP_PASS) {
-        console.error('EMAIL ERROR: SMTP not configured for stock alert.');
-        return { delivered: false, reason: 'Email transport not configured' };
-    }
-
-    const mailOptions = {
-        from: `"EonlineBazar Inventory" <${SMTP_FROM || SMTP_USER}>`,
-        to: recipient,
+    return sendBrandedMail({
+        to,
+        from: `"EonlineBazar Inventory" <${DEFAULT_FROM}>`,
         subject: String(subject || 'Stock Alert'),
-        html
-    };
-
-    try {
-        const portUsed = await withTimeout(
-            sendWithFailover(mailOptions),
-            OVERALL_SEND_DEADLINE_MS,
-            'Stock alert email'
-        );
-        console.log(`SUCCESS: Stock alert email sent to ${recipient}`);
-        return { delivered: true, port: portUsed };
-    } catch (err) {
-        console.error('EMAIL ERROR (stock alert):', err.message || err);
-        return { delivered: false, reason: err.message };
-    }
+        html,
+        logLabel: 'Stock alert email'
+    });
 }
 
 function buildNewsletterWelcomeHtml({ name, unsubscribeUrl, storeUrl }) {
@@ -497,36 +357,13 @@ function buildNewsletterCampaignHtml({ htmlContent, unsubscribeUrl }) {
  * Never throws — returns { delivered }.
  */
 async function sendNewsletterWelcomeEmail({ to, name, unsubscribeUrl, storeUrl }) {
-    const recipientEmail = String(to || '').trim();
-
-    if (!recipientEmail) {
-        return { delivered: false, reason: 'Missing recipient email' };
-    }
-
-    if (!SMTP_USER || !SMTP_PASS) {
-        console.error('EMAIL ERROR: SMTP not configured for newsletter welcome.');
-        return { delivered: false, reason: 'Email transport not configured' };
-    }
-
-    const mailOptions = {
-        from: `"EOnlineBazar Newsletter" <${SMTP_FROM || SMTP_USER}>`,
-        to: recipientEmail,
+    return sendBrandedMail({
+        to,
+        from: `"EOnlineBazar Newsletter" <${DEFAULT_FROM}>`,
         subject: 'EOnlineBazar-এ স্বাগতম! 🎉',
-        html: buildNewsletterWelcomeHtml({ name, unsubscribeUrl, storeUrl })
-    };
-
-    try {
-        const portUsed = await withTimeout(
-            sendWithFailover(mailOptions),
-            OVERALL_SEND_DEADLINE_MS,
-            'Newsletter welcome email'
-        );
-        console.log(`SUCCESS: Newsletter welcome email sent to ${recipientEmail}`);
-        return { delivered: true, port: portUsed };
-    } catch (err) {
-        console.error('EMAIL ERROR (newsletter welcome):', err.message || err);
-        return { delivered: false, reason: err.message };
-    }
+        html: buildNewsletterWelcomeHtml({ name, unsubscribeUrl, storeUrl }),
+        logLabel: 'Newsletter welcome email'
+    });
 }
 
 /**
@@ -534,35 +371,13 @@ async function sendNewsletterWelcomeEmail({ to, name, unsubscribeUrl, storeUrl }
  * Never throws — returns { delivered }.
  */
 async function sendNewsletterCampaignEmail({ to, subject, htmlContent, unsubscribeUrl }) {
-    const recipientEmail = String(to || '').trim();
-
-    if (!recipientEmail) {
-        return { delivered: false, reason: 'Missing recipient email' };
-    }
-
-    if (!SMTP_USER || !SMTP_PASS) {
-        console.error('EMAIL ERROR: SMTP not configured for newsletter campaign.');
-        return { delivered: false, reason: 'Email transport not configured' };
-    }
-
-    const mailOptions = {
-        from: `"EOnlineBazar Newsletter" <${SMTP_FROM || SMTP_USER}>`,
-        to: recipientEmail,
+    return sendBrandedMail({
+        to,
+        from: `"EOnlineBazar Newsletter" <${DEFAULT_FROM}>`,
         subject: String(subject || 'EOnlineBazar Newsletter'),
-        html: buildNewsletterCampaignHtml({ htmlContent, unsubscribeUrl })
-    };
-
-    try {
-        const portUsed = await withTimeout(
-            sendWithFailover(mailOptions),
-            OVERALL_SEND_DEADLINE_MS,
-            'Newsletter campaign email'
-        );
-        return { delivered: true, port: portUsed };
-    } catch (err) {
-        console.error(`EMAIL ERROR (campaign to ${recipientEmail}):`, err.message || err);
-        return { delivered: false, reason: err.message };
-    }
+        html: buildNewsletterCampaignHtml({ htmlContent, unsubscribeUrl }),
+        logLabel: 'Newsletter campaign email'
+    });
 }
 
 function buildAbandonedCartHtml({ customerName, items = [], cartUrl, storeName = 'EonlineBazar' }) {
@@ -616,45 +431,16 @@ function buildAbandonedCartHtml({ customerName, items = [], cartUrl, storeName =
  * Send an abandoned-cart recovery email. Never throws — returns { delivered }.
  */
 async function sendAbandonedCartEmail({ to, customerName, items, cartUrl, storeName = 'EonlineBazar' }) {
-    const recipientEmail = String(to || '').trim();
-    if (!recipientEmail) {
-        return { delivered: false, reason: 'Missing recipient email' };
-    }
-    if (!SMTP_USER || !SMTP_PASS) {
-        console.error('EMAIL ERROR: SMTP not configured for abandoned cart recovery.');
-        return { delivered: false, reason: 'Email transport not configured' };
-    }
-
-    const mailOptions = {
-        from: `"${storeName}" <${SMTP_FROM || SMTP_USER}>`,
-        to: recipientEmail,
+    return sendBrandedMail({
+        to,
+        from: `"${storeName}" <${DEFAULT_FROM}>`,
         subject: `${customerName ? `${customerName}, y` : 'Y'}ou left items in your cart — ${storeName}`,
-        html: buildAbandonedCartHtml({ customerName, items, cartUrl, storeName })
-    };
-
-    try {
-        const portUsed = await withTimeout(
-            sendWithFailover(mailOptions),
-            OVERALL_SEND_DEADLINE_MS,
-            'Abandoned cart email'
-        );
-        console.log(`SUCCESS: Abandoned cart email sent to ${recipientEmail}`);
-        return { delivered: true, port: portUsed };
-    } catch (err) {
-        console.error('EMAIL ERROR (abandoned cart):', err.message || err);
-        return { delivered: false, reason: err.message };
-    }
+        html: buildAbandonedCartHtml({ customerName, items, cartUrl, storeName }),
+        logLabel: 'Abandoned cart email'
+    });
 }
 
 async function sendReturnStatusEmail({ to, name, orderNumber, status, reason }) {
-    const recipientEmail = String(to || '').trim();
-    if (!recipientEmail) {
-        return { delivered: false, reason: 'Missing recipient email' };
-    }
-    if (!SMTP_USER || !SMTP_PASS) {
-        return { delivered: false, reason: 'Email transport not configured' };
-    }
-
     const safeName = escapeHtml(String(name || 'Customer'));
     const safeOrder = escapeHtml(String(orderNumber || 'N/A'));
     const isRejected = String(status || '').toLowerCase() === 'rejected';
@@ -663,9 +449,9 @@ async function sendReturnStatusEmail({ to, name, orderNumber, status, reason }) 
         ? `Your return request for order #${safeOrder} was not approved.${reason ? ` Reason: ${escapeHtml(String(reason))}` : ''}`
         : `Your return for order #${safeOrder} has been approved and your refund is being processed.`;
 
-    const mailOptions = {
-        from: `"EonlineBazar Support" <${SMTP_USER}>`,
-        to: recipientEmail,
+    return sendBrandedMail({
+        to,
+        from: `"EonlineBazar Support" <${DEFAULT_FROM}>`,
         subject: `${headline} — Order #${orderNumber || 'N/A'}`,
         html: `
             <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
@@ -674,20 +460,9 @@ async function sendReturnStatusEmail({ to, name, orderNumber, status, reason }) 
                 <p>${bodyText}</p>
                 <p style="color:#64748b;font-size:13px;">Questions? Reply to this email or contact EonlineBazar support.</p>
             </div>
-        `
-    };
-
-    try {
-        const portUsed = await withTimeout(
-            sendWithFailover(mailOptions),
-            OVERALL_SEND_DEADLINE_MS,
-            'Return status email'
-        );
-        return { delivered: true, port: portUsed };
-    } catch (err) {
-        console.error('Return status email error:', err.message || err);
-        return { delivered: false, reason: err.message };
-    }
+        `,
+        logLabel: 'Return status email'
+    });
 }
 
 /**
@@ -701,14 +476,6 @@ async function sendOrderShippedEmail({
     courierName,
     estimatedDelivery
 }) {
-    const recipientEmail = String(to || '').trim();
-    if (!recipientEmail) {
-        return { delivered: false, reason: 'Missing recipient email' };
-    }
-    if (!SMTP_USER || !SMTP_PASS) {
-        return { delivered: false, reason: 'Email transport not configured' };
-    }
-
     const safeName = escapeHtml(String(name || 'Customer'));
     const safeOrder = escapeHtml(String(orderNumber || 'N/A'));
     const safeTracking = escapeHtml(String(trackingId || '').trim());
@@ -722,9 +489,9 @@ async function sendOrderShippedEmail({
            </p>`
         : `<p style="margin:12px 0;">Your parcel is on its way. We will share tracking details when available.</p>`;
 
-    const mailOptions = {
-        from: `"EonlineBazar" <${SMTP_USER}>`,
-        to: recipientEmail,
+    return sendBrandedMail({
+        to,
+        from: `"EonlineBazar" <${DEFAULT_FROM}>`,
         subject: `Order Shipped! — #${orderNumber || 'N/A'}`,
         html: `
             <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
@@ -734,20 +501,9 @@ async function sendOrderShippedEmail({
                 ${trackingBlock}
                 <p style="color:#64748b;font-size:13px;">Estimated delivery: ${safeEta}</p>
             </div>
-        `
-    };
-
-    try {
-        const portUsed = await withTimeout(
-            sendWithFailover(mailOptions),
-            OVERALL_SEND_DEADLINE_MS,
-            'Order shipped email'
-        );
-        return { delivered: true, port: portUsed };
-    } catch (err) {
-        console.error('Order shipped email error:', err.message || err);
-        return { delivered: false, reason: err.message };
-    }
+        `,
+        logLabel: 'Order shipped email'
+    });
 }
 
 async function sendTierUpgradeEmail({ to, customerName, tierLabel, message }) {
@@ -757,8 +513,7 @@ async function sendTierUpgradeEmail({ to, customerName, tierLabel, message }) {
     const safeTier = escapeHtml(tierLabel || 'Member');
     const safeMessage = escapeHtml(message || `You've been upgraded to ${tierLabel || 'a new tier'}!`);
 
-    const mailOptions = {
-        from: process.env.EMAIL_USER,
+    return sendBrandedMail({
         to,
         subject: `Congratulations! You're now a ${tierLabel || 'loyalty member'}`,
         html: `
@@ -770,31 +525,12 @@ async function sendTierUpgradeEmail({ to, customerName, tierLabel, message }) {
                     <strong>Your new tier:</strong> ${safeTier}
                 </p>
                 <p style="color:#64748b;font-size:13px;">Thank you for shopping with EonlineBazar.</p>
-            </div>`
-    };
-
-    try {
-        const portUsed = await withTimeout(
-            sendWithFailover(mailOptions),
-            OVERALL_SEND_DEADLINE_MS,
-            'Tier upgrade email'
-        );
-        return { delivered: true, port: portUsed };
-    } catch (err) {
-        console.error('Tier upgrade email error:', err.message || err);
-        return { delivered: false, reason: err.message };
-    }
+            </div>`,
+        logLabel: 'Tier upgrade email'
+    });
 }
 
 async function sendWishlistNotificationEmail({ to, type, productName, price, previousPrice, productId }) {
-    const recipientEmail = String(to || '').trim();
-    if (!recipientEmail) {
-        return { delivered: false, reason: 'Missing recipient email' };
-    }
-    if (!SMTP_USER || !SMTP_PASS) {
-        return { delivered: false, reason: 'Email transport not configured' };
-    }
-
     const name = String(productName || 'your wishlist item').trim();
     const formattedPrice = Number(price || 0).toLocaleString('en-BD');
     const isPriceDrop = type === 'price_drop';
@@ -807,9 +543,9 @@ async function sendWishlistNotificationEmail({ to, type, productName, price, pre
         ? `Good news! <strong>${name}</strong> price dropped to <strong>৳${formattedPrice}</strong>${previousPrice ? ` (was ৳${Number(previousPrice).toLocaleString('en-BD')})` : ''}.`
         : `<strong>${name}</strong> is back in stock! Order now before it sells out again.`;
 
-    const mailOptions = {
-        from: `"EonlineBazar" <${SMTP_USER}>`,
-        to: recipientEmail,
+    return sendBrandedMail({
+        to,
+        from: `"EonlineBazar" <${DEFAULT_FROM}>`,
         subject: `${subject} - EonlineBazar`,
         html: `
             <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
@@ -821,20 +557,9 @@ async function sendWishlistNotificationEmail({ to, type, productName, price, pre
                         View Product
                     </a>
                 </p>
-            </div>`
-    };
-
-    try {
-        const portUsed = await withTimeout(
-            sendWithFailover(mailOptions),
-            OVERALL_SEND_DEADLINE_MS,
-            'Wishlist notification email'
-        );
-        return { delivered: true, port: portUsed };
-    } catch (err) {
-        console.error('Wishlist notification email error:', err.message || err);
-        return { delivered: false, reason: err.message };
-    }
+            </div>`,
+        logLabel: 'Wishlist notification email'
+    });
 }
 
 module.exports = {
@@ -857,5 +582,5 @@ module.exports = {
     getTransportForPort,
     buildTransportForPort,
     // Backward-compat alias for older imports expecting createSmtpTransport().
-    createSmtpTransport: () => getTransportForPort(CONFIGURED_PORT)
+    createSmtpTransport: () => getTransportForPort()
 };

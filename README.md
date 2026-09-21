@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-21 (Access Tab Removed + Staff Directory Final)
+**Last updated:** 2026-09-21 (Assign Access Fix)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
@@ -62,7 +62,7 @@ The web client uses vanilla JavaScript with a modular ES architecture. The API r
 |--------|-----------|
 | **Payments** | SSLCommerz · AamarPay · ShurjoPay · manual bKash / Nagad · Cash on Delivery |
 | **Couriers** | Steadfast · Pathao · RedX |
-| **Messaging** | SMTP / Resend · Greenweb · BulkSMS · AlphaSMS · WhatsApp gateways |
+| **Messaging** | Resend · Brevo (email fallback) · Baileys WhatsApp · Greenweb · BulkSMS · AlphaSMS |
 | **Auth** | JWT sessions · Google OAuth 2.0 · Admin 2FA (TOTP / Email OTP / SMS) |
 
 ---
@@ -158,7 +158,7 @@ Each domain has a dedicated audit file with **File Inventory**, **Feature Checkl
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 198 / 198 tests** across **22 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, SMTP, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 228 / 228 tests** across **26 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, Resend, or Cloudinary calls are required.
 
 PostgreSQL repository integration tests (157 tests, real Neon) run separately — Jest cannot load the generated `.mts` Prisma client:
 

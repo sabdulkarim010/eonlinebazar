@@ -89,6 +89,13 @@ connectDB().then(async () => {
         console.error('Payment method bootstrap error:', err.message);
     }
 
+    try {
+        const { hydrateNotificationConfigAtStartup } = require('./services/notificationConfigService');
+        await hydrateNotificationConfigAtStartup();
+    } catch (err) {
+        console.error('Notification config bootstrap error:', err.message);
+    }
+
     // 🏭 ERP বুটস্ট্র্যাপ — প্রোডাক্টে warehouseId ঐচ্ছিক হলেও অন্তত একটি
     // লোকেশন থাকা দরকার যাতে অ্যাডমিন ড্রপডাউন ও PO রিসিভিং কাজ করে।
     try {

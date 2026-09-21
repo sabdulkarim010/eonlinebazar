@@ -1,74 +1,49 @@
 /********************************************************************
- * Transactional mail — Resend HTTP API only (admin OTP + customer auth).
- * DigitalOcean blocks outbound SMTP (587/465). Never use nodemailer here.
+ * Transactional mail — delegates to emailService (Resend → Brevo → log).
+ * Admin OTP and customer auth emails use HTTPS APIs only (no SMTP).
  ********************************************************************/
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
 
-const RESEND_API_URL = 'https://api.resend.com/emails';
+const {
+    sendEmail: coreSendEmail,
+    resolveEmailConfig
+} = require('../services/emailService');
+
 const DEFAULT_FROM = 'EonlineBazar Security <noreply@eonlinebazar.com>';
 
-const apiKey = process.env.RESEND_API_KEY || 're_TyspsFeZ_8RZHv4RpqQ3TMXcSSdGtn';
-const fromEmail = process.env.RESEND_FROM || 'EonlineBazar Security <noreply@eonlinebazar.com>';
-
 function getResendFrom() {
-    return String(fromEmail || DEFAULT_FROM).trim() || DEFAULT_FROM;
+    const config = resolveEmailConfig();
+    return String(config.resendFromEmail || DEFAULT_FROM).trim() || DEFAULT_FROM;
 }
 
 /**
- * POST https://api.resend.com/emails — HTTPS :443 only, no SMTP fallback.
+ * Resend → Brevo → log. Throws on hard failures for auth flows that need it.
  */
 async function sendEmail({ to, subject, html, from } = {}) {
     const recipient = String(to || '').trim();
 
     if (!recipient) {
         const error = new Error('Missing recipient email');
-        console.error('Resend API Error:', error);
+        console.error('Email Error:', error);
         throw error;
     }
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
+    const result = await coreSendEmail({
+        to: recipient,
+        subject,
+        html,
+        from: from || getResendFrom()
+    });
 
-    try {
-        const res = await fetch(RESEND_API_URL, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                from: from || fromEmail,
-                to: [recipient],
-                subject,
-                html
-            }),
-            signal: controller.signal
-        });
-
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            const detail = payload.message || payload.error || res.statusText || 'Resend API error';
-            const error = new Error(detail);
-            error.status = res.status;
-            error.payload = payload;
-            throw error;
-        }
-
-        console.log(`[Mail] Sent via Resend HTTP API to ${recipient}`);
-        return { delivered: true, via: 'resend', id: payload.id || null };
-    } catch (error) {
-        if (error && error.name === 'AbortError') {
-            const timeoutError = new Error('Resend API timed out');
-            console.error('Resend API Error:', timeoutError);
-            throw timeoutError;
-        }
-        console.error('Resend API Error:', error);
+    if (!result.success) {
+        const error = new Error(result.message || 'Email delivery failed');
+        console.error('Email Error:', error);
         throw error;
-    } finally {
-        clearTimeout(timer);
     }
+
+    return { delivered: true, via: result.provider, id: result.id || null };
 }
 
 function buildAdminOtpHtml({ otp, username, ip, location, expiresInMinutes }) {
@@ -93,28 +68,24 @@ function buildAdminOtpHtml({ otp, username, ip, location, expiresInMinutes }) {
     `;
 }
 
-/**
- * Login 2FA OTP. Resend only — never opens SMTP 587/465.
- * Returns { delivered } and never throws (login controller maps failure to 503).
- */
 async function sendAdminOtpEmail({ to, otp, username, ip, location, expiresInMinutes = 5 }) {
     const recipient = String(to || '').trim();
 
     if (!recipient) {
         const error = new Error('Admin OTP recipient email is not set');
-        console.error('Resend API Error:', error);
+        console.error('Email Error:', error);
         return { delivered: false, reason: error.message };
     }
 
     try {
         return await sendEmail({
             to: recipient,
-            from: fromEmail,
+            from: getResendFrom(),
             subject: `🔐 Your Admin Login Code: ${otp}`,
             html: buildAdminOtpHtml({ otp, username, ip, location, expiresInMinutes })
         });
     } catch (error) {
-        return { delivered: false, reason: error.message || 'Resend API error' };
+        return { delivered: false, reason: error.message || 'Email delivery failed' };
     }
 }
 

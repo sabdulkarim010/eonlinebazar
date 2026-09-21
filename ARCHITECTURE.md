@@ -379,6 +379,20 @@ are unaffected and remain the live system's configuration.
 
 See also: `docs/SETUP.md`, `ecommerce-chat/docs/SETUP.md`, `devops/first-time-server-setup.md`.
 
+### Notification environment variables (email + WhatsApp)
+
+| Variable | Purpose |
+|----------|---------|
+| `RESEND_API_KEY` | Resend API key (primary email) |
+| `RESEND_FROM_EMAIL` | Verified sender, e.g. `EonlineBazar <noreply@eonlinebazar.com>` |
+| `BREVO_API_KEY` | Brevo fallback API key |
+| `BREVO_FROM_EMAIL` | Brevo sender address |
+| `EMAIL_PROVIDER` | `resend` \| `brevo` \| `disabled` |
+| `WA_ENABLED` | `true` to start Baileys WhatsApp on boot |
+| `ADMIN_WHATSAPP_NUMBER` | Digits for admin test messages |
+
+Services: `backend/src/services/emailService.js`, `whatsappService.js`, `notificationConfigService.js`. Admin UI: **System Settings → Notifications**. Setup: `docs/NOTIFICATION_SETUP.md`.
+
 ## Documentation Index
 
 | Document | Purpose |
@@ -387,6 +401,7 @@ See also: `docs/SETUP.md`, `ecommerce-chat/docs/SETUP.md`, `devops/first-time-se
 | `REFACTOR_MAP.md` | **Read first** — file-by-file refactor status and change log |
 | `SYSTEM_ENTERPRISE_AUDIT.md` | Full-stack enterprise audit (ERP/CRM/HRM, chat, mobile, settings) |
 | `DATABASE_MIGRATION_AUDIT.md` | MongoDB → PostgreSQL (Prisma + Neon) migration — roadmap, dual-write, read cutover flags |
+| `docs/NOTIFICATION_SETUP.md` | Resend, Brevo, and Baileys WhatsApp configuration |
 | `.cursorrules` | Cursor agent contract — pre-task reading, audit file map, code placement rules |
 | `README.md` | Quick start, env vars, deployment |
 | `docs/SETUP.md` | Chat microservice setup (Bengali) |

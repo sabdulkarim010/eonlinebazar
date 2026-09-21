@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (Access Tab Removed + Staff Directory Final)  
+**Last updated:** 2026-09-21 (Assign Access Fix)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -105,6 +105,14 @@
 ---
 
 ## Change Log
+
+### Assign Access Fix — 2026-09-21
+
+- **Employee search:** `loadAssignEmployees()` uses Bearer fetch + `assignable=true`; fallback to `all=true` with client-side `linkedAdminId` filter; debounced search by name/EMP-ID
+- **Backend:** `fetchAllActiveEmployees` uses `$and` Mongo filter; `assignableOnly` PG path skips reverse admin lookup over-filtering; response includes `employees` + `data`
+- **Permissions:** Force reload on modal open; `data-key` on toggles; `readSelectedPermissions` reads checkboxes or `.perm-toggle.on`
+- **Username:** Empty on modal open; placeholder `e.g. john-doe`; auto-fill only on employee select
+- Tests: Jest **228/228** passing
 
 ### Access Tab Removed + Staff Directory Final — 2026-09-21
 

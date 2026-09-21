@@ -287,10 +287,12 @@ exports.getAllEmployees = async (req, res) => {
     try {
         if (String(req.query.all || '').toLowerCase() === 'true') {
             const employees = await fetchAllActiveEmployees(req.query);
+            const list = Array.isArray(employees) ? employees : [];
             return res.status(200).json({
                 success: true,
-                data: employees,
-                pagination: { page: 1, limit: employees.length, total: employees.length, totalPages: 1 }
+                data: list,
+                employees: list,
+                pagination: { page: 1, limit: list.length, total: list.length, totalPages: 1 }
             });
         }
 

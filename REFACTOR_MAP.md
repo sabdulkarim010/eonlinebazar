@@ -2268,3 +2268,38 @@ docs/audit/HRM_AUDIT.md [MOD] Access Tab Removed changelog
 docs/audit/AUTH_SECURITY_AUDIT.md [MOD] Staff Directory consolidated access
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Access Tab Removed + Staff Directory Final section
 README.md [MOD] Access Tab Removed + Staff Directory Final
+#
+# Assign Access Fix: 2026-09-21
+client/js/admin-staff.js [MOD] loadAssignEmployees; loadAssignPermissions; resetAssignModal; search/perm fixes
+client/admin/partials/view-staff.html [MOD] username placeholder e.g. john-doe; empty value
+client/css/admin/_staff.css [MOD] permission row visibility in assign grid
+backend/src/services/hrmReadService.js [MOD] assignableOnly filter; $and Mongo query for hasAccess=false
+backend/src/controllers/admin/employeeController.js [MOD] all=true returns employees + data arrays
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] Assign Access Fix changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Assign Access Fix section
+README.md [MOD] Assign Access Fix
+#
+# Email + WhatsApp Notification Overhaul: 2026-09-21
+backend/src/services/emailService.js [NEW] Resend → Brevo → log; never throw
+backend/src/services/notificationConfigService.js [NEW] admin notification config CRUD + test sends
+backend/src/services/mailer.js [MOD] all sends via emailService (SMTP removed)
+backend/src/utils/sendEmail.js [MOD] delegates to emailService; removed hardcoded API key
+backend/src/services/whatsappService.js [MOD] Baileys self-hosted WhatsApp; order alerts preserved
+backend/src/services/gatewayStatusService.js [MOD] structured email/whatsapp/sms status; never 500
+backend/src/controllers/settingsController.js [MOD] notification-config + whatsapp + test endpoints
+backend/src/routes/adminRoutes.js [MOD] notification settings routes
+backend/src/models/Settings.js [MOD] notificationSettings Mixed field
+backend/src/server.js [MOD] hydrateNotificationConfigAtStartup on boot
+client/admin/partials/view-settings.html [MOD] Notifications tab (email + WhatsApp UI)
+client/js/admin/modules/settings-notifications.js [NEW] notifications settings module
+client/css/admin/_settings-notifications.css [NEW] notifications tab styles
+client/css/admin/_settings.css [MOD] import notifications css
+client/js/admin/admin-settings.js [MOD] import settings-notifications.js
+client/js/admin-newsletter.js [MOD] new gateway-status object shape
+tests/setup.js [MOD] mock @whiskeysockets/baileys + resend
+docs/NOTIFICATION_SETUP.md [NEW] Resend/Brevo/Baileys setup guide
+docs/audit/DEVOPS_AUDIT.md [MOD] notification overhaul changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Email + WhatsApp Notification Overhaul section
+README.md [MOD] Resend + Baileys messaging; 228/228 tests
+.gitignore [MOD] .wa-auth Baileys session directory
+package.json [MOD] resend, @whiskeysockets/baileys, pino dependencies

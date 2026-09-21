@@ -5,6 +5,9 @@ node_modules
 .env
 !.env.example
 
+# Baileys WhatsApp session (scan-to-connect auth state)
+.wa-auth
+
 # Logs and system files
 *.log
 .DS_Store

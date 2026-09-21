@@ -1,15 +1,26 @@
 /********************************************************************
  * Project: EonlineBazar
  * File: whatsappService.js
- * Location: services/whatsappService.js
- * Description: Background WhatsApp admin order alerts — runs entirely
- * on the server after checkout, independent of the admin panel session.
- * Supports UltraMsg, Green API, CallMeBot, generic HTTP POST, and a
- * direct webhook fallback to privateAdminAlertWhatsApp.
+ * Description: WhatsApp notifications via Baileys (self-hosted, free).
+ * Order alerts, broadcasts, and public support number settings.
  ********************************************************************/
+
+const path = require('path');
+const fs = require('fs');
+const QRCode = require('qrcode');
+const pino = require('pino');
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason,
+    fetchLatestBaileysVersion
+} = require('@whiskeysockets/baileys');
 
 const Settings = require('../models/Settings');
 const { normalizePhoneNumber } = require('./smsService');
+
+const AUTH_DIR = path.join(__dirname, '../../../.wa-auth');
+const VALID_ALERT_PROVIDERS = ['Baileys', 'CallMeBot', 'UltraMsg', 'Green API', 'Generic', 'Webhook', ''];
 
 const DEFAULT_PUBLIC_WHATSAPP = String(
     process.env.PUBLIC_SUPPORT_WHATSAPP
@@ -17,25 +28,34 @@ const DEFAULT_PUBLIC_WHATSAPP = String(
     || '8801521377735'
 ).replace(/\D/g, '');
 
-const VALID_ALERT_PROVIDERS = ['CallMeBot', 'UltraMsg', 'Green API', 'Generic', 'Webhook', ''];
-
 const HTTP_TIMEOUT_MS = Number(process.env.WHATSAPP_ALERT_TIMEOUT_MS) || 15000;
 const CACHE_TTL_MS = 15 * 1000;
 const MAX_PENDING_ALERTS = 100;
 
 let cachedPublicSettings = null;
 let publicCacheExpiresAt = 0;
+let waSocket = null;
+let waStatus = 'disconnected';
+let currentQR = null;
+let qrDataURL = null;
+let connectedPhoneHint = null;
+let initInFlight = null;
+let waEnabledFlag = process.env.WA_ENABLED === 'true';
 
-/** In-memory fallback queue when every driver fails (admin badge / wa.me link). */
 const pendingWhatsAppAlerts = [];
+
+function setWhatsAppEnabledFlag(enabled) {
+    waEnabledFlag = enabled === true;
+}
+
+function isWhatsAppEnabled() {
+    return waEnabledFlag === true || process.env.WA_ENABLED === 'true';
+}
 
 function normalizeWhatsAppNumber(phone) {
     return normalizePhoneNumber(phone);
 }
 
-/**
- * Strip leading '+', spaces, dashes — normalize to digits (8801XXXXXXXXX).
- */
 function sanitizeWhatsAppInput(value) {
     const digits = String(value || '')
         .replace(/^\++/, '')
@@ -50,22 +70,6 @@ function sanitizeWhatsAppInput(value) {
     if (digits.length === 10 && digits.startsWith('1')) return `880${digits}`;
 
     return digits.length >= 10 ? digits : '';
-}
-
-async function fetchWithTimeout(url, options = {}, timeoutMs = HTTP_TIMEOUT_MS) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-        return await fetch(url, { ...options, signal: controller.signal });
-    } catch (err) {
-        if (err.name === 'AbortError') {
-            throw new Error(`WhatsApp gateway timed out after ${timeoutMs}ms`);
-        }
-        throw err;
-    } finally {
-        clearTimeout(timer);
-    }
 }
 
 function logWhatsAppToConsole({ to, body, context = 'ADMIN WHATSAPP ALERT', extra = '' }) {
@@ -99,46 +103,17 @@ async function loadWhatsAppSettingsFromDb() {
             source.publicSupportWhatsApp || DEFAULT_PUBLIC_WHATSAPP
         ),
         privateAdminAlertWhatsApp: sanitizeWhatsAppInput(source.privateAdminAlertWhatsApp),
-        enableWhatsAppOrderAlerts: source.enableWhatsAppOrderAlerts === true,
-        whatsAppAlertProvider: String(source.whatsAppAlertProvider || '').trim(),
-        whatsAppAlertApiKey: String(source.whatsAppAlertApiKey || '').trim(),
-        whatsAppAlertInstanceId: String(source.whatsAppAlertInstanceId || '').trim(),
-        whatsAppAlertWebhookUrl: String(source.whatsAppAlertWebhookUrl || '').trim()
+        enableWhatsAppOrderAlerts: source.enableWhatsAppOrderAlerts === true
     };
 }
 
 async function loadWhatsAppAlertGatewayConfig(dbSettings = null) {
     const settings = dbSettings || await loadWhatsAppSettingsFromDb();
-
-    const provider = String(
-        settings.whatsAppAlertProvider
-        || process.env.WHATSAPP_ALERT_PROVIDER
-        || ''
-    ).trim();
-
-    const apiKey = String(
-        settings.whatsAppAlertApiKey
-        || process.env.WHATSAPP_ALERT_API_KEY
-        || process.env.WHATSAPP_API_KEY
-        || ''
-    ).trim();
-
-    const instanceId = String(
-        settings.whatsAppAlertInstanceId
-        || process.env.WHATSAPP_ALERT_INSTANCE_ID
-        || process.env.WHATSAPP_INSTANCE_ID
-        || ''
-    ).trim();
-
-    const genericUrl = String(process.env.WHATSAPP_ALERT_API_URL || '').trim();
-
-    const webhookUrl = String(
-        settings.whatsAppAlertWebhookUrl
-        || process.env.WHATSAPP_ALERT_WEBHOOK_URL
-        || ''
-    ).trim();
-
-    return { provider, apiKey, instanceId, genericUrl, webhookUrl };
+    return {
+        provider: 'Baileys',
+        connected: waStatus === 'connected',
+        adminPhone: settings.privateAdminAlertWhatsApp
+    };
 }
 
 async function getPublicWhatsAppSettings({ forceRefresh = false } = {}) {
@@ -251,298 +226,180 @@ function markPendingAlertDelivered(orderId) {
     });
 }
 
-function isUltraMsgReady(config) {
-    return Boolean(config?.apiKey && config?.instanceId);
-}
-
-function isGreenApiReady(config) {
-    return Boolean(config?.apiKey && config?.instanceId);
-}
-
-function isCallMeBotReady(config) {
-    return Boolean(config?.apiKey);
-}
-
-function isGenericReady(config) {
-    return Boolean(config?.genericUrl);
-}
-
-function isWebhookReady(config) {
-    return Boolean(config?.webhookUrl);
-}
-
-/**
- * Pick the primary API driver. UltraMsg / Green API take precedence when
- * their credentials are saved in Master Settings.
- */
-function resolvePrimaryDriver(config) {
-    const provider = config.provider;
-
-    if (provider === 'UltraMsg' && isUltraMsgReady(config)) return 'UltraMsg';
-    if (provider === 'Green API' && isGreenApiReady(config)) return 'Green API';
-    if (provider === 'CallMeBot' && isCallMeBotReady(config)) return 'CallMeBot';
-    if (provider === 'Generic' && isGenericReady(config)) return 'Generic';
-
-    if (!provider) {
-        if (isUltraMsgReady(config)) return 'UltraMsg';
-        if (isGreenApiReady(config)) return 'Green API';
-        if (isCallMeBotReady(config)) return 'CallMeBot';
-        if (isGenericReady(config)) return 'Generic';
+async function initWhatsApp() {
+    if (!isWhatsAppEnabled()) {
+        waStatus = 'disconnected';
+        return { status: waStatus };
     }
 
-    return null;
+    if (initInFlight) return initInFlight;
+
+    initInFlight = (async () => {
+        try {
+            if (!fs.existsSync(AUTH_DIR)) {
+                fs.mkdirSync(AUTH_DIR, { recursive: true });
+            }
+
+            const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+            const { version } = await fetchLatestBaileysVersion();
+
+            if (waSocket) {
+                try {
+                    waSocket.ev.removeAllListeners('connection.update');
+                    waSocket.ev.removeAllListeners('creds.update');
+                } catch {
+                    /* ignore */
+                }
+            }
+
+            waSocket = makeWASocket({
+                version,
+                auth: state,
+                printQRInTerminal: true,
+                logger: pino({ level: 'silent' }),
+                browser: ['EonlineBazar', 'Chrome', '1.0.0']
+            });
+
+            waSocket.ev.on('creds.update', saveCreds);
+
+            waSocket.ev.on('connection.update', async (update) => {
+                const { connection, lastDisconnect, qr } = update;
+
+                if (qr) {
+                    waStatus = 'qr_pending';
+                    currentQR = qr;
+                    qrDataURL = await QRCode.toDataURL(qr);
+                    console.log('[WHATSAPP] QR code ready — scan in admin panel');
+                }
+
+                if (connection === 'open') {
+                    waStatus = 'connected';
+                    currentQR = null;
+                    qrDataURL = null;
+
+                    const me = waSocket?.user?.id || '';
+                    const digits = String(me).replace(/\D/g, '');
+                    if (digits.length >= 3) {
+                        const masked = '•'.repeat(Math.max(6, digits.length - 3));
+                        connectedPhoneHint = `+${masked}${digits.slice(-3)}`;
+                    } else {
+                        connectedPhoneHint = null;
+                    }
+
+                    console.log('[WHATSAPP] Connected ✅');
+                }
+
+                if (connection === 'close') {
+                    const code = lastDisconnect?.error?.output?.statusCode;
+                    const shouldReconnect = code !== DisconnectReason.loggedOut;
+
+                    waStatus = 'disconnected';
+                    connectedPhoneHint = null;
+                    console.log('[WHATSAPP] Disconnected:', code);
+
+                    if (shouldReconnect && isWhatsAppEnabled()) {
+                        console.log('[WHATSAPP] Reconnecting in 5s...');
+                        setTimeout(() => {
+                            initWhatsApp().catch((err) => {
+                                console.error('[WHATSAPP] Reconnect failed:', err.message);
+                            });
+                        }, 5000);
+                    } else if (code === DisconnectReason.loggedOut) {
+                        console.log('[WHATSAPP] Logged out — clear auth to reconnect');
+                        try {
+                            fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+                        } catch {
+                            /* ignore */
+                        }
+                    }
+                }
+            });
+
+            return { status: waStatus };
+        } catch (err) {
+            waStatus = 'disconnected';
+            console.error('[WHATSAPP] Init failed:', err.message);
+            throw err;
+        } finally {
+            initInFlight = null;
+        }
+    })();
+
+    return initInFlight;
 }
 
-async function sendViaCallMeBot({ to, body, apiKey }) {
-    const requestUrl = new URL('https://api.callmebot.com/whatsapp.php');
-    requestUrl.searchParams.set('phone', to);
-    requestUrl.searchParams.set('text', body);
-    requestUrl.searchParams.set('apikey', apiKey);
-
-    console.log(`[WhatsApp] POST (CallMeBot) → ${to}`);
-
-    const res = await fetchWithTimeout(requestUrl.toString(), { method: 'GET' });
-    const responseText = await res.text();
-
-    if (!res.ok) {
-        throw new Error(responseText || `CallMeBot HTTP ${res.status}`);
+async function sendWhatsAppMessage(phone, message) {
+    if (!isWhatsAppEnabled()) {
+        console.warn('[WHATSAPP] Disabled — message not sent');
+        console.warn(`  To: ${phone}`);
+        console.warn(`  Message: ${message}`);
+        return { success: false, reason: 'disabled' };
     }
 
-    const lower = responseText.toLowerCase();
-    if (lower.includes('error') || lower.includes('invalid') || lower.includes('failed')) {
-        throw new Error(responseText.trim() || 'CallMeBot rejected the request');
+    if (waStatus !== 'connected' || !waSocket) {
+        console.warn('[WHATSAPP] Not connected — message not sent');
+        console.warn(`  To: ${phone}`);
+        console.warn(`  Message: ${message}`);
+        return { success: false, reason: waStatus || 'disconnected' };
     }
-
-    return { delivered: true, provider: 'CallMeBot', id: responseText.slice(0, 120) };
-}
-
-function isUltraMsgSuspendedError(message) {
-    const lower = String(message || '').toLowerCase();
-    return lower.includes('suspend')
-        || lower.includes('subscription')
-        || lower.includes('payment')
-        || lower.includes('inactive')
-        || lower.includes('expired')
-        || lower.includes('unavailable');
-}
-
-async function sendViaUltraMsg({ to, body, apiKey, instanceId }) {
-    const url = `https://api.ultramsg.com/${instanceId}/messages/chat`;
-    console.log(`[WhatsApp] POST (UltraMsg) → ${to} · instance ${instanceId}`);
 
     try {
-        const res = await fetchWithTimeout(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: apiKey, to, body })
-        });
-
-        const responseText = await res.text();
-        let data = {};
-        try {
-            data = responseText ? JSON.parse(responseText) : {};
-        } catch {
-            data = { raw: responseText };
-        }
-
-        if (!res.ok || data.error) {
-            const reason = data.error || data.message || data.raw || `UltraMsg HTTP ${res.status}`;
-            if (isUltraMsgSuspendedError(reason)) {
-                console.error('[WHATSAPP-SUSPENDED]', reason);
-                return { success: false, delivered: false, reason: 'WhatsApp gateway unavailable' };
-            }
-            throw new Error(reason);
-        }
-
-        return { success: true, delivered: true, provider: 'UltraMsg', id: data.id || data.message_id || null };
+        const jid = `${sanitizeWhatsAppInput(phone)}@s.whatsapp.net`;
+        await waSocket.sendMessage(jid, { text: String(message || '') });
+        console.log(`[WHATSAPP] Sent to ${phone}`);
+        return { success: true };
     } catch (err) {
-        if (isUltraMsgSuspendedError(err.message)) {
-            console.error('[WHATSAPP-SUSPENDED]', err.message);
-            return { success: false, delivered: false, reason: 'WhatsApp gateway unavailable' };
-        }
-        throw err;
+        console.error('[WHATSAPP] Send failed:', err.message);
+        return { success: false, error: err.message };
     }
 }
 
-async function sendViaGreenApi({ to, body, apiKey, instanceId }) {
-    const chatId = `${sanitizeWhatsAppInput(to)}@c.us`;
-    const url = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${apiKey}`;
-    console.log(`[WhatsApp] POST (Green API) → ${chatId}`);
-
-    const res = await fetchWithTimeout(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId, message: body })
-    });
-
-    const responseText = await res.text();
-    let data = {};
-    try {
-        data = responseText ? JSON.parse(responseText) : {};
-    } catch {
-        data = { raw: responseText };
-    }
-
-    if (!res.ok || data.error) {
-        throw new Error(data.error || data.message || data.raw || `Green API HTTP ${res.status}`);
-    }
-
-    return { delivered: true, provider: 'Green API', id: data.idMessage || null };
-}
-
-async function sendViaGenericGateway({ to, body, apiKey, genericUrl }) {
-    const url = genericUrl
-        .replace(/\{phone\}/g, encodeURIComponent(to))
-        .replace(/\{message\}/g, encodeURIComponent(body))
-        .replace(/\{apikey\}/g, encodeURIComponent(apiKey))
-        .replace(/\{to\}/g, encodeURIComponent(to))
-        .replace(/\{text\}/g, encodeURIComponent(body));
-
-    console.log(`[WhatsApp] POST (Generic) → ${to}`);
-
-    const res = await fetchWithTimeout(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            phone: to,
-            to,
-            recipient: to,
-            message: body,
-            text: body,
-            apikey: apiKey
-        })
-    });
-
-    const responseText = await res.text();
-
-    if (!res.ok) {
-        throw new Error(responseText || `Generic gateway HTTP ${res.status}`);
-    }
-
-    return { delivered: true, provider: 'Generic', id: responseText.slice(0, 120) };
-}
-
-/**
- * Lightweight direct HTTP webhook — fires instantly when UltraMsg / Green API
- * are not configured. Expects any provider that accepts JSON POST.
- */
-async function sendViaDirectWebhook({ to, body, webhookUrl }) {
-    console.log(`[WhatsApp] POST (Direct webhook) → ${to}`);
-
-    const payload = {
-        to,
-        phone: to,
-        recipient: to,
-        number: to,
-        message: body,
-        text: body,
-        source: 'eonlinebazar-order-alert'
+function getWhatsAppStatus() {
+    return {
+        status: waStatus,
+        hasQR: Boolean(qrDataURL),
+        qrDataURL: qrDataURL || null,
+        phoneHint: connectedPhoneHint || null
     };
-
-    const res = await fetchWithTimeout(webhookUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'User-Agent': 'EonlineBazar-WhatsApp-Alert/1.0'
-        },
-        body: JSON.stringify(payload)
-    });
-
-    const responseText = await res.text();
-
-    if (!res.ok) {
-        throw new Error(responseText || `Webhook HTTP ${res.status}`);
-    }
-
-    return { delivered: true, provider: 'Webhook', id: responseText.slice(0, 120) };
 }
 
-async function executeDriver(driver, { to, body, config }) {
-    switch (driver) {
-        case 'UltraMsg': {
-            const ultraResult = await sendViaUltraMsg({
-                to,
-                body,
-                apiKey: config.apiKey,
-                instanceId: config.instanceId
-            });
-            if (ultraResult.success === false) {
-                return { delivered: false, provider: 'UltraMsg', reason: ultraResult.reason };
-            }
-            return ultraResult;
+async function disconnectWhatsApp() {
+    if (waSocket) {
+        try {
+            await waSocket.logout();
+        } catch (err) {
+            console.warn('[WHATSAPP] Logout error:', err.message);
         }
-        case 'Green API':
-            return sendViaGreenApi({
-                to,
-                body,
-                apiKey: config.apiKey,
-                instanceId: config.instanceId
-            });
-        case 'CallMeBot':
-            return sendViaCallMeBot({ to, body, apiKey: config.apiKey });
-        case 'Generic':
-            return sendViaGenericGateway({
-                to,
-                body,
-                apiKey: config.apiKey,
-                genericUrl: config.genericUrl
-            });
-        case 'Webhook':
-            return sendViaDirectWebhook({
-                to,
-                body,
-                webhookUrl: config.webhookUrl
-            });
-        default:
-            throw new Error(`Unknown WhatsApp driver: ${driver}`);
+        waSocket = null;
+    }
+    waStatus = 'disconnected';
+    currentQR = null;
+    qrDataURL = null;
+    connectedPhoneHint = null;
+
+    try {
+        if (fs.existsSync(AUTH_DIR)) {
+            fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+        }
+    } catch {
+        /* ignore */
     }
 }
 
-/**
- * Background delivery chain:
- *   1) UltraMsg / Green API / configured primary driver
- *   2) Direct HTTP webhook fallback (Master Settings or .env)
- *   3) CallMeBot if only an API key is present
- */
-async function sendAdminAlertViaGateway({ to, body, gatewayConfig }) {
-    const config = gatewayConfig || await loadWhatsAppAlertGatewayConfig();
-    const primary = resolvePrimaryDriver(config);
-    let lastReason = 'No WhatsApp gateway configured';
-
-    if (primary) {
-        try {
-            const result = await executeDriver(primary, { to, body, config });
-            if (result.delivered) return result;
-            lastReason = result.reason || `${primary} did not deliver`;
-        } catch (err) {
-            lastReason = err.message;
-            console.warn(`[WhatsApp] Primary driver "${primary}" failed:`, err.message);
-        }
+async function sendAdminAlertViaGateway({ to, body }) {
+    if (!isWhatsAppEnabled()) {
+        return { delivered: false, provider: 'none', reason: 'WhatsApp disabled' };
     }
 
-    if (isWebhookReady(config) && primary !== 'Webhook') {
-        try {
-            return await executeDriver('Webhook', { to, body, config });
-        } catch (err) {
-            lastReason = err.message;
-            console.warn('[WhatsApp] Direct webhook fallback failed:', err.message);
-        }
-    }
-
-    if (!primary && isCallMeBotReady(config)) {
-        try {
-            return await executeDriver('CallMeBot', { to, body, config });
-        } catch (err) {
-            lastReason = err.message;
-            console.warn('[WhatsApp] CallMeBot fallback failed:', err.message);
-        }
+    const result = await sendWhatsAppMessage(to, body);
+    if (result.success) {
+        return { delivered: true, provider: 'Baileys' };
     }
 
     return {
         delivered: false,
-        provider: primary || 'none',
-        reason: lastReason
+        provider: 'Baileys',
+        reason: result.reason || result.error || 'Not connected'
     };
 }
 
@@ -553,7 +410,6 @@ async function sendAdminOrderAlert(order) {
         console.log(`[WhatsApp] ▶ Background alert job started for order #${orderId}`);
 
         if (!order) {
-            console.warn('[WhatsApp] ✗ Aborted — empty order payload');
             return { delivered: false, reason: 'No order payload' };
         }
 
@@ -561,18 +417,9 @@ async function sendAdminOrderAlert(order) {
         try {
             config = await loadWhatsAppSettingsFromDb();
         } catch (err) {
-            console.error('[WhatsApp] ✗ Failed to load settings from MongoDB:', err.message);
+            console.error('[WhatsApp] ✗ Failed to load settings:', err.message);
             return { delivered: false, reason: 'Could not load WhatsApp settings' };
         }
-
-        console.log('[WhatsApp] Settings snapshot:', {
-            enableWhatsAppOrderAlerts: config.enableWhatsAppOrderAlerts,
-            privateAdminAlertWhatsApp: config.privateAdminAlertWhatsApp
-                ? `…${config.privateAdminAlertWhatsApp.slice(-4)}`
-                : '(not set)',
-            provider: config.whatsAppAlertProvider || '(auto-detect)',
-            hasWebhook: Boolean(config.whatsAppAlertWebhookUrl || process.env.WHATSAPP_ALERT_WEBHOOK_URL)
-        });
 
         if (!config.enableWhatsAppOrderAlerts) {
             console.warn('[WhatsApp] ✗ Skipped — enableWhatsAppOrderAlerts is false');
@@ -587,13 +434,7 @@ async function sendAdminOrderAlert(order) {
 
         const body = formatAdminOrderAlertMessage(order);
         const waMeUrl = buildAdminWaMeAlertUrl(adminPhone, body);
-        const gatewayConfig = await loadWhatsAppAlertGatewayConfig(config);
-
-        const result = await sendAdminAlertViaGateway({
-            to: adminPhone,
-            body,
-            gatewayConfig
-        });
+        const result = await sendAdminAlertViaGateway({ to: adminPhone, body });
 
         if (result.delivered) {
             markPendingAlertDelivered(orderId);
@@ -601,7 +442,7 @@ async function sendAdminOrderAlert(order) {
             return { ...result, waMeUrl, fallbackQueued: false };
         }
 
-        console.warn(`[WhatsApp] ⚠ All drivers failed for #${orderId}: ${result.reason}`);
+        console.warn(`[WhatsApp] ⚠ Delivery failed for #${orderId}: ${result.reason}`);
 
         const pending = queuePendingWhatsAppAlert({
             orderId,
@@ -646,7 +487,7 @@ function notifyAdminOrderPlaced(order) {
     const payload = order && typeof order.toObject === 'function' ? order.toObject() : order;
     const orderId = payload?.orderId || payload?._id || 'unknown';
 
-    console.log(`[WhatsApp] Scheduling background POST dispatch for order #${orderId}`);
+    console.log(`[WhatsApp] Scheduling background dispatch for order #${orderId}`);
 
     dispatchWhatsAppNotification(async () => {
         const result = await sendAdminOrderAlert(payload);
@@ -660,10 +501,6 @@ function notifyAdminOrderPlaced(order) {
     });
 }
 
-/**
- * Send a custom admin alert message via configured WhatsApp gateway.
- * Reuses the same gateway chain as order alerts (if configured).
- */
 async function sendAdminCustomAlert(body) {
     try {
         const config = await loadWhatsAppSettingsFromDb();
@@ -673,11 +510,9 @@ async function sendAdminCustomAlert(body) {
             return { delivered: false, reason: 'Private admin WhatsApp number not configured' };
         }
 
-        const gatewayConfig = await loadWhatsAppAlertGatewayConfig(config);
         const result = await sendAdminAlertViaGateway({
             to: adminPhone,
-            body: String(body || '').trim(),
-            gatewayConfig
+            body: String(body || '').trim()
         });
 
         if (!result.delivered) {
@@ -696,24 +531,10 @@ async function sendAdminCustomAlert(body) {
     }
 }
 
-function isGatewayConfigured(config) {
-    return Boolean(
-        resolvePrimaryDriver(config)
-        || isWebhookReady(config)
-        || isCallMeBotReady(config)
-    );
+function isGatewayConfigured() {
+    return isWhatsAppEnabled() && waStatus === 'connected';
 }
 
-/**
- * Broadcast a single WhatsApp message to many recipients using the store's
- * configured gateway. Recipients may be raw phone strings or objects with a
- * `phone`/`mobile` field. Numbers are normalized and de-duplicated. Sends are
- * spaced out slightly to stay within provider rate limits.
- *
- * @param {Array<string|Object>} recipients
- * @param {string} templateMessage
- * @returns {Promise<{sent:number, failed:number, total:number, skipped:number, reason?:string}>}
- */
 async function sendBroadcast(recipients, templateMessage) {
     try {
         const body = String(templateMessage || '').trim();
@@ -736,8 +557,7 @@ async function sendBroadcast(recipients, templateMessage) {
             return { success: false, sent: 0, failed: 0, total: 0, skipped: 0, reason: 'No valid recipient numbers' };
         }
 
-        const gatewayConfig = await loadWhatsAppAlertGatewayConfig();
-        if (!isGatewayConfigured(gatewayConfig)) {
+        if (!isGatewayConfigured()) {
             return {
                 success: false,
                 sent: 0,
@@ -754,11 +574,11 @@ async function sendBroadcast(recipients, templateMessage) {
         for (const to of numbers) {
             try {
                 // eslint-disable-next-line no-await-in-loop
-                const result = await sendAdminAlertViaGateway({ to, body, gatewayConfig });
+                const result = await sendAdminAlertViaGateway({ to, body });
                 if (result.delivered) sent += 1;
                 else failed += 1;
             } catch (err) {
-                console.error('[WHATSAPP-SUSPENDED]', err.message);
+                console.error('[WHATSAPP] Broadcast send error:', err.message);
                 failed += 1;
             }
             // eslint-disable-next-line no-await-in-loop
@@ -775,7 +595,7 @@ async function sendBroadcast(recipients, templateMessage) {
             reason: sent === 0 ? 'WhatsApp gateway unavailable' : undefined
         };
     } catch (err) {
-        console.error('[WHATSAPP-SUSPENDED]', err.message);
+        console.error('[WHATSAPP] Broadcast error:', err.message);
         return {
             success: false,
             sent: 0,
@@ -787,9 +607,15 @@ async function sendBroadcast(recipients, templateMessage) {
     }
 }
 
+if (isWhatsAppEnabled()) {
+    initWhatsApp().catch((err) => {
+        console.error('[WHATSAPP] Init failed:', err.message);
+    });
+}
+
 module.exports = {
-    DEFAULT_PUBLIC_WHATSAPP,
     VALID_ALERT_PROVIDERS,
+    DEFAULT_PUBLIC_WHATSAPP,
     HTTP_TIMEOUT_MS,
     normalizeWhatsAppNumber,
     sanitizeWhatsAppInput,
@@ -809,5 +635,10 @@ module.exports = {
     dismissPendingWhatsAppAlert,
     queuePendingWhatsAppAlert,
     isGatewayConfigured,
-    fetchWithTimeout
+    initWhatsApp,
+    sendWhatsAppMessage,
+    getWhatsAppStatus,
+    disconnectWhatsApp,
+    isWhatsAppEnabled,
+    setWhatsAppEnabledFlag
 };

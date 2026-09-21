@@ -363,6 +363,11 @@ const settingsSchema = new mongoose.Schema({
             weekendSaturday: true,
             weekendSunday: true
         })
+    },
+    /** Email (Resend/Brevo) + WhatsApp (Baileys) notification config. */
+    notificationSettings: {
+        type: mongoose.Schema.Types.Mixed,
+        default: () => ({})
     }
 }, {
     timestamps: true

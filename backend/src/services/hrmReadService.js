@@ -144,7 +144,10 @@ async function resolveLinkedAdminIdForEmployeeShape(employee) {
   return employee;
 }
 
-async function filterEmployeesWithoutLinkedAccess(employees) {
+async function filterEmployeesWithoutLinkedAccess(employees, { assignableOnly = false } = {}) {
+  if (assignableOnly) {
+    return (employees || []).filter((row) => !row.linkedAdminId);
+  }
   const resolved = await Promise.all(
     (employees || []).map((row) => resolveLinkedAdminIdForEmployeeShape({ ...row }))
   );
@@ -213,32 +216,39 @@ async function fetchAllActiveEmployees(query = {}) {
   const filters = buildEmployeeListFilters(query);
   filters.status = 'active';
   filters.orderByFullName = true;
+  const assignableOnly = String(query.assignable || '').toLowerCase() === 'true'
+    || (filters.hasAccess === false && String(query.all || '').toLowerCase() === 'true');
 
   return routedRead(
     'employee',
     async () => {
-      const mongoFilter = { status: 'active' };
-      if (filters.department) mongoFilter.department = filters.department;
-      if (filters.designation) mongoFilter.designation = filters.designation;
-      if (filters.employeeType) mongoFilter.employeeType = filters.employeeType;
+      const clauses = [{ status: 'active' }];
+      if (filters.department) clauses.push({ department: filters.department });
+      if (filters.designation) clauses.push({ designation: filters.designation });
+      if (filters.employeeType) clauses.push({ employeeType: filters.employeeType });
       if (filters.search) {
         const re = new RegExp(filters.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-        mongoFilter.$or = [
-          { fullName: re }, { phone: re }, { employeeId: re }, { role: re }, { designation: re }
-        ];
+        clauses.push({
+          $or: [
+            { fullName: re }, { phone: re }, { employeeId: re }, { role: re }, { designation: re }
+          ]
+        });
       }
       if (filters.hasAccess === false) {
-        mongoFilter.$or = [{ linkedAdminId: null }, { linkedAdminId: '' }, { linkedAdminId: { $exists: false } }];
+        clauses.push({
+          $or: [{ linkedAdminId: null }, { linkedAdminId: '' }, { linkedAdminId: { $exists: false } }]
+        });
       } else if (filters.hasAccess === true) {
-        mongoFilter.linkedAdminId = { $nin: [null, ''] };
+        clauses.push({ linkedAdminId: { $nin: [null, ''] } });
       }
+      const mongoFilter = clauses.length === 1 ? clauses[0] : { $and: clauses };
       return Employee.find(mongoFilter).sort({ fullName: 1 }).lean();
     },
     async () => {
       const rows = await getEmployeeRepository().findAll({ ...filters, includeNested: true });
       let employees = mapEmployeesToMongo(rows);
       if (filters.hasAccess === false) {
-        employees = await filterEmployeesWithoutLinkedAccess(employees);
+        employees = await filterEmployeesWithoutLinkedAccess(employees, { assignableOnly });
       }
       return employees;
     }

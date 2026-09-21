@@ -31,6 +31,32 @@ jest.mock('nodemailer', () => ({
     }))
 }));
 
+jest.mock('@whiskeysockets/baileys', () => ({
+    default: jest.fn(() => ({
+        ev: {
+            on: jest.fn(),
+            removeAllListeners: jest.fn()
+        },
+        sendMessage: jest.fn().mockResolvedValue({}),
+        logout: jest.fn().mockResolvedValue(undefined),
+        user: { id: '8801700000000@s.whatsapp.net' }
+    })),
+    useMultiFileAuthState: jest.fn().mockResolvedValue({
+        state: {},
+        saveCreds: jest.fn()
+    }),
+    DisconnectReason: { loggedOut: 401 },
+    fetchLatestBaileysVersion: jest.fn().mockResolvedValue({ version: [2, 3000, 0] })
+}));
+
+jest.mock('resend', () => ({
+    Resend: jest.fn().mockImplementation(() => ({
+        emails: {
+            send: jest.fn().mockResolvedValue({ data: { id: 'test-resend-id' }, error: null })
+        }
+    }))
+}));
+
 jest.mock('../backend/src/utils/sendEmail', () => ({
     sendEmail: jest.fn().mockResolvedValue({ delivered: true, via: 'resend', id: 'test-email-id' }),
     sendAdminOtpEmail: jest.fn().mockResolvedValue({ delivered: true, via: 'resend' }),

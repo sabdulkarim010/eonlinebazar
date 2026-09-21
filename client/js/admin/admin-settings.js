@@ -20,5 +20,6 @@ import './modules/hrm-payroll.js';
 import './modules/hrm-leaves.js';
 import './modules/settings-expense-categories.js';
 import './modules/settings-hub.js';
+import './modules/settings-notifications.js';
 import './modules/settings-menu-labels.js';
 import './modules/system-backup.js';

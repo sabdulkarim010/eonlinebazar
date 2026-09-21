@@ -257,7 +257,118 @@ module.exports = {
             return res.status(200).json({ success: true, data });
         } catch (error) {
             console.error('Get Gateway Status Error:', error);
-            return res.status(500).json({ success: false, message: 'Failed to load gateway status.' });
+            const { DEFAULT_GATEWAY_STATUS } = require('../services/gatewayStatusService');
+            return res.status(200).json({
+                success: true,
+                data: { ...DEFAULT_GATEWAY_STATUS, checkedAt: new Date().toISOString() }
+            });
+        }
+    },
+
+    getNotificationConfig: async (req, res) => {
+        try {
+            const { getNotificationConfig } = require('../services/notificationConfigService');
+            const data = await getNotificationConfig();
+            return res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error('Get Notification Config Error:', error);
+            return res.status(500).json({ success: false, message: 'Failed to load notification settings.' });
+        }
+    },
+
+    saveNotificationConfig: async (req, res) => {
+        try {
+            const { saveNotificationConfig } = require('../services/notificationConfigService');
+            const data = await saveNotificationConfig(req.body || {});
+
+            await logSecurityEvent({
+                action: 'Notification Settings Updated',
+                actor: req.admin?.username || 'admin',
+                actorType: 'admin',
+                ipAddress: getClientIp(req),
+                details: `Email provider: ${data.emailProvider || 'resend'}`,
+                resourceType: 'setting',
+                resourceId: 'notifications'
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: 'Notification settings saved.',
+                data
+            });
+        } catch (error) {
+            console.error('Save Notification Config Error:', error);
+            return res.status(400).json({ success: false, message: error.message || 'Failed to save notification settings.' });
+        }
+    },
+
+    testNotificationEmail: async (req, res) => {
+        try {
+            const { sendTestEmail } = require('../services/notificationConfigService');
+            const adminEmail = req.body?.email
+                || req.adminAccount?.email
+                || process.env.ADMIN_ALERT_EMAIL
+                || process.env.SMTP_USER;
+            const result = await sendTestEmail(adminEmail);
+            return res.status(result.success ? 200 : 502).json({ success: result.success, ...result });
+        } catch (error) {
+            console.error('Test Notification Email Error:', error);
+            return res.status(500).json({ success: false, message: error.message || 'Test email failed.' });
+        }
+    },
+
+    getWhatsAppConnectionStatus: async (req, res) => {
+        try {
+            const { getWhatsAppStatus } = require('../services/whatsappService');
+            const data = getWhatsAppStatus();
+            return res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error('WhatsApp Status Error:', error);
+            return res.status(200).json({
+                success: true,
+                data: { status: 'disconnected', hasQR: false, qrDataURL: null }
+            });
+        }
+    },
+
+    enableWhatsAppNotifications: async (req, res) => {
+        try {
+            const { enableWhatsAppConnection } = require('../services/notificationConfigService');
+            const data = await enableWhatsAppConnection();
+            return res.status(200).json({
+                success: true,
+                message: 'WhatsApp enabled. Scan the QR code if prompted.',
+                data
+            });
+        } catch (error) {
+            console.error('Enable WhatsApp Error:', error);
+            return res.status(500).json({ success: false, message: error.message || 'Failed to enable WhatsApp.' });
+        }
+    },
+
+    disconnectWhatsAppNotifications: async (req, res) => {
+        try {
+            const { disableWhatsAppConnection } = require('../services/notificationConfigService');
+            const data = await disableWhatsAppConnection();
+            return res.status(200).json({
+                success: true,
+                message: 'WhatsApp disconnected.',
+                data
+            });
+        } catch (error) {
+            console.error('Disconnect WhatsApp Error:', error);
+            return res.status(500).json({ success: false, message: error.message || 'Failed to disconnect WhatsApp.' });
+        }
+    },
+
+    testNotificationWhatsApp: async (req, res) => {
+        try {
+            const { sendTestWhatsApp } = require('../services/notificationConfigService');
+            const result = await sendTestWhatsApp();
+            return res.status(result.success ? 200 : 502).json({ success: result.success, ...result });
+        } catch (error) {
+            console.error('Test WhatsApp Error:', error);
+            return res.status(500).json({ success: false, message: error.message || 'Test WhatsApp failed.' });
         }
     },
 

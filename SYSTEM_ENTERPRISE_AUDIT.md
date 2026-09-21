@@ -2908,6 +2908,22 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | SMTP IPv6 | ✅ Verified | `mailer.js` + `userProfileController` use `family: 4` |
 | Jest regression suite | ✅ | **228/228** passing |
 
+## Email + WhatsApp Notification Overhaul — 2026-09-21
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Email via Resend API | ✅ | Primary provider; 3k/month free tier |
+| Email Brevo fallback | ✅ | Automatic chain Resend → Brevo → log |
+| SMTP removed from mailer | ✅ | `mailer.js` + `emailService.js`; fixes ENETUNREACH on DO |
+| WhatsApp via Baileys | ✅ | Self-hosted QR scan; replaces UltraMsg |
+| Admin Notifications tab | ✅ | `view-settings.html` + `settings-notifications.js` |
+| Gateway status endpoint | ✅ | Structured `{ email, whatsapp, sms }`; no 500 |
+| Notification API routes | ✅ | config, test-email, whatsapp-status/enable/disconnect |
+| Setup guide | ✅ | `docs/NOTIFICATION_SETUP.md` |
+| Jest regression suite | ✅ | **228/228** passing |
+
 ## HRM Access Final Redesign — 2026-09-21
 
 **Status:** ✅ **Complete**
@@ -2936,6 +2952,19 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Employee search dropdown | ✅ Fixed | Fetches `?hasAccess=false&all=true`; shows photo, name, EMP-ID, dept |
 | Username auto-fill | ✅ Fixed | First name lowercase (e.g. "dalia") |
 | Staff row actions | ✅ Fixed | Edit Permissions, Suspend/Activate, Revoke all wired with Bearer auth |
+| Jest regression suite | ✅ | **228/228** passing |
+
+## Assign Access Fix — 2026-09-21
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Employee search dropdown | ✅ Fixed | `loadAssignEmployees()` + `assignable=true`; fallback fetch; debounced name/EMP-ID filter |
+| Username field | ✅ Fixed | Empty on open; placeholder `e.g. john-doe`; value set only after employee select |
+| Permission items visible | ✅ Fixed | Force reload catalog; `data-key` toggles; explicit grid row CSS |
+| Submit + validation | ✅ Fixed | Field errors; 409 handling; staff list refresh |
+| Backend assignable filter | ✅ Fixed | `$and` Mongo query; assignable-only PG filter avoids over-excluding |
 | Jest regression suite | ✅ | **228/228** passing |
 
 

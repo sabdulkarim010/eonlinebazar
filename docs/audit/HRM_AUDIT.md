@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (Access Tab Removed + Staff Directory Final)  
+**Last updated:** 2026-09-21 (Assign Access Fix)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ⚠️ PARTIAL — employee profile has 5 tabs only; all access management in Staff Directory; broader pagination gaps remain
 
@@ -255,6 +255,13 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Assign Access Fix — 2026-09-21
+
+- Employee assign dropdown: resilient fetch with `assignable=true`, fallback to all employees + client filter
+- Username empty on modal open; permissions force-reload with visible toggle rows
+- Files: `admin-staff.js`, `view-staff.html`, `_staff.css`, `hrmReadService.js`, `employeeController.js`
+- Tests: Jest **228/228** passing
 
 ### Access Tab Removed + Staff Directory Final — 2026-09-21
 

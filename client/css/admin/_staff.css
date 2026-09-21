@@ -1242,6 +1242,26 @@ body.staff-panel-open { overflow: hidden; }
     padding-right: 4px;
 }
 
+.staff-assign-perm-grid .permission-category-items {
+    display: flex;
+    flex-direction: column;
+}
+
+.staff-assign-perm-grid .permission-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 52px;
+    position: relative;
+}
+
+.staff-assign-perm-grid .permission-toggle-copy strong,
+.staff-assign-perm-grid .permission-toggle-copy small {
+    display: block;
+    visibility: visible;
+}
+
 /* Permission toggle pill (assign + edit modals) */
 .perm-toggle {
     position: relative;
