@@ -153,18 +153,21 @@ const STAFF_GROUP_EMOJI = {
 /** One-click permission presets — keys must match config/permissions.js. */
 const ROLE_PRESETS = {
     fullAdmin: null,
-    inventoryManager: ['view_products', 'edit_products', 'manage_stock', 'manage_catalog'],
-    orderManager: ['view_orders', 'update_order_status', 'process_refunds', 'manage_customers'],
+    inventoryManager: ['view_products', 'edit_products', 'manage_stock', 'manage_catalog', 'manage_inventory'],
+    orderManager: ['view_orders', 'update_order_status', 'process_refunds', 'manage_customers', 'manage_orders'],
     posOperator: ['view_orders', 'update_order_status', 'view_products', 'manage_stock'],
-    hrManager: ['view_attendance', 'mark_attendance_today', 'mark_attendance_any_date', 'lock_attendance_dates', 'manual_attendance', 'view_employees', 'edit_employees', 'manage_payroll', 'manage_leave'],
-    customerSupport: ['view_orders', 'update_order_status', 'manage_customers'],
-    marketingManager: ['manage_marketing', 'manage_settings'],
+    hrManager: [
+        'view_attendance', 'mark_attendance_today', 'mark_attendance_any_date',
+        'lock_attendance_dates', 'manual_attendance',
+        'view_employees', 'edit_employees', 'manage_payroll', 'manage_leave', 'manage_staff'
+    ],
     clear: []
 };
 
 let staffAssignCandidates = [];
 let staffAssignSubmitInFlight = false;
 let staffAssignSelectedEmployee = null;
+let staffAssignSearchTimer = null;
 
 function buildPermissionGroups(catalog = []) {
     const groups = [];
@@ -284,6 +287,64 @@ function applyRoleToSidebar() {
 function syncPermissionRowState(box) {
     const row = box.closest('.permission-toggle-row');
     if (row) row.classList.toggle('is-on', box.checked);
+    const toggle = row?.querySelector('.perm-toggle');
+    if (toggle && box) {
+        toggle.classList.toggle('on', box.checked);
+        toggle.setAttribute('aria-checked', box.checked ? 'true' : 'false');
+    }
+}
+
+function syncPermToggleVisuals(container) {
+    if (!container) return;
+    container.querySelectorAll('.permission-toggle-input').forEach((box) => syncPermissionRowState(box));
+    container.querySelectorAll('.permission-module-select-all-input').forEach((box) => {
+        syncModuleSelectAllState(container, box.dataset.module);
+    });
+}
+
+function debounce(fn, ms = 300) {
+    let timer;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), ms);
+    };
+}
+
+function clearStaffAssignFieldErrors() {
+    document.querySelectorAll('#staffAssignAccessForm .staff-field-error, #staffAssignAccessForm .staff-form-error').forEach((el) => {
+        el.hidden = true;
+        el.textContent = '';
+    });
+    document.querySelectorAll('#staffAssignAccessForm .is-invalid').forEach((el) => el.classList.remove('is-invalid'));
+}
+
+function showStaffAssignFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    const errorMap = {
+        staffAssignEmployeeSearch: 'staffAssignEmployeeError',
+        staffAssignUsername: 'staffAssignUsernameError',
+        staffAssignPassword: 'staffAssignPasswordError',
+        staffAssignConfirmPassword: 'staffAssignConfirmError',
+        staffAssignPermissionGrid: 'staffAssignPermissionsError'
+    };
+    const errorEl = document.getElementById(errorMap[fieldId] || 'staffAssignFormError');
+    if (field) field.classList.add('is-invalid');
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.hidden = false;
+    }
+}
+
+function togglePasswordVisibility(button) {
+    const inputId = button.getAttribute('data-target');
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    const icon = button.querySelector('i');
+    if (icon) {
+        icon.className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+    }
 }
 
 function permissionByKey(key) {
@@ -318,7 +379,7 @@ function renderPermissionCheckboxes(container, selectedKeys = []) {
             </div>
             <div class="permission-category-items" data-module-items="${module.id}">
                 ${items.map((permission) => `
-                    <label class="permission-toggle-row ${selected.has(permission.key) ? 'is-on' : ''}">
+                    <div class="permission-toggle-row ${selected.has(permission.key) ? 'is-on' : ''}">
                         <span class="permission-toggle-main">
                             <span class="permission-toggle-icon"><i class="fa-solid ${escapeHtml(permission.icon || 'fa-key')}"></i></span>
                             <span class="permission-toggle-copy">
@@ -326,22 +387,38 @@ function renderPermissionCheckboxes(container, selectedKeys = []) {
                                 <small>${escapeHtml(permission.description || '')}</small>
                             </span>
                         </span>
-                        <span class="toggle-switch">
-                            <input type="checkbox" class="toggle-switch-input permission-toggle-input" data-module="${module.id}" value="${escapeHtml(permission.key)}" ${selected.has(permission.key) ? 'checked' : ''}>
-                            <span class="toggle-switch-slider" aria-hidden="true"></span>
-                        </span>
-                    </label>
+                        <input type="checkbox" class="permission-toggle-input" data-module="${module.id}" value="${escapeHtml(permission.key)}" ${selected.has(permission.key) ? 'checked' : ''} tabindex="-1" aria-hidden="true">
+                        <div class="perm-toggle ${selected.has(permission.key) ? 'on' : ''}" role="switch" aria-checked="${selected.has(permission.key) ? 'true' : 'false'}" tabindex="0" aria-label="${escapeHtml(permission.label)}"></div>
+                    </div>
                 `).join('')}
             </div>
         </div>`;
     }).join('');
 
-    container.querySelectorAll('.permission-toggle-input').forEach((box) => {
-        box.addEventListener('change', () => {
+    container.querySelectorAll('.permission-toggle-row').forEach((row) => {
+        const box = row.querySelector('.permission-toggle-input');
+        const toggle = row.querySelector('.perm-toggle');
+        const main = row.querySelector('.permission-toggle-main');
+
+        const flip = () => {
+            if (!box) return;
+            box.checked = !box.checked;
             syncPermissionRowState(box);
             clearPresetHighlight(container);
             syncModuleSelectAllState(container, box.dataset.module);
+        };
+
+        toggle?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            flip();
         });
+        toggle?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                flip();
+            }
+        });
+        main?.addEventListener('click', flip);
     });
 
     container.querySelectorAll('.permission-module-select-all-input').forEach((box) => {
@@ -376,6 +453,7 @@ function setPermissionKeys(container, keys = []) {
         box.checked = allowed.has(box.value);
         syncPermissionRowState(box);
     });
+    syncPermToggleVisuals(container);
 }
 
 function setAllPermissions(container, checked) {
@@ -386,21 +464,24 @@ function setAllPermissions(container, checked) {
     });
 }
 
+function findPresetsBar(container) {
+    if (!container) return null;
+    const root = container.closest('.staff-assign-form, .staff-permissions-panel-form, form, .admin-modal');
+    return root?.querySelector('.staff-presets-bar') || container.parentElement?.querySelector('.staff-presets-bar');
+}
+
 function applyRolePreset(container, presetKey) {
     if (!container) return;
     setPermissionKeys(container, resolvePresetKeys(presetKey));
 
-    const presetsBar = container.closest('.staff-enterprise-card-body')
-        ?.querySelector('.staff-presets-bar');
-
+    const presetsBar = findPresetsBar(container);
     presetsBar?.querySelectorAll('.staff-preset-btn').forEach(btn => {
         btn.classList.toggle('is-active', btn.dataset.preset === presetKey && presetKey !== 'clear');
     });
 }
 
 function clearPresetHighlight(container) {
-    const presetsBar = container.closest('.staff-enterprise-card-body')
-        ?.querySelector('.staff-presets-bar');
+    const presetsBar = findPresetsBar(container);
     presetsBar?.querySelectorAll('.staff-preset-btn').forEach(btn => btn.classList.remove('is-active'));
 }
 
@@ -512,7 +593,7 @@ function renderStaffTable() {
                 <td>
                     <div class="staff-actions staff-actions--directory">
                         <button type="button" class="action-btn edit" title="Edit permissions"
-                            onclick="openStaffEditModal('${staff.id}')"><i class="fa-solid fa-pen"></i> Edit</button>
+                            onclick="openStaffEditModal('${staff.id}')"><i class="fa-solid fa-pen"></i> Edit Permissions</button>
                         <button type="button" class="action-btn ${blocked ? 'activate' : 'block'}"
                             title="${blocked ? 'Activate account' : 'Suspend account'}"
                             onclick="toggleStaffStatus('${staff.id}')">
@@ -692,8 +773,8 @@ window.hasAdminPermission = hasPermission;
 
 async function refreshStaffAssignCandidates() {
     try {
-        const result = await staffApi('/api/admin/hrm/employees?hasAccess=false&limit=200');
-        staffAssignCandidates = result.data || [];
+        const result = await staffApi('/api/admin/hrm/employees?hasAccess=false&all=true');
+        staffAssignCandidates = Array.isArray(result.data) ? result.data : [];
     } catch (error) {
         console.error('refreshStaffAssignCandidates:', error);
         staffAssignCandidates = [];
@@ -706,13 +787,8 @@ window.refreshStaffAssignCandidates = refreshStaffAssignCandidates;
    ========================================================================== */
 
 function suggestUsernameFromName(fullName) {
-    return String(fullName || '')
-        .trim()
-        .toLowerCase()
-        .split(/\s+/)
-        .filter(Boolean)
-        .join('-')
-        .replace(/[^a-z-]/g, '');
+    const first = String(fullName || '').trim().split(/\s+/).filter(Boolean)[0] || '';
+    return first.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 async function ensureStaffPermissionCatalog() {
@@ -748,9 +824,15 @@ function renderStaffAssignDropdown(filter = '') {
     const needle = String(filter || '').trim().toLowerCase();
     const matches = staffAssignCandidates.filter((e) => {
         if (!needle) return true;
-        const hay = `${e.fullName} ${e.employeeId} ${e.phone || ''}`.toLowerCase();
+        const hay = `${e.fullName} ${e.employeeId} ${e.phone || ''} ${e.department || ''}`.toLowerCase();
         return hay.includes(needle);
     }).slice(0, 12);
+
+    if (!staffAssignCandidates.length) {
+        dropdown.innerHTML = '<p class="staff-assign-dropdown-empty">No employees available — all may already have access.</p>';
+        dropdown.hidden = false;
+        return;
+    }
 
     if (!matches.length) {
         dropdown.innerHTML = '<p class="staff-assign-dropdown-empty">No matching employees without access</p>';
@@ -762,7 +844,8 @@ function renderStaffAssignDropdown(filter = '') {
         <button type="button" class="staff-assign-dropdown-item" data-employee-id="${escapeHtml(e._id)}">
             ${e.photo ? `<img src="${escapeHtml(e.photo)}" alt="" class="staff-assign-dropdown-photo">` : '<span class="staff-assign-dropdown-photo staff-assign-dropdown-photo--placeholder"><i class="fa-solid fa-user"></i></span>'}
             <span class="staff-assign-dropdown-copy">
-                <strong>${escapeHtml(e.fullName)} · ${escapeHtml(e.employeeId || 'EMP')}</strong>
+                <strong>${escapeHtml(e.fullName)}</strong>
+                <small>${escapeHtml(e.employeeId || 'EMP')} · ${escapeHtml(e.department || 'Operations')}</small>
             </span>
         </button>
     `).join('');
@@ -780,16 +863,20 @@ function selectStaffAssignEmployee(employeeId) {
     staffAssignSelectedEmployee = employee;
     document.getElementById('staffAssignEmpId').value = employee._id;
     document.getElementById('staffAssignEmployeeSearch').value = `${employee.fullName} · ${employee.employeeId || 'EMP'}`;
-    document.getElementById('staffAssignSelectedHint').textContent = `Selected: ${employee.fullName} · ${employee.employeeId || 'EMP'}`;
+    document.getElementById('staffAssignSelectedHint').textContent = `Selected: ${employee.fullName} · ${employee.employeeId || 'EMP'} · ${employee.department || 'Operations'}`;
 
     const suggested = suggestUsernameFromName(employee.fullName);
     document.getElementById('staffAssignUsername').value = suggested;
+
+    document.getElementById('staffAssignEmployeeSearch')?.classList.remove('is-invalid');
+    document.getElementById('staffAssignEmployeeError').hidden = true;
 
     const dropdown = document.getElementById('staffAssignEmployeeDropdown');
     if (dropdown) dropdown.hidden = true;
 }
 
 async function openStaffAssignModal(prefillEmployee = null) {
+    clearStaffAssignFieldErrors();
     staffAssignSelectedEmployee = prefillEmployee || null;
     document.getElementById('staffAssignEmpId').value = prefillEmployee?._id || '';
     document.getElementById('staffAssignEmployeeSearch').value = prefillEmployee
@@ -819,7 +906,7 @@ async function openStaffAssignModal(prefillEmployee = null) {
     const submitBtn = document.getElementById('staffAssignSubmitBtn');
     if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Link Account';
+        submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Link Account →';
     }
 
     const modal = document.getElementById('staffAssignAccessModal');
@@ -849,9 +936,9 @@ function closeStaffAssignModal() {
 }
 window.closeStaffAssignModal = closeStaffAssignModal;
 
-async function submitStaffAssignAccess(event) {
-    event.preventDefault();
-    if (staffAssignSubmitInFlight) return;
+function validateStaffAssignForm() {
+    clearStaffAssignFieldErrors();
+    let valid = true;
 
     const employeeId = document.getElementById('staffAssignEmpId').value;
     const username = document.getElementById('staffAssignUsername').value.trim();
@@ -859,28 +946,41 @@ async function submitStaffAssignAccess(event) {
     const confirmPwd = document.getElementById('staffAssignConfirmPassword').value;
     const grid = document.getElementById('staffAssignPermissionGrid');
     const permissions = readSelectedPermissions(grid);
-    const submitBtn = document.getElementById('staffAssignSubmitBtn');
 
     if (!employeeId) {
-        notify('Select an employee from the search list.', 'warning');
-        return;
+        showStaffAssignFieldError('staffAssignEmployeeSearch', 'Select an employee from the list.');
+        valid = false;
     }
-    if (!username || !password) {
-        notify('Username and password are required.', 'warning');
-        return;
+    if (!username) {
+        showStaffAssignFieldError('staffAssignUsername', 'Username is required.');
+        valid = false;
     }
-    if (password.length < 8) {
-        notify('Password must be at least 8 characters.', 'warning');
-        return;
+    if (!password || password.length < 8) {
+        showStaffAssignFieldError('staffAssignPassword', 'Password must be at least 8 characters.');
+        valid = false;
     }
     if (password !== confirmPwd) {
-        notify('Passwords do not match.', 'warning');
-        return;
+        showStaffAssignFieldError('staffAssignConfirmPassword', 'Passwords must match.');
+        valid = false;
     }
     if (!permissions.length) {
-        notify('Select at least one permission.', 'warning');
-        return;
+        showStaffAssignFieldError('staffAssignPermissionGrid', 'Select at least one permission.');
+        valid = false;
     }
+
+    return { valid, employeeId, username, password, permissions };
+}
+
+async function submitStaffAssignAccess(event) {
+    event.preventDefault();
+    if (staffAssignSubmitInFlight) return;
+
+    const validation = validateStaffAssignForm();
+    if (!validation.valid) return;
+
+    const { employeeId, username, password, permissions } = validation;
+    const submitBtn = document.getElementById('staffAssignSubmitBtn');
+    const employeeName = staffAssignSelectedEmployee?.fullName || username;
 
     staffAssignSubmitInFlight = true;
     if (submitBtn) {
@@ -897,7 +997,7 @@ async function submitStaffAssignAccess(event) {
         const data = await response.json().catch(() => ({}));
 
         if (response.status === 409 || (data.error && /already granted/i.test(String(data.error)))) {
-            notify('This employee already has system access.', 'info');
+            notify('ℹ️ Already has access', 'info');
             closeStaffAssignModal();
             await fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
             await refreshStaffAssignCandidates();
@@ -905,21 +1005,31 @@ async function submitStaffAssignAccess(event) {
         }
 
         if (!response.ok || data.success === false) {
+            const formError = document.getElementById('staffAssignFormError');
+            if (formError) {
+                formError.textContent = data.error || data.message || 'Failed to grant access.';
+                formError.hidden = false;
+            }
             notify(data.error || data.message || 'Failed to grant access.', 'error');
             return;
         }
 
-        notify('Access granted successfully!', 'success');
+        notify(`✅ Access granted to ${employeeName}`, 'success');
         closeStaffAssignModal();
         await fetchStaffAccounts({ showTableLoading: false });
         await refreshStaffAssignCandidates();
     } catch (error) {
+        const formError = document.getElementById('staffAssignFormError');
+        if (formError) {
+            formError.textContent = error.message || 'Failed to link system account.';
+            formError.hidden = false;
+        }
         notify(error.message || 'Failed to link system account.', 'error');
     } finally {
         staffAssignSubmitInFlight = false;
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Link Account';
+            submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Link Account →';
         }
     }
 }
@@ -928,6 +1038,7 @@ function setupStaffAssignModal() {
     const assignBtn = document.getElementById('staffAssignAccessBtn');
     const form = document.getElementById('staffAssignAccessForm');
     const searchInput = document.getElementById('staffAssignEmployeeSearch');
+    const debouncedSearch = debounce((value) => renderStaffAssignDropdown(value), 300);
 
     assignBtn?.addEventListener('click', () => openStaffAssignModal());
     form?.addEventListener('submit', submitStaffAssignAccess);
@@ -936,8 +1047,31 @@ function setupStaffAssignModal() {
     searchInput?.addEventListener('input', () => {
         staffAssignSelectedEmployee = null;
         document.getElementById('staffAssignEmpId').value = '';
-        renderStaffAssignDropdown(searchInput.value);
+        debouncedSearch(searchInput.value);
     });
+
+    document.querySelectorAll('.staff-password-toggle').forEach((btn) => {
+        btn.addEventListener('click', () => togglePasswordVisibility(btn));
+    });
+
+    const passwordInput = document.getElementById('staffAssignPassword');
+    const confirmInput = document.getElementById('staffAssignConfirmPassword');
+    const validatePasswordMatch = () => {
+        if (!confirmInput?.value) return;
+        const err = document.getElementById('staffAssignConfirmError');
+        if (passwordInput.value !== confirmInput.value) {
+            confirmInput.classList.add('is-invalid');
+            if (err) {
+                err.textContent = 'Passwords must match.';
+                err.hidden = false;
+            }
+        } else {
+            confirmInput.classList.remove('is-invalid');
+            if (err) err.hidden = true;
+        }
+    };
+    passwordInput?.addEventListener('input', validatePasswordMatch);
+    confirmInput?.addEventListener('input', validatePasswordMatch);
 
     document.addEventListener('click', (e) => {
         const dropdown = document.getElementById('staffAssignEmployeeDropdown');
@@ -1131,7 +1265,7 @@ window.revokeStaffAccess = function revokeStaffAccess(staffId) {
 
     confirmAction(
         'Revoke System Access',
-        `Revoke access for "${staff.username}"? They will be signed out, suspended, and unlinked from their HRM employee record.`,
+        `Remove admin access for ${staff.name || staff.username}? They will be logged out immediately.`,
         async () => {
             try {
                 const result = await staffApi(`/api/admin/staff/${staffId}/access`, { method: 'DELETE' });

@@ -2257,3 +2257,14 @@ docs/audit/HRM_AUDIT.md [MOD] HRM Access Final Redesign changelog
 docs/audit/AUTH_SECURITY_AUDIT.md [MOD] Bearer auth on admin fetch
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Access Final Redesign section
 README.md [MOD] HRM Access Final Redesign
+#
+# Access Tab Removed + Staff Directory Final: 2026-09-21
+client/admin/partials/view-hrm-employees.html [MOD] removed Access tab button + profile-tab-access panel permanently
+client/js/admin/modules/hrm-employees.js [MOD] deleted all access-tab/grant/permission/suspend code (~600 lines)
+client/admin/partials/view-staff.html [MOD] 3-step Assign System Access modal redesign
+client/js/admin-staff.js [MOD] perm-toggle UI; debounced search; all=true fetch; validation; presets; row actions
+client/css/admin/_staff.css [MOD] assign modal steps, perm-toggle, field errors, password toggle
+docs/audit/HRM_AUDIT.md [MOD] Access Tab Removed changelog
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] Staff Directory consolidated access
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Access Tab Removed + Staff Directory Final section
+README.md [MOD] Access Tab Removed + Staff Directory Final

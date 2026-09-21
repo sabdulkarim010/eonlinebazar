@@ -2924,5 +2924,19 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Removed quick-grant modal | ✅ Fixed | `#quickGrantModal` / `#manageAccessModal` removed from Employees page |
 | Jest regression suite | ✅ | **228/228** passing |
 
+## Access Tab Removed + Staff Directory Final — 2026-09-21
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Employee modal — no Access tab | ✅ Fixed | 5 tabs only: Overview, Documents, Attendance, Payroll, Leave |
+| Access tab code removed | ✅ Fixed | All access JS/HTML removed from `hrm-employees.js` + `view-hrm-employees.html` |
+| Assign System Access modal redesign | ✅ Fixed | 3-step modal; debounced employee search; perm toggles; presets; validation |
+| Employee search dropdown | ✅ Fixed | Fetches `?hasAccess=false&all=true`; shows photo, name, EMP-ID, dept |
+| Username auto-fill | ✅ Fixed | First name lowercase (e.g. "dalia") |
+| Staff row actions | ✅ Fixed | Edit Permissions, Suspend/Activate, Revoke all wired with Bearer auth |
+| Jest regression suite | ✅ | **228/228** passing |
+
 
 

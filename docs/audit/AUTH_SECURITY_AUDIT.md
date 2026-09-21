@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (HRM Access Final Redesign — Bearer auth on admin fetch)  
+**Last updated:** 2026-09-21 (Access Tab Removed + Staff Directory Final)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -105,6 +105,13 @@
 ---
 
 ## Change Log
+
+### Access Tab Removed + Staff Directory Final — 2026-09-21
+
+- All admin access management consolidated in System Staff Directory (`view-staff.html` + `admin-staff.js`)
+- Employee profile modal no longer exposes access/permissions UI
+- Assign modal: Bearer auth on grant-access; field-level validation; 409 graceful handling
+- Tests: Jest **228/228** passing
 
 ### HRM Access Final Redesign — 2026-09-21
 

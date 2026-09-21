@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-21 (HRM Access Final Redesign)
+**Last updated:** 2026-09-21 (Access Tab Removed + Staff Directory Final)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 

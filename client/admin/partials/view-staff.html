@@ -77,69 +77,85 @@
 
 <!-- Assign System Access modal -->
 <div id="staffAssignAccessModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeStaffAssignModal()">
-    <div class="custom-modal-box admin-modal employee-modal-wide admin-modal--wide">
-        <div class="modal-header">
+    <div class="custom-modal-box admin-modal staff-assign-modal admin-modal--wide">
+        <div class="modal-header staff-assign-modal__header">
             <div>
                 <h3><i class="fa-solid fa-user-plus"></i> Assign System Access</h3>
-                <p class="edit-modal-subtitle">Link an HRM employee to a new admin login with granular permissions</p>
+                <p class="edit-modal-subtitle">Link an HRM employee to an admin login account</p>
             </div>
             <button type="button" class="close-icon-btn" onclick="closeStaffAssignModal()" aria-label="Close">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <form id="staffAssignAccessForm" novalidate>
+        <form id="staffAssignAccessForm" class="staff-assign-form" novalidate>
             <input type="hidden" id="staffAssignEmpId">
-            <div class="modal-body admin-modal-body">
-                <div class="form-group" id="staffAssignEmployeeField">
-                    <label for="staffAssignEmployeeSearch">Employee</label>
-                    <div class="staff-assign-search-wrap">
-                        <input type="search" id="staffAssignEmployeeSearch" class="staff-assign-search-input" placeholder="Search by name or EMP-ID…" autocomplete="off">
-                        <div id="staffAssignEmployeeDropdown" class="staff-assign-dropdown" hidden></div>
-                    </div>
-                    <p id="staffAssignSelectedHint" class="staff-assign-hint">Only employees without linked admin access are listed.</p>
-                </div>
-                <div class="form-grid-2">
-                    <div class="form-group">
-                        <label for="staffAssignUsername">Username</label>
-                        <input type="text" id="staffAssignUsername" required autocomplete="off" placeholder="john.doe">
-                    </div>
-                    <div class="form-group">
-                        <label for="staffAssignPassword">Password *</label>
-                        <input type="password" id="staffAssignPassword" required autocomplete="new-password">
-                    </div>
-                    <div class="form-group">
-                        <label for="staffAssignConfirmPassword">Confirm Password *</label>
-                        <input type="password" id="staffAssignConfirmPassword" required autocomplete="new-password">
-                    </div>
-                </div>
+            <div class="modal-body admin-modal-body staff-assign-modal__body">
+                <p id="staffAssignFormError" class="staff-field-error staff-form-error" hidden></p>
 
-                <div class="staff-enterprise-card" style="margin-top:16px;">
-                    <div class="staff-enterprise-card-head">
-                        <span class="staff-enterprise-card-icon"><i class="fa-solid fa-shield-halved"></i></span>
-                        <div>
-                            <h5>Permissions *</h5>
-                            <p>Select capabilities or apply a quick preset</p>
+                <section class="staff-assign-step">
+                    <h4 class="staff-assign-step__title">Step 1 — Select Employee</h4>
+                    <div class="form-group" id="staffAssignEmployeeField">
+                        <div class="staff-assign-search-wrap">
+                            <i class="fa-solid fa-magnifying-glass staff-assign-search-icon" aria-hidden="true"></i>
+                            <input type="search" id="staffAssignEmployeeSearch" class="staff-assign-search-input" placeholder="Search by name or EMP-ID…" autocomplete="off">
+                            <div id="staffAssignEmployeeDropdown" class="staff-assign-dropdown" hidden></div>
                         </div>
+                        <p id="staffAssignSelectedHint" class="staff-assign-hint">Only employees without linked admin access are listed.</p>
+                        <p id="staffAssignEmployeeError" class="staff-field-error" hidden></p>
                     </div>
-                    <div class="staff-enterprise-card-body">
-                        <div class="staff-presets-bar" data-permission-presets="assign">
-                            <span class="staff-presets-label">Quick Role Presets</span>
-                            <div class="staff-presets-actions">
-                                <button type="button" class="staff-preset-btn" data-preset="fullAdmin">Full Admin</button>
-                                <button type="button" class="staff-preset-btn" data-preset="hrManager">HR Manager</button>
-                                <button type="button" class="staff-preset-btn" data-preset="orderManager">Order Manager</button>
-                                <button type="button" class="staff-preset-btn" data-preset="inventoryManager">Inventory Manager</button>
-                                <button type="button" class="staff-preset-btn" data-preset="posOperator">POS Operator</button>
-                                <button type="button" class="staff-preset-btn staff-preset-btn--ghost" data-preset="clear">Reset</button>
+                </section>
+
+                <section class="staff-assign-step">
+                    <h4 class="staff-assign-step__title">Step 2 — Login Credentials</h4>
+                    <div class="form-group">
+                        <label for="staffAssignUsername">Username * <span class="field-hint-inline">(auto-filled, editable)</span></label>
+                        <input type="text" id="staffAssignUsername" required autocomplete="off" placeholder="dalia">
+                        <p id="staffAssignUsernameError" class="staff-field-error" hidden></p>
+                    </div>
+                    <div class="form-grid-2 staff-assign-password-grid">
+                        <div class="form-group">
+                            <label for="staffAssignPassword">Password *</label>
+                            <div class="staff-password-field">
+                                <input type="password" id="staffAssignPassword" required autocomplete="new-password" placeholder="Min 8 characters">
+                                <button type="button" class="staff-password-toggle" data-target="staffAssignPassword" aria-label="Show password">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
                             </div>
+                            <p id="staffAssignPasswordError" class="staff-field-error" hidden></p>
                         </div>
-                        <div id="staffAssignPermissionGrid" class="permission-grid permission-grid--modules"></div>
+                        <div class="form-group">
+                            <label for="staffAssignConfirmPassword">Confirm Password *</label>
+                            <div class="staff-password-field">
+                                <input type="password" id="staffAssignConfirmPassword" required autocomplete="new-password" placeholder="Must match">
+                                <button type="button" class="staff-password-toggle" data-target="staffAssignConfirmPassword" aria-label="Show password">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+                            <p id="staffAssignConfirmError" class="staff-field-error" hidden></p>
+                        </div>
                     </div>
-                </div>
+                </section>
+
+                <section class="staff-assign-step">
+                    <h4 class="staff-assign-step__title">Step 3 — Permissions</h4>
+                    <div class="staff-presets-bar" data-permission-presets="assign">
+                        <span class="staff-presets-label">Quick presets</span>
+                        <div class="staff-presets-actions">
+                            <button type="button" class="staff-preset-btn" data-preset="fullAdmin">Full Admin</button>
+                            <button type="button" class="staff-preset-btn" data-preset="hrManager">HR Manager</button>
+                            <button type="button" class="staff-preset-btn" data-preset="orderManager">Order Manager</button>
+                            <button type="button" class="staff-preset-btn" data-preset="inventoryManager">Inventory Manager</button>
+                            <button type="button" class="staff-preset-btn" data-preset="posOperator">POS Operator</button>
+                            <button type="button" class="staff-preset-btn staff-preset-btn--ghost" data-preset="clear">Reset</button>
+                        </div>
+                    </div>
+                    <div id="staffAssignPermissionGrid" class="permission-grid permission-grid--modules staff-assign-perm-grid"></div>
+                    <p id="staffAssignPermissionsError" class="staff-field-error" hidden></p>
+                </section>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer staff-assign-modal__footer">
                 <button type="button" class="btn-secondary" onclick="closeStaffAssignModal()">Cancel</button>
-                <button type="submit" class="btn-primary" id="staffAssignSubmitBtn"><i class="fa-solid fa-link"></i> Link Account</button>
+                <button type="submit" class="btn-primary" id="staffAssignSubmitBtn"><i class="fa-solid fa-link"></i> Link Account →</button>
             </div>
         </form>
     </div>

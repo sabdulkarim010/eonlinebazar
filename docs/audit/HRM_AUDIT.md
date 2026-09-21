@@ -1,8 +1,8 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (HRM Access Final Redesign)  
+**Last updated:** 2026-09-21 (Access Tab Removed + Staff Directory Final)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
-**Status:** ⚠️ PARTIAL — separated Access tab vs Staff Directory flows complete; broader pagination gaps remain
+**Status:** ⚠️ PARTIAL — employee profile has 5 tabs only; all access management in Staff Directory; broader pagination gaps remain
 
 ---
 
@@ -57,8 +57,9 @@
 | `client/admin/partials/sidebar.html` | Sidebar profile HTML (`#adminProfilePic`, `.admin-profile .info`) | ✅ |
 | `client/js/admin/modules/sidebarLabels.js` | Super Admin sidebar label apply (read-only in sidebar) | ✅ |
 | `client/js/admin/modules/settings-menu-labels.js` | Settings → Customize Menu Labels editor (Super Admin) | ✅ |
-| `client/js/admin/modules/hrm-employees.js` | Employee UI + Access tab (permissions-only); `authHeaders()`; Super Admin tab removed from DOM | ✅ |
-| `client/js/admin-staff.js` | Staff Directory — Assign New Access modal; `authHeaders()`; 409 handling; `activeCount` stats | ✅ |
+| `client/js/admin/modules/hrm-employees.js` | Employee UI — 5 profile tabs only (no Access tab); `authHeaders()` | ✅ |
+| `client/js/admin-staff.js` | Staff Directory — stepped Assign modal, perm toggles, presets, row actions | ✅ |
+| `client/css/admin/_staff.css` | Assign modal steps, `.perm-toggle`, validation, password show/hide | ✅ |
 | `client/admin/partials/view-staff.html` | System Staff Directory — Assign New Access, Active Admins stat card | ✅ |
 | `backend/src/controllers/staffController.js` | `listStaff` returns `{ staff, total, activeCount }` | ✅ |
 | `client/css/admin/_modals.css` | Viewport-safe `.admin-modal` pattern (max-height, scrollable body) | ✅ |
@@ -85,9 +86,9 @@
 
 - [x] Viewport-safe modals (Assign Access, Edit Permissions, employee profile) — `_modals.css`, `_hrm.css`
 - [x] Assign System Access full flow (employee search, 25 permissions, presets, Link Account) — `admin-staff.js`, `view-staff.html`
-- [x] Employee profile Access tab — permissions-only (no account → preview + Staff Directory link; has account → toggles + Save/Suspend) — `hrm-employees.js`
-- [x] Super Admin employee — Access tab removed entirely (not hidden) — `access-info` + `removeEmployeeAccessTab()`
-- [x] Staff Directory Assign New Access — sole login-creation flow (username/password + Link Account) — `admin-staff.js`, `view-staff.html`
+- [x] Employee profile modal — 5 tabs only (Overview, Documents, Attendance, Payroll, Leave) — no Access tab — `view-hrm-employees.html`, `hrm-employees.js`
+- [x] Staff Directory Assign System Access — stepped modal (employee search, credentials, perm toggles, presets) — `view-staff.html`, `admin-staff.js`
+- [x] Staff row actions — Edit Permissions, Suspend/Activate, Revoke — `admin-staff.js`
 - [x] Active Admins stat card — `GET /api/admin/staff` returns `activeCount` — `staffController.js`
 - [x] Super Admin sidebar menu label customization — `sidebarLabels.js`, `sidebarLabelController.js`
 - [x] Employee profile modal (attendance/payroll/leave tabs) — `getEmployeeProfile`
@@ -254,6 +255,14 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Access Tab Removed + Staff Directory Final — 2026-09-21
+
+- **Employee modal:** Access tab button + panel + all access JS removed permanently; exactly 5 profile tabs remain
+- **Assign System Access modal:** 3-step layout (Select Employee → Credentials → Permissions); debounced search with `?hasAccess=false&all=true`; avatar + name + EMP-ID + dept dropdown; first-name username auto-fill; password show/hide + match validation; `.perm-toggle` switches; group Select all; quick presets
+- **Staff Directory row actions:** Edit Permissions (PUT), Suspend/Activate (PATCH status), Revoke (DELETE access) with confirm dialog
+- Files: `view-hrm-employees.html`, `hrm-employees.js`, `view-staff.html`, `admin-staff.js`, `_staff.css`
+- Tests: Jest **228/228** passing
 
 ### HRM Access Final Redesign — 2026-09-21
 
