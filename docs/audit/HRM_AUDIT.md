@@ -1,8 +1,8 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (Fix Group B — pagination + staff directory)  
+**Last updated:** 2026-09-21 (HRM modal fix + sidebar labels + access tab)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
-**Status:** ⚠️ PARTIAL — clock-out + settings 500 fixed; pagination gaps remain
+**Status:** ⚠️ PARTIAL — modal/access flows complete; broader pagination gaps remain
 
 ---
 
@@ -55,7 +55,16 @@
 | `client/admin/partials/view-hrm-leaves.html` | Leave management | ✅ |
 | `client/admin/partials/view-settings.html` | Link to Employee Record card (super-admin) | ✅ |
 | `client/admin/partials/sidebar.html` | Sidebar profile HTML (`#adminProfilePic`, `.admin-profile .info`) | ✅ |
-| `client/js/admin/modules/hrm-employees.js` | Employee UI + access tab; sidebar refresh after every save | ✅ |
+| `client/js/admin/modules/sidebarLabels.js` | Super Admin sidebar menu rename (✏️ inline edit) | ✅ |
+| `client/js/admin/modules/hrm-employees.js` | Employee UI + Access tab; Grant/Edit/Suspend/Revoke | ✅ |
+| `client/js/admin-staff.js` | Assign System Access modal; employee search; 25-permission grid; Link Account flow | ✅ |
+| `client/css/admin/_modals.css` | Viewport-safe `.admin-modal` pattern (max-height, scrollable body) | ✅ |
+| `client/css/admin/_hrm.css` | HRM modal viewport rules; Access tab permission groups | ✅ |
+| `client/css/admin/_layout.css` | Sidebar label edit pencil hover styles | ✅ |
+| `backend/src/repositories/sidebarLabelRepository.js` | PG sidebar label CRUD | ✅ |
+| `backend/src/controllers/admin/sidebarLabelController.js` | GET/PUT `/api/admin/sidebar-labels` | ✅ |
+| `prisma/schema.prisma` | `SidebarLabel` model | ✅ |
+| `tests/repositories/sidebarLabel.repository.test.js` | SidebarLabel repo tests | ✅ |
 | `client/js/admin/modules/hrm-attendance.js` | Daily sheet auto-save, inline edit, per-row save feedback, lock UI, manual entry tab guard, toasts | ✅ |
 | `client/js/admin/modules/hrm-payroll.js` | Payroll UI | ✅ |
 | `client/js/admin/modules/hrm-leaves.js` | Leave UI | ✅ |
@@ -70,7 +79,10 @@
 
 ## Feature Checklist
 
-- [x] Employee CRUD + auto `EMP-001` IDs — `employeeController.js`
+- [x] Viewport-safe modals (Assign Access, Edit Permissions, employee profile) — `_modals.css`, `_hrm.css`
+- [x] Assign System Access full flow (employee search, 25 permissions, presets, Link Account) — `admin-staff.js`, `view-staff.html`
+- [x] Employee profile Access tab (no access / has access states, Grant/Edit/Suspend/Revoke) — `hrm-employees.js`
+- [x] Super Admin sidebar menu label customization — `sidebarLabels.js`, `sidebarLabelController.js`
 - [x] Employee profile modal (attendance/payroll/leave tabs) — `getEmployeeProfile`
 - [x] Cloudinary photo + document uploads — `uploadEmployeePhoto`, `uploadEmployeeDocument`
 - [x] Designation catalog CRUD — `designationController.js`
@@ -235,6 +247,15 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### HRM Modal Fix + Access Tab + Sidebar Labels — 2026-09-21
+
+- **Modal viewport overflow fixed:** `.admin-modal-overlay` / `.admin-modal` pattern — `max-height: calc(100vh - 2rem)`, scrollable body, fixed header/footer; applied to staff assign/edit modals and all HRM modals
+- **Assign System Access flow:** employee dropdown from `GET /hrm/employees?hasAccess=false`; 25 permissions from `GET /api/admin/permissions`; presets; Link Account with loading/409 handling
+- **Employee Access tab:** no-access empty state + Grant button (pre-fills employee); linked state shows username, role, status, grouped permissions, Suspend/Activate/Revoke
+- **Sidebar labels (Super Admin):** `SidebarLabel` Prisma model; `GET/PUT /api/admin/sidebar-labels/:key`; inline ✏️ edit on hover
+- Files: `_modals.css`, `_hrm.css`, `_layout.css`, `view-staff.html`, `view-hrm-employees.html`, `admin-staff.js`, `hrm-employees.js`, `sidebarLabels.js`, `sidebarLabelRepository.js`, `sidebarLabelController.js`, `adminRoutes.js`
+- Tests: Jest **228/228** passing
 
 ### Fix Group B — Pagination + Staff Directory — 2026-09-21
 

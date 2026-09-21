@@ -91,6 +91,7 @@ const {
 const cacheController = require('../controllers/cacheController');
 const sandboxController = require('../controllers/sandboxController');
 const backupController = require('../controllers/admin/backupController');
+const sidebarLabelController = require('../controllers/admin/sidebarLabelController');
 const supportSlaController = require('../controllers/admin/supportSlaController');
 const securityMonitorController = require('../controllers/admin/securityMonitorController');
 
@@ -699,5 +700,9 @@ router.get('/sandbox/status', verifyAdmin, requireSuperAdmin, sandboxController.
 router.post('/sandbox/toggle', verifyAdmin, requireSuperAdmin, sandboxController.toggleSandboxMode);
 router.post('/sandbox/reset-test-data', verifyAdmin, requireSuperAdmin, sandboxController.resetTestData);
 router.post('/sandbox/reset-real-data', verifyAdmin, requireSuperAdmin, sandboxController.resetRealData);
+
+// Super Admin sidebar menu label customization
+router.get('/sidebar-labels', verifyAdmin, requireSuperAdmin, sidebarLabelController.listSidebarLabels);
+router.put('/sidebar-labels/:key', verifyAdmin, requireSuperAdmin, sidebarLabelController.upsertSidebarLabel);
 
 module.exports = router;

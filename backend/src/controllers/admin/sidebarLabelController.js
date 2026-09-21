@@ -1,0 +1,39 @@
+/********************************************************************
+ * Project: EonlineBazar — Admin Sidebar Labels
+ * File: sidebarLabelController.js
+ * Description: Super Admin custom sidebar menu labels (PG primary).
+ ********************************************************************/
+
+const sidebarLabelRepository = require('../../repositories/sidebarLabelRepository');
+
+exports.listSidebarLabels = async (req, res) => {
+    try {
+        const labels = await sidebarLabelRepository.findAllMap();
+        res.status(200).json({ success: true, labels });
+    } catch (error) {
+        console.error('listSidebarLabels Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load sidebar labels.' });
+    }
+};
+
+exports.upsertSidebarLabel = async (req, res) => {
+    try {
+        const menuKey = String(req.params.key || '').trim();
+        const label = String(req.body.label || '').trim();
+
+        if (!menuKey) {
+            return res.status(400).json({ success: false, message: 'Menu key is required.' });
+        }
+        if (!label || label.length > 80) {
+            return res.status(400).json({ success: false, message: 'Label must be 1–80 characters.' });
+        }
+
+        const adminId = String(req.adminAccount?._id || req.admin?.id || 'superadmin');
+        await sidebarLabelRepository.upsertLabel(menuKey, label, adminId);
+
+        res.status(200).json({ success: true, menuKey, label });
+    } catch (error) {
+        console.error('upsertSidebarLabel Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to save sidebar label.' });
+    }
+};

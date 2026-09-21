@@ -2197,3 +2197,32 @@ docs/audit/HRM_AUDIT.md [MOD] Fix Group B changelog
 docs/audit/AUTH_SECURITY_AUDIT.md [MOD] revoke access endpoint
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Fix Group B section
 README.md [MOD] Fix Group B complete
+client/css/admin/_modals.css [MOD] viewport-safe admin-modal pattern
+client/css/admin/_hrm.css [MOD] HRM modal viewport + Access tab permission groups
+client/css/admin/_layout.css [MOD] sidebar label edit pencil styles
+client/admin/partials/view-staff.html [MOD] admin-modal classes on assign/edit modals
+client/admin/partials/view-hrm-employees.html [MOD] admin-modal on all HRM modals
+client/js/admin-staff.js [MOD] assign flow; Name · EMP-ID dropdown; sidebar label boot hook
+client/js/admin/modules/hrm-employees.js [MOD] Access tab states; Grant/Edit/Suspend/Revoke
+client/js/admin/modules/sidebarLabels.js [NEW] Super Admin sidebar rename UI
+client/js/admin/admin-core.js [MOD] import sidebarLabels.js
+backend/src/controllers/admin/sidebarLabelController.js [NEW] GET/PUT sidebar labels
+backend/src/repositories/sidebarLabelRepository.js [NEW] SidebarLabel PG repo
+backend/src/routes/adminRoutes.js [MOD] /sidebar-labels routes (requireSuperAdmin)
+prisma/schema.prisma [MOD] SidebarLabel model
+prisma/migrations/20260921073000_add_sidebar_labels/migration.sql [NEW]
+tests/repositories/sidebarLabel.repository.test.js [NEW]
+docs/audit/HRM_AUDIT.md [MOD] modal fix + access tab + sidebar labels
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] sidebar label API
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Modal Fix + Sidebar Labels section
+README.md [MOD] HRM modal fix complete
+backend/src/controllers/settingsController.js [MOD] fix gateway/attendance service require paths
+backend/src/services/healthService.js [MOD] PG probe 3s timeout; degraded not disconnected
+backend/src/controllers/userProfileController.js [MOD] SMTP explicit host + family 4
+client/js/admin-staff.js [MOD] avatar onerror safe; assign modal null guard + grant fallback
+client/js/admin/modules/hrm-employees.js [MOD] Grant button event listeners; local grant modal priority
+client/admin/partials/scripts.html [MOD] admin-staff.js as classic script not module
+docs/audit/PRODUCTION_ISSUES_AUDIT.md [MOD] Critical Production Bugs section
+docs/audit/DEVOPS_AUDIT.md [MOD] IPv6 SMTP + health probe notes
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Critical Production Bugs section
+README.md [MOD] critical bugs fix

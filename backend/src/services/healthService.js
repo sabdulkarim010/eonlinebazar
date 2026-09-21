@@ -17,10 +17,15 @@ function formatUptime(ms) {
 async function probePostgres() {
     try {
         const prisma = getPrisma();
-        await prisma.$queryRaw`SELECT 1`;
+        await Promise.race([
+            prisma.$queryRaw`SELECT 1`,
+            new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('timeout')), 3000);
+            })
+        ]);
         return 'connected';
     } catch {
-        return 'disconnected';
+        return 'degraded';
     }
 }
 
@@ -51,10 +56,10 @@ async function getHealthPayload() {
     };
 
     let status = 'ok';
-    if (mongo === 'disconnected' || postgresql === 'disconnected') {
+    if (mongo === 'disconnected' || postgresql === 'degraded') {
         status = 'degraded';
     }
-    if (mongo === 'disconnected' && postgresql === 'disconnected') {
+    if (mongo === 'disconnected' && postgresql === 'degraded') {
         status = 'down';
     }
 

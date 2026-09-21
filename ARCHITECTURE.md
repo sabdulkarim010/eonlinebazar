@@ -44,7 +44,7 @@ client/
 
 │   │   ├── admin-dashboard.js ← analytics widgets
 
-│   │   └── modules/           ← Actual logic files (incl. adminSidebar.js — merged sidebar profile; pagination-util.js — unified AdminPagination)
+│   │   └── modules/           ← Actual logic files (incl. adminSidebar.js — merged sidebar profile; sidebarLabels.js — Super Admin menu rename; pagination-util.js — unified AdminPagination)
 
 │   ├── profile.js         ← BARREL → js/profile/*.js
 

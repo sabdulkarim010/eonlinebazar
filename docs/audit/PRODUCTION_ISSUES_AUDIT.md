@@ -1,8 +1,8 @@
 # PRODUCTION ISSUES AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (Fix Group B — pagination + staff directory)  
+**Last updated:** 2026-09-21 (Critical production bugs — syntax, gateway, grant access, SMTP, health)  
 **Scope:** Deep read-only production audit — console errors, HRM, staff directory, pagination, enterprise gaps  
-**Status:** ⚠️ PARTIAL — Fix Groups A & B complete; items 6, 8, 10 remain open
+**Status:** ⚠️ PARTIAL — Critical bugs 1–5 fixed; items 6, 8, 10 remain open
 
 ---
 
@@ -161,6 +161,19 @@
 ---
 
 ## Change Log
+
+### Critical Production Bugs — 2026-09-21
+
+| Bug | Root cause | Fix |
+|-----|------------|-----|
+| **1 — SyntaxError: Unexpected end of input** | Inline `onclick` handlers + avatar `onerror` embedding unescaped initials broke JS parsing in admin panel | Replaced Access tab inline handlers with `addEventListener`; fixed avatar `onerror` to read `alt` attribute; load `admin-staff.js` as classic script (not module) |
+| **2 — gateway-status 500 MODULE_NOT_FOUND** | `settingsController.js` used `require('../../services/...')` → wrong path (`backend/services/` vs `backend/src/services/`) | Corrected to `require('../services/gatewayStatusService')` and `../services/attendanceSettingsService` |
+| **3 — Grant System Access button no-op** | `openEmployeeGrantAccess` called Staff Directory modal (`#staffAssignAccessModal`) not present on Employees page | Prefer local `#grantAccessModal` in `view-hrm-employees.html`; event-delegated Grant button; refresh Access tab after success |
+| **4 — SMTP ENETUNREACH IPv6** | `userProfileController` used `service: 'gmail'` (resolves IPv6 first on DO droplets) | Explicit `host: smtp.gmail.com`, `port: 587`, `family: 4`; `mailer.js` already had `family: 4` |
+| **5 — PostgreSQL health "disconnected"** | Neon cold start / no query timeout; `$queryRaw` failure reported as disconnected | `probePostgres()` uses 3s timeout + returns `degraded` instead of `disconnected` |
+
+- Files: `admin-staff.js`, `hrm-employees.js`, `scripts.html`, `settingsController.js`, `userProfileController.js`, `healthService.js`
+- Tests: Jest **228/228** passing
 
 ### Fix Group B — Pagination + Staff Directory — 2026-09-21
 

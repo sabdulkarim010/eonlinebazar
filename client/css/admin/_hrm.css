@@ -215,11 +215,10 @@
 /* ── Employees module (ultra-dynamic roster) ──────────── */
 .employee-modal-wide {
     max-width: 780px;
-    width: 95vw;
+    width: min(95vw, 780px);
 }
 
 .employee-form-body {
-    max-height: 55vh;
     overflow-y: auto;
 }
 
@@ -815,4 +814,83 @@
     gap: 6px;
     font-size: 14px;
     cursor: pointer;
+}
+
+/* Viewport-safe HRM modals */
+#employeeProfileModal.custom-modal-box,
+#employeeModal.custom-modal-box,
+#grantAccessModal.custom-modal-box {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 2rem);
+    overflow: hidden;
+}
+
+#employeeProfileModal .hrm-tabs,
+#employeeModal .employee-form-tabs {
+    flex-shrink: 0;
+}
+
+#employeeProfileModal .modal-body,
+#employeeModal .employee-form-body,
+#grantAccessModal .modal-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+#employeeProfileModal .modal-footer,
+#employeeModal .modal-footer,
+#grantAccessModal .modal-footer {
+    flex-shrink: 0;
+}
+
+/* Employee profile Access tab */
+.employee-access-perm-group {
+    margin-bottom: 12px;
+}
+
+.employee-access-perm-group strong {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.employee-access-perm-group ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    color: #334155;
+}
+
+.employee-access-permissions-block h4 {
+    margin: 16px 0 10px;
+    font-size: 14px;
+    color: #1e293b;
+}
+
+.employee-access-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.employee-access-empty-state {
+    text-align: center;
+    padding: 28px 16px;
+}
+
+.employee-access-empty-icon {
+    font-size: 36px;
+    color: #94a3b8;
+    margin-bottom: 12px;
+}
+
+.employee-access-empty-text {
+    margin: 0 0 16px;
+    color: #64748b;
 }

@@ -252,7 +252,7 @@ module.exports = {
 
     getGatewayStatus: async (req, res) => {
         try {
-            const { getGatewayStatus } = require('../../services/gatewayStatusService');
+            const { getGatewayStatus } = require('../services/gatewayStatusService');
             const data = await getGatewayStatus();
             return res.status(200).json({ success: true, data });
         } catch (error) {
@@ -263,7 +263,7 @@ module.exports = {
 
     getAttendanceSettings: async (req, res) => {
         try {
-            const { getAttendanceSettings } = require('../../services/attendanceSettingsService');
+            const { getAttendanceSettings } = require('../services/attendanceSettingsService');
             const data = await getAttendanceSettings();
             return res.status(200).json({ success: true, data });
         } catch (error) {
@@ -274,7 +274,7 @@ module.exports = {
 
     updateAttendanceSettings: async (req, res) => {
         try {
-            const { saveAttendanceSettings } = require('../../services/attendanceSettingsService');
+            const { saveAttendanceSettings } = require('../services/attendanceSettingsService');
             const data = await saveAttendanceSettings(req.body || {});
 
             await logSecurityEvent({

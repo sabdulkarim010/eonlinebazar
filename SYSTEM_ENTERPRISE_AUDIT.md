@@ -2869,5 +2869,30 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Grant modal 25 permissions | ✅ Fixed | Dynamic grid from `/api/admin/permissions` |
 | Jest regression suite | ✅ | **228/228** passing |
 
+## HRM Modal Fix + Sidebar Labels — 2026-09-21
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Modal viewport overflow | ✅ Fixed | `.admin-modal` pattern — max-height, scrollable body, fixed header/footer |
+| Assign System Access flow | ✅ Fixed | Employee search, 25 permissions, presets, Link Account + 409 handling |
+| Employee Access tab | ✅ Fixed | No-access / has-access states; Grant pre-fill; Suspend/Activate/Revoke |
+| Sidebar label customization | ✅ Fixed | `SidebarLabel` model; Super Admin GET/PUT API; inline ✏️ edit |
+| Jest regression suite | ✅ | **228/228** passing |
+
+## Critical Production Bugs — 2026-09-21
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| SyntaxError in admin JS | ✅ Fixed | Access tab event listeners; avatar onerror safe fallback; admin-staff classic script |
+| gateway-status 500 | ✅ Fixed | `settingsController` service require paths corrected |
+| Grant System Access no-op | ✅ Fixed | Employees page uses local `#grantAccessModal` |
+| SMTP ENETUNREACH IPv6 | ✅ Fixed | `userProfileController` explicit host + `family: 4` |
+| PG health disconnected | ✅ Fixed | 3s query timeout; returns `degraded` on Neon cold start |
+| Jest regression suite | ✅ | **228/228** passing |
+
 
 

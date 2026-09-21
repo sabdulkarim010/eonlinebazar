@@ -2744,3 +2744,14 @@ model SettingsPaymentGateway {
   @@unique([settingsId, gatewayKey])
   @@map("settings_payment_gateways")
 }
+
+/// Super Admin custom labels for sidebar navigation items (menuKey = data-target slug).
+model SidebarLabel {
+  id        String   @id @default(cuid())
+  menuKey   String   @unique
+  label     String
+  adminId   String
+  updatedAt DateTime @updatedAt
+
+  @@map("sidebar_labels")
+}

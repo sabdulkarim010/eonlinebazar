@@ -475,7 +475,7 @@ function renderStaffTable() {
         const empCode = staff.linkedEmployeeCode || staff.employeeId || '';
         const initial = (staff.name || staff.username).charAt(0).toUpperCase();
         const avatarHtml = photo
-            ? `<img src="${escapeHtml(photo)}" alt="" class="staff-avatar-img" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'staff-avatar',textContent:'${initial}'}))">`
+            ? `<img src="${escapeHtml(photo)}" alt="${escapeHtml(initial)}" class="staff-avatar-img" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{className:'staff-avatar',textContent:this.getAttribute('alt')||'?'}))">`
             : `<span class="staff-avatar">${escapeHtml(initial)}</span>`;
 
         return `
@@ -697,6 +697,42 @@ window.refreshStaffAssignCandidates = refreshStaffAssignCandidates;
    ASSIGN ACCESS MODAL
    ========================================================================== */
 
+function suggestUsernameFromName(fullName) {
+    return String(fullName || '')
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean)
+        .join('-')
+        .replace(/[^a-z-]/g, '');
+}
+
+async function ensureStaffPermissionCatalog() {
+    if (permissionCatalog.length) return true;
+    try {
+        const result = await staffApi('/api/admin/permissions');
+        permissionCatalog = result.permissions || [];
+        return permissionCatalog.length > 0;
+    } catch (error) {
+        console.error('ensureStaffPermissionCatalog:', error);
+        permissionCatalog = [];
+        return false;
+    }
+}
+
+function renderStaffAssignPermissionGrid(selectedKeys = [], errorMessage = '') {
+    const grid = document.getElementById('staffAssignPermissionGrid');
+    if (!grid) return;
+
+    if (errorMessage) {
+        grid.innerHTML = `<p class="table-status-error">${escapeHtml(errorMessage)}</p>`;
+        return;
+    }
+
+    renderPermissionCheckboxes(grid, selectedKeys);
+    setupPermissionPresets(document.querySelector('[data-permission-presets="assign"]'), grid);
+}
+
 function renderStaffAssignDropdown(filter = '') {
     const dropdown = document.getElementById('staffAssignEmployeeDropdown');
     if (!dropdown) return;
@@ -718,8 +754,7 @@ function renderStaffAssignDropdown(filter = '') {
         <button type="button" class="staff-assign-dropdown-item" data-employee-id="${escapeHtml(e._id)}">
             ${e.photo ? `<img src="${escapeHtml(e.photo)}" alt="" class="staff-assign-dropdown-photo">` : '<span class="staff-assign-dropdown-photo staff-assign-dropdown-photo--placeholder"><i class="fa-solid fa-user"></i></span>'}
             <span class="staff-assign-dropdown-copy">
-                <strong>${escapeHtml(e.fullName)}</strong>
-                <small>${escapeHtml(e.employeeId || 'Employee')}</small>
+                <strong>${escapeHtml(e.fullName)} · ${escapeHtml(e.employeeId || 'EMP')}</strong>
             </span>
         </button>
     `).join('');
@@ -736,29 +771,42 @@ function selectStaffAssignEmployee(employeeId) {
 
     staffAssignSelectedEmployee = employee;
     document.getElementById('staffAssignEmpId').value = employee._id;
-    document.getElementById('staffAssignEmployeeSearch').value = `${employee.fullName} (${employee.employeeId || 'EMP'})`;
-    document.getElementById('staffAssignSelectedHint').textContent = `Selected: ${employee.fullName} — ${employee.employeeId || 'Employee'}`;
+    document.getElementById('staffAssignEmployeeSearch').value = `${employee.fullName} · ${employee.employeeId || 'EMP'}`;
+    document.getElementById('staffAssignSelectedHint').textContent = `Selected: ${employee.fullName} · ${employee.employeeId || 'EMP'}`;
 
-    const suggested = String(employee.fullName || '').toLowerCase().replace(/\s+/g, '.').replace(/[^a-z.]/g, '');
+    const suggested = suggestUsernameFromName(employee.fullName);
     document.getElementById('staffAssignUsername').value = suggested;
 
     const dropdown = document.getElementById('staffAssignEmployeeDropdown');
     if (dropdown) dropdown.hidden = true;
 }
 
-async function openStaffAssignModal() {
-    staffAssignSelectedEmployee = null;
-    document.getElementById('staffAssignEmpId').value = '';
-    document.getElementById('staffAssignEmployeeSearch').value = '';
-    document.getElementById('staffAssignUsername').value = '';
+async function openStaffAssignModal(prefillEmployee = null) {
+    staffAssignSelectedEmployee = prefillEmployee || null;
+    document.getElementById('staffAssignEmpId').value = prefillEmployee?._id || '';
+    document.getElementById('staffAssignEmployeeSearch').value = prefillEmployee
+        ? `${prefillEmployee.fullName} · ${prefillEmployee.employeeId || 'EMP'}`
+        : '';
+    document.getElementById('staffAssignUsername').value = prefillEmployee
+        ? suggestUsernameFromName(prefillEmployee.fullName)
+        : '';
     document.getElementById('staffAssignPassword').value = '';
     document.getElementById('staffAssignConfirmPassword').value = '';
-    document.getElementById('staffAssignSelectedHint').textContent = 'Only employees without linked admin access are listed.';
 
-    await refreshStaffAssignCandidates();
-    const grid = document.getElementById('staffAssignPermissionGrid');
-    renderPermissionCheckboxes(grid, []);
-    setupPermissionPresets(document.querySelector('[data-permission-presets="assign"]'), grid);
+    const employeeField = document.getElementById('staffAssignEmployeeField');
+    if (employeeField) {
+        employeeField.hidden = !!prefillEmployee;
+    }
+    document.getElementById('staffAssignSelectedHint').textContent = prefillEmployee
+        ? `Linking access for ${prefillEmployee.fullName}`
+        : 'Only employees without linked admin access are listed.';
+
+    if (!prefillEmployee) {
+        await refreshStaffAssignCandidates();
+    }
+
+    const catalogOk = await ensureStaffPermissionCatalog();
+    renderStaffAssignPermissionGrid([], catalogOk ? '' : 'Could not load permissions. Check your connection and try again.');
 
     const submitBtn = document.getElementById('staffAssignSubmitBtn');
     if (submitBtn) {
@@ -766,8 +814,33 @@ async function openStaffAssignModal() {
         submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Link Account';
     }
 
-    document.getElementById('staffAssignAccessModal').style.display = 'flex';
+    const modal = document.getElementById('staffAssignAccessModal');
+    if (!modal) {
+        if (prefillEmployee && typeof window.openGrantAccessModal === 'function') {
+            window.openGrantAccessModal(
+                prefillEmployee._id,
+                prefillEmployee.fullName,
+                prefillEmployee.email,
+                prefillEmployee.phone
+            );
+            return;
+        }
+        notify('Assign access modal is not available on this page.', 'warning');
+        return;
+    }
+
+    modal.style.display = 'flex';
 }
+
+window.openStaffAssignModalForEmployee = async function openStaffAssignModalForEmployee(employeeId, name, employeeCode, email, phone) {
+    await openStaffAssignModal({
+        _id: employeeId,
+        fullName: name,
+        employeeId: employeeCode || '',
+        email: email || '',
+        phone: phone || ''
+    });
+};
 
 function closeStaffAssignModal() {
     const modal = document.getElementById('staffAssignAccessModal');
@@ -797,6 +870,10 @@ async function submitStaffAssignAccess(event) {
         notify('Username and password are required.', 'warning');
         return;
     }
+    if (password.length < 8) {
+        notify('Password must be at least 8 characters.', 'warning');
+        return;
+    }
     if (password !== confirmPwd) {
         notify('Passwords do not match.', 'warning');
         return;
@@ -824,7 +901,7 @@ async function submitStaffAssignAccess(event) {
         const data = await response.json();
 
         if (response.status === 409 || (data.error && /already granted/i.test(data.error))) {
-            notify('This employee already has system access. Refreshing the directory…', 'info');
+            notify('This employee already has system access.', 'warning');
             closeStaffAssignModal();
             await fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
             await refreshStaffAssignCandidates();
@@ -835,7 +912,7 @@ async function submitStaffAssignAccess(event) {
             throw new Error(data.error || data.message || 'Failed to link account.');
         }
 
-        notify(`System access linked for ${data.username}.`, 'success');
+        notify(`Access granted for ${data.username}.`, 'success');
         closeStaffAssignModal();
         await fetchStaffAccounts({ showTableLoading: false });
         await refreshStaffAssignCandidates();
@@ -1129,6 +1206,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isSuperAdmin()) {
         if (typeof window.loadSandboxStatus === 'function') {
             window.loadSandboxStatus();
+        }
+        if (typeof window.loadSidebarLabels === 'function') {
+            window.loadSidebarLabels(true);
         }
     }
 });

@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (Fix Group B — staff directory revoke + pagination)  
+**Last updated:** 2026-09-21 (HRM modal fix + sidebar label customization)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -32,7 +32,10 @@
 | `backend/src/middlewares/rateLimiter.js` | `authLimiter`, `otpLimiter`, `apiLimiter` fixed windows |
 | `backend/src/middlewares/securityMiddleware.js` | Wires limiters to auth/OTP routes + global `/api/*` |
 | `backend/src/middlewares/maintenanceModeMiddleware.js` | Storefront 503 gate with IP allowlist bypass |
-| `backend/src/config/permissions.js` | 9 granular permission constants |
+| `backend/src/controllers/admin/sidebarLabelController.js` | Super Admin sidebar menu rename API |
+| `backend/src/repositories/sidebarLabelRepository.js` | PG `SidebarLabel` reads/writes |
+| `client/js/admin/modules/sidebarLabels.js` | Inline ✏️ sidebar label edit (Super Admin only) |
+| `prisma/schema.prisma` | `SidebarLabel` model (`menuKey`, `label`, `adminId`) |
 | `backend/src/config/passport.js` | Google OAuth strategy |
 | `backend/src/models/admin.js` | Admin account + permissions + 2FA fields |
 | `backend/src/models/userSession.js` / `adminSession.js` | Session tracking |
@@ -54,7 +57,8 @@
 
 ## Feature Checklist
 
-- [x] Customer JWT login/register — `loginController.js`, `registerController.js`
+- [x] Super Admin sidebar menu label customization — `GET/PUT /api/admin/sidebar-labels/:key` (`requireSuperAdmin`)
+- [x] 25 granular RBAC permissions — `permissions.js` + dynamic grant/edit modals
 - [x] Admin JWT login — `loginController.js` (admin branch)
 - [x] Google OAuth — `oauthController.js`, passport config
 - [x] Forgot/reset password (OTP) — `passwordController.js`
@@ -95,6 +99,14 @@
 ---
 
 ## Change Log
+
+### HRM Modal Fix + Sidebar Labels — 2026-09-21
+
+- **Sidebar label API:** `GET /api/admin/sidebar-labels` returns `{ menuKey: label }` map; `PUT /api/admin/sidebar-labels/:key` upserts custom label (Super Admin only)
+- **Prisma:** `SidebarLabel` model + migration `20260921073000_add_sidebar_labels`
+- **Frontend:** `sidebarLabels.js` — fetch labels on load, apply to sidebar, ✏️ inline edit on hover (hidden for non–Super Admin)
+- **Staff access modals:** viewport-safe shell; Assign/Edit permission grids load all 25 keys from `/api/admin/permissions`
+- Tests: Jest **228/228** passing
 
 ### Fix Group B — Staff Directory revoke — 2026-09-21
 

@@ -112,8 +112,8 @@
 </section>
 
 <!-- Add / Edit Employee — tabbed modal -->
-<div id="employeeModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeEmployeeModal()">
-    <div class="custom-modal-box employee-modal-wide">
+<div id="employeeModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeEmployeeModal()">
+    <div class="custom-modal-box admin-modal employee-modal-wide admin-modal--wide">
         <div class="modal-header">
             <div>
                 <h3 id="employeeModalTitle"><i class="fa-solid fa-user-plus"></i> Add Employee</h3>
@@ -386,8 +386,8 @@
 </div>
 
 <!-- Employee profile modal (read-only, tabbed) -->
-<div id="employeeProfileModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeEmployeeProfileModal()">
-    <div class="custom-modal-box employee-modal-wide">
+<div id="employeeProfileModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeEmployeeProfileModal()">
+    <div class="custom-modal-box admin-modal employee-modal-wide admin-modal--wide">
         <div class="modal-header employee-profile-header">
             <div class="employee-profile-head">
                 <img id="profileHeaderPhoto" src="" alt="" class="employee-profile-photo">
@@ -463,8 +463,8 @@
 </div>
 
 <!-- Document upload modal -->
-<div id="employeeDocumentModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeDocumentUploadModal()">
-    <div class="custom-modal-box" style="max-width:480px;">
+<div id="employeeDocumentModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeDocumentUploadModal()">
+    <div class="custom-modal-box admin-modal" style="max-width:480px;">
         <div class="modal-header">
             <div>
                 <h3><i class="fa-solid fa-file-arrow-up"></i> Upload Document</h3>
@@ -494,8 +494,8 @@
 </div>
 
 <!-- Designation manager modal -->
-<div id="designationManagerModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeDesignationManager()">
-    <div class="custom-modal-box employee-modal-wide">
+<div id="designationManagerModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeDesignationManager()">
+    <div class="custom-modal-box admin-modal employee-modal-wide admin-modal--wide">
         <div class="modal-header">
             <div>
                 <h3><i class="fa-solid fa-briefcase"></i> Manage Designations</h3>
@@ -542,8 +542,8 @@
 </div>
 
 <!-- Link system account -->
-<div id="grantAccessModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeGrantAccessModal()">
-    <div class="custom-modal-box employee-modal-wide">
+<div id="grantAccessModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeGrantAccessModal()">
+    <div class="custom-modal-box admin-modal employee-modal-wide admin-modal--wide">
         <div class="modal-header">
             <div>
                 <h3><i class="fa-solid fa-link"></i> Link System Account</h3>
@@ -616,8 +616,8 @@
 </div>
 
 <!-- Manage system access -->
-<div id="manageAccessModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeManageAccessModal()">
-    <div class="custom-modal-box" style="max-width:520px;">
+<div id="manageAccessModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeManageAccessModal()">
+    <div class="custom-modal-box admin-modal" style="max-width:520px;">
         <div class="modal-header">
             <div>
                 <h3><i class="fa-solid fa-user-shield"></i> Manage System Access</h3>
@@ -644,8 +644,8 @@
 </div>
 
 <!-- Quick add designation (inline from employee form) -->
-<div id="quickDesignationModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeQuickAddDesignation()">
-    <div class="custom-modal-box" style="max-width:420px;">
+<div id="quickDesignationModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeQuickAddDesignation()">
+    <div class="custom-modal-box admin-modal" style="max-width:420px;">
         <div class="modal-header">
             <h3><i class="fa-solid fa-plus"></i> Quick Add Designation</h3>
             <button type="button" class="close-icon-btn" onclick="closeQuickAddDesignation()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>

@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20 (Group 3 — /health + error logging)  
+**Last updated:** 2026-09-21 (Critical production bugs — IPv6 SMTP + PG health probe)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -95,6 +95,14 @@
 - New route `GET /api/admin/system/backup-postgres` (superadmin); `lastPostgresBackupAt` on Settings
 - Backup UI: separate MongoDB + PostgreSQL download buttons in `view-system-backup.html`
 - New `GET /api/admin/settings/gateway-status` for admin UI gateway health
+- Tests: Jest **228/228** passing
+
+## Change Log
+
+### Critical Production Bugs — 2026-09-21
+
+- **SMTP IPv6:** `userProfileController.js` nodemailer transport uses explicit `smtp.gmail.com:587` with `family: 4` (DigitalOcean blocks outbound IPv6); main store mail already uses `family: 4` in `mailer.js`
+- **Health probe:** `healthService.probePostgres()` — 3s `SELECT 1` timeout; returns `degraded` (not `disconnected`) on Neon cold start
 - Tests: Jest **228/228** passing
 
 ### Production bug fix — 2026-09-20
