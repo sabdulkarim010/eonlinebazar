@@ -1,0 +1,108 @@
+/* ── Unified Admin Pagination (Orders reference) ── */
+.admin-pagination,
+.apg-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-top: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: white;
+}
+
+.apg-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.apg-limit-select,
+.pagination-per-page {
+  padding: 5px 8px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: #374151;
+  background: white;
+  cursor: pointer;
+  outline: none;
+}
+
+.apg-info,
+.pagination-info {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.apg-center {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.apg-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.apg-jump-input,
+.pagination-goto {
+  width: 56px;
+  padding: 5px 8px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  text-align: center;
+  outline: none;
+}
+
+.apg-btn,
+.btn-page {
+  min-width: 36px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 7px;
+  background: white;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.apg-btn:hover:not(:disabled),
+.btn-page:hover:not(:disabled) {
+  border-color: #6366f1;
+  color: #6366f1;
+  background: #f5f3ff;
+}
+
+.apg-btn:disabled,
+.btn-page:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.apg-btn.apg-active,
+.btn-page.active {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+  font-weight: 700;
+}
+
+.apg-dots {
+  padding: 0 4px;
+  color: #94a3b8;
+  font-size: 1rem;
+  line-height: 34px;
+}

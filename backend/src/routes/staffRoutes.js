@@ -36,6 +36,9 @@ router.patch('/:id/status', staffController.updateStaffStatus);
 // POST /api/admin/staff/:id/reset-password — set or generate a new password
 router.post('/:id/reset-password', staffController.resetStaffPassword);
 
+// DELETE /api/admin/staff/:id/access — revoke login + clear HRM employee link
+router.delete('/:id/access', staffController.revokeStaffAccess);
+
 // DELETE /api/admin/staff/:id — permanently remove the account and its access
 router.delete('/:id', staffController.deleteStaff);
 

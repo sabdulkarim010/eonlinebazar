@@ -149,7 +149,7 @@
                 </select>
             </div>
             <div class="form-group hrm-filter-actions">
-                <button type="button" class="btn-primary" onclick="loadAttendanceList()">
+                <button type="button" class="btn-primary" onclick="applyAttendanceFilters()">
                     <i class="fa-solid fa-filter"></i> Apply
                 </button>
                 <button type="button" class="btn-secondary" onclick="resetAttendanceFilters()">
@@ -177,10 +177,7 @@
                 </tbody>
             </table>
         </div>
-        <div id="hrmAttendancePagination" class="att-register-pagination" hidden>
-            <p id="hrmAttendancePageSummary" class="att-pagination-summary"></p>
-            <div id="hrmAttendancePaginationControls" class="att-pagination-controls"></div>
-        </div>
+        <div id="attendancePaginationContainer"></div>
     </div>
 
     <!-- TAB 2: Shifts -->

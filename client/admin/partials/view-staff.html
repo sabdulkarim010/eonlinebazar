@@ -45,42 +45,29 @@
         </div>
     </div>
 
-    <div class="staff-assign-panel" id="staffAssignPanel" hidden>
-        <div class="staff-assign-panel-inner">
-            <label for="staffAssignEmployeeSelect"><i class="fa-solid fa-user-plus"></i> Assign Access to Employee</label>
-            <div class="staff-assign-row">
-                <input type="search" id="staffAssignEmployeeSearch" list="staffAssignEmployeeList" placeholder="Search employee name, phone, or ID…" autocomplete="off">
-                <datalist id="staffAssignEmployeeList"></datalist>
-                <button type="button" class="btn-primary" id="staffAssignConfirmBtn" disabled>
-                    Link System Account <i class="fa-solid fa-arrow-right"></i>
-                </button>
-            </div>
-            <p class="staff-assign-hint">Only employees without a linked admin account appear here.</p>
-        </div>
-    </div>
-
     <div class="staff-list-section staff-directory-section">
         <div class="staff-list-header">
             <div>
                 <h3>System Staff Directory</h3>
-                <p class="section-subtitle">All admin accounts — linked via HRM or seeded. Edit permissions or suspend access per row.</p>
+                <p class="section-subtitle">All admin accounts — linked via HRM. Edit permissions, suspend, or revoke access per row.</p>
             </div>
         </div>
 
         <div class="staff-table-card staff-table-card--premium">
             <div class="staff-table-scroll">
-                <table class="data-table staff-table staff-table--premium">
+                <table class="data-table staff-table staff-table--premium staff-table--directory">
                     <thead>
                         <tr>
                             <th>Staff</th>
                             <th>Role</th>
+                            <th>Permissions</th>
                             <th>Status</th>
                             <th>Last Login</th>
                             <th class="customers-th--actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="staffTableBody">
-                        <tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading staff accounts...</p></td></tr>
+                        <tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading staff accounts...</p></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -88,79 +75,127 @@
     </div>
 </section>
 
-<!-- Permission slide-over panel -->
-<div id="staffPermissionsPanel" class="staff-permissions-panel" aria-hidden="true">
-    <div class="staff-permissions-panel-backdrop" onclick="closeStaffPermissionsPanel()"></div>
-    <div class="staff-permissions-panel-drawer" role="dialog" aria-modal="true" aria-labelledby="staffPermissionsPanelTitle">
-        <div class="staff-permissions-panel-header">
+<!-- Assign System Access modal -->
+<div id="staffAssignAccessModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeStaffAssignModal()">
+    <div class="custom-modal-box employee-modal-wide">
+        <div class="modal-header">
             <div>
-                <h3 id="staffPermissionsPanelTitle"><i class="fa-solid fa-table-cells"></i> Edit Permissions</h3>
-                <p class="edit-modal-subtitle" id="staffPermissionsPanelSubtitle">Configure module access</p>
+                <h3><i class="fa-solid fa-user-plus"></i> Assign System Access</h3>
+                <p class="edit-modal-subtitle">Link an HRM employee to a new admin login with granular permissions</p>
             </div>
-            <button type="button" class="close-icon-btn" onclick="closeStaffPermissionsPanel()" aria-label="Close permissions panel">
+            <button type="button" class="close-icon-btn" onclick="closeStaffAssignModal()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="staffAssignAccessForm" novalidate>
+            <input type="hidden" id="staffAssignEmpId">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="staffAssignEmployeeSearch">Employee</label>
+                    <div class="staff-assign-search-wrap">
+                        <input type="search" id="staffAssignEmployeeSearch" class="staff-assign-search-input" placeholder="Search by name or EMP-ID…" autocomplete="off">
+                        <div id="staffAssignEmployeeDropdown" class="staff-assign-dropdown" hidden></div>
+                    </div>
+                    <p id="staffAssignSelectedHint" class="staff-assign-hint">Only employees without linked admin access are listed.</p>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="staffAssignUsername">Username</label>
+                        <input type="text" id="staffAssignUsername" required autocomplete="off" placeholder="john.doe">
+                    </div>
+                    <div class="form-group">
+                        <label for="staffAssignPassword">Password *</label>
+                        <input type="password" id="staffAssignPassword" required autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="staffAssignConfirmPassword">Confirm Password *</label>
+                        <input type="password" id="staffAssignConfirmPassword" required autocomplete="new-password">
+                    </div>
+                </div>
+
+                <div class="staff-enterprise-card" style="margin-top:16px;">
+                    <div class="staff-enterprise-card-head">
+                        <span class="staff-enterprise-card-icon"><i class="fa-solid fa-shield-halved"></i></span>
+                        <div>
+                            <h5>Permissions *</h5>
+                            <p>Select capabilities or apply a quick preset</p>
+                        </div>
+                    </div>
+                    <div class="staff-enterprise-card-body">
+                        <div class="staff-presets-bar" data-permission-presets="assign">
+                            <span class="staff-presets-label">Quick Role Presets</span>
+                            <div class="staff-presets-actions">
+                                <button type="button" class="staff-preset-btn" data-preset="fullAdmin">Full Admin</button>
+                                <button type="button" class="staff-preset-btn" data-preset="hrManager">HR Manager</button>
+                                <button type="button" class="staff-preset-btn" data-preset="orderManager">Order Manager</button>
+                                <button type="button" class="staff-preset-btn" data-preset="inventoryManager">Inventory Manager</button>
+                                <button type="button" class="staff-preset-btn" data-preset="posOperator">POS Operator</button>
+                                <button type="button" class="staff-preset-btn staff-preset-btn--ghost" data-preset="clear">Reset</button>
+                            </div>
+                        </div>
+                        <div id="staffAssignPermissionGrid" class="permission-grid permission-grid--modules"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeStaffAssignModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="staffAssignSubmitBtn"><i class="fa-solid fa-link"></i> Link Account</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Permissions modal -->
+<div id="staffEditPermissionsModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeStaffEditModal()">
+    <div class="custom-modal-box employee-modal-wide">
+        <div class="modal-header">
+            <div>
+                <h3 id="staffEditPermissionsTitle"><i class="fa-solid fa-user-pen"></i> Edit Permissions</h3>
+                <p class="edit-modal-subtitle" id="staffEditPermissionsSubtitle">Changes apply on next login</p>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeStaffEditModal()" aria-label="Close">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
         <form id="editStaffForm" class="staff-permissions-panel-form" novalidate>
             <input type="hidden" id="editStaffId">
-            <div class="staff-permissions-panel-body">
-                <div class="staff-enterprise-card staff-credentials-col staff-credentials-col--compact">
-                    <div class="staff-enterprise-card-body">
-                        <div class="form-row-2">
-                            <div class="form-group">
-                                <label for="editStaffName">Full Name</label>
-                                <input type="text" id="editStaffName" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="editStaffEmail">Email</label>
-                                <input type="email" id="editStaffEmail" required>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Account Status</label>
-                            <div class="staff-status-segment" role="radiogroup" aria-label="Account status">
-                                <label class="staff-status-option">
-                                    <input type="radio" name="editStaffAccountStatus" id="editStaffStatusActive" value="active">
-                                    <span><i class="fa-solid fa-circle-check"></i> Active</span>
-                                </label>
-                                <label class="staff-status-option staff-status-option--suspended">
-                                    <input type="radio" name="editStaffAccountStatus" id="editStaffStatusSuspended" value="blocked">
-                                    <span><i class="fa-solid fa-ban"></i> Suspended</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="staff-toggle-row" for="editStaffRequireTwoFactor">
-                                <span class="staff-toggle-row-text">
-                                    <strong>Require email OTP (2FA)</strong>
-                                    <small>Enforced on every login when enabled.</small>
-                                </span>
-                                <span class="toggle-switch">
-                                    <input type="checkbox" id="editStaffRequireTwoFactor" class="toggle-switch-input">
-                                    <span class="toggle-switch-slider" aria-hidden="true"></span>
-                                </span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
+            <div class="modal-body">
+                <p class="staff-edit-role-line">Current role: <strong id="staffEditRoleLabel">—</strong></p>
                 <div class="staff-presets-bar staff-presets-bar--panel" data-permission-presets="edit">
                     <span class="staff-presets-label">Quick Presets</span>
                     <div class="staff-presets-actions">
                         <button type="button" class="staff-preset-btn" data-preset="fullAdmin">Full Admin</button>
-                        <button type="button" class="staff-preset-btn" data-preset="inventoryManager">Inventory Manager</button>
-                        <button type="button" class="staff-preset-btn" data-preset="orderManager">Order Manager</button>
-                        <button type="button" class="staff-preset-btn" data-preset="posOperator">POS Operator</button>
                         <button type="button" class="staff-preset-btn" data-preset="hrManager">HR Manager</button>
+                        <button type="button" class="staff-preset-btn" data-preset="orderManager">Order Manager</button>
+                        <button type="button" class="staff-preset-btn" data-preset="inventoryManager">Inventory Manager</button>
+                        <button type="button" class="staff-preset-btn" data-preset="posOperator">POS Operator</button>
                         <button type="button" class="staff-preset-btn staff-preset-btn--ghost" data-preset="clear">Reset</button>
                     </div>
                 </div>
                 <div class="permission-grid permission-grid--modules" id="editStaffPermissionGrid"></div>
+                <p class="staff-edit-footnote"><i class="fa-solid fa-circle-info"></i> Changes will take effect on next login.</p>
             </div>
-            <div class="staff-permissions-panel-footer">
-                <button type="button" class="btn-secondary" onclick="closeStaffPermissionsPanel()">Cancel</button>
-                <button type="submit" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Permissions</button>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeStaffEditModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="staffEditSaveBtn"><i class="fa-solid fa-floppy-disk"></i> Save Permissions</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Permission detail popover (click "X of 25") -->
+<div id="staffPermissionDetailModal" class="custom-modal-overlay" style="display: none;" onclick="if(event.target===this) closeStaffPermissionDetail()">
+    <div class="custom-modal-box" style="max-width: 480px;">
+        <div class="modal-header">
+            <div>
+                <h3 id="staffPermissionDetailTitle">Permissions</h3>
+            </div>
+            <button type="button" class="close-icon-btn" onclick="closeStaffPermissionDetail()" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <ul id="staffPermissionDetailList" class="staff-permission-detail-list"></ul>
+        </div>
     </div>
 </div>

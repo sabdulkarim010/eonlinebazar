@@ -14,6 +14,22 @@ let designationCache = [];
 let shiftCache = [];
 let pendingPhotoFile = null;
 let activeProfileData = null;
+let employeePg = null;
+const employeePgState = { page: 1, limit: 10 };
+
+function initEmployeePg() {
+    if (!employeePg && typeof AdminPagination !== 'undefined') {
+        employeePg = AdminPagination.ensure('employeePaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: (page, limit) => {
+                employeePgState.page = page;
+                employeePgState.limit = limit;
+                loadEmployees();
+            }
+        });
+    }
+    return employeePg;
+}
 
 function employeeEscape(value) {
     return window.hrmEscape ? window.hrmEscape(value) : String(value ?? '').replace(/[&<>"']/g, (ch) => ({
@@ -172,13 +188,21 @@ async function exportEmployeesCsvReport() {
     }
 }
 
+function applyEmployeeFilters() {
+    employeePgState.page = 1;
+    employeePg?.resetPage();
+    loadEmployees();
+}
+
 async function loadEmployees() {
     const tbody = document.getElementById('employeeTableBody');
     if (!tbody) return;
 
     tbody.innerHTML = '<tr><td colspan="10" class="loading-container"><div class="spinner"></div><p>Loading employees…</p></td></tr>';
 
-    const params = new URLSearchParams({ limit: '100' });
+    const params = new URLSearchParams();
+    params.set('page', String(employeePgState.page));
+    params.set('limit', String(employeePgState.limit));
     const department = document.getElementById('employeeDepartmentFilter')?.value;
     const designation = document.getElementById('employeeDesignationFilter')?.value;
     const employeeType = document.getElementById('employeeTypeFilter')?.value;
@@ -195,6 +219,7 @@ async function loadEmployees() {
         const res = await fetch(`/api/admin/hrm/employees?${params}`, { headers: employeeAuthHeaders() });
         const result = await res.json();
         renderEmployeeTable(result.data || []);
+        initEmployeePg()?.setTotal(result.pagination?.total ?? 0);
     } catch (err) {
         console.error('loadEmployees:', err);
         tbody.innerHTML = '<tr><td colspan="10" class="table-status-error">Failed to load employees.</td></tr>';
@@ -1422,7 +1447,11 @@ function setupHrmEmployeesSection() {
     if (searchInput && !searchInput.dataset.bound) {
         searchInput.dataset.bound = '1';
         searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') loadEmployees();
+            if (e.key === 'Enter') {
+                employeePgState.page = 1;
+                employeePg?.resetPage();
+                loadEmployees();
+            }
         });
     }
 
@@ -1448,6 +1477,7 @@ async function viewEmployeeDetails(id) {
 }
 
 window.loadEmployees = loadEmployees;
+window.applyEmployeeFilters = applyEmployeeFilters;
 window.exportEmployeesCsvReport = exportEmployeesCsvReport;
 window.loadEmployeeStats = loadEmployeeStats;
 window.renderEmployeeTable = renderEmployeeTable;
@@ -1481,6 +1511,177 @@ window.toggleEmployeeStatus = toggleEmployeeStatus;
 window.markEmployeeAttendance = markEmployeeAttendance;
 window.loadHrmEmployeesSection = loadHrmEmployeesSection;
 
+const GRANT_GROUP_EMOJI = {
+    Insights: '📊',
+    Operations: '🛠️',
+    Administration: '⚙️',
+    Attendance: '🕐',
+    HRM: '👥',
+    Inventory: '📦',
+    Orders: '🛒',
+    Finance: '💰',
+    CMS: '📝',
+    Settings: '🔧',
+    System: '🖥️'
+};
+
+const GRANT_ROLE_PRESETS = {
+    fullAdmin: null,
+    inventoryManager: ['view_products', 'edit_products', 'manage_stock', 'manage_catalog'],
+    orderManager: ['view_orders', 'update_order_status', 'process_refunds', 'manage_customers'],
+    posOperator: ['view_orders', 'update_order_status', 'view_products', 'manage_stock'],
+    hrManager: ['view_attendance', 'mark_attendance_today', 'mark_attendance_any_date', 'lock_attendance_dates', 'manual_attendance', 'view_employees', 'edit_employees', 'manage_payroll', 'manage_leave'],
+    clear: []
+};
+
+let grantPermissionCatalog = [];
+let grantAccessSubmitInFlight = false;
+
+async function ensureGrantPermissionCatalog() {
+    if (grantPermissionCatalog.length) return grantPermissionCatalog;
+    try {
+        const res = await fetch('/api/admin/permissions', { headers: employeeAuthHeaders() });
+        const data = await res.json();
+        grantPermissionCatalog = Array.isArray(data.permissions) ? data.permissions : [];
+    } catch (err) {
+        console.warn('ensureGrantPermissionCatalog:', err);
+        grantPermissionCatalog = [];
+    }
+    return grantPermissionCatalog;
+}
+
+function grantPermissionByKey(key) {
+    return grantPermissionCatalog.find((p) => p.key === key);
+}
+
+function grantGroupSlug(groupName) {
+    return String(groupName || 'other')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'other';
+}
+
+function buildGrantPermissionGroups(catalog = []) {
+    const groups = [];
+    const indexByName = new Map();
+
+    catalog.forEach((permission) => {
+        const groupName = permission.group || 'Other';
+        if (!indexByName.has(groupName)) {
+            indexByName.set(groupName, groups.length);
+            groups.push({
+                id: grantGroupSlug(groupName),
+                label: groupName,
+                emoji: GRANT_GROUP_EMOJI[groupName] || '🔑',
+                items: []
+            });
+        }
+        groups[indexByName.get(groupName)].items.push(permission);
+    });
+
+    return groups;
+}
+
+function syncGrantPermissionRowState(box) {
+    const row = box.closest('.permission-toggle-row');
+    if (row) row.classList.toggle('is-on', box.checked);
+}
+
+function renderGrantAccessPermissionGrid(selectedKeys = []) {
+    const container = document.getElementById('grantAccessPermissionGrid');
+    if (!container) return;
+
+    if (!grantPermissionCatalog.length) {
+        container.innerHTML = '<p class="empty-hint">Loading permissions…</p>';
+        return;
+    }
+
+    const selected = new Set(selectedKeys);
+    const modules = buildGrantPermissionGroups(grantPermissionCatalog);
+
+    container.innerHTML = modules.map((module) => {
+        const items = module.items;
+        if (!items.length) return '';
+
+        const allChecked = items.every((p) => selected.has(p.key));
+
+        return `
+        <div class="permission-category-card permission-category-card--${module.id}">
+            <div class="permission-category-header">
+                <span class="permission-category-emoji" aria-hidden="true">${module.emoji}</span>
+                <span class="permission-category-title">${employeeEscape(module.label)}</span>
+                <label class="permission-module-select-all">
+                    <input type="checkbox" class="permission-module-select-all-input" data-grant-module="${module.id}" ${allChecked ? 'checked' : ''}>
+                    <span>Select all</span>
+                </label>
+            </div>
+            <div class="permission-category-items" data-grant-module-items="${module.id}">
+                ${items.map((permission) => `
+                    <label class="permission-toggle-row ${selected.has(permission.key) ? 'is-on' : ''}">
+                        <span class="permission-toggle-main">
+                            <span class="permission-toggle-icon"><i class="fa-solid ${employeeEscape(permission.icon || 'fa-key')}"></i></span>
+                            <span class="permission-toggle-copy">
+                                <strong>${employeeEscape(permission.label)}</strong>
+                                <small>${employeeEscape(permission.description || '')}</small>
+                            </span>
+                        </span>
+                        <span class="toggle-switch">
+                            <input type="checkbox" class="toggle-switch-input permission-toggle-input grant-permission-toggle" data-grant-module="${module.id}" value="${employeeEscape(permission.key)}" ${selected.has(permission.key) ? 'checked' : ''}>
+                            <span class="toggle-switch-slider" aria-hidden="true"></span>
+                        </span>
+                    </label>
+                `).join('')}
+            </div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.grant-permission-toggle').forEach((box) => {
+        box.addEventListener('change', () => syncGrantPermissionRowState(box));
+    });
+
+    container.querySelectorAll('.permission-module-select-all-input').forEach((master) => {
+        master.addEventListener('change', () => {
+            const moduleId = master.getAttribute('data-grant-module');
+            container.querySelectorAll(`.grant-permission-toggle[data-grant-module="${moduleId}"]`).forEach((box) => {
+                box.checked = master.checked;
+                syncGrantPermissionRowState(box);
+            });
+        });
+    });
+}
+
+function applyGrantPermissionPreset(presetKey) {
+    const grid = document.getElementById('grantAccessPermissionGrid');
+    if (!grid) return;
+
+    let keys = GRANT_ROLE_PRESETS[presetKey] || [];
+    if (presetKey === 'fullAdmin') {
+        keys = grantPermissionCatalog.map((p) => p.key);
+    }
+
+    grid.querySelectorAll('.grant-permission-toggle').forEach((box) => {
+        box.checked = keys.includes(box.value);
+        syncGrantPermissionRowState(box);
+    });
+
+    grid.closest('.staff-enterprise-card-body')
+        ?.querySelectorAll('[data-grant-preset]')
+        ?.forEach((btn) => btn.classList.toggle('is-active', btn.getAttribute('data-grant-preset') === presetKey && presetKey !== 'clear'));
+}
+
+function setupGrantAccessPermissionPresets() {
+    const presetsBar = document.querySelector('[data-grant-permission-presets="grant"]');
+    if (!presetsBar || presetsBar.dataset.bound === '1') return;
+    presetsBar.dataset.bound = '1';
+
+    presetsBar.querySelectorAll('[data-grant-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            applyGrantPermissionPreset(btn.getAttribute('data-grant-preset') || 'clear');
+        });
+    });
+}
+
 function closeGrantAccessModal() {
     const modal = document.getElementById('grantAccessModal');
     if (modal) modal.style.display = 'none';
@@ -1491,24 +1692,37 @@ function closeManageAccessModal() {
     if (modal) modal.style.display = 'none';
 }
 
-window.openGrantAccessModal = function openGrantAccessModal(employeeId, name, email, phone) {
+window.openGrantAccessModal = async function openGrantAccessModal(employeeId, name, email, phone) {
     document.getElementById('grantEmpId').value = employeeId;
     document.getElementById('grantEmpName').value = name;
     document.getElementById('grantEmpEmail').value = email || '';
     document.getElementById('grantEmpPhone').value = phone || '';
     document.getElementById('grantPassword').value = '';
     document.getElementById('grantConfirmPassword').value = '';
-    document.querySelectorAll('#grantAccessModal input[type=checkbox]').forEach((cb) => { cb.checked = false; });
     const suggested = String(name || '').toLowerCase().replace(/\s+/g, '.').replace(/[^a-z.]/g, '');
     document.getElementById('grantUsername').value = suggested;
+
+    await ensureGrantPermissionCatalog();
+    renderGrantAccessPermissionGrid([]);
+    setupGrantAccessPermissionPresets();
+
+    const submitBtn = document.getElementById('grantAccessSubmitBtn');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Link Account';
+    }
+
     document.getElementById('grantAccessModal').style.display = 'flex';
 };
 
 window.submitGrantAccess = async function submitGrantAccess() {
+    if (grantAccessSubmitInFlight) return;
+
     const id = document.getElementById('grantEmpId').value;
     const username = document.getElementById('grantUsername').value.trim();
     const password = document.getElementById('grantPassword').value;
     const confirmPwd = document.getElementById('grantConfirmPassword').value;
+    const submitBtn = document.getElementById('grantAccessSubmitBtn');
     if (!username || !password) {
         Swal.fire({
             icon: 'warning',
@@ -1528,7 +1742,7 @@ window.submitGrantAccess = async function submitGrantAccess() {
         return;
     }
     const permissions = Array.from(
-        document.querySelectorAll('#grantAccessModal input[type=checkbox]:checked')
+        document.querySelectorAll('#grantAccessPermissionGrid .grant-permission-toggle:checked')
     ).map((cb) => cb.value);
     if (permissions.length === 0) {
         Swal.fire({
@@ -1540,6 +1754,12 @@ window.submitGrantAccess = async function submitGrantAccess() {
         return;
     }
 
+    grantAccessSubmitInFlight = true;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Linking…';
+    }
+
     try {
         const res = await fetch(`/api/admin/hrm/employees/${id}/grant-access`, {
             method: 'POST',
@@ -1547,6 +1767,24 @@ window.submitGrantAccess = async function submitGrantAccess() {
             body: JSON.stringify({ username, password, permissions })
         });
         const data = await res.json();
+        if (res.status === 409 || (data.error && /already granted/i.test(data.error))) {
+            closeGrantAccessModal();
+            Swal.fire({
+                icon: 'info',
+                title: 'Access Already Granted',
+                text: 'This employee already has system access. Check the Staff Directory list below.',
+                confirmButtonColor: '#2563eb'
+            });
+            if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
+            await loadEmployees();
+            if (typeof window.fetchStaffAccounts === 'function') {
+                await window.fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
+            }
+            if (typeof window.refreshStaffAssignCandidates === 'function') {
+                await window.refreshStaffAssignCandidates();
+            }
+            return;
+        }
         if (data.success) {
             Swal.fire({
                 icon: 'success',
@@ -1561,8 +1799,11 @@ window.submitGrantAccess = async function submitGrantAccess() {
             if (activeProfileData?.employee?._id === id) {
                 await openEmployeeProfile(id);
             }
+            if (typeof window.fetchStaffAccounts === 'function') {
+                await window.fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
+            }
             if (typeof window.refreshStaffAssignCandidates === 'function') {
-                window.refreshStaffAssignCandidates();
+                await window.refreshStaffAssignCandidates();
             }
         } else {
             Swal.fire({
@@ -1580,22 +1821,24 @@ window.submitGrantAccess = async function submitGrantAccess() {
             text: 'Failed to link system account.',
             confirmButtonColor: '#2563eb'
         });
+    } finally {
+        grantAccessSubmitInFlight = false;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Link Account';
+        }
     }
 };
 
 window.applyPermissionPreset = function applyPermissionPreset(preset) {
-    const presets = {
-        full: ['manage_orders', 'manage_inventory', 'manage_catalog', 'manage_customers',
-            'manage_settings', 'manage_marketing', 'manage_security', 'manage_staff'],
-        inventory: ['manage_inventory', 'manage_catalog'],
-        orders: ['manage_orders', 'manage_customers'],
-        pos: ['manage_orders', 'manage_inventory'],
-        hr: ['manage_staff']
+    const presetMap = {
+        full: 'fullAdmin',
+        inventory: 'inventoryManager',
+        orders: 'orderManager',
+        pos: 'posOperator',
+        hr: 'hrManager'
     };
-    const perms = presets[preset] || [];
-    document.querySelectorAll('#grantAccessModal input[type=checkbox]').forEach((cb) => {
-        cb.checked = perms.includes(cb.value);
-    });
+    applyGrantPermissionPreset(presetMap[preset] || preset || 'clear');
 };
 
 window.openManageAccessModal = async function openManageAccessModal(employeeId) {

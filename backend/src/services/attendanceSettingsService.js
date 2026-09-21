@@ -5,6 +5,7 @@
 
 const Settings = require('../models/Settings');
 const { dualWrite } = require('./dualWriteService');
+const { fetchSettingsDocumentSafe } = require('./settingsReadService');
 
 const DEFAULT_ATTENDANCE_SETTINGS = Object.freeze({
     officeStart: '09:00',
@@ -71,9 +72,28 @@ async function dualWriteSettingsUpsert(settings) {
     );
 }
 
+async function loadAttendanceSettingsSource() {
+    const doc = await fetchSettingsDocumentSafe();
+    if (doc?.attendanceSettings) {
+        return doc.attendanceSettings;
+    }
+    try {
+        const mongo = await Settings.getOrCreate();
+        return mongo.attendanceSettings;
+    } catch (err) {
+        console.warn('[attendanceSettings] Mongo fallback failed:', err.message);
+        return null;
+    }
+}
+
 async function getAttendanceSettings() {
-    const settings = await Settings.getOrCreate();
-    return normalizeAttendanceSettings(settings.attendanceSettings || DEFAULT_ATTENDANCE_SETTINGS);
+    try {
+        const raw = await loadAttendanceSettingsSource();
+        return normalizeAttendanceSettings(raw || DEFAULT_ATTENDANCE_SETTINGS);
+    } catch (error) {
+        console.warn('[attendanceSettings] getAttendanceSettings failed:', error.message);
+        return { ...DEFAULT_ATTENDANCE_SETTINGS };
+    }
 }
 
 async function saveAttendanceSettings(payload) {

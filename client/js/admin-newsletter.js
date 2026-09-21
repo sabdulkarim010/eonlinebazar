@@ -38,20 +38,22 @@ let subscriberPg = null;
 let campaignPg = null;
 let nlGatewayStatus = { whatsapp: 'active', sms: 'active', email: 'active' };
 
-function initNewsletterPagination() {
-    if (typeof AdminPagination === 'undefined') return;
-
-    if (!subscriberPg && document.getElementById('subscriber-pg-btns')) {
-        subscriberPg = new AdminPagination({
-            containerId: 'subscriber-pg-btns',
-            infoId: 'subscriber-pg-info',
-            countId: 'subscriber-total-count',
-            limitSelectId: 'subscriber-pg-limit',
+function ensureSubscriberPagination() {
+    if (typeof AdminPagination === 'undefined') return null;
+    if (!subscriberPg) {
+        subscriberPg = AdminPagination.ensure('newsletterPaginationContainer', {
             defaultLimit: 10,
             onPageChange: (page, limit) => fetchNewsletterSubscribers(page, limit)
         });
         window.subscriberPg = subscriberPg;
     }
+    return subscriberPg;
+}
+
+function initNewsletterPagination() {
+    if (typeof AdminPagination === 'undefined') return;
+
+    ensureSubscriberPagination();
 
     if (!campaignPg && document.getElementById('campaign-pg-btns')) {
         campaignPg = new AdminPagination({
@@ -67,8 +69,7 @@ function initNewsletterPagination() {
 }
 
 async function fetchNewsletterSubscribers(page, limit) {
-    initNewsletterPagination();
-    const pg = subscriberPg;
+    const pg = ensureSubscriberPagination();
     const effectivePage = page ?? pg?.currentPage ?? 1;
     const effectiveLimit = limit ?? pg?.currentLimit ?? 10;
 
@@ -103,11 +104,12 @@ async function fetchNewsletterSubscribers(page, limit) {
             if (inactiveEl) inactiveEl.textContent = data.stats.totalInactive ?? 0;
         }
 
-        if (pg) {
-            pg.currentPage = effectivePage;
-            pg.currentLimit = effectiveLimit;
-            pg.setTotal(data.pagination?.total ?? (data.data || []).length);
-        }
+        AdminPagination.render('newsletterPaginationContainer', {
+            total: data.pagination?.total ?? (data.data || []).length,
+            page: effectivePage,
+            limit: effectiveLimit,
+            onPageChange: (p, l) => fetchNewsletterSubscribers(p, l)
+        });
 
         renderNewsletterSubscribers(data.data || []);
     } catch (err) {

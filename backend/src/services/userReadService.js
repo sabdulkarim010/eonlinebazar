@@ -282,6 +282,81 @@ function buildAdminCustomerFilters(query = {}) {
   return filters;
 }
 
+function buildMongoAdminListFilter(filters = {}) {
+  const listFilter = {};
+  const search = String(filters.search || '').trim();
+  if (search) {
+    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const phoneDigits = search.replace(/\D/g, '');
+    const orClauses = [
+      { email: { $regex: escaped, $options: 'i' } },
+      { firstName: { $regex: escaped, $options: 'i' } },
+      { lastName: { $regex: escaped, $options: 'i' } },
+      { mobile: { $regex: escaped, $options: 'i' } }
+    ];
+    if (phoneDigits.length >= 6) {
+      orClauses.push({ mobile: { $regex: phoneDigits, $options: 'i' } });
+    }
+    listFilter.$or = orClauses;
+  }
+  if (filters.loyaltyTier) listFilter.loyaltyTier = filters.loyaltyTier;
+  return listFilter;
+}
+
+async function attachAdminCustomerEmbeds(shaped) {
+  await Promise.all(shaped.map(async (customer) => {
+    const legacyId = customer._id;
+    const [addresses, wishlist, walletHistory] = await Promise.all([
+      fetchUserAddressesEmbedded(legacyId),
+      fetchUserWishlistEmbedded(legacyId),
+      fetchUserWalletHistoryEmbedded(legacyId)
+    ]);
+    customer.addresses = addresses;
+    customer.wishlist = wishlist;
+    customer.walletHistory = walletHistory;
+  }));
+  return shaped;
+}
+
+async function countAdminCustomers({ query }) {
+  const filters = buildAdminCustomerFilters(query);
+  return routedRead(
+    'user',
+    () => User.countDocuments(buildMongoAdminListFilter(filters)),
+    () => getUserRepository().countAll({
+      search: filters.search,
+      loyaltyTier: filters.loyaltyTier
+    })
+  );
+}
+
+async function fetchAdminCustomersOffsetPage({ query, page, limit }) {
+  const filters = buildAdminCustomerFilters(query);
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.max(1, Number(limit) || 10);
+  const skip = (safePage - 1) * safeLimit;
+
+  return routedRead(
+    'user',
+    () => User.find(buildMongoAdminListFilter(filters))
+      .select('-password')
+      .sort({ createdAt: -1, _id: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean(),
+    async () => {
+      const rows = await getUserRepository().findAll({
+        search: filters.search,
+        loyaltyTier: filters.loyaltyTier,
+        page: safePage,
+        limit: safeLimit
+      });
+      const shaped = mapUsersToMongo(rows, { lean: true });
+      return attachAdminCustomerEmbeds(shaped);
+    }
+  );
+}
+
 async function fetchAdminCustomersPage({ query, limit }) {
   const filters = buildAdminCustomerFilters(query);
   const take = limit + 1;
@@ -289,23 +364,7 @@ async function fetchAdminCustomersPage({ query, limit }) {
   return routedRead(
     'user',
     async () => {
-      const listFilter = {};
-      const search = String(filters.search || '').trim();
-      if (search) {
-        const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const phoneDigits = search.replace(/\D/g, '');
-        const orClauses = [
-          { email: { $regex: escaped, $options: 'i' } },
-          { firstName: { $regex: escaped, $options: 'i' } },
-          { lastName: { $regex: escaped, $options: 'i' } },
-          { mobile: { $regex: escaped, $options: 'i' } }
-        ];
-        if (phoneDigits.length >= 6) {
-          orClauses.push({ mobile: { $regex: phoneDigits, $options: 'i' } });
-        }
-        listFilter.$or = orClauses;
-      }
-      if (filters.loyaltyTier) listFilter.loyaltyTier = filters.loyaltyTier;
+      const listFilter = buildMongoAdminListFilter(filters);
 
       const cursor = String(filters.cursor || '').trim();
       if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
@@ -332,18 +391,7 @@ async function fetchAdminCustomersPage({ query, limit }) {
         take
       });
       const shaped = mapUsersToMongo(rows, { lean: true });
-      await Promise.all(shaped.map(async (customer) => {
-        const legacyId = customer._id;
-        const [addresses, wishlist, walletHistory] = await Promise.all([
-          fetchUserAddressesEmbedded(legacyId),
-          fetchUserWishlistEmbedded(legacyId),
-          fetchUserWalletHistoryEmbedded(legacyId)
-        ]);
-        customer.addresses = addresses;
-        customer.wishlist = wishlist;
-        customer.walletHistory = walletHistory;
-      }));
-      return shaped;
+      return attachAdminCustomerEmbeds(shaped);
     }
   );
 }
@@ -403,6 +451,8 @@ module.exports = {
   fetchReferralFields,
   countReferralsForUser,
   fetchAdminCustomersPage,
+  fetchAdminCustomersOffsetPage,
+  countAdminCustomers,
   fetchCustomerById,
   fetchCartItemsForResponse,
   enrichWishlistItems

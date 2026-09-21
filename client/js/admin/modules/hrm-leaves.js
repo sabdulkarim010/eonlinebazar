@@ -15,6 +15,23 @@ const LEAVE_STATUS_CLASSES = {
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+let leavePg = null;
+const leavePgState = { page: 1, limit: 10 };
+
+function initLeavePg() {
+    if (!leavePg && typeof AdminPagination !== 'undefined') {
+        leavePg = AdminPagination.ensure('leavePaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: (page, limit) => {
+                leavePgState.page = page;
+                leavePgState.limit = limit;
+                loadAllLeaves();
+            }
+        });
+    }
+    return leavePg;
+}
+
 function leaveDateRange(leave) {
     const start = window.hrmFormatDate(leave.startDate);
     const end = window.hrmFormatDate(leave.endDate);
@@ -146,13 +163,21 @@ async function rejectLeave(id) {
    ALL LEAVES
    ================================================================== */
 
+function applyLeaveFilters() {
+    leavePgState.page = 1;
+    leavePg?.resetPage();
+    loadAllLeaves();
+}
+
 async function loadAllLeaves() {
     const tbody = document.getElementById('hrmLeaveAllTableBody');
     if (!tbody) return;
 
     tbody.innerHTML = '<tr><td colspan="7" class="loading-container"><div class="spinner"></div><p>Loading leave applications…</p></td></tr>';
 
-    const params = new URLSearchParams({ limit: '100' });
+    const params = new URLSearchParams();
+    params.set('page', String(leavePgState.page));
+    params.set('limit', String(leavePgState.limit));
     const status = document.getElementById('hrmLeaveStatusFilter')?.value;
     const leaveType = document.getElementById('hrmLeaveTypeFilter')?.value;
     if (status) params.set('status', status);
@@ -167,6 +192,7 @@ async function loadAllLeaves() {
 
         if (!rows.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="table-status-empty">No leave applications for this filter.</td></tr>';
+            initLeavePg()?.setTotal(result.pagination?.total ?? 0);
             return;
         }
 
@@ -189,6 +215,7 @@ async function loadAllLeaves() {
                 </td>
             </tr>
         `).join('');
+        initLeavePg()?.setTotal(result.pagination?.total ?? 0);
     } catch (err) {
         console.error('loadAllLeaves:', err);
         tbody.innerHTML = '<tr><td colspan="7" class="table-status-error">Failed to load leave applications.</td></tr>';
@@ -394,6 +421,7 @@ document.addEventListener('DOMContentLoaded', setupHrmLeavesSection);
 window.loadHrmLeavesSection = loadHrmLeavesSection;
 window.loadPendingLeaves = loadPendingLeaves;
 window.loadAllLeaves = loadAllLeaves;
+window.applyLeaveFilters = applyLeaveFilters;
 window.loadLeaveBalances = loadLeaveBalances;
 window.loadLeaveCalendar = loadLeaveCalendar;
 window.approveLeave = approveLeave;

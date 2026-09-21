@@ -331,6 +331,7 @@
             <tbody id="couponTableBody"></tbody>
         </table>
     </div>
+    <div id="couponPaginationContainer" class="no-print"></div>
 </section>
 
 <section id="view-newsletter-subscribers" class="admin-section catalog-page" style="display: none;">
@@ -383,30 +384,7 @@
         </table>
     </div>
 
-    <div class="apg-wrapper">
-        <div class="apg-left">
-            Show
-            <select class="apg-limit-select" id="subscriber-pg-limit"
-                    onchange="subscriberPg.changeLimit(this.value)">
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-            </select>
-            entries &nbsp;|&nbsp;
-            <span class="apg-info" id="subscriber-pg-info"></span>
-        </div>
-        <div class="apg-center" id="subscriber-pg-btns"></div>
-        <div class="apg-right">
-            Go to:
-            <input type="number" class="apg-jump-input" id="subscriber-pg-jump" min="1"
-                   onkeydown="if(event.key==='Enter') subscriberPg.goTo(+this.value)">
-            <button type="button" class="apg-btn"
-                    onclick="subscriberPg.goTo(+document.getElementById('subscriber-pg-jump').value)">
-                Go
-            </button>
-            <span class="apg-info">Total: <strong id="subscriber-total-count">0</strong></span>
-        </div>
-    </div>
+    <div id="newsletterPaginationContainer" class="no-print"></div>
 </section>
 
 <section id="view-newsletter-campaigns" class="admin-section catalog-page" style="display: none;">

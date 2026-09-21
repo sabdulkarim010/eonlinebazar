@@ -6,6 +6,20 @@
 import '../admin-core.js';
 const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
 
+let securityPg = null;
+
+function ensureSecurityLogPagination() {
+    if (typeof AdminPagination === 'undefined') return null;
+    if (!securityPg) {
+        securityPg = AdminPagination.ensure('securityLogPaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: (page, limit) => fetchSecurityLogs(page, limit)
+        });
+        window.securityPg = securityPg;
+    }
+    return securityPg;
+}
+
 /* ==========================================================================
    SECTION 12: SECURITY LOGS (অ্যাডমিন প্যানেল অ্যাক্টিভিটি এবং লগ ট্র্যাকিং)
    ========================================================================== */
@@ -14,10 +28,9 @@ const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
  * ১২.১: সার্ভার থেকে অ্যাডমিন ও সিস্টেমের সিকিউরিটি লগস নিয়ে আসা
  */
 async function fetchSecurityLogs(page, limit) {
-    initAdminPaginationInstances();
-    const pg = securityPg;
+    const pg = ensureSecurityLogPagination();
     const effectivePage = page ?? pg?.currentPage ?? 1;
-    const effectiveLimit = limit ?? pg?.currentLimit ?? 25;
+    const effectiveLimit = limit ?? pg?.currentLimit ?? 10;
 
     const logsBody = document.getElementById('securityLogsBody');
     if (!logsBody) return;
@@ -38,11 +51,12 @@ async function fetchSecurityLogs(page, limit) {
         const logs = data.success ? data.data : [];
         const total = data.pagination?.total ?? logs.length;
 
-        if (pg) {
-            pg.currentPage = effectivePage;
-            pg.currentLimit = effectiveLimit;
-            pg.setTotal(total);
-        }
+        AdminPagination.render('securityLogPaginationContainer', {
+            total,
+            page: effectivePage,
+            limit: effectiveLimit,
+            onPageChange: (p, l) => fetchSecurityLogs(p, l)
+        });
 
         const countEl = document.getElementById('securityLogCount');
         if (countEl) countEl.textContent = total;

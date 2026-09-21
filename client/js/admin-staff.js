@@ -133,14 +133,15 @@ function generateStrongPassword(length = 14) {
     return Array.from(bytes, n => alphabet[n % alphabet.length]).join('');
 }
 
-/** Module-grouped permission matrix for the slide-over panel. */
-const STAFF_PERMISSION_MODULES = [
-    { id: 'attendance', label: 'Attendance', emoji: '🕐', keys: ['view_attendance', 'mark_attendance_today', 'mark_attendance_any_date', 'lock_attendance_dates', 'manual_attendance'] },
-    { id: 'hrm', label: 'HRM', emoji: '👥', keys: ['view_employees', 'edit_employees', 'manage_payroll', 'manage_leave'] },
-    { id: 'inventory', label: 'Inventory', emoji: '📦', keys: ['view_products', 'edit_products', 'manage_stock'] },
-    { id: 'orders', label: 'Orders', emoji: '🛒', keys: ['view_orders', 'update_order_status', 'process_refunds'] },
-    { id: 'platform', label: 'Platform & Admin', emoji: '⚙️', keys: ['view_analytics', 'manage_catalog', 'manage_coupons', 'manage_customers', 'manage_settings', 'manage_marketing', 'manage_security', 'manage_staff', 'manage_orders', 'manage_inventory'] }
-];
+const STAFF_GROUP_EMOJI = {
+    Insights: '📊',
+    Operations: '🛠️',
+    Administration: '⚙️',
+    Attendance: '🕐',
+    HRM: '👥',
+    Inventory: '📦',
+    Orders: '🛒'
+};
 
 /** One-click permission presets — keys must match config/permissions.js. */
 const ROLE_PRESETS = {
@@ -155,6 +156,43 @@ const ROLE_PRESETS = {
 };
 
 let staffAssignCandidates = [];
+let staffAssignSubmitInFlight = false;
+let staffAssignSelectedEmployee = null;
+
+function buildPermissionGroups(catalog = []) {
+    const groups = [];
+    const indexByName = new Map();
+    catalog.forEach((permission) => {
+        const groupName = permission.group || 'Other';
+        if (!indexByName.has(groupName)) {
+            indexByName.set(groupName, groups.length);
+            groups.push({
+                id: groupName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                label: groupName,
+                emoji: STAFF_GROUP_EMOJI[groupName] || '🔑',
+                items: []
+            });
+        }
+        groups[indexByName.get(groupName)].items.push(permission);
+    });
+    return groups;
+}
+
+function formatRelativeTime(value) {
+    if (!value) return 'Never';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Never';
+    const diffMs = Date.now() - date.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days}d ago`;
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
 function resolvePresetKeys(presetKey) {
     if (presetKey === 'fullAdmin') {
@@ -249,19 +287,16 @@ function renderPermissionCheckboxes(container, selectedKeys = []) {
     if (!container) return;
 
     if (permissionCatalog.length === 0) {
-        container.innerHTML = '<p class="empty-hint">No permissions are defined on the server.</p>';
+        container.innerHTML = '<p class="empty-hint">Loading permissions…</p>';
         return;
     }
 
     const selected = new Set(selectedKeys);
+    const modules = buildPermissionGroups(permissionCatalog);
 
-    container.innerHTML = STAFF_PERMISSION_MODULES.map((module) => {
-        const items = module.keys
-            .map((key) => permissionByKey(key))
-            .filter(Boolean);
-
+    container.innerHTML = modules.map((module) => {
+        const items = module.items;
         if (!items.length) return '';
-
         const allChecked = items.every((p) => selected.has(p.key));
 
         return `
@@ -378,9 +413,19 @@ function setupPermissionPresets(presetsBar, grid) {
 
 function deriveStaffRoleBadge(staff) {
     const perms = staff.permissions || [];
-    if (staff.role === 'superadmin') return { label: 'Super Admin', className: 'staff-role-badge staff-role-badge--super' };
-    if (perms.includes('manage_settings') && perms.includes('manage_staff')) {
+    const permSet = new Set(perms);
+    if (staff.role === 'superadmin') {
+        return { label: 'Full Admin', className: 'staff-role-badge staff-role-badge--super' };
+    }
+    const hrKeys = ROLE_PRESETS.hrManager || [];
+    if (hrKeys.length && hrKeys.every((k) => permSet.has(k)) && perms.length <= hrKeys.length + 2) {
+        return { label: 'HR Manager', className: 'staff-role-badge staff-role-badge--hr' };
+    }
+    if (permSet.has('manage_settings') && permSet.has('manage_staff')) {
         return { label: 'Manager', className: 'staff-role-badge staff-role-badge--manager' };
+    }
+    if (perms.length >= permissionCatalog.length - 2) {
+        return { label: 'Full Admin', className: 'staff-role-badge staff-role-badge--super' };
     }
     if (perms.length >= 4) return { label: 'Manager', className: 'staff-role-badge staff-role-badge--manager' };
     return { label: 'Operator', className: 'staff-role-badge staff-role-badge--operator' };
@@ -414,48 +459,60 @@ function renderStaffTable() {
 
     if (staffAccounts.length === 0) {
         body.innerHTML = `
-            <tr><td colspan="5" class="empty-row">
+            <tr><td colspan="6" class="empty-row">
                 No staff accounts yet. Use <strong>Assign New Access</strong> to link an employee from HRM.
             </td></tr>`;
         return;
     }
 
+    const totalPerms = permissionCatalog.length || 25;
+
     body.innerHTML = staffAccounts.map(staff => {
         const blocked = staff.status === 'blocked';
         const roleBadge = deriveStaffRoleBadge(staff);
+        const permCount = staff.permissionCount ?? (staff.permissions || []).length;
+        const photo = staff.linkedEmployeePhoto || staff.image || '';
+        const empCode = staff.linkedEmployeeCode || staff.employeeId || '';
+        const initial = (staff.name || staff.username).charAt(0).toUpperCase();
+        const avatarHtml = photo
+            ? `<img src="${escapeHtml(photo)}" alt="" class="staff-avatar-img" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'staff-avatar',textContent:'${initial}'}))">`
+            : `<span class="staff-avatar">${escapeHtml(initial)}</span>`;
 
         return `
             <tr class="${blocked ? 'staff-row-blocked' : ''}">
                 <td>
-                    <div class="staff-identity">
-                        <span class="staff-avatar">${escapeHtml((staff.name || staff.username).charAt(0).toUpperCase())}</span>
+                    <div class="staff-identity staff-identity--directory">
+                        ${avatarHtml}
                         <div>
                             <strong>${escapeHtml(staff.name || staff.username)}</strong>
-                            <small><code class="staff-username">${escapeHtml(staff.username)}</code> · ${escapeHtml(staff.email || '—')}</small>
+                            <small><code class="staff-username">${escapeHtml(empCode || staff.username)}</code></small>
                         </div>
                     </div>
                 </td>
                 <td><span class="${roleBadge.className}">${escapeHtml(roleBadge.label)}</span></td>
                 <td>
-                    <span class="status-badge ${blocked ? 'blocked' : 'active'}">
-                        <i class="fa-solid ${blocked ? 'fa-ban' : 'fa-circle-check'}"></i>
+                    <button type="button" class="staff-perm-count-btn" onclick="showStaffPermissionDetail('${staff.id}')" title="View permissions">
+                        ${permCount} of ${staff.permissionTotal || totalPerms}
+                    </button>
+                </td>
+                <td>
+                    <span class="status-badge staff-status-dot ${blocked ? 'blocked' : 'active'}">
+                        <i class="fa-solid fa-circle"></i>
                         ${blocked ? 'Suspended' : 'Active'}
                     </span>
                 </td>
-                <td>${escapeHtml(formatDateTime(staff.lastLoginAt))}</td>
+                <td>${escapeHtml(formatRelativeTime(staff.lastLoginAt))}</td>
                 <td>
-                    <div class="staff-actions">
+                    <div class="staff-actions staff-actions--directory">
                         <button type="button" class="action-btn edit" title="Edit permissions"
-                            onclick="openStaffEditModal('${staff.id}')"><i class="fa-solid fa-user-pen"></i></button>
+                            onclick="openStaffEditModal('${staff.id}')"><i class="fa-solid fa-pen"></i> Edit</button>
                         <button type="button" class="action-btn ${blocked ? 'activate' : 'block'}"
-                            title="${blocked ? 'Reactivate account' : 'Suspend account'}"
+                            title="${blocked ? 'Activate account' : 'Suspend account'}"
                             onclick="toggleStaffStatus('${staff.id}')">
-                            <i class="fa-solid ${blocked ? 'fa-lock-open' : 'fa-user-lock'}"></i>
+                            <i class="fa-solid ${blocked ? 'fa-play' : 'fa-pause'}"></i> ${blocked ? 'Activate' : 'Suspend'}
                         </button>
-                        <button type="button" class="action-btn reset" title="Reset password"
-                            onclick="resetStaffPassword('${staff.id}')"><i class="fa-solid fa-key"></i></button>
-                        <button type="button" class="action-btn delete" title="Delete account"
-                            onclick="deleteStaffAccount('${staff.id}')"><i class="fa-solid fa-trash"></i></button>
+                        <button type="button" class="action-btn delete" title="Revoke access"
+                            onclick="revokeStaffAccess('${staff.id}')"><i class="fa-solid fa-user-slash"></i> Revoke</button>
                     </div>
                 </td>
             </tr>`;
@@ -497,7 +554,7 @@ async function fetchStaffAccounts(options = {}) {
     const body = document.getElementById('staffTableBody');
 
     if (body && showTableLoading) {
-        body.innerHTML = '<tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading staff accounts...</p></td></tr>';
+        body.innerHTML = '<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading staff accounts...</p></td></tr>';
     }
 
     const url = bustCache
@@ -513,7 +570,7 @@ async function fetchStaffAccounts(options = {}) {
     } catch (error) {
         console.error('Load Staff Error:', error);
         if (body) {
-            body.innerHTML = `<tr><td colspan="5" class="empty-row">${escapeHtml(error.message)}</td></tr>`;
+            body.innerHTML = `<tr><td colspan="6" class="empty-row">${escapeHtml(error.message)}</td></tr>`;
         }
         if (!options.suppressErrorToast) {
             notify(error.message, 'error');
@@ -521,6 +578,7 @@ async function fetchStaffAccounts(options = {}) {
         return false;
     }
 }
+window.fetchStaffAccounts = fetchStaffAccounts;
 
 const STAFF_REFRESH_BTN_IDLE_HTML =
     '<i class="fa-solid fa-rotate staff-refresh-btn__icon" aria-hidden="true"></i>' +
@@ -624,21 +682,10 @@ window.applySuperAdminOnlyVisibility = applySuperAdminOnlyVisibility;
 window.isAdminSuperAdmin = isSuperAdmin;
 window.hasAdminPermission = hasPermission;
 
-/* ==========================================================================
-   ASSIGN ACCESS (from HRM employees without linked admin)
-   ========================================================================== */
-
 async function refreshStaffAssignCandidates() {
     try {
         const result = await staffApi('/api/admin/hrm/employees?hasAccess=false&limit=200');
         staffAssignCandidates = result.data || [];
-        const datalist = document.getElementById('staffAssignEmployeeList');
-        if (datalist) {
-            datalist.innerHTML = staffAssignCandidates.map((e) => {
-                const label = `${e.fullName} — ${e.designation || e.role || e.employeeId || 'Employee'}`;
-                return `<option value="${escapeHtml(label)}" data-id="${escapeHtml(e._id)}"></option>`;
-            }).join('');
-        }
     } catch (error) {
         console.error('refreshStaffAssignCandidates:', error);
         staffAssignCandidates = [];
@@ -646,54 +693,183 @@ async function refreshStaffAssignCandidates() {
 }
 window.refreshStaffAssignCandidates = refreshStaffAssignCandidates;
 
-function resolveAssignEmployeeFromSearch(value) {
-    const needle = String(value || '').trim().toLowerCase();
-    if (!needle) return null;
-    return staffAssignCandidates.find((e) => {
-        const label = `${e.fullName} — ${e.designation || e.role || e.employeeId || 'Employee'}`.toLowerCase();
-        return label === needle
-            || e.fullName?.toLowerCase() === needle
-            || e.employeeId?.toLowerCase() === needle
-            || e.phone?.includes(needle);
-    }) || null;
+/* ==========================================================================
+   ASSIGN ACCESS MODAL
+   ========================================================================== */
+
+function renderStaffAssignDropdown(filter = '') {
+    const dropdown = document.getElementById('staffAssignEmployeeDropdown');
+    if (!dropdown) return;
+
+    const needle = String(filter || '').trim().toLowerCase();
+    const matches = staffAssignCandidates.filter((e) => {
+        if (!needle) return true;
+        const hay = `${e.fullName} ${e.employeeId} ${e.phone || ''}`.toLowerCase();
+        return hay.includes(needle);
+    }).slice(0, 12);
+
+    if (!matches.length) {
+        dropdown.innerHTML = '<p class="staff-assign-dropdown-empty">No matching employees without access</p>';
+        dropdown.hidden = false;
+        return;
+    }
+
+    dropdown.innerHTML = matches.map((e) => `
+        <button type="button" class="staff-assign-dropdown-item" data-employee-id="${escapeHtml(e._id)}">
+            ${e.photo ? `<img src="${escapeHtml(e.photo)}" alt="" class="staff-assign-dropdown-photo">` : '<span class="staff-assign-dropdown-photo staff-assign-dropdown-photo--placeholder"><i class="fa-solid fa-user"></i></span>'}
+            <span class="staff-assign-dropdown-copy">
+                <strong>${escapeHtml(e.fullName)}</strong>
+                <small>${escapeHtml(e.employeeId || 'Employee')}</small>
+            </span>
+        </button>
+    `).join('');
+
+    dropdown.querySelectorAll('.staff-assign-dropdown-item').forEach((btn) => {
+        btn.addEventListener('click', () => selectStaffAssignEmployee(btn.getAttribute('data-employee-id')));
+    });
+    dropdown.hidden = false;
 }
 
-function setupAssignAccessPanel() {
-    const assignBtn = document.getElementById('staffAssignAccessBtn');
-    const panel = document.getElementById('staffAssignPanel');
-    const searchInput = document.getElementById('staffAssignEmployeeSearch');
-    const confirmBtn = document.getElementById('staffAssignConfirmBtn');
+function selectStaffAssignEmployee(employeeId) {
+    const employee = staffAssignCandidates.find((e) => String(e._id) === String(employeeId));
+    if (!employee) return;
 
-    assignBtn?.addEventListener('click', async () => {
-        if (!panel) return;
-        panel.hidden = !panel.hidden;
-        if (!panel.hidden) {
+    staffAssignSelectedEmployee = employee;
+    document.getElementById('staffAssignEmpId').value = employee._id;
+    document.getElementById('staffAssignEmployeeSearch').value = `${employee.fullName} (${employee.employeeId || 'EMP'})`;
+    document.getElementById('staffAssignSelectedHint').textContent = `Selected: ${employee.fullName} — ${employee.employeeId || 'Employee'}`;
+
+    const suggested = String(employee.fullName || '').toLowerCase().replace(/\s+/g, '.').replace(/[^a-z.]/g, '');
+    document.getElementById('staffAssignUsername').value = suggested;
+
+    const dropdown = document.getElementById('staffAssignEmployeeDropdown');
+    if (dropdown) dropdown.hidden = true;
+}
+
+async function openStaffAssignModal() {
+    staffAssignSelectedEmployee = null;
+    document.getElementById('staffAssignEmpId').value = '';
+    document.getElementById('staffAssignEmployeeSearch').value = '';
+    document.getElementById('staffAssignUsername').value = '';
+    document.getElementById('staffAssignPassword').value = '';
+    document.getElementById('staffAssignConfirmPassword').value = '';
+    document.getElementById('staffAssignSelectedHint').textContent = 'Only employees without linked admin access are listed.';
+
+    await refreshStaffAssignCandidates();
+    const grid = document.getElementById('staffAssignPermissionGrid');
+    renderPermissionCheckboxes(grid, []);
+    setupPermissionPresets(document.querySelector('[data-permission-presets="assign"]'), grid);
+
+    const submitBtn = document.getElementById('staffAssignSubmitBtn');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Link Account';
+    }
+
+    document.getElementById('staffAssignAccessModal').style.display = 'flex';
+}
+
+function closeStaffAssignModal() {
+    const modal = document.getElementById('staffAssignAccessModal');
+    if (modal) modal.style.display = 'none';
+    const dropdown = document.getElementById('staffAssignEmployeeDropdown');
+    if (dropdown) dropdown.hidden = true;
+}
+window.closeStaffAssignModal = closeStaffAssignModal;
+
+async function submitStaffAssignAccess(event) {
+    event.preventDefault();
+    if (staffAssignSubmitInFlight) return;
+
+    const employeeId = document.getElementById('staffAssignEmpId').value;
+    const username = document.getElementById('staffAssignUsername').value.trim();
+    const password = document.getElementById('staffAssignPassword').value;
+    const confirmPwd = document.getElementById('staffAssignConfirmPassword').value;
+    const grid = document.getElementById('staffAssignPermissionGrid');
+    const permissions = readSelectedPermissions(grid);
+    const submitBtn = document.getElementById('staffAssignSubmitBtn');
+
+    if (!employeeId) {
+        notify('Select an employee from the search list.', 'warning');
+        return;
+    }
+    if (!username || !password) {
+        notify('Username and password are required.', 'warning');
+        return;
+    }
+    if (password !== confirmPwd) {
+        notify('Passwords do not match.', 'warning');
+        return;
+    }
+    if (!permissions.length) {
+        notify('Select at least one permission.', 'warning');
+        return;
+    }
+
+    staffAssignSubmitInFlight = true;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Linking…';
+    }
+
+    try {
+        const response = await fetch(`/api/admin/hrm/employees/${employeeId}/grant-access`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${staffToken()}`
+            },
+            body: JSON.stringify({ username, password, permissions })
+        });
+        const data = await response.json();
+
+        if (response.status === 409 || (data.error && /already granted/i.test(data.error))) {
+            notify('This employee already has system access. Refreshing the directory…', 'info');
+            closeStaffAssignModal();
+            await fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
             await refreshStaffAssignCandidates();
-            searchInput?.focus();
-        }
-    });
-
-    searchInput?.addEventListener('input', () => {
-        if (!confirmBtn) return;
-        confirmBtn.disabled = !resolveAssignEmployeeFromSearch(searchInput.value);
-    });
-
-    confirmBtn?.addEventListener('click', () => {
-        const employee = resolveAssignEmployeeFromSearch(searchInput?.value);
-        if (!employee) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Select an Employee',
-                text: 'Choose an employee from the list who does not yet have admin access.',
-                confirmButtonColor: '#2563eb'
-            });
             return;
         }
-        if (typeof window.openGrantAccessModal === 'function') {
-            window.openGrantAccessModal(employee._id, employee.fullName, employee.email || '', employee.phone || '');
-        } else {
-            notify('Employee linking module is not loaded. Open the HRM Employees section once and try again.', 'warning');
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || data.message || 'Failed to link account.');
         }
+
+        notify(`System access linked for ${data.username}.`, 'success');
+        closeStaffAssignModal();
+        await fetchStaffAccounts({ showTableLoading: false });
+        await refreshStaffAssignCandidates();
+    } catch (error) {
+        notify(error.message || 'Failed to link system account.', 'error');
+    } finally {
+        staffAssignSubmitInFlight = false;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Link Account';
+        }
+    }
+}
+
+function setupStaffAssignModal() {
+    const assignBtn = document.getElementById('staffAssignAccessBtn');
+    const form = document.getElementById('staffAssignAccessForm');
+    const searchInput = document.getElementById('staffAssignEmployeeSearch');
+
+    assignBtn?.addEventListener('click', () => openStaffAssignModal());
+    form?.addEventListener('submit', submitStaffAssignAccess);
+
+    searchInput?.addEventListener('focus', () => renderStaffAssignDropdown(searchInput.value));
+    searchInput?.addEventListener('input', () => {
+        staffAssignSelectedEmployee = null;
+        document.getElementById('staffAssignEmpId').value = '';
+        renderStaffAssignDropdown(searchInput.value);
+    });
+
+    document.addEventListener('click', (e) => {
+        const dropdown = document.getElementById('staffAssignEmployeeDropdown');
+        if (!dropdown || dropdown.hidden) return;
+        if (e.target.closest('.staff-assign-search-wrap')) return;
+        dropdown.hidden = true;
     });
 }
 
@@ -710,39 +886,51 @@ window.openStaffEditModal = async function openStaffEditModal(staffId) {
     if (!staff) return notify('Staff account not found. Try refreshing.', 'error');
 
     document.getElementById('editStaffId').value = staff.id;
-    document.getElementById('editStaffName').value = staff.name || '';
-    document.getElementById('editStaffEmail').value = staff.email || '';
-    document.getElementById('editStaffRequireTwoFactor').checked = staff.twoFactorEnabled !== false;
-    setEditAccountStatus(staff.status);
-    const subtitle = document.getElementById('staffPermissionsPanelSubtitle');
-    if (subtitle) subtitle.textContent = `${staff.username} · changes apply on their very next request`;
+    const roleBadge = deriveStaffRoleBadge(staff);
+    const titleEl = document.getElementById('staffEditPermissionsTitle');
+    const subtitleEl = document.getElementById('staffEditPermissionsSubtitle');
+    const roleEl = document.getElementById('staffEditRoleLabel');
+    const empCode = staff.linkedEmployeeCode || staff.employeeId || staff.username;
+
+    if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-user-pen"></i> Edit Permissions: ${escapeHtml(staff.name || staff.username)}`;
+    if (subtitleEl) subtitleEl.textContent = `${empCode} · changes apply on next login`;
+    if (roleEl) roleEl.textContent = roleBadge.label;
 
     const grid = document.getElementById('editStaffPermissionGrid');
     renderPermissionCheckboxes(grid, staff.permissions || []);
-    setupPermissionPresets(
-        document.querySelector('[data-permission-presets="edit"]'),
-        grid
-    );
+    setupPermissionPresets(document.querySelector('[data-permission-presets="edit"]'), grid);
 
-    const panel = document.getElementById('staffPermissionsPanel');
-    if (panel) {
-        panel.classList.add('is-open');
-        panel.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('staff-panel-open');
-    }
+    document.getElementById('staffEditPermissionsModal').style.display = 'flex';
 };
 
-function closeStaffPermissionsPanel() {
-    const panel = document.getElementById('staffPermissionsPanel');
-    if (panel) {
-        panel.classList.remove('is-open');
-        panel.setAttribute('aria-hidden', 'true');
-    }
-    document.body.classList.remove('staff-panel-open');
+function closeStaffEditModal() {
+    const modal = document.getElementById('staffEditPermissionsModal');
+    if (modal) modal.style.display = 'none';
 }
 
-window.closeStaffPermissionsPanel = closeStaffPermissionsPanel;
-window.closeStaffEditModal = closeStaffPermissionsPanel;
+window.closeStaffEditModal = closeStaffEditModal;
+window.closeStaffPermissionsPanel = closeStaffEditModal;
+
+window.showStaffPermissionDetail = function showStaffPermissionDetail(staffId) {
+    const staff = staffAccounts.find(s => String(s.id) === String(staffId));
+    if (!staff) return;
+
+    const list = document.getElementById('staffPermissionDetailList');
+    const title = document.getElementById('staffPermissionDetailTitle');
+    if (title) title.textContent = `${staff.name || staff.username} — Permissions`;
+    if (list) {
+        const perms = staff.permissions || [];
+        list.innerHTML = perms.length
+            ? perms.map((key) => `<li>${escapeHtml(permissionLabel(key))}</li>`).join('')
+            : '<li class="empty-hint">No permissions assigned</li>';
+    }
+    document.getElementById('staffPermissionDetailModal').style.display = 'flex';
+};
+
+window.closeStaffPermissionDetail = function closeStaffPermissionDetail() {
+    const modal = document.getElementById('staffPermissionDetailModal');
+    if (modal) modal.style.display = 'none';
+};
 
 function setupEditStaffForm() {
     const form = document.getElementById('editStaffForm');
@@ -754,36 +942,33 @@ function setupEditStaffForm() {
         const grid = document.getElementById('editStaffPermissionGrid');
         const staffId = document.getElementById('editStaffId').value;
         const permissions = readSelectedPermissions(grid);
-        const desiredStatus = getEditAccountStatus();
-        const staff = staffAccounts.find(s => String(s.id) === String(staffId));
+        const saveBtn = document.getElementById('staffEditSaveBtn');
 
         if (permissions.length === 0) {
             return notify('A staff member must keep at least one permission.', 'warning');
         }
 
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
+        }
+
         try {
-            const result = await staffApi(`/api/admin/staff/${staffId}`, {
+            const result = await staffApi(`/api/admin/staff/${staffId}/permissions`, {
                 method: 'PUT',
-                body: JSON.stringify({
-                    name: document.getElementById('editStaffName').value.trim(),
-                    email: document.getElementById('editStaffEmail').value.trim().toLowerCase(),
-                    permissions,
-                    requireTwoFactor: document.getElementById('editStaffRequireTwoFactor').checked
-                })
+                body: JSON.stringify({ permissions })
             });
 
-            if (staff && staff.status !== desiredStatus) {
-                await staffApi(`/api/admin/staff/${staffId}/status`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ status: desiredStatus })
-                });
-            }
-
-            notify(result.message, 'success');
-            window.closeStaffPermissionsPanel();
-            await fetchStaffAccounts();
+            notify(result.message || 'Permissions updated.', 'success');
+            closeStaffEditModal();
+            await fetchStaffAccounts({ showTableLoading: false });
         } catch (error) {
             notify(error.message, 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Permissions';
+            }
         }
     });
 }
@@ -866,6 +1051,27 @@ window.resetStaffPassword = function resetStaffPassword(staffId) {
     });
 };
 
+window.revokeStaffAccess = function revokeStaffAccess(staffId) {
+    const staff = staffAccounts.find(s => String(s.id) === String(staffId));
+    if (!staff) return notify('Staff account not found. Try refreshing.', 'error');
+
+    confirmAction(
+        'Revoke System Access',
+        `Revoke access for "${staff.username}"? They will be signed out, suspended, and unlinked from their HRM employee record.`,
+        async () => {
+            try {
+                const result = await staffApi(`/api/admin/staff/${staffId}/access`, { method: 'DELETE' });
+                notify(result.message, 'success');
+                await fetchStaffAccounts();
+                await refreshStaffAssignCandidates();
+            } catch (error) {
+                notify(error.message, 'error');
+            }
+        },
+        'warning'
+    );
+};
+
 window.deleteStaffAccount = function deleteStaffAccount(staffId) {
     const staff = staffAccounts.find(s => String(s.id) === String(staffId));
     if (!staff) return notify('Staff account not found. Try refreshing.', 'error');
@@ -916,7 +1122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof window.applyDashboardWidgetPermissions === 'function') {
         window.applyDashboardWidgetPermissions();
     }
-    setupAssignAccessPanel();
+    setupStaffAssignModal();
     setupEditStaffForm();
     setupStaffRefreshButton();
 

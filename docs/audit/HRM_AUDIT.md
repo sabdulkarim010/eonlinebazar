@@ -1,8 +1,8 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20 (Group 3 — payroll calculate from attendance)  
+**Last updated:** 2026-09-21 (Fix Group B — pagination + staff directory)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
-**Status:** ✅ COMPLETE
+**Status:** ⚠️ PARTIAL — clock-out + settings 500 fixed; pagination gaps remain
 
 ---
 
@@ -64,6 +64,7 @@
 | `client/js/admin/modules/core-boot.js` | `fetchAdminProfile` delegates to sidebar loader; sets `window.adminRole` | ✅ |
 | `client/js/admin/modules/core-nav.js` | Sidebar refresh after profile pic upload | ✅ |
 | `client/css/admin/_hrm.css` | Status pills, split buttons, inline edit row, save feedback, lock bar styles | ✅ |
+| `docs/audit/PRODUCTION_ISSUES_AUDIT.md` | Consolidated production issue register (2026-09-21) | ✅ |
 
 ---
 
@@ -100,12 +101,12 @@
 - [x] Attendance Register tab loads on tab click — `hrm-tab-register` → `loadAttendanceList()` with pagination (50/page)
 - [x] HRM fetch error handling — `hrmFetchJson()` with 10s timeout + `res.ok` guard on read paths
 - [x] Daily Sheet "Set Now" clock buttons — inline check-in/out time helpers
-- [x] Register "Clock Out Now" — `POST /hrm/attendance/clock-out` from register rows missing checkout
-- [x] Attendance Settings panel — Shifts tab card; `GET/PUT /settings/attendance`
+- [x] Register "Clock Out Now" — `POST /hrm/attendance/clock-out` with `resolveClockStaff` (Admin + Employee)
+- [x] Attendance Settings panel — `GET/PUT /settings/attendance` via PG-safe read + Mongo fallback
 - [x] Daily Sheet late detection — office start + grace from settings on Set Now / Present
 - [x] Granular attendance permissions — `view_attendance`, `mark_attendance_today`, `manual_attendance`, etc.
 
-**Summary: 34 of 34 features complete.**
+**Summary: 33 of 34 features complete; pagination standardization still open.**
 
 ---
 
@@ -212,6 +213,11 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 
 | Issue | Severity | Status | Notes |
 |-------|----------|--------|-------|
+| Clock-out from Register fails for employee attendance rows | **High** | Fixed | `resolveClockStaff` in `attendanceController.js`; register sends `staffType` |
+| `GET /settings/attendance` 500 in production | **High** | Fixed | `fetchSettingsDocumentSafe` + Mongo fallback for `attendanceSettings` |
+| Grant-access "Access already granted" / PG-Mongo drift | Medium | Fixed | `syncLinkedAdminIdToPostgres`; HTTP 409; staff directory + dropdown refresh |
+| Grant-access modal only 8 permission keys | Medium | Fixed | Dynamic API-grouped 25-key grid in grant modal |
+| Employee/leave/payroll lists lack Orders-style pagination | Medium | Open | Fixed `limit=100` client fetch |
 | Manual Entry tab lacks super-admin-only route guard | Low | Open | `manual-entry` uses same `manage_staff` as daily sheet; past-date writes allowed via manual entry flag |
 | `hr` admin role not in schema yet | Low | Open | Past-date bypass checks `role === 'hr'` for future use; only `superadmin` exists today |
 
@@ -229,6 +235,32 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Fix Group B — Pagination + Staff Directory — 2026-09-21
+
+- HRM list sections use Orders-style `AdminPagination` (employees, attendance register, leave, payroll)
+- System Staff Directory rebuilt in `view-staff.html` + `admin-staff.js` with Assign modal and row actions
+- Tests: Jest **228/228** passing
+
+### Critical Fix Group A refinements — 2026-09-21
+
+- **Fix 4:** Explicit PG `linkedAdminId` sync (`[GRANT-ACCESS-PG-SYNC]` log); HTTP 409 duplicate grant; frontend refreshes Staff Directory and assign dropdown on already-granted
+- **Fix 5:** Grant modal groups permissions dynamically from `/api/admin/permissions` (Insights, Operations, Administration, Attendance, HRM, Inventory, Orders)
+- Files: `employeeController.js`, `hrm-employees.js`, `admin-staff.js`, `hrm.test.js`
+- Tests: Jest **228/228** passing
+
+### Critical Fixes 1–5 — 2026-09-21
+
+- Clock-out employee resolution; PG-safe settings reads; grant-access reconcile + 25-key modal; Nginx WebSocket runbook
+- Files: `attendanceController.js`, `hrmStaffResolver.js`, `settingsReadService.js`, `gatewayStatusService.js`, `attendanceSettingsService.js`, `whatsappService.js`, `employeeController.js`, `hrmReadService.js`, `hrm-attendance.js`, `hrm-employees.js`, `view-hrm-employees.html`, `devops/NGINX_WEBSOCKET_FIX.md`
+- Tests: Jest **228/228** passing
+
+### Deep Production Audit — 2026-09-21
+
+- Read-only production audit; no code fixes
+- Documented: clock-out employee resolver bug, settings 500, grant-access drift, pagination gaps, 8 console errors
+- Full register: `docs/audit/PRODUCTION_ISSUES_AUDIT.md`
+- Status: ✅ COMPLETE → ⚠️ PARTIAL
 
 ### Group 3 — Payroll calculate from attendance — 2026-09-20
 

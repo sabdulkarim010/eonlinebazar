@@ -928,7 +928,7 @@ describe('HRM — Attendance, Payroll, Leave', () => {
                     permissions: ['manage_orders']
                 });
 
-            expect(duplicate.status).toBe(400);
+            expect(duplicate.status).toBe(409);
             expect(duplicate.body.error).toMatch(/already granted/i);
 
             const status = await request(app)

@@ -51,7 +51,7 @@ const {
     getAttendanceSettings,
     isCheckInLate
 } = require('../../services/attendanceSettingsService');
-const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
+const { findAdmin, parseStaffSelector, resolveHrmSubject, resolveClockStaff } = require('../../utils/hrmStaffResolver');
 const {
     fetchAttendancePage,
     fetchTodayAttendanceStats,
@@ -217,7 +217,21 @@ async function listManualEntriesMongo(limit = 30) {
     });
 }
 
-/** Resolve a login Admin by _id or username (clock-in/out paths). */
+/** Resolve clock-in/out subject (Admin or Employee). */
+async function resolveClockSubject(body, req) {
+    if (body?.staffId || body?.staffUsername) {
+        return resolveClockStaff(body);
+    }
+    if (req.adminAccount) {
+        return resolveHrmSubject({
+            staffId: String(req.adminAccount._id),
+            staffType: 'admin'
+        });
+    }
+    return null;
+}
+
+/** Resolve a login Admin by _id or username (legacy helper). */
 async function findStaff(identifier) {
     return findAdmin(identifier);
 }
@@ -465,11 +479,9 @@ exports.markAttendance = async (req, res) => {
 exports.clockIn = async (req, res) => {
     try {
         const body = req.body || {};
-        const account = body.staffId || body.staffUsername
-            ? await findStaff(body.staffId || body.staffUsername)
-            : req.adminAccount;
+        const subject = await resolveClockSubject(body, req);
 
-        if (!account) {
+        if (!subject) {
             return res.status(404).json({ success: false, message: 'Staff member not found.' });
         }
 
@@ -486,7 +498,7 @@ exports.clockIn = async (req, res) => {
 
         const now = new Date();
 
-        let record = await Attendance.findOne({ staffId: String(account._id), date });
+        let record = await Attendance.findOne({ staffId: subject.staffId, date });
         if (record?.clockIn) {
             return res.status(409).json({
                 success: false,
@@ -496,13 +508,18 @@ exports.clockIn = async (req, res) => {
         }
 
         if (!record) {
-            record = new Attendance({ staffId: String(account._id), date });
+            record = new Attendance({
+                staffId: subject.staffId,
+                staffType: subject.staffType,
+                date
+            });
         }
 
-        const shiftWindow = await resolveShiftFor(account.username);
+        const shiftWindow = await resolveShiftFor(subject.shiftKey || subject.staffUsername);
         const lateMinutes = calculateLateness(now, shiftWindow.startTime, shiftWindow.gracePeriodMinutes);
 
-        record.staffUsername = account.username;
+        record.staffUsername = subject.staffUsername;
+        record.staffType = subject.staffType;
         record.clockIn = now;
         record.shiftStart = shiftWindow.startTime;
         record.shiftEnd = shiftWindow.endTime;
@@ -546,11 +563,9 @@ exports.clockIn = async (req, res) => {
 exports.clockOut = async (req, res) => {
     try {
         const body = req.body || {};
-        const account = body.staffId || body.staffUsername
-            ? await findStaff(body.staffId || body.staffUsername)
-            : req.adminAccount;
+        const subject = await resolveClockSubject(body, req);
 
-        if (!account) {
+        if (!subject) {
             return res.status(404).json({ success: false, message: 'Staff member not found.' });
         }
 
@@ -565,7 +580,7 @@ exports.clockOut = async (req, res) => {
             return res.status(423).json({ success: false, message: 'Date is locked' });
         }
 
-        const record = await Attendance.findOne({ staffId: String(account._id), date });
+        const record = await Attendance.findOne({ staffId: subject.staffId, date });
 
         if (!record || !record.clockIn) {
             return res.status(400).json({ success: false, message: 'No clock-in found for today.' });

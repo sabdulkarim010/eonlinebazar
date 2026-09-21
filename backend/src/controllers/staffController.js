@@ -19,15 +19,18 @@ const mongoose = require('mongoose');
 
 const Admin = require('../models/admin');
 const AdminSession = require('../models/adminSession');
+const Employee = require('../models/employee');
 const {
     ROLES,
     ACCOUNT_STATUS,
+    PERMISSION_KEYS,
     getPermissionCatalog,
     sanitizePermissions,
     SECTION_PERMISSIONS
 } = require('../config/permissions');
 const { fingerprint } = require('../utils/deviceParser');
 const { logSecurityEvent } = require('../utils/securityLogger');
+const { dualWrite } = require('../services/dualWriteService');
 const { adminDualWrite, mirrorAdminCreate, mirrorAdminUpdate, mirrorAdminRemove } = require('../utils/adminDualWriteHelpers');
 
 const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,29}$/;
@@ -96,8 +99,26 @@ exports.getCurrentAdmin = async (req, res) => {
 exports.listStaff = async (req, res) => {
     try {
         const staff = await Admin.find({ role: ROLES.STAFF }).sort({ createdAt: -1 });
+        const refs = staff.map((s) => s.employeeRef).filter(Boolean);
+        const employees = refs.length
+            ? await Employee.find({ _id: { $in: refs } }).select('employeeId fullName photo').lean()
+            : [];
+        const empMap = new Map(employees.map((e) => [String(e._id), e]));
+        const permissionTotal = PERMISSION_KEYS.length;
 
-        const data = staff.map(member => member.toSafeObject());
+        const data = staff.map((member) => {
+            const safe = member.toSafeObject();
+            const emp = member.employeeRef ? empMap.get(String(member.employeeRef)) : null;
+            return {
+                ...safe,
+                employeeRef: member.employeeRef || null,
+                linkedEmployeeCode: emp?.employeeId || safe.employeeId || '',
+                linkedEmployeePhoto: emp?.photo || safe.image || '',
+                permissionCount: Array.isArray(safe.permissions) ? safe.permissions.length : 0,
+                permissionTotal
+            };
+        });
+
         const summary = {
             total: data.length,
             active: data.filter(s => s.status === ACCOUNT_STATUS.ACTIVE).length,
@@ -534,6 +555,73 @@ exports.getStaffRoster = async (req, res) => {
     } catch (error) {
         console.error('getStaffRoster Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load staff roster.' });
+    }
+};
+
+exports.revokeStaffAccess = async (req, res) => {
+    try {
+        const staff = await findStaffById(req.params.id);
+        if (!staff) {
+            return res.status(404).json({ success: false, message: 'Staff account not found.' });
+        }
+
+        const { username } = staff;
+        const staffLegacyId = String(staff._id);
+        const revoked = await revokeAllSessions(username);
+
+        await adminDualWrite(
+            () => Admin.findByIdAndUpdate(
+                staff._id,
+                { status: ACCOUNT_STATUS.BLOCKED },
+                { returnDocument: 'after' }
+            ),
+            (updated) => mirrorAdminUpdate(updated, { operation: 'revokeStaffAccess' }),
+            {
+                operation: 'revokeStaffAccess',
+                mongoId: staffLegacyId
+            }
+        );
+
+        if (staff.employeeRef) {
+            const employee = await Employee.findById(staff.employeeRef);
+            if (employee?.linkedAdminId) {
+                employee.linkedAdminId = null;
+                await dualWrite(
+                    () => employee.save(),
+                    async (saved) => {
+                        const repo = require('../repositories/employeeRepository');
+                        const pgEmployee = await repo.findByLegacyId(String(saved._id));
+                        if (pgEmployee?.linkedAdminId) {
+                            await repo.unlinkAdminAccount(pgEmployee.id);
+                        }
+                    },
+                    {
+                        model: 'Employee',
+                        operation: 'revokeStaffAccess',
+                        mongoId: (saved) => String(saved._id)
+                    }
+                );
+            }
+        }
+
+        await logSecurityEvent({
+            action: 'Staff Access Revoked',
+            actor: req.adminAccount.username,
+            actorType: 'admin',
+            ipAddress: clientIp(req),
+            details: `Revoked system access for "${username}" and cleared employee link`,
+            resourceType: 'staff',
+            resourceId: staffLegacyId
+        });
+
+        res.status(200).json({
+            success: true,
+            message: `System access revoked for "${username}". The account is suspended and unlinked from HRM.`,
+            revokedSessions: revoked
+        });
+    } catch (error) {
+        console.error('Revoke Staff Access Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to revoke staff access.' });
     }
 };
 

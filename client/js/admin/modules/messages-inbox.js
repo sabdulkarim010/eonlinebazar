@@ -20,6 +20,20 @@ import '../admin-core.js';
 
 /* shared state: messagesSearchQuery lives on window (admin-core) */
 
+let messagePg = null;
+
+function ensureMessagePagination() {
+    if (typeof AdminPagination === 'undefined') return null;
+    if (!messagePg) {
+        messagePg = AdminPagination.ensure('contactPaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: (page, limit) => renderMessagesPage(page, limit)
+        });
+        window.messagePg = messagePg;
+    }
+    return messagePg;
+}
+
 function formatMessageDate(value) {
     if (!value) return '—';
     try {
@@ -369,8 +383,7 @@ function clearInquirySelection() {
 }
 
 function renderMessagesPage(page, limit) {
-    initAdminPaginationInstances();
-    const pg = messagePg;
+    const pg = ensureMessagePagination();
     const effectivePage = page ?? pg?.currentPage ?? 1;
     const effectiveLimit = limit ?? pg?.currentLimit ?? 10;
 
@@ -437,23 +450,33 @@ function renderMessagesInbox(messages = adminMessagesCache, page, limit) {
     updateMessagesStats();
 
     const filtered = getFilteredMessages();
-    initAdminPaginationInstances();
+    const pg = ensureMessagePagination();
 
-    const effectivePage = page ?? messagePg?.currentPage ?? 1;
-    const effectiveLimit = limit ?? messagePg?.currentLimit ?? 10;
+    const effectivePage = page ?? pg?.currentPage ?? 1;
+    const effectiveLimit = limit ?? pg?.currentLimit ?? 10;
 
     if (!adminMessagesCache.length) {
         listEl.innerHTML = '<div class="support-inbox-list-empty">No messages yet.</div>';
         inquiryDetailActiveId = null;
         showInquiryDetailEmpty();
-        if (messagePg) messagePg.setTotal(0);
+        AdminPagination.render('contactPaginationContainer', {
+            total: 0,
+            page: 1,
+            limit: pg?.currentLimit || 10,
+            onPageChange: (p, l) => renderMessagesPage(p, l)
+        });
         updateMessagesBulkToolbar();
         return;
     }
 
     if (!filtered.length) {
         listEl.innerHTML = '<div class="support-inbox-list-empty">No inquiries match your filters.</div>';
-        if (messagePg) messagePg.setTotal(0);
+        AdminPagination.render('contactPaginationContainer', {
+            total: 0,
+            page: 1,
+            limit: pg?.currentLimit || 10,
+            onPageChange: (p, l) => renderMessagesPage(p, l)
+        });
         updateMessagesBulkToolbar();
         return;
     }
@@ -466,11 +489,12 @@ function renderMessagesInbox(messages = adminMessagesCache, page, limit) {
     const start = (effectivePage - 1) * effectiveLimit;
     const paginated = filtered.slice(start, start + effectiveLimit);
 
-    if (messagePg) {
-        messagePg.currentPage = effectivePage;
-        messagePg.currentLimit = effectiveLimit;
-        messagePg.setTotal(filtered.length);
-    }
+    AdminPagination.render('contactPaginationContainer', {
+        total: filtered.length,
+        page: effectivePage,
+        limit: effectiveLimit,
+        onPageChange: (p, l) => renderMessagesPage(p, l)
+    });
 
     listEl.innerHTML = paginated.map((msg) => {
         const id = escapeHtml(msg.id || msg._id);

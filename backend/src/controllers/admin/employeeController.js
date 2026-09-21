@@ -30,6 +30,29 @@ async function resolvePostgresAdminId(mongoAdminId) {
     return require('../../utils/hrmDualWriteHelpers').resolvePostgresAdminId(mongoAdminId);
 }
 
+/**
+ * Best-effort PG sync for linkedAdminId after Mongo grant/reconcile.
+ * PG failure must never block the Mongo write path.
+ */
+async function syncLinkedAdminIdToPostgres(employeeLegacyId, mongoAdminId) {
+    const employeeId = String(employeeLegacyId || '').trim();
+    if (!employeeId || !mongoAdminId) return;
+
+    try {
+        const prisma = require('../../config/prismaClient');
+        const pgAdminId = await resolvePostgresAdminId(mongoAdminId);
+        if (!pgAdminId) return;
+
+        await prisma.employee.update({
+            where: { legacyId: employeeId },
+            data: { linkedAdminId: pgAdminId }
+        });
+        console.log(`[GRANT-ACCESS-PG-SYNC] ${employeeId}`);
+    } catch (err) {
+        console.warn(`[GRANT-ACCESS-PG-SYNC] ${employeeId} failed:`, err.message);
+    }
+}
+
 const { EMPLOYEE_STATUSES, EMPLOYEE_TYPES, SALARY_TYPES, GENDERS, BLOOD_GROUPS, MARITAL_STATUSES } = Employee;
 const { LEAVE_ALLOWANCES } = Leave;
 
@@ -177,6 +200,44 @@ const {
 } = require('../../services/hrmReadService');
 
 const MIN_ACCESS_PASSWORD_LENGTH = 8;
+
+/**
+ * Resolve linked admin from Mongo employeeRef / linkedAdminId and sync PG when missing.
+ * Returns linked admin Mongo _id when access exists, else null.
+ */
+async function reconcileLinkedAdminAccess(employee) {
+    if (!employee) return null;
+
+    let linkedId = employee.linkedAdminId ? String(employee.linkedAdminId).trim() : '';
+
+    if (!linkedId) {
+        const linkedAdmin = await Admin.findOne({ employeeRef: String(employee._id) })
+            .select('_id')
+            .lean();
+        if (linkedAdmin) {
+            linkedId = String(linkedAdmin._id);
+        }
+    }
+
+    if (linkedId && !employee.linkedAdminId) {
+        employee.linkedAdminId = linkedId;
+        await dualWrite(
+            () => employee.save(),
+            async (saved) => {
+                await syncLinkedAdminIdToPostgres(String(saved._id), linkedId);
+            },
+            {
+                model: 'Employee',
+                operation: 'reconcileLinkedAdmin',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
+    } else if (linkedId) {
+        await syncLinkedAdminIdToPostgres(String(employee._id), linkedId);
+    }
+
+    return linkedId || null;
+}
 
 async function syncLinkedAdminName(employee, newName) {
     if (!employee?.linkedAdminId || !newName) return;
@@ -736,8 +797,10 @@ exports.grantSystemAccess = async (req, res) => {
         if (!employee) {
             return res.status(404).json({ error: 'Employee not found' });
         }
-        if (employee.linkedAdminId) {
-            return res.status(400).json({ error: 'Access already granted' });
+
+        const existingLink = await reconcileLinkedAdminAccess(employee);
+        if (existingLink) {
+            return res.status(409).json({ error: 'Access already granted' });
         }
 
         const normalizedUsername = String(username || '').trim().toLowerCase();
@@ -785,12 +848,7 @@ exports.grantSystemAccess = async (req, res) => {
         await dualWrite(
             () => employee.save(),
             async (saved) => {
-                const repo = getEmployeeRepository();
-                const pgEmployee = await repo.findByLegacyId(String(saved._id));
-                const pgAdminId = await resolvePostgresAdminId(String(newAdmin._id));
-                if (pgEmployee && pgAdminId) {
-                    await repo.linkAdminAccount(pgEmployee.id, pgAdminId);
-                }
+                await syncLinkedAdminIdToPostgres(String(saved._id), String(newAdmin._id));
             },
             {
                 model: 'Employee',
@@ -798,6 +856,7 @@ exports.grantSystemAccess = async (req, res) => {
                 mongoId: (saved) => String(saved._id)
             }
         );
+        await syncLinkedAdminIdToPostgres(String(employee._id), String(newAdmin._id));
 
         await logSecurityEvent({
             action: 'Employee System Access Granted',

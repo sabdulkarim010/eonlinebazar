@@ -81,7 +81,7 @@
             </select>
         </div>
         <div class="form-group hrm-filter-actions">
-            <button type="button" class="btn-primary" onclick="loadEmployees()">
+            <button type="button" class="btn-primary" onclick="applyEmployeeFilters()">
                 <i class="fa-solid fa-filter"></i> Apply
             </button>
         </div>
@@ -108,6 +108,7 @@
             </tbody>
         </table>
     </div>
+    <div id="employeePaginationContainer"></div>
 </section>
 
 <!-- Add / Edit Employee — tabbed modal -->
@@ -591,32 +592,24 @@
                         </div>
                     </div>
                     <div class="staff-enterprise-card-body">
-                        <div class="staff-presets-bar">
+                        <div class="staff-presets-bar" data-grant-permission-presets="grant">
                             <span class="staff-presets-label">Quick Presets</span>
                             <div class="staff-presets-actions">
-                                <button type="button" class="staff-preset-btn" onclick="applyPermissionPreset('full')">Full Admin</button>
-                                <button type="button" class="staff-preset-btn" onclick="applyPermissionPreset('inventory')">Inventory Manager</button>
-                                <button type="button" class="staff-preset-btn" onclick="applyPermissionPreset('orders')">Order Manager</button>
-                                <button type="button" class="staff-preset-btn" onclick="applyPermissionPreset('pos')">POS Operator</button>
-                                <button type="button" class="staff-preset-btn" onclick="applyPermissionPreset('hr')">HR Manager</button>
+                                <button type="button" class="staff-preset-btn" data-grant-preset="fullAdmin">Full Admin</button>
+                                <button type="button" class="staff-preset-btn" data-grant-preset="inventoryManager">Inventory Manager</button>
+                                <button type="button" class="staff-preset-btn" data-grant-preset="orderManager">Order Manager</button>
+                                <button type="button" class="staff-preset-btn" data-grant-preset="posOperator">POS Operator</button>
+                                <button type="button" class="staff-preset-btn" data-grant-preset="hrManager">HR Manager</button>
+                                <button type="button" class="staff-preset-btn staff-preset-btn--ghost" data-grant-preset="clear">Reset</button>
                             </div>
                         </div>
-                        <div class="grant-access-permissions">
-                            <label class="grant-perm-item"><input type="checkbox" value="manage_orders"> Manage Orders</label>
-                            <label class="grant-perm-item"><input type="checkbox" value="manage_inventory"> Manage Inventory</label>
-                            <label class="grant-perm-item"><input type="checkbox" value="manage_catalog"> Manage Catalog</label>
-                            <label class="grant-perm-item"><input type="checkbox" value="manage_customers"> Manage Customers</label>
-                            <label class="grant-perm-item"><input type="checkbox" value="manage_settings"> Manage Settings</label>
-                            <label class="grant-perm-item"><input type="checkbox" value="manage_marketing"> Manage Marketing</label>
-                            <label class="grant-perm-item"><input type="checkbox" value="manage_security"> Security &amp; Audit</label>
-                            <label class="grant-perm-item"><input type="checkbox" value="manage_staff"> Manage Staff</label>
-                        </div>
+                        <div id="grantAccessPermissionGrid" class="permission-grid permission-grid--modules grant-access-permissions"></div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeGrantAccessModal()">Cancel</button>
-                <button type="submit" class="btn-primary"><i class="fa-solid fa-link"></i> Link Account</button>
+                <button type="submit" class="btn-primary" id="grantAccessSubmitBtn"><i class="fa-solid fa-link"></i> Link Account</button>
             </div>
         </form>
     </div>

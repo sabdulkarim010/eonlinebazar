@@ -91,17 +91,19 @@ function clearWhatsAppSettingsCache() {
 }
 
 async function loadWhatsAppSettingsFromDb() {
-    const doc = await Settings.getOrCreate();
+    const { fetchSettingsDocumentSafe } = require('./settingsReadService');
+    const doc = await fetchSettingsDocumentSafe();
+    const source = doc || {};
     return {
         publicSupportWhatsApp: sanitizeWhatsAppInput(
-            doc.publicSupportWhatsApp || DEFAULT_PUBLIC_WHATSAPP
+            source.publicSupportWhatsApp || DEFAULT_PUBLIC_WHATSAPP
         ),
-        privateAdminAlertWhatsApp: sanitizeWhatsAppInput(doc.privateAdminAlertWhatsApp),
-        enableWhatsAppOrderAlerts: doc.enableWhatsAppOrderAlerts === true,
-        whatsAppAlertProvider: String(doc.whatsAppAlertProvider || '').trim(),
-        whatsAppAlertApiKey: String(doc.whatsAppAlertApiKey || '').trim(),
-        whatsAppAlertInstanceId: String(doc.whatsAppAlertInstanceId || '').trim(),
-        whatsAppAlertWebhookUrl: String(doc.whatsAppAlertWebhookUrl || '').trim()
+        privateAdminAlertWhatsApp: sanitizeWhatsAppInput(source.privateAdminAlertWhatsApp),
+        enableWhatsAppOrderAlerts: source.enableWhatsAppOrderAlerts === true,
+        whatsAppAlertProvider: String(source.whatsAppAlertProvider || '').trim(),
+        whatsAppAlertApiKey: String(source.whatsAppAlertApiKey || '').trim(),
+        whatsAppAlertInstanceId: String(source.whatsAppAlertInstanceId || '').trim(),
+        whatsAppAlertWebhookUrl: String(source.whatsAppAlertWebhookUrl || '').trim()
     };
 }
 

@@ -277,6 +277,35 @@ async function findAll(filters = {}) {
   return records.map((r) => toShape(r));
 }
 
+// ── countAll ─────────────────────────────────────────────────────────────────
+// Same filters as findAll (without page/limit/cursor/take).
+async function countAll(filters = {}) {
+  const where = {};
+
+  const tier = filters.tier ?? filters.loyaltyTier;
+  if (tier !== undefined && tier !== '') {
+    where.loyaltyTier = toLoyaltyTierEnum(tier);
+  }
+  if (filters.accountStatus !== undefined) {
+    where.accountStatus = toAccountStatusEnum(filters.accountStatus);
+  }
+  if (filters.isDeleted !== undefined) {
+    where.isDeleted = Boolean(filters.isDeleted);
+  }
+
+  const search = String(filters.search || '').trim();
+  if (search) {
+    where.OR = [
+      { email: { contains: search, mode: 'insensitive' } },
+      { firstName: { contains: search, mode: 'insensitive' } },
+      { lastName: { contains: search, mode: 'insensitive' } },
+      { mobile: { contains: search, mode: 'insensitive' } }
+    ];
+  }
+
+  return prisma.user.count({ where });
+}
+
 // ── findById ─────────────────────────────────────────────────────────────────
 async function findById(id) {
   if (!id) return null;
@@ -965,6 +994,7 @@ module.exports = {
   generateReferralCode,
   resolveUniqueReferralCode,
   findAll,
+  countAll,
   findById,
   findByEmail,
   findByReferralCode,

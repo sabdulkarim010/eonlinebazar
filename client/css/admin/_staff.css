@@ -972,3 +972,144 @@ body.staff-panel-open { overflow: hidden; }
     color: #15803d;
 }
 
+/* — System Staff Directory (professional rebuild) — */
+.staff-table--directory .staff-identity--directory {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.staff-avatar-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.staff-role-badge--hr {
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+}
+
+.staff-perm-count-btn {
+    border: none;
+    background: rgba(99, 102, 241, 0.08);
+    color: #4f46e5;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.staff-perm-count-btn:hover {
+    background: rgba(99, 102, 241, 0.15);
+}
+
+.staff-status-dot.active {
+    color: #059669;
+}
+
+.staff-status-dot.blocked {
+    color: #d97706;
+}
+
+.staff-actions--directory {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.staff-actions--directory .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    padding: 6px 10px;
+}
+
+.staff-assign-search-wrap {
+    position: relative;
+}
+
+.staff-assign-search-input {
+    width: 100%;
+}
+
+.staff-assign-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    max-height: 280px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+
+.staff-assign-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.staff-assign-dropdown-item:hover {
+    background: #f8fafc;
+}
+
+.staff-assign-dropdown-photo {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.staff-assign-dropdown-photo--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e2e8f0;
+    color: #64748b;
+}
+
+.staff-assign-dropdown-empty {
+    padding: 12px;
+    margin: 0;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.staff-permission-detail-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.staff-permission-detail-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.9rem;
+}
+
+.staff-edit-footnote {
+    margin-top: 16px;
+    font-size: 0.82rem;
+    color: #64748b;
+}
+
+.staff-edit-role-line {
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: #475569;
+}

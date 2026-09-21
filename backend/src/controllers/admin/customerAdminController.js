@@ -20,7 +20,12 @@ const Settings = require('../../models/Settings');
 const cloudinary = require('cloudinary').v2;
 const sharp = require('sharp');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
-const { fetchAdminCustomersPage, fetchCustomerById } = require('../../services/userReadService');
+const {
+    fetchAdminCustomersPage,
+    fetchAdminCustomersOffsetPage,
+    countAdminCustomers,
+    fetchCustomerById
+} = require('../../services/userReadService');
 
 const VIP_DEFAULTS = {
     vipMinTotalSpent: 10000,
@@ -128,11 +133,97 @@ function serializeCustomerAvatarResponse(user) {
     };
 }
 
+async function enrichCustomersWithOrderStats(pageCustomers, masterSettings) {
+    const customerIds = pageCustomers.map((c) => c._id);
+
+    const orderStats = customerIds.length
+        ? await Order.aggregate([
+            {
+                $match: {
+                    user: { $in: customerIds },
+                    status: { $nin: ['Cancelled', 'Canceled'] }
+                }
+            },
+            {
+                $group: {
+                    _id: '$user',
+                    orderCount: { $sum: 1 },
+                    totalSpent: {
+                        $sum: {
+                            $add: [
+                                { $ifNull: ['$grandTotal', 0] },
+                                { $ifNull: ['$walletApplied', 0] }
+                            ]
+                        }
+                    }
+                }
+            }
+        ])
+        : [];
+
+    const statsMap = new Map(
+        orderStats.map((row) => [String(row._id), {
+            orderCount: row.orderCount || 0,
+            totalSpent: Math.round(Number(row.totalSpent) || 0)
+        }])
+    );
+
+    const thresholds = {
+        vipMinTotalSpent: masterSettings.vipMinTotalSpent,
+        vipMinOrderCount: masterSettings.vipMinOrderCount,
+        frequentBuyerMinOrders: masterSettings.frequentBuyerMinOrders
+    };
+
+    const enriched = pageCustomers.map((customer) => {
+        const stats = statsMap.get(String(customer._id)) || { orderCount: 0, totalSpent: 0 };
+        const segmentMeta = resolveCustomerSegment(stats, thresholds);
+        return {
+            ...customer,
+            name: hydrateCustomerName(customer),
+            orderCount: segmentMeta.orderCount,
+            totalSpent: segmentMeta.totalSpent,
+            segment: segmentMeta.segment,
+            isVip: segmentMeta.isVip,
+            isFrequentBuyer: segmentMeta.isFrequentBuyer,
+            isInactive: segmentMeta.isInactive
+        };
+    });
+
+    return { enriched, thresholds };
+}
+
 // ==============================================================
 // ১. কাস্টমারদের তালিকা নিয়ে আসার ফাংশন 
 // ==============================================================
 const getAllCustomers = async (req, res) => {
     try {
+        const pageParam = req.query.page;
+        const useOffsetPage = pageParam !== undefined && pageParam !== '';
+
+        if (useOffsetPage) {
+            const page = Math.max(1, parseInt(pageParam, 10) || 1);
+            const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
+
+            const [total, customerRows, masterSettings] = await Promise.all([
+                countAdminCustomers({ query: req.query }),
+                fetchAdminCustomersOffsetPage({ query: req.query, page, limit }),
+                Settings.getOrCreate()
+            ]);
+
+            const { enriched, thresholds } = await enrichCustomersWithOrderStats(customerRows, masterSettings);
+            const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+
+            return res.status(200).json({
+                success: true,
+                customers: enriched,
+                data: enriched,
+                total,
+                page,
+                totalPages,
+                segmentThresholds: thresholds
+            });
+        }
+
         const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
         const cursor = String(req.query.cursor || '').trim();
         const useCursor = cursor.length > 0 || req.query.cursor === '';
@@ -144,60 +235,7 @@ const getAllCustomers = async (req, res) => {
 
         const hasMore = customerRows.length > limit;
         const pageCustomers = hasMore ? customerRows.slice(0, limit) : customerRows;
-        const customerIds = pageCustomers.map((c) => c._id);
-
-        const orderStats = customerIds.length
-            ? await Order.aggregate([
-                {
-                    $match: {
-                        user: { $in: customerIds },
-                        status: { $nin: ['Cancelled', 'Canceled'] }
-                    }
-                },
-                {
-                    $group: {
-                        _id: '$user',
-                        orderCount: { $sum: 1 },
-                        totalSpent: {
-                            $sum: {
-                                $add: [
-                                    { $ifNull: ['$grandTotal', 0] },
-                                    { $ifNull: ['$walletApplied', 0] }
-                                ]
-                            }
-                        }
-                    }
-                }
-            ])
-            : [];
-
-        const statsMap = new Map(
-            orderStats.map((row) => [String(row._id), {
-                orderCount: row.orderCount || 0,
-                totalSpent: Math.round(Number(row.totalSpent) || 0)
-            }])
-        );
-
-        const thresholds = {
-            vipMinTotalSpent: masterSettings.vipMinTotalSpent,
-            vipMinOrderCount: masterSettings.vipMinOrderCount,
-            frequentBuyerMinOrders: masterSettings.frequentBuyerMinOrders
-        };
-
-        const enriched = pageCustomers.map((customer) => {
-            const stats = statsMap.get(String(customer._id)) || { orderCount: 0, totalSpent: 0 };
-            const segmentMeta = resolveCustomerSegment(stats, thresholds);
-            return {
-                ...customer,
-                name: hydrateCustomerName(customer),
-                orderCount: segmentMeta.orderCount,
-                totalSpent: segmentMeta.totalSpent,
-                segment: segmentMeta.segment,
-                isVip: segmentMeta.isVip,
-                isFrequentBuyer: segmentMeta.isFrequentBuyer,
-                isInactive: segmentMeta.isInactive
-            };
-        });
+        const { enriched, thresholds } = await enrichCustomersWithOrderStats(pageCustomers, masterSettings);
 
         const nextCursor = hasMore && enriched.length
             ? String(enriched[enriched.length - 1]._id)

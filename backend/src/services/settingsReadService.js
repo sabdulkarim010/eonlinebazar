@@ -26,11 +26,32 @@ async function fetchSettingsDocument() {
     async () => {
       const row = await getSettingsRepository().findByKey();
       if (!row) {
-        throw new Error('Settings row missing in Postgres');
+        return Settings.getOrCreate();
       }
-      return settingsToMongoShape(row);
+      const shaped = settingsToMongoShape(row);
+      if (!shaped) {
+        return Settings.getOrCreate();
+      }
+      return shaped;
     }
   );
 }
 
-module.exports = { fetchSettingsDocument };
+/**
+ * Safe settings read — never throws; returns plain object or null.
+ */
+async function fetchSettingsDocumentSafe() {
+  try {
+    return await fetchSettingsDocument();
+  } catch (err) {
+    console.warn('[settingsReadService] fetchSettingsDocument failed:', err.message);
+    try {
+      return await Settings.getOrCreate();
+    } catch (mongoErr) {
+      console.warn('[settingsReadService] Mongo Settings fallback failed:', mongoErr.message);
+      return null;
+    }
+  }
+}
+
+module.exports = { fetchSettingsDocument, fetchSettingsDocumentSafe };

@@ -2134,3 +2134,66 @@ README.md [MOD] Enterprise Ready 100% badge
 backend/src/routes/adminRoutes.js [MOD] /profile/me/full moved to top (before /me/*); attendance routes reordered; DELETE /hrm/attendance/lock uses requireSuperAdmin; view_attendance on daily-sheet
 backend/src/controllers/admin/enterpriseSummaryController.js [MOD] Prisma camelCase low-stock query; per-metric safeMetric + partial 200 response
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Production Route Fix — 2026-09-20"
+
+# Deep Production Audit — 2026-09-21 (read-only, no code fixes)
+docs/audit/PRODUCTION_ISSUES_AUDIT.md [NEW] consolidated production issue register — 8 console errors, staff directory, clock-out, pagination, HRM matrix, enterprise gaps, priority queue
+docs/audit/HRM_AUDIT.md [MOD] status ⚠️ PARTIAL; clock-out + settings 500 + grant-access gaps; change log 2026-09-21
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Deep Production Audit — 2026-09-21"
+REFACTOR_MAP.md [MOD] audit doc entry 2026-09-21
+
+# Critical Fixes 1–5 — 2026-09-21
+backend/src/utils/hrmStaffResolver.js [DONE] resolveClockStaff — Admin then Employee for clock-in/out
+backend/src/controllers/admin/attendanceController.js [DONE] resolveClockSubject; clockIn/clockOut use subject.staffId + staffType
+backend/src/services/settingsReadService.js [DONE] fetchSettingsDocumentSafe; PG missing row → Mongo fallback
+backend/src/services/gatewayStatusService.js [DONE] PG-safe settings read; DEFAULT_GATEWAY_STATUS on failure
+backend/src/services/attendanceSettingsService.js [DONE] PG-safe read + Mongo attendanceSettings fallback
+backend/src/services/whatsappService.js [DONE] loadWhatsAppSettingsFromDb via fetchSettingsDocumentSafe
+backend/src/controllers/admin/employeeController.js [DONE] reconcileLinkedAdminAccess before grant-access
+backend/src/services/hrmReadService.js [DONE] filterEmployeesWithoutLinkedAccess for hasAccess=false PG reads
+client/js/admin/modules/hrm-attendance.js [DONE] clockOutFromRegister sends staffType
+client/js/admin/modules/hrm-employees.js [DONE] 25-key grant permission grid; submit loading guard
+client/admin/partials/view-hrm-employees.html [DONE] #grantAccessPermissionGrid replaces 8 checkboxes
+devops/NGINX_WEBSOCKET_FIX.md [NEW] production Nginx /socket.io/ WebSocket upgrade runbook
+backend/src/controllers/admin/employeeController.js [MOD] syncLinkedAdminIdToPostgres; grant-access returns 409; explicit PG linkedAdminId sync
+client/js/admin/modules/hrm-employees.js [MOD] API-grouped permission grid; 409 already-granted UX; staff directory refresh on grant
+client/js/admin-staff.js [MOD] window.fetchStaffAccounts exposed for grant-access refresh
+tests/hrm.test.js [MOD] duplicate grant-access expects HTTP 409
+docs/audit/PRODUCTION_ISSUES_AUDIT.md [MOD] items 1–5 marked FIXED; Critical Fix Group A changelog
+docs/audit/HRM_AUDIT.md [MOD] grant-access PG sync + dynamic permissions
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Critical Fix Group A section
+README.md [MOD] Critical Fix Group A complete
+client/js/admin/modules/admin-stock-alerts.js [NEW] client-side inventory alert pagination via AdminPagination.ensure
+client/js/admin/modules/messages-inbox.js [MOD] contactPaginationContainer + AdminPagination.ensure (defaultLimit 10)
+client/js/admin/modules/settings-security.js [MOD] securityLogPaginationContainer + AdminPagination.ensure (defaultLimit 10)
+client/js/admin/modules/core-nav.js [MOD] removed messagePg/securityPg init (owned by domain modules)
+client/js/admin-newsletter.js [MOD] newsletterPaginationContainer + AdminPagination.ensure for subscribers
+client/js/admin/admin-dashboard.js [MOD] imports admin-stock-alerts renderInventoryAlerts
+client/admin/partials/view-catalog.html [MOD] newsletterPaginationContainer replaces manual subscriber apg-wrapper
+client/admin/partials/view-messages.html [MOD] contactPaginationContainer replaces manual message apg-wrapper
+client/admin/partials/view-security.html [MOD] securityLogPaginationContainer replaces manual security apg-wrapper
+client/admin/partials/view-overview.html [MOD] stockAlertPaginationContainer for dashboard inventory alerts
+client/js/admin/modules/pagination-util.js [NEW] AdminPagination class + ensure/render/clear standalone containers
+client/css/admin/_pagination.css [NEW] Orders-style apg-wrapper styles
+client/css/admin.css [MOD] imports _pagination.css
+client/admin/partials/head.html [MOD] loads pagination-util.js
+client/js/admin-pagination.js [MOD] backward-compat shim
+client/admin/partials/view-staff.html [MOD] Assign + Edit Permissions modals; professional directory table
+client/js/admin-staff.js [MOD] Staff Directory rebuild; assign modal grant flow; revokeStaffAccess
+client/css/admin/_staff.css [MOD] directory table, assign dropdown, permission detail styles
+backend/src/controllers/staffController.js [MOD] listStaff HRM enrichment; revokeStaffAccess
+backend/src/routes/staffRoutes.js [MOD] DELETE /:id/access
+client/js/admin/modules/hrm-employees.js [MOD] employeePaginationContainer
+client/js/admin/modules/hrm-attendance.js [MOD] attendancePaginationContainer
+client/js/admin/modules/hrm-leaves.js [MOD] leavePaginationContainer
+client/js/admin/modules/hrm-payroll.js [MOD] payrollPaginationContainer
+client/js/admin/modules/catalog-coupons.js [MOD] couponPaginationContainer
+client/js/admin/modules/erp-expenses.js [MOD] expensePaginationContainer
+client/js/admin/modules/settings-reviews.js [MOD] reviewPaginationContainer
+client/js/admin/modules/products-table.js [MOD] productPaginationContainer
+client/js/admin/modules/core-nav.js [MOD] customer page pagination
+backend/src/controllers/admin/customerAdminController.js [MOD] page-based pagination when ?page=
+docs/audit/PRODUCTION_ISSUES_AUDIT.md [MOD] items 7, 9 marked FIXED
+docs/audit/HRM_AUDIT.md [MOD] Fix Group B changelog
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] revoke access endpoint
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Fix Group B section
+README.md [MOD] Fix Group B complete

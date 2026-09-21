@@ -5,6 +5,7 @@
  */
 
 import './admin-core.js';
+import { renderInventoryAlerts } from './modules/admin-stock-alerts.js';
 
 /* ==========================================================================
    SECTION 5: OVERVIEW & ANALYTICS (ড্যাশবোর্ড ওভারভিউ এবং স্ট্যাটিস্টিকস)
@@ -394,63 +395,6 @@ function renderTopProductsChart(topProducts) {
             }
         }
     });
-}
-
-function renderInventoryAlerts(inventoryAlerts) {
-    const container = document.getElementById('inventoryAlertsList');
-    const countLabel = document.getElementById('inventoryAlertCount');
-    if (!container) return;
-
-    const outOfStock = inventoryAlerts?.outOfStock || [];
-    const lowStock = inventoryAlerts?.lowStock || [];
-    const allAlerts = [
-        ...outOfStock.map((p) => ({ ...p, alertType: 'out' })),
-        ...lowStock.map((p) => ({ ...p, alertType: 'low' }))
-    ];
-
-    if (countLabel) {
-        countLabel.textContent = allAlerts.length === 0
-            ? 'All clear'
-            : `${allAlerts.length} alert${allAlerts.length === 1 ? '' : 's'}`;
-    }
-
-    if (allAlerts.length === 0) {
-        container.innerHTML = `
-            <div class="inventory-alert-empty">
-                <i class="fa-solid fa-circle-check"></i>
-                <p>All products are well stocked.</p>
-            </div>`;
-        return;
-    }
-
-    container.innerHTML = allAlerts.map((product) => {
-        const isOut = product.alertType === 'out';
-        const badgeClass = isOut ? 'out' : 'low';
-        const badgeText = isOut
-            ? '⚠️ Out of Stock'
-            : `🔥 Low Stock: ${product.stock} left`;
-        const itemClass = isOut ? 'out-of-stock' : 'low-stock';
-        const thumb = product.image
-            ? `<img src="${product.image}" class="inventory-alert-thumb" alt="" onerror="this.outerHTML='<span class=\\'inventory-alert-thumb\\'>${product.icon || '📦'}</span>'">`
-            : `<span class="inventory-alert-thumb">${product.icon || '📦'}</span>`;
-
-        return `
-            <div class="inventory-alert-item ${itemClass}">
-                <div class="inventory-alert-info">
-                    ${thumb}
-                    <div class="inventory-alert-meta">
-                        <strong>${product.name || 'Unnamed Product'}</strong>
-                        <span>${product.productId || 'N/A'} · ${product.category || 'General'}</span>
-                    </div>
-                </div>
-                <div class="inventory-alert-actions">
-                    <span class="inventory-alert-badge ${badgeClass}">${badgeText}</span>
-                    <button type="button" class="btn-update-stock" onclick="quickUpdateStock('${product._id}')">
-                        <i class="fa-solid fa-pen"></i> Update Stock
-                    </button>
-                </div>
-            </div>`;
-    }).join('');
 }
 
 window.quickUpdateStock = async function(productId) {

@@ -61,6 +61,24 @@ function parseStaffSelector(raw) {
  * Resolve HRM subject from a request body or parsed selector.
  * Returns null when the person cannot be found.
  */
+/**
+ * Resolve clock-in/out target: honour explicit staffType, else try Admin then Employee.
+ */
+async function resolveClockStaff(body = {}) {
+    const staffType = String(body.staffType || '').trim().toLowerCase();
+    if (staffType === 'employee' || staffType === 'admin') {
+        return resolveHrmSubject(body);
+    }
+
+    const identifier = body.staffId || body.staffUsername;
+    if (!identifier) return null;
+
+    const asAdmin = await resolveHrmSubject({ ...body, staffType: 'admin' });
+    if (asAdmin) return asAdmin;
+
+    return resolveHrmSubject({ ...body, staffType: 'employee' });
+}
+
 async function resolveHrmSubject(input = {}) {
     const staffType = String(input.staffType || 'admin').toLowerCase();
 
@@ -97,5 +115,6 @@ module.exports = {
     findAdmin,
     findEmployeeRecord,
     parseStaffSelector,
-    resolveHrmSubject
+    resolveHrmSubject,
+    resolveClockStaff
 };

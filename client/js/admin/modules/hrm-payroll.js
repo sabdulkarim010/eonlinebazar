@@ -13,6 +13,23 @@ const PAYROLL_STATUS_CLASSES = {
     paid: 'status-verified'
 };
 
+let payrollPg = null;
+const payrollPgState = { page: 1, limit: 10 };
+
+function initPayrollPg() {
+    if (!payrollPg && typeof AdminPagination !== 'undefined') {
+        payrollPg = AdminPagination.ensure('payrollPaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: (page, limit) => {
+                payrollPgState.page = page;
+                payrollPgState.limit = limit;
+                loadPayrollList();
+            }
+        });
+    }
+    return payrollPg;
+}
+
 function currentMonth() {
     return new Date().getMonth() + 1;
 }
@@ -59,13 +76,21 @@ function payrollRowActions(row) {
     return `<div class="catalog-actions">${buttons.join('')}</div>`;
 }
 
+function applyPayrollFilters() {
+    payrollPgState.page = 1;
+    payrollPg?.resetPage();
+    loadPayrollList();
+}
+
 async function loadPayrollList() {
     const tbody = document.getElementById('hrmPayrollTableBody');
     if (!tbody) return;
 
     tbody.innerHTML = '<tr><td colspan="10" class="loading-container"><div class="spinner"></div><p>Loading payroll…</p></td></tr>';
 
-    const params = new URLSearchParams({ limit: '100' });
+    const params = new URLSearchParams();
+    params.set('page', String(payrollPgState.page));
+    params.set('limit', String(payrollPgState.limit));
     const month = document.getElementById('hrmPayrollMonth')?.value;
     const year = document.getElementById('hrmPayrollYear')?.value;
     const status = document.getElementById('hrmPayrollStatusFilter')?.value;
@@ -84,6 +109,7 @@ async function loadPayrollList() {
         const rows = result.data || [];
         if (!rows.length) {
             tbody.innerHTML = '<tr><td colspan="10" class="table-status-empty">No payroll runs for this period.</td></tr>';
+            initPayrollPg()?.setTotal(result.pagination?.total ?? 0);
             return;
         }
 
@@ -104,6 +130,7 @@ async function loadPayrollList() {
                 <td>${payrollRowActions(row)}</td>
             </tr>
         `).join('');
+        initPayrollPg()?.setTotal(result.pagination?.total ?? 0);
     } catch (err) {
         console.error('loadPayrollList:', err);
         tbody.innerHTML = '<tr><td colspan="10" class="table-status-error">Failed to load payroll.</td></tr>';
@@ -442,6 +469,7 @@ document.addEventListener('DOMContentLoaded', setupHrmPayrollSection);
 
 window.loadHrmPayrollSection = loadHrmPayrollSection;
 window.loadPayrollList = loadPayrollList;
+window.applyPayrollFilters = applyPayrollFilters;
 window.openGeneratePayrollModal = openGeneratePayrollModal;
 window.closeGeneratePayrollModal = closeGeneratePayrollModal;
 window.submitGeneratePayroll = submitGeneratePayroll;

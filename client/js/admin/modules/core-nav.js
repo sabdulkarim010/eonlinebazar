@@ -127,45 +127,6 @@ function getCustomerSegmentBadge(user) {
 function initAdminPaginationInstances() {
     if (typeof AdminPagination === 'undefined') return;
 
-    if (!customerPg && document.getElementById('customer-pg-btns')) {
-        customerPg = new AdminPagination({
-            containerId: 'customer-pg-btns',
-            infoId: 'customer-pg-info',
-            countId: 'customer-total-count',
-            limitSelectId: 'customer-pg-limit',
-            defaultLimit: 10,
-            onPageChange: (page, limit) => fetchCustomers(page, limit)
-        });
-        window.customerPg = customerPg;
-    }
-
-    if (!productPg && document.getElementById('product-pg-btns')) {
-        productPg = new AdminPagination({
-            containerId: 'product-pg-btns',
-            infoId: 'product-pg-info',
-            countId: 'product-total-count',
-            limitSelectId: 'product-pg-limit',
-            defaultLimit: 10,
-            onPageChange: (page, limit) => {
-                currentPage = page;
-                renderProductTable();
-            }
-        });
-        window.productPg = productPg;
-    }
-
-    if (!securityPg && document.getElementById('security-pg-btns')) {
-        securityPg = new AdminPagination({
-            containerId: 'security-pg-btns',
-            infoId: 'security-pg-info',
-            countId: 'security-total-count',
-            limitSelectId: 'security-pg-limit',
-            defaultLimit: 25,
-            onPageChange: (page, limit) => fetchSecurityLogs(page, limit)
-        });
-        window.securityPg = securityPg;
-    }
-
     if (!auditPg && document.getElementById('audit-pg-btns')) {
         auditPg = new AdminPagination({
             containerId: 'audit-pg-btns',
@@ -189,18 +150,6 @@ function initAdminPaginationInstances() {
         });
     }
 
-    if (!messagePg && document.getElementById('message-pg-btns')) {
-        messagePg = new AdminPagination({
-            containerId: 'message-pg-btns',
-            infoId: 'message-pg-info',
-            countId: 'message-total-count',
-            limitSelectId: 'message-pg-limit',
-            defaultLimit: 10,
-            onPageChange: (page, limit) => renderMessagesPage(page, limit)
-        });
-        window.messagePg = messagePg;
-    }
-
     if (!orderPg && document.getElementById('order-pg-btns')) {
         orderPg = new AdminPagination({
             containerId: 'order-pg-btns',
@@ -217,25 +166,124 @@ function initAdminPaginationInstances() {
 window.customerNextCursor = null;
 window.customerHasMore = false;
 window.customerListLoading = false;
+window.customersSegmentCacheLoaded = false;
 
-window.fetchCustomers = async function fetchCustomers(reset = false) {
-    if (customerListLoading) return;
-    customerListLoading = true;
-
-    const loadMoreBtn = document.getElementById('customersLoadMoreBtn');
-    const infoEl = document.getElementById('customer-pg-info');
-    if (loadMoreBtn) loadMoreBtn.disabled = true;
-
-    if (reset) {
-        allCustomers = [];
-        customerNextCursor = null;
-        customerHasMore = false;
+function ensureCustomerPagination() {
+    if (typeof AdminPagination === 'undefined') return null;
+    if (!customerPg) {
+        customerPg = AdminPagination.ensure('customerPaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: (page, limit) => fetchCustomers(page, limit)
+        });
+        window.customerPg = customerPg;
     }
+    return customerPg;
+}
 
-    try {
-        const qs = new URLSearchParams({ limit: '50' });
+function filterCustomersBySearch(customers, query = customerSearchQuery) {
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) return customers;
+    return customers.filter((user) => {
+        const haystack = [
+            user.name,
+            user.firstName,
+            user.lastName,
+            user.email,
+            user.mobile,
+            user.phone,
+            user._id
+        ].map((v) => String(v || '').toLowerCase()).join(' ');
+        return haystack.includes(q);
+    });
+}
+
+function renderCustomerPage(filtered, page, limit) {
+    const pg = ensureCustomerPagination();
+    pg?.setTotal(filtered.length);
+    const safePage = page ?? pg?.currentPage ?? 1;
+    const safeLimit = limit ?? pg?.currentLimit ?? 10;
+    const start = (safePage - 1) * safeLimit;
+    renderCustomerTable(filtered.slice(start, start + safeLimit), filtered.length);
+}
+
+async function loadAllCustomersForSegmentCache() {
+    allCustomers = [];
+    customerNextCursor = null;
+    customerHasMore = true;
+
+    while (customerHasMore) {
+        const qs = new URLSearchParams({ limit: '100' });
         if (customerNextCursor) qs.set('cursor', customerNextCursor);
         if (customerTierFilter) qs.set('tier', customerTierFilter);
+
+        const response = await fetch(`/api/admin/customers?${qs}`, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+            handleAdminApiAuthResponse(response, {});
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const batch = data.customers || data.data || [];
+        customerSegmentThresholds = data.segmentThresholds || customerSegmentThresholds;
+        customerNextCursor = data.nextCursor || null;
+        customerHasMore = data.hasMore === true;
+        allCustomers = [...allCustomers, ...batch];
+        if (!batch.length) break;
+    }
+
+    customersSegmentCacheLoaded = true;
+}
+
+window.fetchCustomers = async function fetchCustomers(pageOrReset = 1, limitArg) {
+    if (customerListLoading) return;
+    const pg = ensureCustomerPagination();
+
+    let page = pg?.currentPage ?? 1;
+    let limit = limitArg ?? pg?.currentLimit ?? 10;
+
+    if (pageOrReset === true) {
+        pg?.resetPage();
+        page = 1;
+        customersSegmentCacheLoaded = false;
+    } else if (typeof pageOrReset === 'number') {
+        page = pageOrReset;
+    }
+
+    const useServerPage = customerSegmentFilter === 'all';
+
+    if (!useServerPage) {
+        customerListLoading = true;
+        try {
+            if (!customersSegmentCacheLoaded) {
+                await loadAllCustomersForSegmentCache();
+            }
+            const filtered = filterCustomersBySearch(
+                filterCustomersBySegment(allCustomers, customerSegmentFilter)
+            );
+            renderCustomerPage(filtered, page, limit);
+        } catch (error) {
+            console.error('fetchCustomers segment error:', error);
+            showCustomerError('Server connection error.');
+        } finally {
+            customerListLoading = false;
+        }
+        return;
+    }
+
+    customerListLoading = true;
+
+    try {
+        const qs = new URLSearchParams({
+            page: String(page),
+            limit: String(limit)
+        });
+        if (customerTierFilter) qs.set('tier', customerTierFilter);
+        const search = customerSearchQuery.trim();
+        if (search) qs.set('search', search);
 
         const response = await fetch(`/api/admin/customers?${qs}`, {
             method: 'GET',
@@ -257,40 +305,23 @@ window.fetchCustomers = async function fetchCustomers(reset = false) {
 
         const batch = data.customers || data.data || [];
         customerSegmentThresholds = data.segmentThresholds || customerSegmentThresholds;
-        customerNextCursor = data.nextCursor || null;
-        customerHasMore = data.hasMore === true;
+        allCustomers = batch;
 
-        allCustomers = reset ? batch : [...allCustomers, ...batch];
+        const total = Number(data.total) || batch.length;
+        const currentPage = Number(data.page) || page;
+        const currentLimit = limit;
 
-        const filtered = filterCustomersBySegment(allCustomers, customerSegmentFilter)
-            .filter((user) => {
-                const q = customerSearchQuery.trim().toLowerCase();
-                if (!q) return true;
-                const haystack = [
-                    user.name,
-                    user.firstName,
-                    user.lastName,
-                    user.email,
-                    user.mobile,
-                    user.phone,
-                    user._id
-                ].map((v) => String(v || '').toLowerCase()).join(' ');
-                return haystack.includes(q);
-            });
+        AdminPagination.render('customerPaginationContainer', {
+            total,
+            page: currentPage,
+            limit: currentLimit,
+            onPageChange: (p, l) => fetchCustomers(p, l)
+        });
 
-        renderCustomerTable(filtered, filtered.length);
-
-        if (infoEl) {
-            infoEl.textContent = `Showing ${filtered.length} loaded customer${filtered.length !== 1 ? 's' : ''}${customerHasMore ? ' — more available' : ''}`;
-        }
-        if (loadMoreBtn) {
-            loadMoreBtn.hidden = !customerHasMore;
-            loadMoreBtn.disabled = false;
-        }
+        renderCustomerTable(batch, total);
     } catch (error) {
         console.error('fetchCustomers error:', error);
         showCustomerError('Server connection error.');
-        if (loadMoreBtn) loadMoreBtn.disabled = false;
     } finally {
         customerListLoading = false;
     }
@@ -314,8 +345,9 @@ function setupCustomerSegmentTabs() {
             tabs.forEach((btn) => btn.classList.toggle('active', btn === tab));
             selectedCustomerIds.clear();
             updateCustomersBulkToolbar();
-            const filtered = filterCustomersBySegment(allCustomers, customerSegmentFilter);
-            renderCustomerTable(filtered, filtered.length);
+            customersSegmentCacheLoaded = false;
+            ensureCustomerPagination()?.resetPage();
+            fetchCustomers(true);
         });
     });
 
@@ -327,17 +359,8 @@ function setupCustomerSegmentTabs() {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
                 customerSearchQuery = searchInput.value;
-                const filtered = filterCustomersBySegment(allCustomers, customerSegmentFilter)
-                    .filter((user) => {
-                        const q = customerSearchQuery.trim().toLowerCase();
-                        if (!q) return true;
-                        const haystack = [
-                            user.name, user.firstName, user.lastName,
-                            user.email, user.mobile, user.phone, user._id
-                        ].map((v) => String(v || '').toLowerCase()).join(' ');
-                        return haystack.includes(q);
-                    });
-                renderCustomerTable(filtered, filtered.length);
+                ensureCustomerPagination()?.resetPage();
+                fetchCustomers(true);
             }, 300);
         });
     }
@@ -347,14 +370,9 @@ function setupCustomerSegmentTabs() {
         tierFilter.dataset.bound = '1';
         tierFilter.addEventListener('change', () => {
             customerTierFilter = tierFilter.value || '';
+            customersSegmentCacheLoaded = false;
             fetchCustomers(true);
         });
-    }
-
-    const loadMoreBtn = document.getElementById('customersLoadMoreBtn');
-    if (loadMoreBtn && !loadMoreBtn.dataset.bound) {
-        loadMoreBtn.dataset.bound = '1';
-        loadMoreBtn.addEventListener('click', () => fetchCustomers(false));
     }
 }
 
@@ -894,7 +912,7 @@ function setupGlobalSearch() {
                 if (customerSearch) {
                     customerSearch.value = query;
                     customerSearchQuery = query;
-                    if (typeof fetchCustomers === 'function') fetchCustomers(false);
+                    if (typeof fetchCustomers === 'function') fetchCustomers(true);
                 }
             }
         });

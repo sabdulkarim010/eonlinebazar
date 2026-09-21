@@ -8,6 +8,20 @@
 
 import '../admin-core.js';
 
+let reviewPg = null;
+
+function ensureReviewPagination() {
+    if (typeof AdminPagination === 'undefined') return null;
+    if (!reviewPg) {
+        reviewPg = AdminPagination.ensure('reviewPaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: (page, limit) => loadAdminReviews(page, limit)
+        });
+        window.reviewPg = reviewPg;
+    }
+    return reviewPg;
+}
+
 function getReviewProductImage(product) {
     if (!product) return '';
     if (Array.isArray(product.images) && product.images[0]) return product.images[0];
@@ -118,10 +132,13 @@ function renderReviewsTable(reviews) {
         </table>`;
 }
 
-window.loadAdminReviews = async function loadAdminReviews() {
+window.loadAdminReviews = async function loadAdminReviews(page, limit) {
+    const pg = ensureReviewPagination();
     const search = document.getElementById('reviewSearchInput')?.value || '';
     const status = document.getElementById('reviewStatusFilter')?.value || '';
     const rating = document.getElementById('reviewRatingFilter')?.value || '';
+    const currentPage = page ?? pg?.currentPage ?? 1;
+    const currentLimit = limit ?? pg?.currentLimit ?? 10;
 
     const container = document.getElementById('reviewsTableContainer');
     if (container) {
@@ -129,7 +146,13 @@ window.loadAdminReviews = async function loadAdminReviews() {
     }
 
     try {
-        const params = new URLSearchParams({ search, status, rating, limit: '20' });
+        const params = new URLSearchParams({
+            search,
+            status,
+            rating,
+            page: String(currentPage),
+            limit: String(currentLimit)
+        });
         const res = await fetch(`/api/admin/reviews?${params}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -137,15 +160,26 @@ window.loadAdminReviews = async function loadAdminReviews() {
 
         if (!res.ok || !data.success) {
             if (container) container.innerHTML = `<p class="reviews-empty">${escapeHtml(data.message || 'Failed to load reviews')}</p>`;
+            pg?.setTotal(0);
             return;
         }
 
         const reviews = Array.isArray(data.reviews) ? data.reviews : [];
-        renderReviewsStats(reviews, Number(data.total) || reviews.length);
+        const total = Number(data.total) || reviews.length;
+
+        AdminPagination.render('reviewPaginationContainer', {
+            total,
+            page: Number(data.page) || currentPage,
+            limit: currentLimit,
+            onPageChange: (p, l) => loadAdminReviews(p, l)
+        });
+
+        renderReviewsStats(reviews, total);
         renderReviewsTable(reviews);
     } catch (err) {
         console.error('Failed to load reviews:', err);
         if (container) container.innerHTML = '<p class="reviews-empty">Network error loading reviews.</p>';
+        pg?.setTotal(0);
     }
 };
 
@@ -210,5 +244,18 @@ window.deleteReviewAdmin = async function deleteReviewAdmin(reviewId) {
 };
 
 document.getElementById('reviewSearchInput')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') loadAdminReviews();
+    if (e.key === 'Enter') {
+        ensureReviewPagination()?.resetPage();
+        loadAdminReviews(1);
+    }
+});
+
+document.getElementById('reviewStatusFilter')?.addEventListener('change', () => {
+    ensureReviewPagination()?.resetPage();
+    loadAdminReviews(1);
+});
+
+document.getElementById('reviewRatingFilter')?.addEventListener('change', () => {
+    ensureReviewPagination()?.resetPage();
+    loadAdminReviews(1);
 });

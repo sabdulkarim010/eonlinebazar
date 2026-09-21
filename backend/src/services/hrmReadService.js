@@ -8,6 +8,7 @@
 'use strict';
 
 const mongoose = require('mongoose');
+const Admin = require('../models/admin');
 const Employee = require('../models/employee');
 const Attendance = require('../models/attendance');
 const Payroll = require('../models/payroll');
@@ -126,6 +127,30 @@ function buildEmployeeListFilters(query = {}) {
   return filters;
 }
 
+/** When PG linkedAdminId is null, check Mongo employeeRef / linkedAdminId before listing as unlinked. */
+async function resolveLinkedAdminIdForEmployeeShape(employee) {
+  if (!employee || employee.linkedAdminId) return employee;
+
+  const mongoEmp = await Employee.findById(employee._id).select('linkedAdminId').lean();
+  if (mongoEmp?.linkedAdminId) {
+    employee.linkedAdminId = String(mongoEmp.linkedAdminId);
+    return employee;
+  }
+
+  const admin = await Admin.findOne({ employeeRef: String(employee._id) }).select('_id').lean();
+  if (admin) {
+    employee.linkedAdminId = String(admin._id);
+  }
+  return employee;
+}
+
+async function filterEmployeesWithoutLinkedAccess(employees) {
+  const resolved = await Promise.all(
+    (employees || []).map((row) => resolveLinkedAdminIdForEmployeeShape({ ...row }))
+  );
+  return resolved.filter((row) => !row.linkedAdminId);
+}
+
 async function fetchEmployeesPage({ query, skip, limit }) {
   const filters = buildEmployeeListFilters(query);
   filters.page = Math.floor(skip / limit) + 1;
@@ -173,7 +198,13 @@ async function fetchEmployeesPage({ query, skip, limit }) {
         repo.findAll(pgFilters),
         repo.count(filters)
       ]);
-      return { employees: mapEmployeesToMongo(rows), total };
+      let employees = mapEmployeesToMongo(rows);
+      let totalCount = total;
+      if (filters.hasAccess === false) {
+        employees = await filterEmployeesWithoutLinkedAccess(employees);
+        totalCount = employees.length;
+      }
+      return { employees, total: totalCount };
     }
   );
 }
@@ -205,7 +236,11 @@ async function fetchAllActiveEmployees(query = {}) {
     },
     async () => {
       const rows = await getEmployeeRepository().findAll({ ...filters, includeNested: true });
-      return mapEmployeesToMongo(rows);
+      let employees = mapEmployeesToMongo(rows);
+      if (filters.hasAccess === false) {
+        employees = await filterEmployeesWithoutLinkedAccess(employees);
+      }
+      return employees;
     }
   );
 }

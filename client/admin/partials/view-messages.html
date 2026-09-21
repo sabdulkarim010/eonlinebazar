@@ -102,30 +102,7 @@
             <div id="messagesInboxList" class="support-inbox-list" role="listbox" aria-label="Inquiries">
                 <div class="support-inbox-list-loading text-center"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
             </div>
-            <div class="apg-wrapper support-inbox-pg">
-                <div class="apg-left">
-                    Show
-                    <select class="apg-limit-select" id="message-pg-limit"
-                            onchange="messagePg.changeLimit(this.value)">
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                    </select>
-                    entries &nbsp;|&nbsp;
-                    <span class="apg-info" id="message-pg-info"></span>
-                </div>
-                <div class="apg-center" id="message-pg-btns"></div>
-                <div class="apg-right">
-                    Go to:
-                    <input type="number" class="apg-jump-input" id="message-pg-jump" min="1"
-                           onkeydown="if(event.key==='Enter') messagePg.goTo(+this.value)">
-                    <button type="button" class="apg-btn"
-                            onclick="messagePg.goTo(+document.getElementById('message-pg-jump').value)">
-                        Go
-                    </button>
-                    <span class="apg-info">Total: <strong id="message-total-count">0</strong></span>
-                </div>
-            </div>
+            <div id="contactPaginationContainer" class="support-inbox-pg"></div>
         </aside>
 
         <div class="support-inbox-detail outlook-inbox-reading-pane col-span-8 flex flex-col min-h-0">

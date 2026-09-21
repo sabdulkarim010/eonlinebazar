@@ -42,9 +42,22 @@ let hrmStaffCache = [];
 let hrmEmployeeCache = [];
 
 const HRM_FETCH_TIMEOUT_MS = 10000;
-const ATTENDANCE_REGISTER_PAGE_SIZE = 50;
-let attendanceRegisterPage = 1;
-let attendanceRegisterPagination = null;
+let attendancePg = null;
+const attendancePgState = { page: 1, limit: 10 };
+
+function initAttendancePg() {
+    if (!attendancePg && typeof AdminPagination !== 'undefined') {
+        attendancePg = AdminPagination.ensure('attendancePaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: (page, limit) => {
+                attendancePgState.page = page;
+                attendancePgState.limit = limit;
+                loadAttendanceList();
+            }
+        });
+    }
+    return attendancePg;
+}
 
 /**
  * Fetch JSON with timeout + res.ok guard. Never leaves callers guessing on HTTP errors.
@@ -1045,46 +1058,11 @@ function renderAttendanceRegisterActions(row) {
     if (hasCheckIn && !hasCheckOut) {
         const staffId = hrmEscape(row.staffId || '');
         const staffUsername = hrmEscape(row.staffUsername || '');
+        const staffType = hrmEscape(row.staffType || 'admin');
         const dateKey = row.date ? new Date(row.date).toISOString().slice(0, 10) : '';
-        return `<button type="button" class="btn-secondary btn-sm att-clock-out-btn" onclick="clockOutFromRegister('${staffId}','${staffUsername}','${dateKey}')">Clock Out Now</button>`;
+        return `<button type="button" class="btn-secondary btn-sm att-clock-out-btn" onclick="clockOutFromRegister('${staffId}','${staffUsername}','${dateKey}','${staffType}')">Clock Out Now</button>`;
     }
     return '—';
-}
-
-function renderAttendancePagination() {
-    const wrap = document.getElementById('hrmAttendancePagination');
-    const summary = document.getElementById('hrmAttendancePageSummary');
-    const controls = document.getElementById('hrmAttendancePaginationControls');
-    if (!wrap || !attendanceRegisterPagination) {
-        if (wrap) wrap.hidden = true;
-        return;
-    }
-
-    const { page, totalPages, total, limit } = attendanceRegisterPagination;
-    const start = total === 0 ? 0 : (page - 1) * limit + 1;
-    const end = Math.min(page * limit, total);
-
-    if (summary) {
-        summary.textContent = total
-            ? `Showing ${start}-${end} of ${total} records`
-            : 'No records';
-    }
-
-    wrap.hidden = false;
-    if (controls) {
-        controls.innerHTML = `
-            <button type="button" class="btn-secondary btn-sm" id="hrmAttendancePrevBtn"${page <= 1 ? ' disabled' : ''}>← Previous</button>
-            <span class="att-pagination-label">Page ${page} of ${totalPages || 1}</span>
-            <button type="button" class="btn-secondary btn-sm" id="hrmAttendanceNextBtn"${page >= totalPages ? ' disabled' : ''}>Next →</button>
-        `;
-
-        document.getElementById('hrmAttendancePrevBtn')?.addEventListener('click', () => {
-            if (attendanceRegisterPage > 1) loadAttendanceList(attendanceRegisterPage - 1);
-        });
-        document.getElementById('hrmAttendanceNextBtn')?.addEventListener('click', () => {
-            if (attendanceRegisterPage < totalPages) loadAttendanceList(attendanceRegisterPage + 1);
-        });
-    }
 }
 
 function renderAttendanceStats(stats) {
@@ -1099,16 +1077,21 @@ function renderAttendanceStats(stats) {
     set('hrmAttendanceShiftCount', stats?.activeShifts);
 }
 
-async function loadAttendanceList(page = 1) {
+function applyAttendanceFilters() {
+    attendancePgState.page = 1;
+    attendancePg?.resetPage();
+    loadAttendanceList();
+}
+
+async function loadAttendanceList() {
     const tbody = document.getElementById('hrmAttendanceTableBody');
     if (!tbody) return;
 
-    attendanceRegisterPage = Math.max(1, Number(page) || 1);
     tbody.innerHTML = '<tr><td colspan="8" class="loading-container"><div class="spinner"></div><p>Loading attendance…</p></td></tr>';
 
     const params = new URLSearchParams({
-        page: String(attendanceRegisterPage),
-        limit: String(ATTENDANCE_REGISTER_PAGE_SIZE),
+        page: String(attendancePgState.page),
+        limit: String(attendancePgState.limit),
         todayStats: 'true'
     });
     const date = document.getElementById('hrmAttendanceDateFilter')?.value;
@@ -1124,12 +1107,11 @@ async function loadAttendanceList(page = 1) {
         });
 
         renderAttendanceStats(result.todayStats);
-        attendanceRegisterPagination = result.pagination || null;
 
         const rows = result.data || [];
         if (!rows.length) {
             tbody.innerHTML = '<tr><td colspan="8" class="table-status-empty">No attendance records for this filter.</td></tr>';
-            renderAttendancePagination();
+            initAttendancePg()?.setTotal(result.pagination?.total ?? 0);
             return;
         }
 
@@ -1148,21 +1130,20 @@ async function loadAttendanceList(page = 1) {
             </tr>
         `).join('');
 
-        renderAttendancePagination();
+        initAttendancePg()?.setTotal(result.pagination?.total ?? 0);
     } catch (err) {
         console.error('loadAttendanceList:', err);
         showHrmToast(err.message || 'Failed to load attendance.', 'error');
         tbody.innerHTML = hrmRegisterErrorRow('Failed to load. Click Refresh to retry.');
-        const wrap = document.getElementById('hrmAttendancePagination');
-        if (wrap) wrap.hidden = true;
     }
 }
 
-async function clockOutFromRegister(staffId, staffUsername, date) {
+async function clockOutFromRegister(staffId, staffUsername, date, staffType = 'admin') {
     const payload = {};
     if (staffId) payload.staffId = staffId;
     else if (staffUsername) payload.staffUsername = staffUsername;
     if (date) payload.date = date;
+    if (staffType) payload.staffType = staffType;
 
     try {
         const { result } = await hrmFetchJson('/api/admin/hrm/attendance/clock-out', {
@@ -1173,7 +1154,7 @@ async function clockOutFromRegister(staffId, staffUsername, date) {
 
         if (result.success) {
             showHrmToast(result.message || 'Clocked out successfully.', 'success');
-            await loadAttendanceList(attendanceRegisterPage);
+            await loadAttendanceList();
         } else {
             showHrmToast(result.message || 'Failed to clock out.', 'error');
         }
@@ -1190,7 +1171,9 @@ function resetAttendanceFilters() {
     if (date) date.value = '';
     if (staff) staff.value = '';
     if (status) status.value = '';
-    loadAttendanceList(1);
+    attendancePgState.page = 1;
+    attendancePg?.resetPage();
+    loadAttendanceList();
 }
 
 function closeMarkAttendanceModal() {
@@ -1591,7 +1574,7 @@ function setupHrmAttendanceSection() {
 
     hrmSetupTabs('hrmAttendanceTabs', (panelId) => {
         if (panelId === 'hrm-tab-daily-sheet') loadDailySheet();
-        if (panelId === 'hrm-tab-register') loadAttendanceList(attendanceRegisterPage);
+        if (panelId === 'hrm-tab-register') loadAttendanceList();
         if (panelId === 'hrm-tab-shifts') {
             loadShifts();
             loadAttendanceSettings();
@@ -1638,6 +1621,7 @@ Object.assign(window, {
 
 window.loadHrmAttendanceSection = loadHrmAttendanceSection;
 window.loadAttendanceList = loadAttendanceList;
+window.applyAttendanceFilters = applyAttendanceFilters;
 window.resetAttendanceFilters = resetAttendanceFilters;
 window.openMarkAttendanceModal = openMarkAttendanceModal;
 window.closeMarkAttendanceModal = closeMarkAttendanceModal;

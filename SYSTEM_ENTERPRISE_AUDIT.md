@@ -2811,5 +2811,63 @@ See `docs/audit/HRM_AUDIT.md` for file/line evidence and full inventory.
 
 Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical Bug Fix Group 1 above.
 
+## Deep Production Audit — 2026-09-21
+
+**Status:** ⚠️ **Audit only — no fixes applied** — full report: `docs/audit/PRODUCTION_ISSUES_AUDIT.md`
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Console errors A–H traced to root cause | ✅ Documented | 52 actionable issues |
+| `GET /settings/gateway-status` 500 | ❌ Open | Mongo-only `Settings.getOrCreate()` |
+| `GET /settings/attendance` 500 | ❌ Open | Same Mongo settings read path |
+| Register clock-out for employees | ❌ Open | `findAdmin`-only resolver; employee `staffId` → 404 |
+| Socket.io admin timeout | ❌ Open | Nginx missing WebSocket upgrade on store `/socket.io/` |
+| Grant-access "Access already granted" | ✅ Fixed | `syncLinkedAdminIdToPostgres`; HTTP 409; staff directory refresh |
+| Grant modal 8 vs 25 permissions | ✅ Fixed | Dynamic API-grouped grid from `/api/admin/permissions` |
+| Pagination vs Orders reference | ⚠️ Open | 6/13 sections match Orders `AdminPagination` style |
+| Cloudinary 404 images | ⚠️ Open | DB URL vs deleted/wrong cloud assets |
+| ERR_ADDRESS_UNREACHABLE polls | ⚠️ Infra | Correct relative URLs; network/server uptime |
+| HRM enterprise self-service gaps | ❌ Missing | Portal, attendance export, offboarding |
+| Jest regression suite | ✅ | **228/228** passing |
+
+## Critical Fix Group A — 2026-09-21
+
+**Status:** ✅ **Complete** — all five critical production fixes shipped in code; Nginx WebSocket requires droplet runbook apply
+
+| # | Fix | Status | Key files |
+|---|-----|--------|-----------|
+| 1 | Clock-out employee resolution | ✅ Fixed | `hrmStaffResolver.js`, `attendanceController.js`, `hrm-attendance.js` |
+| 2 | Settings gateway + attendance 500 | ✅ Fixed | `settingsReadService.js`, `gatewayStatusService.js`, `attendanceSettingsService.js` |
+| 3 | Socket.io admin WebSocket | ✅ Runbook | `devops/NGINX_WEBSOCKET_FIX.md` (apply on production) |
+| 4 | Grant-access PG/Mongo drift | ✅ Fixed | `syncLinkedAdminIdToPostgres`, HTTP 409, staff directory + dropdown refresh |
+| 5 | Grant modal 25 permissions | ✅ Fixed | Dynamic grouped grid from `GET /api/admin/permissions` |
+| — | Jest regression suite | ✅ | **228/228** passing |
+
+## Fix Group B — Pagination + Staff Directory — 2026-09-21
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Unified pagination utility | ✅ Fixed | `pagination-util.js` + `_pagination.css`; Orders-style apg-wrapper |
+| 13 admin sections paginated | ✅ Fixed | Employees, attendance, leave, payroll, customers, products, coupons, expenses, reviews, newsletter, contact, security logs, stock alerts |
+| Staff Directory rebuild | ✅ Fixed | Assign modal, Edit Permissions modal, Suspend/Revoke row actions |
+| Revoke access API | ✅ Fixed | `DELETE /api/admin/staff/:id/access` — suspend + clear HRM link |
+| Customer page-based pagination | ✅ Fixed | `customerAdminController` returns `{ total, page, totalPages }` when `?page=` set |
+| Jest regression suite | ✅ | **228/228** passing |
+
+## Critical Fixes 1–5 — 2026-09-21
+
+**Status:** ✅ **Code fixes applied** — Nginx fix is runbook-only (`devops/NGINX_WEBSOCKET_FIX.md`)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Clock-out employee resolution | ✅ Fixed | `resolveClockStaff` + register `staffType` |
+| Settings gateway + attendance 500 | ✅ Fixed | `fetchSettingsDocumentSafe`; safe defaults |
+| Socket.io admin timeout | ⚠️ Runbook | Apply `devops/NGINX_WEBSOCKET_FIX.md` on production droplet |
+| Grant-access PG/Mongo drift | ✅ Fixed | `reconcileLinkedAdminAccess`; assign list filter |
+| Grant modal 25 permissions | ✅ Fixed | Dynamic grid from `/api/admin/permissions` |
+| Jest regression suite | ✅ | **228/228** passing |
+
 
 

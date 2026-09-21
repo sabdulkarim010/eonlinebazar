@@ -101,30 +101,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="apg-wrapper no-print">
-                    <div class="apg-left">
-                        Show
-                        <select class="apg-limit-select" id="security-pg-limit"
-                                onchange="securityPg.changeLimit(this.value)">
-                            <option value="10">10</option>
-                            <option value="25" selected>25</option>
-                            <option value="50">50</option>
-                        </select>
-                        entries &nbsp;|&nbsp;
-                        <span class="apg-info" id="security-pg-info"></span>
-                    </div>
-                    <div class="apg-center" id="security-pg-btns"></div>
-                    <div class="apg-right">
-                        Go to:
-                        <input type="number" class="apg-jump-input" id="security-pg-jump" min="1"
-                               onkeydown="if(event.key==='Enter') securityPg.goTo(+this.value)">
-                        <button type="button" class="apg-btn"
-                                onclick="securityPg.goTo(+document.getElementById('security-pg-jump').value)">
-                            Go
-                        </button>
-                        <span class="apg-info">Total: <strong id="security-total-count">0</strong></span>
-                    </div>
-                </div>
+                <div id="securityLogPaginationContainer" class="no-print"></div>
             </section>
 
 

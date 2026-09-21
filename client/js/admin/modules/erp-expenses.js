@@ -5,6 +5,19 @@
 import '../admin-core.js';
 
 let expenseCategoryCache = [];
+let expensePg = null;
+
+function ensureExpensePagination() {
+    if (typeof AdminPagination === 'undefined') return null;
+    if (!expensePg) {
+        expensePg = AdminPagination.ensure('expensePaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: (page, limit) => loadExpenses(page, limit)
+        });
+        window.expensePg = expensePg;
+    }
+    return expensePg;
+}
 
 const EXPENSE_BADGE_CLASS = {
     office_rent: 'exp-badge-rent',
@@ -115,8 +128,12 @@ function populateCategorySelects() {
     updateCustomCategoryFieldVisibility();
 }
 
-function getExpenseFilterParams() {
-    const params = new URLSearchParams({ limit: '100' });
+function getExpenseFilterParams(page, limit) {
+    const pg = ensureExpensePagination();
+    const params = new URLSearchParams({
+        page: String(page ?? pg?.currentPage ?? 1),
+        limit: String(limit ?? pg?.currentLimit ?? 10)
+    });
     const start = document.getElementById('expFilterStart')?.value;
     const end = document.getElementById('expFilterEnd')?.value;
     const category = document.getElementById('expFilterCategory')?.value;
@@ -207,8 +224,9 @@ function renderMonthlyTrend(trend) {
 
 async function loadExpenseSummary() {
     try {
-        const params = getExpenseFilterParams();
+        const params = getExpenseFilterParams(1, 1);
         params.delete('limit');
+        params.delete('page');
         const res = await fetch(`/api/admin/expenses/summary?${params}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
@@ -223,18 +241,29 @@ async function loadExpenseSummary() {
     }
 }
 
-async function loadExpenses() {
+async function loadExpenses(page, limit) {
     const tbody = document.getElementById('expensesTableBody');
     if (!tbody) return;
 
+    const pg = ensureExpensePagination();
     tbody.innerHTML = '<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading expenses…</p></td></tr>';
 
     try {
-        const res = await fetch(`/api/admin/expenses?${getExpenseFilterParams()}`, {
+        const res = await fetch(`/api/admin/expenses?${getExpenseFilterParams(page, limit)}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         const result = await res.json();
         const rows = result.data || [];
+        const total = Number(result.pagination?.total ?? rows.length) || 0;
+        const currentPage = Number(result.pagination?.page ?? pg?.currentPage ?? 1) || 1;
+        const currentLimit = Number(result.pagination?.limit ?? pg?.currentLimit ?? 10) || 10;
+
+        AdminPagination.render('expensePaginationContainer', {
+            total,
+            page: currentPage,
+            limit: currentLimit,
+            onPageChange: (p, l) => loadExpenses(p, l)
+        });
 
         if (!rows.length) {
             tbody.innerHTML = '<tr><td colspan="6" class="table-status-empty">No expenses found for this filter.</td></tr>';
@@ -274,7 +303,8 @@ async function loadExpenses() {
 async function loadExpensesSection() {
     await fetchExpenseCategories();
     populateCategorySelects();
-    await Promise.all([loadExpenses(), loadExpenseSummary()]);
+    ensureExpensePagination()?.resetPage();
+    await Promise.all([loadExpenses(1), loadExpenseSummary()]);
 }
 
 function applyExpenseFilters() {

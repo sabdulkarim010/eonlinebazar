@@ -12,6 +12,20 @@ import '../admin-core.js';
 
 /* shared state: couponStatusFilter lives on window (admin-core) */
 
+let couponPg = null;
+
+function ensureCouponPagination() {
+    if (typeof AdminPagination === 'undefined') return null;
+    if (!couponPg) {
+        couponPg = AdminPagination.ensure('couponPaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: () => renderCouponTable()
+        });
+        window.couponPg = couponPg;
+    }
+    return couponPg;
+}
+
 /** Normalize coupon list payloads from GET /api/coupons and sync-data. */
 function normalizeCouponListPayload(payload) {
     if (Array.isArray(payload)) return payload;
@@ -53,6 +67,7 @@ function setupCouponStatusTabs() {
                 t.classList.toggle('active', isActive);
                 t.setAttribute('aria-selected', isActive ? 'true' : 'false');
             });
+            ensureCouponPagination()?.resetPage();
             renderCouponTable();
         });
     });
@@ -405,6 +420,7 @@ function renderCouponTable() {
     const tbody = document.getElementById('couponTableBody');
     if (!tbody) return;
 
+    const pg = ensureCouponPagination();
     const visibleCoupons = filterCouponsByStatus(globalCoupons);
 
     if (!visibleCoupons.length) {
@@ -412,12 +428,19 @@ function renderCouponTable() {
             ? '🎟️ No coupons match this filter.'
             : '🎟️ No coupons yet. Create one using the form above.';
         tbody.innerHTML = `<tr><td colspan="8" class="table-status-empty">${emptyMsg}</td></tr>`;
+        pg?.setTotal(0);
         return;
     }
 
+    pg?.setTotal(visibleCoupons.length);
+    const start = pg ? (pg.currentPage - 1) * pg.currentLimit : 0;
+    const pageCoupons = pg
+        ? visibleCoupons.slice(start, start + pg.currentLimit)
+        : visibleCoupons;
+
     const cur = typeof adminCurrencySymbol !== 'undefined' ? adminCurrencySymbol : '৳';
 
-    tbody.innerHTML = visibleCoupons.map(coupon => {
+    tbody.innerHTML = pageCoupons.map(coupon => {
         const used = Number(coupon.usedCount) || 0;
         const limit = Number(coupon.usageLimit) || 0;
         const displayStatus = resolveCouponDisplayStatus(coupon);
@@ -650,6 +673,7 @@ window.deleteCoupon = function(id) {
 
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
+    ensureCouponPagination,
     normalizeCouponListPayload,
     getCouponAuthHeaders,
     setupCouponForm,

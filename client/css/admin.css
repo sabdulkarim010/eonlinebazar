@@ -6,6 +6,7 @@
 @import './admin/_tokens.css';
 @import './admin/_layout.css';
 @import './admin/_tables.css';
+@import './admin/_pagination.css';
 @import './admin/_modals.css';
 @import './admin/_products.css';
 @import './admin/_orders.css';

@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20 (Admin-Employee profile link)  
+**Last updated:** 2026-09-21 (AdminPagination.ensure rollout — newsletter, messages, security logs, stock alerts)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -36,6 +36,8 @@
 | `client/js/admin/modules/orders-pos.js` | POS checkout, barcode, split payment |
 | `client/js/admin/modules/notifications.js` | In-app notification center |
 | `client/js/admin/modules/adminSidebar.js` | Sidebar profile — merged Admin + linked Employee via `/api/admin/profile/me/full` |
+| `client/js/admin/modules/admin-stock-alerts.js` | Dashboard inventory alerts client-side pagination |
+| `client/js/admin/modules/pagination-util.js` | Shared AdminPagination.ensure / render for list sections |
 | `client/css/admin/` | Module CSS (never edit `admin.css` barrel directly) |
 
 **Counts (verified 2026-09-20):** 46 HTML partials, 53 JS modules under `client/js/admin/modules/`.
@@ -54,6 +56,7 @@
 - [x] Product CRUD + variants + bulk import — `view-products.html`, `products-*.js`
 - [x] Catalog management (categories, brands, attributes, coupons, navbar) — `catalog-*.js`
 - [x] Customer management + cursor pagination — `view-customers.html`, `customers-table.js`
+- [x] Unified AdminPagination (Showing X–Y of Z) — newsletter subscribers, contact inbox, security logs, dashboard stock alerts
 - [x] HRM views (employees, attendance, payroll, leave) — `view-hrm-*.html`, `hrm-*.js`
 - [x] ERP (suppliers, warehouses, POs, expenses) — `erp-*.js`, `view-suppliers.html`, etc.
 - [x] Finance P&L embed + accounts overview — `view-finance.html`, `view-accounts.html`, `erp-profit-loss.js`
@@ -96,6 +99,14 @@
 - Settings Hub: super-admin "Link to Employee Record" card in `view-settings.html`
 - Profile save + photo upload refresh sidebar immediately; employee photo update clears cache
 - Files: `adminSidebar.js`, `core-boot.js`, `core-nav.js`, `settings-cms.js`, `view-settings.html`
+
+### AdminPagination.ensure rollout — 2026-09-21
+
+- Newsletter subscribers: `newsletterPaginationContainer` in `view-catalog.html`, `admin-newsletter.js`
+- Contact inbox: `contactPaginationContainer` in `view-messages.html`, `messages-inbox.js`
+- Security logs: `securityLogPaginationContainer` in `view-security.html`, `settings-security.js`
+- Dashboard stock alerts: `stockAlertPaginationContainer` + new `admin-stock-alerts.js`; wired from `admin-dashboard.js`
+- Removed duplicate `messagePg` / `securityPg` init from `core-nav.js`
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

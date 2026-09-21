@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20 (Group 4 — auth rate limiting)  
+**Last updated:** 2026-09-21 (Fix Group B — staff directory revoke + pagination)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -25,6 +25,8 @@
 | `backend/src/controllers/admin/loginHistoryController.js` | Login attempt history |
 | `backend/src/controllers/admin/staffAuditController.js` | Staff activity audit |
 | `backend/src/controllers/admin/securityMonitorController.js` | Security monitoring |
+| `backend/src/controllers/staffController.js` | Super Admin staff CRUD + `revokeStaffAccess` |
+| `backend/src/routes/staffRoutes.js` | `/api/admin/staff` — includes `DELETE /:id/access` |
 | `backend/src/middlewares/auth.js` | `verifyUser`, `verifyAdmin`, `optionalVerifyUser` |
 | `backend/src/middlewares/rbac.js` | `checkPermission()` RBAC gate |
 | `backend/src/middlewares/rateLimiter.js` | `authLimiter`, `otpLimiter`, `apiLimiter` fixed windows |
@@ -93,6 +95,12 @@
 ---
 
 ## Change Log
+
+### Fix Group B — Staff Directory revoke — 2026-09-21
+
+- `DELETE /api/admin/staff/:id/access` — Super Admin only; suspends account, revokes sessions, clears `Employee.linkedAdminId`
+- Staff Directory UI: Assign modal, Edit Permissions modal, Suspend/Revoke per row
+- Tests: Jest **228/228** passing
 
 ### Group 4 — Auth rate limiting — 2026-09-20
 

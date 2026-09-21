@@ -16,71 +16,138 @@ import '../admin-core.js';
 
 /* shared state: selectedProductIds lives on window (admin-core) */
 
-/**
- * ১০.১: ক্লাউড ডাটাবেজ থেকে সকল প্রোডাক্ট ডাটা লাইভ সিঙ্ক করা
- */
-window.productNextCursor = null;
-window.productHasMore = false;
 window.productListLoading = false;
 
-async function fetchProductBatch(reset = false) {
+function ensureProductPagination() {
+    if (typeof AdminPagination === 'undefined') return null;
+    if (!productPg) {
+        productPg = AdminPagination.ensure('productPaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: (page, limit) => fetchLiveProducts(page, limit)
+        });
+        window.productPg = productPg;
+    }
+    return productPg;
+}
+
+function mapProductSortParam() {
+    const key = currentSort?.key || 'productId';
+    const asc = currentSort?.asc !== false;
+    if (key === 'price' || key === 'buyingPrice') return asc ? 'price_asc' : 'price_desc';
+    return asc ? 'newest' : 'oldest';
+}
+
+function buildProductSearchQuery(page, limit) {
+    const pg = ensureProductPagination();
+    const qs = new URLSearchParams({
+        page: String(page ?? pg?.currentPage ?? 1),
+        limit: String(limit ?? pg?.currentLimit ?? 10),
+        sort: mapProductSortParam()
+    });
+
+    const search = document.getElementById('searchProduct')?.value?.trim();
+    if (search) qs.set('q', search);
+
+    const cat = document.getElementById('filterCategory')?.value;
+    if (cat && cat !== 'All') qs.set('category', cat);
+
+    const stockStatus = document.getElementById('filterStockStatus')?.value;
+    if (stockStatus === 'InStock') qs.set('inStock', 'true');
+    else if (stockStatus === 'OutOfStock') qs.set('inStock', 'false');
+
+    const priceRange = document.getElementById('filterPriceRange')?.value;
+    if (priceRange === '0-500') qs.set('maxPrice', '500');
+    else if (priceRange === '500-2000') {
+        qs.set('minPrice', '500');
+        qs.set('maxPrice', '2000');
+    } else if (priceRange === '2000+') qs.set('minPrice', '2000');
+
+    return qs;
+}
+
+function applyLowStockClientFilter(products) {
+    const stockStatus = document.getElementById('filterStockStatus')?.value;
+    if (stockStatus !== 'LowStock') return products;
+    return products.filter((p) => {
+        const stockNum = Number(p.stock ?? p.stockQuantity ?? 0);
+        const threshold = Number(p.lowStockThreshold) > 0 ? Number(p.lowStockThreshold) : 10;
+        return stockNum > 0 && stockNum < threshold;
+    });
+}
+
+/**
+ * ১০.১: ক্লাউড ডাটাবেজ থেকে প্রোডাক্ট পেজ লাইভ সিঙ্ক করা (page/limit API)
+ */
+async function fetchLiveProducts(pageOrReset = 1, limitArg) {
     if (productListLoading) return;
     productListLoading = true;
 
-    const tbody = getProdTableBody();
-    const loadMoreBtn = document.getElementById('productsLoadMoreBtn');
-    const infoEl = document.getElementById('product-pg-info');
-    if (loadMoreBtn) loadMoreBtn.disabled = true;
+    const pg = ensureProductPagination();
+    let page = pg?.currentPage ?? 1;
+    let limit = limitArg ?? pg?.currentLimit ?? 10;
 
-    if (reset && tbody) {
+    if (pageOrReset === true) {
+        pg?.resetPage();
+        page = 1;
+    } else if (typeof pageOrReset === 'number') {
+        page = pageOrReset;
+    }
+
+    currentPage = page;
+
+    const tbody = getProdTableBody();
+    if (tbody) {
         tbody.innerHTML = `<tr><td colspan="9" class="loading-cell"><div class="custom-spinner"></div><p>Syncing secure cloud server database...</p></td></tr>`;
-        globalProducts = [];
-        productNextCursor = null;
-        productHasMore = false;
     }
 
     try {
         const authToken = localStorage.getItem('adminToken') || token || '';
-        const qs = new URLSearchParams({ limit: '50', sort: 'newest' });
-        if (productNextCursor) qs.set('cursor', productNextCursor);
-
-        const res = await fetch(`/api/products/search?${qs}`, {
+        const res = await fetch(`/api/products/search?${buildProductSearchQuery(page, limit)}`, {
             method: 'GET',
             headers: { Authorization: `Bearer ${authToken}` }
         });
         const data = await res.json();
-        const batch = Array.isArray(data) ? data : (data.products || data.data?.products || []);
+        let batch = Array.isArray(data) ? data : (data.products || data.data?.products || []);
+        batch = applyLowStockClientFilter(batch);
 
-        productNextCursor = data.nextCursor || data.pagination?.nextCursor || null;
-        productHasMore = data.hasMore === true || data.pagination?.hasMore === true;
+        const pagination = data.pagination || data.data?.pagination || {};
+        const total = Number(pagination.totalProducts ?? pagination.total ?? batch.length) || 0;
+        const currentApiPage = Number(pagination.currentPage ?? page) || page;
 
-        globalProducts = reset ? batch : [...globalProducts, ...batch];
+        globalProducts = batch;
+        currentFilteredProducts = batch;
+
+        AdminPagination.render('productPaginationContainer', {
+            total,
+            page: currentApiPage,
+            limit,
+            onPageChange: (p, l) => fetchLiveProducts(p, l)
+        });
 
         const totalBadge = document.getElementById('total-products-badge');
-        if (totalBadge) totalBadge.innerText = `Loaded: ${globalProducts.length}`;
+        if (totalBadge) totalBadge.innerText = `Total: ${total}`;
 
         loadCategoryFilter();
-        readProductListSessionState();
-        filterAndRenderProducts(false);
-
-        if (infoEl) {
-            infoEl.textContent = `Showing ${currentFilteredProducts.length} loaded product${currentFilteredProducts.length !== 1 ? 's' : ''}${productHasMore ? ' — more available' : ''}`;
-        }
-        if (loadMoreBtn) {
-            loadMoreBtn.hidden = !productHasMore;
-            loadMoreBtn.disabled = false;
-        }
+        renderProductTable();
+        persistProductListSessionState();
     } catch (e) {
         console.error('fetchLiveProducts error:', e);
         if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-status-error">Failed to load products.</td></tr>`;
-        if (loadMoreBtn) loadMoreBtn.disabled = false;
     } finally {
         productListLoading = false;
     }
 }
 
-window.fetchLiveProducts = function(reset = true) {
-    return fetchProductBatch(reset !== false);
+window.fetchLiveProducts = function(reset = false) {
+    if (typeof readProductListSessionState === 'function') {
+        readProductListSessionState();
+    }
+    if (reset === true) {
+        ensureProductPagination()?.resetPage();
+        return fetchLiveProducts(1);
+    }
+    const page = productPg?.currentPage ?? currentPage ?? 1;
+    return fetchLiveProducts(page);
 };
 
 /**
@@ -132,53 +199,11 @@ function updateFilterCategoryDropdown() {
  * ১০.২: সার্চ কি-ওয়ার্ড, ক্যাটাগরি, স্টক স্ট্যাটাস ও প্রাইস রেঞ্জ অনুযায়ী প্রোডাক্ট ফিল্টারিং
  */
 window.filterAndRenderProducts = function(resetPage = true) {
-    const search = (document.getElementById('searchProduct') ? document.getElementById('searchProduct').value : '').toLowerCase();
-    const cat = document.getElementById('filterCategory') ? document.getElementById('filterCategory').value : 'All';
-    const stockStatus = document.getElementById('filterStockStatus') ? document.getElementById('filterStockStatus').value : 'All';
-    const priceRange = document.getElementById('filterPriceRange') ? document.getElementById('filterPriceRange').value : 'All';
-
-    currentFilteredProducts = globalProducts.filter(p => {
-        const matchSearch = (p.name || '').toLowerCase().includes(search) || (p.productId || p.id || '').toLowerCase().includes(search) || (p.category || '').toLowerCase().includes(search);
-        const matchCat = (cat === 'All' || p.category === cat);
-        const stockNum = Number(p.stock ?? p.stockQuantity ?? 0);
-        const threshold = Number(p.lowStockThreshold) > 0 ? Number(p.lowStockThreshold) : 10;
-        
-        let matchStock = true;
-        if (stockStatus === 'InStock') matchStock = stockNum >= threshold;
-        else if (stockStatus === 'LowStock') matchStock = stockNum > 0 && stockNum < threshold;
-        else if (stockStatus === 'OutOfStock') matchStock = stockNum <= 0;
-
-        let matchPrice = true;
-        if (priceRange === '0-500') matchPrice = p.price <= 500;
-        else if (priceRange === '500-2000') matchPrice = p.price > 500 && p.price <= 2000;
-        else if (priceRange === '2000+') matchPrice = p.price > 2000;
-
-        return matchSearch && matchCat && matchStock && matchPrice;
-    });
-
-    currentFilteredProducts.sort((a, b) => {
-        let valA = a[currentSort.key] || '';
-        let valB = b[currentSort.key] || '';
-        
-        if (currentSort.key === 'price' || currentSort.key === 'stock') {
-            valA = Number(valA); valB = Number(valB);
-        } else {
-            valA = valA.toString().toLowerCase(); valB = valB.toString().toLowerCase();
-        }
-
-        if (valA < valB) return currentSort.asc ? -1 : 1;
-        if (valA > valB) return currentSort.asc ? 1 : -1;
-        return 0;
-    });
-
     if (resetPage) {
-        currentPage = 1;
-        if (productPg) productPg.resetPage();
-    } else {
-        currentPage = productPg?.currentPage ?? currentPage;
+        ensureProductPagination()?.resetPage();
+        return fetchLiveProducts(1);
     }
-    renderProductTable();
-    persistProductListSessionState();
+    return fetchLiveProducts(productPg?.currentPage ?? currentPage);
 };
 
 /**
@@ -200,9 +225,8 @@ window.handleSort = function(key) {
    ========================================================================== */
 
 window.changePageSize = function() {
-    currentPage = 1;
-    if (productPg) productPg.resetPage();
-    renderProductTable();
+    ensureProductPagination()?.resetPage();
+    fetchLiveProducts(1);
 };
 
 window.renderProductTable = function() {
@@ -268,13 +292,6 @@ window.renderProductTable = function() {
         `;
     });
 
-    const infoEl = document.getElementById('product-pg-info');
-    if (infoEl) {
-        infoEl.textContent = `Showing ${paginated.length} loaded product${paginated.length !== 1 ? 's' : ''}${productHasMore ? ' — more available' : ''}`;
-    }
-    const loadMoreBtn = document.getElementById('productsLoadMoreBtn');
-    if (loadMoreBtn) loadMoreBtn.hidden = !productHasMore;
-
     persistProductListSessionState();
     
     const selectAllCheckbox = document.getElementById('selectAllProducts');
@@ -284,31 +301,31 @@ window.renderProductTable = function() {
 };
 
 window.goToPage = function(page) {
-    currentPage = page;
-    if (productPg) productPg.currentPage = page;
-    renderProductTable();
+    if (productPg) productPg.goTo(page);
+    else fetchLiveProducts(page);
 };
-window.goToNextPage = function() { if (productPg) productPg.goTo(productPg.currentPage + 1); else { currentPage++; renderProductTable(); } };
-window.goToPreviousPage = function() { if (productPg) productPg.goTo(productPg.currentPage - 1); else if (currentPage > 1) { currentPage--; renderProductTable(); } };
-// সার্চ বা ফিল্টার ইভেন্ট বাইন্ডিং সেটআপ
+window.goToNextPage = function() {
+    if (productPg) productPg.goTo(productPg.currentPage + 1);
+    else fetchLiveProducts(currentPage + 1);
+};
+window.goToPreviousPage = function() {
+    if (productPg) productPg.goTo(productPg.currentPage - 1);
+    else if (currentPage > 1) fetchLiveProducts(currentPage - 1);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const searchProduct = document.getElementById('searchProduct');
     if (searchProduct) searchProduct.addEventListener('input', window.filterAndRenderProducts);
-    
+
     ['filterCategory', 'filterStockStatus', 'filterPriceRange'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', window.filterAndRenderProducts);
     });
-
-    const loadMoreBtn = document.getElementById('productsLoadMoreBtn');
-    if (loadMoreBtn && !loadMoreBtn.dataset.bound) {
-        loadMoreBtn.dataset.bound = '1';
-        loadMoreBtn.addEventListener('click', () => fetchProductBatch(false));
-    }
 });
 
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
+    ensureProductPagination,
     updateFilterCategoryDropdown
 });
 

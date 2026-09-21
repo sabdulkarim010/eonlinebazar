@@ -4,7 +4,7 @@
  * Description: Cached gateway health for admin UI (WhatsApp, SMS, email).
  ********************************************************************/
 
-const Settings = require('../models/Settings');
+const { fetchSettingsDocumentSafe } = require('./settingsReadService');
 const {
     loadWhatsAppAlertGatewayConfig,
     isGatewayConfigured,
@@ -86,25 +86,45 @@ async function resolveWhatsAppStatus(settings) {
     return 'not_configured';
 }
 
+const DEFAULT_GATEWAY_STATUS = Object.freeze({
+    whatsapp: 'not_configured',
+    sms: 'not_configured',
+    email: 'active',
+    checkedAt: null
+});
+
+async function loadSettingsForGateway() {
+    const doc = await fetchSettingsDocumentSafe();
+    return doc || {};
+}
+
 async function getGatewayStatus({ forceRefresh = false } = {}) {
     const now = Date.now();
     if (!forceRefresh && cachedStatus && now < cacheExpiresAt) {
         return cachedStatus;
     }
 
-    const settings = await Settings.getOrCreate();
-    const whatsapp = await resolveWhatsAppStatus(settings);
+    try {
+        const settings = await loadSettingsForGateway();
+        const whatsapp = await resolveWhatsAppStatus(settings);
 
-    const status = {
-        whatsapp,
-        sms: isSmsConfigured(settings) ? 'active' : 'not_configured',
-        email: isEmailConfigured() ? 'active' : 'not_configured',
-        checkedAt: new Date().toISOString()
-    };
+        const status = {
+            whatsapp,
+            sms: isSmsConfigured(settings) ? 'active' : 'not_configured',
+            email: isEmailConfigured() ? 'active' : 'not_configured',
+            checkedAt: new Date().toISOString()
+        };
 
-    cachedStatus = status;
-    cacheExpiresAt = now + CACHE_TTL_MS;
-    return status;
+        cachedStatus = status;
+        cacheExpiresAt = now + CACHE_TTL_MS;
+        return status;
+    } catch (error) {
+        console.error('[gatewayStatus] getGatewayStatus failed:', error.message);
+        return {
+            ...DEFAULT_GATEWAY_STATUS,
+            checkedAt: new Date().toISOString()
+        };
+    }
 }
 
 function clearGatewayStatusCache() {
