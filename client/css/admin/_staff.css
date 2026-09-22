@@ -1121,8 +1121,8 @@ body.staff-panel-open { overflow: hidden; }
 }
 
 .staff-assign-modal__body {
-    max-height: min(70vh, 640px);
-    overflow-y: auto;
+    overflow-y: auto !important;
+    max-height: calc(100vh - 200px) !important;
 }
 
 .staff-assign-step {
@@ -1337,13 +1337,11 @@ body.staff-panel-open { overflow: hidden; }
     pointer-events: none;
 }
 
-/* Assign modal permission grid */
+/* Assign modal permission grid — scroll lives on .staff-assign-modal__body */
 #permissionsGrid {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-    max-height: 320px;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     padding-right: 4px;
 }
 
@@ -1536,6 +1534,14 @@ body.staff-panel-open { overflow: hidden; }
     flex-direction: column !important;
     gap: 8px !important;
     padding: 4px 0 !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
+.staff-assign-modal .admin-modal-body {
+    overflow-y: auto !important;
+    max-height: calc(100vh - 200px) !important;
 }
 
 #permissionsGrid .perm-group-block {

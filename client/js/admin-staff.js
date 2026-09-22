@@ -936,12 +936,16 @@ async function ensureStaffPermissionCatalog(force = false) {
 
 function isValidPermissionEntry(p) {
     return Boolean(
-        p
+        p !== null
+        && p !== undefined
         && typeof p === 'object'
         && typeof p.key === 'string'
-        && typeof p.label === 'string'
         && p.key.length > 0
+        && !p.key.includes(' ')
+        && typeof p.label === 'string'
         && p.label.length > 0
+        && typeof p.group === 'string'
+        && p.group.length > 0
     );
 }
 
@@ -966,10 +970,26 @@ function renderAssignPermissions(rawData, activeKeys = []) {
         perms = rawData.filter(isValidPermissionEntry);
     }
 
-    // Remove non-permission objects (e.g. sectionPermissions metadata leaking in)
-    perms = perms.filter(isValidPermissionEntry).map((p) => ({
+    // Remove non-permission objects (e.g. { sectionPermissions: {...} } metadata)
+    perms = perms.filter((p) =>
+        p !== null
+        && p !== undefined
+        && typeof p === 'object'
+        && typeof p.key === 'string'
+        && p.key.length > 0
+        && !p.key.includes(' ')
+        && typeof p.label === 'string'
+        && p.label.length > 0
+        && typeof p.group === 'string'
+        && p.group.length > 0
+    );
+
+    console.log('[PERMS-FILTER] after filter:', perms.length, 'items');
+    console.log('[PERMS-FILTER] first item:', perms[0]);
+
+    perms = perms.map((p) => ({
         ...p,
-        group: (p.group && String(p.group).trim()) || 'General'
+        group: String(p.group).trim()
     }));
 
     const grouped = {};
