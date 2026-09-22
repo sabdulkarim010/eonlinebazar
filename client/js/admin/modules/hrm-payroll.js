@@ -5,6 +5,8 @@
  * and payment actions, plus PDF pay slip download. Shared helpers come from
  * hrm-attendance.js via window.
  */
+// STANDARD: Use Swal.fire() for ALL confirmations.
+// Never use confirm(), alert(), or window.confirm().
 import '../admin-core.js';
 
 const PAYROLL_STATUS_CLASSES = {

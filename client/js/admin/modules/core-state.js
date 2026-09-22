@@ -174,6 +174,12 @@ window.COURIER_PROVIDER_LABELS = {
 };
 window.COURIER_BLOCKED_STATUSES = ['cancelled', 'canceled', 'returned', 'refunded', 'return requested'];
 
+/** Skip API/socket polling when admin is opened outside http(s) (avoids ERR_NAME_NOT_RESOLVED). */
+window.adminIsLiveServer = function adminIsLiveServer() {
+    const { protocol, hostname } = window.location;
+    return (protocol === 'http:' || protocol === 'https:') && Boolean(hostname);
+};
+
 /**
  * Project: EOnlineBazar (E-Commerce Platform)
  * Author: Abdul Karim

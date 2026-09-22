@@ -5,6 +5,8 @@
  * and a month calendar of who is away. Shared helpers come from
  * hrm-attendance.js via window.
  */
+// STANDARD: Use Swal.fire() for ALL confirmations.
+// Never use confirm(), alert(), or window.confirm().
 import '../admin-core.js';
 
 const LEAVE_STATUS_CLASSES = {

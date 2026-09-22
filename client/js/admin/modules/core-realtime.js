@@ -180,12 +180,14 @@ function isAdminSectionActive(sectionId) {
 
 function initAdminSocket() {
     if (adminSocketInitialized || typeof io === 'undefined') return;
+    if (typeof window.adminIsLiveServer === 'function' && !window.adminIsLiveServer()) return;
     const authToken = localStorage.getItem('adminToken');
     if (!authToken) return;
 
     adminSocketInitialized = true;
 
     adminSocket = io('/admin', {
+        path: '/socket.io',
         auth: { token: authToken }
     });
 

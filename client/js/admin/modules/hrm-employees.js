@@ -2,6 +2,8 @@
  * Project: EOnlineBazar — HRM Employees (ultra-dynamic operational staff)
  * File: js/admin/modules/hrm-employees.js
  */
+// STANDARD: Use Swal.fire() for ALL confirmations.
+// Never use confirm(), alert(), or window.confirm().
 import '../admin-core.js';
 
 const EMPLOYEE_STATUS_CLASSES = {
@@ -14,6 +16,7 @@ let designationCache = [];
 let shiftCache = [];
 let pendingPhotoFile = null;
 let activeProfileData = null;
+let editingEmployeeForDelete = null;
 let employeePg = null;
 const employeePgState = { page: 1, limit: 10 };
 
@@ -132,8 +135,6 @@ function renderEmployeeTable(rows) {
         return;
     }
 
-    const showDelete = isEmployeeSuperAdmin();
-
     tbody.innerHTML = rows.map((e) => `
         <tr>
             <td>${employeePhotoCell(e.photo, e.fullName)}</td>
@@ -156,66 +157,87 @@ function renderEmployeeTable(rows) {
                     <button type="button" class="catalog-action-btn ${e.status === 'terminated' ? 'activate' : 'delete'}" onclick="toggleEmployeeStatus('${e._id}', '${employeeEscape(e.status || 'active')}')" title="${e.status === 'terminated' ? 'Reactivate' : 'Terminate'}">
                         <i class="fa-solid ${e.status === 'terminated' ? 'fa-user-check' : 'fa-user-slash'}"></i>
                     </button>
-                    ${showDelete ? `
-                    <button type="button" class="emp-action-btn delete-emp-btn"
-                            data-id="${employeeEscape(e._id)}"
-                            data-name="${employeeEscape(e.fullName)}"
-                            data-code="${employeeEscape(e.employeeId || 'EMP')}"
-                            title="Delete Employee permanently">
-                        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                    </button>` : ''}
                 </div>
             </td>
         </tr>
     `).join('');
-
-    wireEmployeeDeleteButtons();
 }
 
-function wireEmployeeDeleteButtons() {
-    document.querySelectorAll('.delete-emp-btn').forEach((btn) => {
-        if (btn.dataset.bound === 'true') return;
-        btn.dataset.bound = 'true';
-        btn.addEventListener('click', async () => {
-            const id = btn.dataset.id;
-            const name = btn.dataset.name;
-            const code = btn.dataset.code;
+function updateEmployeeDangerZone(employee = null) {
+    const zone = document.getElementById('empDangerZone');
+    if (!zone) return;
 
-            const confirmed = confirm(
-                `⚠️ PERMANENTLY DELETE ${name} (${code})?\n\n`
-                + 'This will also delete:\n'
-                + '• All attendance records\n'
-                + '• All payroll records\n'
-                + '• All leave records\n'
-                + '• System access (if granted)\n\n'
-                + 'This CANNOT be undone. Continue?'
-            );
-            if (!confirmed) return;
+    const show = Boolean(employee?._id) && isEmployeeSuperAdmin();
+    zone.style.display = show ? 'block' : 'none';
+    editingEmployeeForDelete = show ? employee : null;
+}
 
-            try {
-                const res = await fetch(`/api/admin/hrm/employees/${id}`, {
-                    method: 'DELETE',
-                    headers: employeeAuthHeaders()
-                });
-                const data = await res.json();
-                if (res.ok && data.success !== false) {
-                    showToast(`✅ ${name} deleted`, 'success');
-                    btn.closest('tr')?.remove();
-                    await loadEmployeeStats();
-                    const tbody = document.getElementById('employeeTableBody');
-                    if (tbody && !tbody.querySelector('tr')) {
-                        tbody.innerHTML = '<tr><td colspan="10" class="table-status-empty">No employees found.</td></tr>';
-                    }
-                } else {
-                    showToast(data.message || 'Delete failed', 'error');
-                }
-            } catch (err) {
-                showToast(`Delete failed: ${err.message}`, 'error');
-            }
-        });
+async function deleteEmployeePermanently() {
+    const emp = editingEmployeeForDelete;
+    if (!emp?._id) return;
+
+    const empName = emp.fullName || 'Employee';
+    const empCode = emp.employeeId || 'EMP';
+    const empId = emp._id;
+
+    if (typeof Swal === 'undefined') {
+        showToast('Confirmation dialog unavailable.', 'error');
+        return;
+    }
+
+    const result = await Swal.fire({
+        title: 'Delete Employee?',
+        html: `<b>${employeeEscape(empName)} (${employeeEscape(empCode)})</b> will be permanently deleted.<br><br>`
+            + '<small style="color:#6b7280">This removes all attendance, payroll, leave records and system access.</small>',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Delete',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        reverseButtons: true
     });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Deleting...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        const res = await fetch(`/api/admin/hrm/employees/${empId}`, {
+            method: 'DELETE',
+            headers: employeeAuthHeaders()
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success !== false) {
+            await Swal.fire({
+                title: 'Deleted!',
+                text: `${empName} has been removed.`,
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            closeEmployeeModal();
+            if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
+            await loadEmployeeStats();
+            await loadEmployees();
+        } else {
+            Swal.fire('Error', data.message || 'Delete failed', 'error');
+        }
+    } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+    }
+}
+
+function wireEmployeeDeleteButton() {
+    const btn = document.getElementById('deleteEmpBtn');
+    if (!btn || btn.dataset.bound === 'true') return;
+    btn.dataset.bound = 'true';
+    btn.addEventListener('click', deleteEmployeePermanently);
 }
 
 async function exportEmployeesCsvReport() {
@@ -696,10 +718,12 @@ function closeEmployeeModal() {
     const modal = document.getElementById('employeeModal');
     if (modal) modal.style.display = 'none';
     pendingPhotoFile = null;
+    updateEmployeeDangerZone(null);
 }
 
 async function openAddEmployeeModal() {
     resetEmployeeForm();
+    updateEmployeeDangerZone(null);
     await Promise.all([loadDesignationsDropdown(), loadShiftsDropdown()]);
     document.getElementById('employeeModal').style.display = 'flex';
 }
@@ -721,6 +745,7 @@ async function openEditEmployeeModal(id) {
         const title = document.getElementById('employeeModalTitle');
         if (title) title.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit Employee';
 
+        updateEmployeeDangerZone(result.data);
         document.getElementById('employeeModal').style.display = 'flex';
     } catch (err) {
         console.error('openEditEmployeeModal:', err);
@@ -1322,7 +1347,10 @@ function setupHrmEmployeesSection() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', setupHrmEmployeesSection);
+document.addEventListener('DOMContentLoaded', () => {
+    setupHrmEmployeesSection();
+    wireEmployeeDeleteButton();
+});
 
 // Backward-compatible alias
 async function viewEmployeeDetails(id) {

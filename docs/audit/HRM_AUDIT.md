@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-22 (HRM Final Polish)  
+**Last updated:** 2026-09-22 (HRM Complete — SweetAlert + Polish)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ⚠️ PARTIAL — employee profile has 5 tabs only; all access management in Staff Directory; broader pagination gaps remain
 
@@ -396,6 +396,15 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 - **BUG 2 confirmed:** No staff past-date restriction in `attendanceController.js` or Daily Sheet / clock-in UI
 - Updated File Inventory with per-file ✅/⚠️ status; Feature Checklist 24/26 complete
 - Status changed from ✅ COMPLETE → ⚠️ PARTIAL until bugs are fixed
+
+### HRM Complete — SweetAlert + Polish — 2026-09-22
+
+- **Delete moved to modal:** Permanent delete removed from table row; Super Admin **Danger Zone** in Edit Employee modal with SweetAlert2 confirmation + loading/success states
+- **SweetAlert2 standard:** HRM JS modules (`hrm-employees.js`, `hrm-attendance.js`, `hrm-payroll.js`, `hrm-leaves.js`) document Swal-only confirms; bulk Mark All Present/Absent and lock/unlock date use Swal
+- **Daily Sheet toolbar:** Refresh / Mark All / lock controls in single inline `.daily-sheet-actions` row
+- **Console ERR_NAME_NOT_RESOLVED guard:** `adminIsLiveServer()` skips notification/WhatsApp polling and socket init when not on http(s); socket.io uses `path: '/socket.io'`
+- Files: `view-hrm-employees.html`, `view-hrm-attendance.html`, `_hrm.css`, `hrm-employees.js`, `hrm-attendance.js`, `hrm-payroll.js`, `hrm-leaves.js`, `core-state.js`, `core-realtime.js`, `notifications.js`, `orders-actions.js`
+- Tests: Jest **228/228** passing
 
 ### Attendance System Upgrade — 2026-09-20
 

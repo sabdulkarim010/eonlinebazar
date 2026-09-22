@@ -3007,5 +3007,17 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Daily Sheet pagination | ✅ Fixed | Backend page/limit + `AdminPagination` UI |
 | Jest regression suite | ✅ | **228/228** passing |
 
+## HRM Complete — SweetAlert + Polish — 2026-09-22
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Delete in Edit modal (Danger Zone) | ✅ Fixed | Removed table-row trash; Super Admin zone + Swal confirm |
+| SweetAlert2 HRM standard | ✅ Fixed | All HRM confirms via Swal; module header comments |
+| Daily Sheet inline actions | ✅ Fixed | `.daily-sheet-actions` flex row |
+| Console poll/socket errors | ✅ Fixed | `adminIsLiveServer()` guard; socket `path: '/socket.io'` |
+| Jest regression suite | ✅ | **228/228** passing |
+
 
 

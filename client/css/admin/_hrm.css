@@ -1101,3 +1101,100 @@
     gap: 0.5rem;
     flex-wrap: wrap;
 }
+
+/* Employee modal — danger zone (Super Admin delete) */
+.danger-zone {
+    margin: 1rem 16px 0;
+    padding: 0.875rem 1rem;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    background: #fff5f5;
+}
+
+.danger-zone-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.danger-zone strong {
+    font-size: 13px;
+    color: #991b1b;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.danger-zone p {
+    font-size: 11px;
+    color: #b91c1c;
+    margin: 0;
+}
+
+.btn-danger-outline {
+    padding: 6px 14px;
+    font-size: 12px;
+    color: #ef4444;
+    border: 1px solid #ef4444;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.15s;
+}
+
+.btn-danger-outline:hover {
+    background: #ef4444;
+    color: white;
+}
+
+/* Daily Sheet toolbar — inline action row */
+.daily-sheet-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+    margin-bottom: 1rem !important;
+}
+
+.btn-outline-sm {
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+    background: white !important;
+    color: #374151 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+}
+
+.btn-success-sm {
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+    border: 1px solid #10b981 !important;
+    border-radius: 6px !important;
+    background: #ecfdf5 !important;
+    color: #059669 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+}
+
+.btn-danger-sm {
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+    border: 1px solid #ef4444 !important;
+    border-radius: 6px !important;
+    background: #fff5f5 !important;
+    color: #ef4444 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+}
+
+.date-lock-controls {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    margin-left: auto !important;
+    flex-wrap: wrap !important;
+}

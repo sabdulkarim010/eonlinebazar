@@ -377,6 +377,17 @@
                     </div>
                 </div>
             </div>
+            <div class="danger-zone" id="empDangerZone" style="display:none">
+                <div class="danger-zone-inner">
+                    <div>
+                        <strong>Delete Employee</strong>
+                        <p>Permanently removes this employee and all their records. Cannot be undone.</p>
+                    </div>
+                    <button type="button" id="deleteEmpBtn" class="btn-danger-outline">
+                        🗑 Delete Permanently
+                    </button>
+                </div>
+            </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeEmployeeModal()">Cancel</button>
                 <button type="submit" class="btn-primary" id="employeeSaveBtn">Save Employee</button>

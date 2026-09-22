@@ -69,6 +69,7 @@ function renderWhatsAppAlertDropdown(alerts = []) {
 }
 
 async function fetchPendingWhatsAppAlerts() {
+    if (typeof window.adminIsLiveServer === 'function' && !window.adminIsLiveServer()) return;
     try {
         const res = await fetch('/api/admin/whatsapp-alerts/pending', {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -126,6 +127,7 @@ function setupWhatsAppAlertBadge() {
         });
     }
 
+    if (typeof window.adminIsLiveServer === 'function' && !window.adminIsLiveServer()) return;
     fetchPendingWhatsAppAlerts();
     if (whatsappAlertPollTimer) clearInterval(whatsappAlertPollTimer);
     whatsappAlertPollTimer = setInterval(fetchPendingWhatsAppAlerts, 30000);

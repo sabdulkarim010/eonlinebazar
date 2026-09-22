@@ -62,6 +62,7 @@ function renderAdminNotifDropdown() {
 
 async function fetchAdminUnreadCount() {
     if (!token) return 0;
+    if (typeof window.adminIsLiveServer === 'function' && !window.adminIsLiveServer()) return adminNotifUnread;
     try {
         const res = await fetch('/api/admin/notifications/unread-count', {
             headers: { Authorization: `Bearer ${token}` }
@@ -191,6 +192,7 @@ function setupAdminNotifBell() {
 
 function startAdminNotificationPolling() {
     if (adminNotifPollTimer) return;
+    if (typeof window.adminIsLiveServer === 'function' && !window.adminIsLiveServer()) return;
     fetchAdminUnreadCount();
     adminNotifPollTimer = window.setInterval(() => {
         fetchAdminUnreadCount();

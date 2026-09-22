@@ -76,27 +76,27 @@
                     <option value="">All departments</option>
                 </select>
             </div>
-            <div class="form-group hrm-filter-actions">
-                <button type="button" class="btn-primary" id="dailySheetRefreshBtn">
-                    <i class="fa-solid fa-rotate"></i> Refresh
-                </button>
-                <button type="button" class="btn-secondary" id="dailySheetMarkAllPresentBtn">
-                    <i class="fa-solid fa-check-double"></i> Mark All Present
-                </button>
-                <button type="button" class="btn-secondary" id="dailySheetMarkAllAbsentBtn">
-                    <i class="fa-solid fa-user-xmark"></i> Mark All Absent
-                </button>
-            </div>
             <div id="dailySheetPastDateBanner" class="att-lock-status att-lock-status--open hrm-past-date-banner" hidden>
                 ⚠️ Past date — view only. Contact HR to make changes.
             </div>
-            <div class="hrm-daily-sheet-lock" id="dailySheetLockBar">
+        </div>
+        <div class="daily-sheet-actions">
+            <button type="button" id="dailySheetRefreshBtn" class="btn-outline-sm">
+                ↻ Refresh
+            </button>
+            <button type="button" id="dailySheetMarkAllPresentBtn" class="btn-success-sm">
+                ✓ All Present
+            </button>
+            <button type="button" id="dailySheetMarkAllAbsentBtn" class="btn-danger-sm">
+                ✗ All Absent
+            </button>
+            <div class="date-lock-controls" id="dailySheetLockBar">
                 <span id="dailySheetLockStatus" class="att-lock-status att-lock-status--open">🔓 Unlocked</span>
-                <button type="button" class="btn-secondary btn-sm" id="dailySheetLockBtn" data-superadmin-only="true" hidden>
-                    🔓 Lock This Date
+                <button type="button" id="dailySheetLockBtn" class="btn-outline-sm" data-superadmin-only="true" hidden>
+                    🔒 Lock Date
                 </button>
-                <button type="button" class="btn-secondary btn-sm" id="dailySheetUnlockBtn" data-superadmin-only="true" hidden>
-                    Unlock
+                <button type="button" id="dailySheetUnlockBtn" class="btn-outline-sm" data-superadmin-only="true" hidden>
+                    🔓 Unlock
                 </button>
             </div>
         </div>

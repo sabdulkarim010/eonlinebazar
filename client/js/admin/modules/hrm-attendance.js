@@ -5,6 +5,8 @@
  * late report. Also owns the shared HRM helpers (staff roster cache, month
  * selects, tab switching) that hrm-payroll.js and hrm-leaves.js reuse.
  */
+// STANDARD: Use Swal.fire() for ALL confirmations.
+// Never use confirm(), alert(), or window.confirm().
 import '../admin-core.js';
 
 const HRM_MONTHS = [
@@ -841,7 +843,7 @@ async function markDailySheetStatus(employeeId, status, triggerEl) {
     }
 }
 
-async function bulkMarkDailySheet(status) {
+async function confirmBulkMarkDailySheet(status) {
     if (dailySheetPastDateViewOnly) {
         showToast('Past dates are view-only. Contact HR to make changes.', 'warning');
         return;
@@ -851,6 +853,30 @@ async function bulkMarkDailySheet(status) {
         return;
     }
 
+    const isPresent = status === 'present';
+    const title = isPresent ? 'Mark All Present?' : 'Mark All Absent?';
+    const text = isPresent
+        ? 'This will mark all employees as Present today.'
+        : 'This will mark all employees as Absent today.';
+
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title,
+            text,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: isPresent ? 'Yes, Mark All' : 'Yes, Mark All Absent',
+            confirmButtonColor: isPresent ? '#10b981' : '#ef4444',
+            cancelButtonColor: '#6b7280',
+            reverseButtons: true
+        });
+        if (!result.isConfirmed) return;
+    }
+
+    await bulkMarkDailySheet(status);
+}
+
+async function bulkMarkDailySheet(status) {
     const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
     const deptFilter = document.getElementById('dailySheetDept')?.value || '';
     const ids = dailySheetCache
@@ -892,6 +918,20 @@ async function bulkMarkDailySheet(status) {
 }
 
 async function lockDailySheetDate() {
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: 'Lock This Date?',
+            text: 'No further attendance edits will be allowed until unlocked.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Lock Date',
+            confirmButtonColor: '#f59e0b',
+            cancelButtonColor: '#6b7280',
+            reverseButtons: true
+        });
+        if (!result.isConfirmed) return;
+    }
+
     const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
     try {
         const res = await fetch('/api/admin/hrm/attendance/lock', {
@@ -913,6 +953,20 @@ async function lockDailySheetDate() {
 }
 
 async function unlockDailySheetDate() {
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: 'Unlock This Date?',
+            text: 'Attendance edits will be allowed again for this date.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Unlock',
+            confirmButtonColor: '#3b82f6',
+            cancelButtonColor: '#6b7280',
+            reverseButtons: true
+        });
+        if (!result.isConfirmed) return;
+    }
+
     const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
     try {
         const res = await fetch('/api/admin/hrm/attendance/lock', {
@@ -1067,8 +1121,8 @@ function setupDailySheetSection() {
     };
 
     bindClick('dailySheetRefreshBtn', loadDailySheet);
-    bindClick('dailySheetMarkAllPresentBtn', () => bulkMarkDailySheet('present'));
-    bindClick('dailySheetMarkAllAbsentBtn', () => bulkMarkDailySheet('absent'));
+    bindClick('dailySheetMarkAllPresentBtn', () => confirmBulkMarkDailySheet('present'));
+    bindClick('dailySheetMarkAllAbsentBtn', () => confirmBulkMarkDailySheet('absent'));
     bindClick('dailySheetLockBtn', lockDailySheetDate);
     bindClick('dailySheetUnlockBtn', unlockDailySheetDate);
 

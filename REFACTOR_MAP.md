@@ -2346,3 +2346,19 @@ tests/hrm.test.js [MOD] permanent delete expectations
 docs/audit/HRM_AUDIT.md [MOD] HRM Final Polish changelog
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Final Polish section
 README.md [MOD] HRM Final Polish last updated
+#
+# HRM Complete — SweetAlert + Polish: 2026-09-22
+client/admin/partials/view-hrm-employees.html [MOD] empDangerZone in Edit modal; delete removed from table
+client/admin/partials/view-hrm-attendance.html [MOD] daily-sheet-actions inline toolbar
+client/css/admin/_hrm.css [MOD] danger-zone; daily-sheet-actions; btn-outline/success/danger-sm
+client/js/admin/modules/hrm-employees.js [MOD] modal delete + Swal; removed row delete button
+client/js/admin/modules/hrm-attendance.js [MOD] Swal bulk mark + lock/unlock; STANDARD comment
+client/js/admin/modules/hrm-payroll.js [MOD] Swal STANDARD comment
+client/js/admin/modules/hrm-leaves.js [MOD] Swal STANDARD comment
+client/js/admin/modules/core-state.js [MOD] adminIsLiveServer helper
+client/js/admin/modules/core-realtime.js [MOD] socket path + live-server guard
+client/js/admin/modules/notifications.js [MOD] poll guard for offline/file context
+client/js/admin/modules/orders-actions.js [MOD] WhatsApp poll guard
+docs/audit/HRM_AUDIT.md [MOD] HRM Complete SweetAlert changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Complete SweetAlert section
+README.md [MOD] SweetAlert2 HRM standard note
