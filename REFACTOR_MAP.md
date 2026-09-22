@@ -2303,3 +2303,29 @@ SYSTEM_ENTERPRISE_AUDIT.md [MOD] Email + WhatsApp Notification Overhaul section
 README.md [MOD] Resend + Baileys messaging; 228/228 tests
 .gitignore [MOD] .wa-auth Baileys session directory
 package.json [MOD] resend, @whiskeysockets/baileys, pino dependencies
+#
+# Staff Access Final Fix: 2026-09-21
+client/js/admin-staff.js [MOD] emp search clear button; renderAssignPermissions; resetAssignModal; cleanup orphans handler
+client/admin/partials/view-staff.html [MOD] emp-search-wrap structure; permissionsGrid; Fix DB button
+client/css/admin/_staff.css [MOD] emp-search, emp-dropdown, perm-items-list, perm-row visibility
+backend/src/controllers/staffController.js [MOD] revokeStaffAccess deletes admin + clears Mongo/PG links; cleanupOrphanRecords
+backend/src/routes/staffRoutes.js [MOD] POST /cleanup-orphans route
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] Staff Access Final Fix changelog
+docs/audit/HRM_AUDIT.md [MOD] Staff Access Final Fix changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Staff Access Final Fix section
+README.md [MOD] Staff Access Final Fix last updated
+#
+# Permission Items + Sidebar Fix: 2026-09-21
+client/js/admin-staff.js [MOD] isValidPermissionEntry filter; perm-group-block renderAssignPermissions
+client/css/admin/_staff.css [MOD] #permissionsGrid force-visible block at file bottom
+backend/src/repositories/sidebarLabelRepository.js [MOD] lazy getPrisma + try/catch guards
+backend/src/controllers/admin/sidebarLabelController.js [MOD] listSidebarLabels returns {} not 500
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] permission visibility + sidebar label fix notes
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] Staff UI Polish changelog
+#
+# Staff UI Polish: 2026-09-21
+client/admin/partials/view-staff.html [MOD] empSearchInput SVG search; bare permissionsGrid; icon action buttons
+client/css/admin/_staff.css [MOD] 40px search padding; permission card grid; staff-action-btn tooltips
+client/js/admin-staff.js [MOD] renderAssignPermissions rewrite; getSelectedPermissions; icon row actions
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Staff UI Polish section
+README.md [MOD] Staff UI Polish last updated

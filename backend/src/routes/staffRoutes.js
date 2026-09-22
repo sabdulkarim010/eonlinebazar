@@ -24,6 +24,9 @@ router.get('/', staffController.listStaff);
 // POST /api/admin/staff — create a staff account with a permission set
 router.post('/', staffController.createStaff);
 
+// POST /api/admin/staff/cleanup-orphans — clear stale employee→admin links (Super Admin)
+router.post('/cleanup-orphans', staffController.cleanupOrphanRecords);
+
 // PUT /api/admin/staff/:id/permissions — update permissions only
 router.put('/:id/permissions', staffController.updateStaffPermissions);
 

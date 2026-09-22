@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (Assign Access Fix)  
+**Last updated:** 2026-09-21 (Staff UI Polish)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -105,6 +105,25 @@
 ---
 
 ## Change Log
+
+### Staff UI Polish — 2026-09-21
+
+- Assign modal search: `#empSearchInput` 40px left padding; SVG icon; no text overlap
+- Permission grid: card layout with visible toggle rows and group "All" checkboxes; `#permissionsGrid` force-visible CSS block at end of `_staff.css`
+- Permission filter: `isValidPermissionEntry()` strips non-permission objects (e.g. `sectionPermissions` metadata)
+- Sidebar labels: `sidebarLabelRepository` guards missing `prisma.sidebarLabel`; controller returns empty map on failure
+- Staff table actions: compact icon buttons with hover tooltips
+- Tests: Jest **228/228** passing
+
+### Staff Access Final Fix — 2026-09-21
+
+- **Search UI:** Employee search uses `emp-search-wrap` with left icon padding so typed text does not overlap; clear (×) button toggles on input
+- **Modal reset:** `resetAssignModal()` clears search, credentials, errors, permission toggles, and presets on every open
+- **Permissions grid:** `renderAssignPermissions()` normalizes any API response shape; `#permissionsGrid` renders all 25 permission toggles with group Select all
+- **Revoke cleanup:** `DELETE /api/admin/staff/:id/access` deletes admin account and clears `Employee.linkedAdminId` in Mongo + PostgreSQL
+- **Orphan repair:** `POST /api/admin/staff/cleanup-orphans` (Super Admin) + **Fix DB** button in Staff Directory
+- Files: `admin-staff.js`, `view-staff.html`, `_staff.css`, `staffController.js`, `staffRoutes.js`
+- Tests: Jest **228/228** passing
 
 ### Assign Access Fix — 2026-09-21
 

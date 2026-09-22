@@ -1146,23 +1146,116 @@ body.staff-panel-open { overflow: hidden; }
     margin: 0 0 12px;
 }
 
-.staff-assign-search-wrap {
-    position: relative;
+/* Employee search (Assign Access modal) */
+#empSearchInput,
+.emp-search-input {
+    padding-left: 40px !important;
+    padding-right: 36px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    box-sizing: border-box !important;
 }
 
-.staff-assign-search-icon {
+#empSearchInput:focus,
+.emp-search-input:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+}
+
+.emp-dropdown {
     position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #94a3b8;
-    pointer-events: none;
-    font-size: 14px;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
 }
 
-.staff-assign-search-input {
+.emp-dropdown.hidden {
+    display: none;
+}
+
+.emp-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     width: 100%;
-    padding-left: 36px;
+    padding: 0.625rem 0.875rem;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    text-align: left;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.emp-option:last-child {
+    border-bottom: none;
+}
+
+.emp-option:hover {
+    background: #f0f9ff;
+}
+
+.emp-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.emp-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.emp-info strong {
+    display: block;
+    font-size: 0.825rem;
+    color: #111827;
+}
+
+.emp-info small {
+    font-size: 0.7rem;
+    color: #6b7280;
+}
+
+.emp-no-results {
+    padding: 0.75rem 1rem;
+    font-size: 0.8rem;
+    color: #9ca3af;
+    text-align: center;
+    margin: 0;
+}
+
+.staff-fix-db-btn {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    background: none;
+    border: 1px solid #e5e7eb;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.staff-fix-db-btn:hover {
+    color: #374151;
+    border-color: #cbd5e1;
+    background: #f9fafb;
 }
 
 .staff-assign-dropdown-copy strong {
@@ -1236,65 +1329,6 @@ body.staff-panel-open { overflow: hidden; }
     box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12);
 }
 
-.staff-assign-perm-grid {
-    max-height: 320px;
-    overflow-y: auto;
-    padding-right: 4px;
-}
-
-.staff-assign-perm-grid .permission-category-items {
-    display: flex;
-    flex-direction: column;
-}
-
-.staff-assign-perm-grid .permission-toggle-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    min-height: 52px;
-    position: relative;
-}
-
-.staff-assign-perm-grid .permission-toggle-copy strong,
-.staff-assign-perm-grid .permission-toggle-copy small {
-    display: block;
-    visibility: visible;
-}
-
-/* Permission toggle pill (assign + edit modals) */
-.perm-toggle {
-    position: relative;
-    width: 40px;
-    height: 22px;
-    background: #e5e7eb;
-    border-radius: 11px;
-    cursor: pointer;
-    transition: background 0.2s;
-    flex-shrink: 0;
-}
-
-.perm-toggle.on {
-    background: #3b82f6;
-}
-
-.perm-toggle::after {
-    content: '';
-    position: absolute;
-    width: 18px;
-    height: 18px;
-    background: white;
-    border-radius: 50%;
-    top: 2px;
-    left: 2px;
-    transition: left 0.2s;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
-}
-
-.perm-toggle.on::after {
-    left: 20px;
-}
-
 .permission-toggle-input {
     position: absolute;
     opacity: 0;
@@ -1302,3 +1336,323 @@ body.staff-panel-open { overflow: hidden; }
     height: 0;
     pointer-events: none;
 }
+
+/* Assign modal permission grid */
+#permissionsGrid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.perm-group-block {
+    display: block !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    background: white !important;
+}
+
+.perm-group-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 10px 14px !important;
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    color: #374151 !important;
+}
+
+.perm-group-header .perm-select-all,
+.perm-group-header label {
+    margin-left: auto !important;
+    font-weight: 400 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    font-size: 11px !important;
+    color: #6b7280 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    cursor: pointer !important;
+}
+
+.perm-items-list {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
+.perm-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 10px 14px !important;
+    border-bottom: 1px solid #f3f4f6 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.perm-row:last-child {
+    border-bottom: none !important;
+}
+
+.perm-row:hover {
+    background: #f9fafb !important;
+}
+
+.perm-row-text {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    flex: 1 !important;
+}
+
+.perm-row-label {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #111827 !important;
+    display: block !important;
+}
+
+.perm-row-desc {
+    font-size: 11px !important;
+    color: #9ca3af !important;
+    display: block !important;
+}
+
+.perm-toggle {
+    width: 38px !important;
+    height: 22px !important;
+    background: #d1d5db !important;
+    border-radius: 11px !important;
+    cursor: pointer !important;
+    position: relative !important;
+    transition: background 0.2s !important;
+    flex-shrink: 0 !important;
+    display: block !important;
+    margin-left: 12px !important;
+}
+
+.perm-toggle.on {
+    background: #3b82f6 !important;
+}
+
+.perm-toggle::after {
+    content: '' !important;
+    position: absolute !important;
+    width: 18px !important;
+    height: 18px !important;
+    background: white !important;
+    border-radius: 50% !important;
+    top: 2px !important;
+    left: 2px !important;
+    transition: left 0.2s !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+
+.perm-toggle.on::after {
+    left: 18px !important;
+}
+
+/* Staff directory row actions */
+.staff-actions-cell {
+    white-space: nowrap !important;
+    padding: 8px 12px !important;
+    vertical-align: middle !important;
+}
+
+.staff-action-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.staff-action-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 6px !important;
+    border: 1px solid #e5e7eb !important;
+    background: white !important;
+    color: #6b7280 !important;
+    cursor: pointer !important;
+    transition: all 0.15s !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+}
+
+.staff-action-btn:hover {
+    background: #f3f4f6 !important;
+    color: #374151 !important;
+    border-color: #d1d5db !important;
+}
+
+.staff-action-btn.danger {
+    color: #ef4444 !important;
+    border-color: #fecaca !important;
+}
+
+.staff-action-btn.danger:hover {
+    background: #fef2f2 !important;
+    border-color: #f87171 !important;
+}
+
+.staff-action-btn::before {
+    content: attr(title) !important;
+    position: absolute !important;
+    bottom: calc(100% + 6px) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: #1f2937 !important;
+    color: white !important;
+    font-size: 11px !important;
+    padding: 3px 7px !important;
+    border-radius: 4px !important;
+    white-space: nowrap !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 0.15s !important;
+    z-index: 10 !important;
+}
+
+.staff-action-btn:hover::before {
+    opacity: 1 !important;
+}
+
+/* ===== PERMISSION GRID FORCE VISIBLE ===== */
+#permissionsGrid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 4px 0 !important;
+}
+
+#permissionsGrid .perm-group-block {
+    display: block !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    background: #fff !important;
+    margin-bottom: 0 !important;
+}
+
+#permissionsGrid .perm-group-header {
+    display: flex !important;
+    align-items: center !important;
+    padding: 8px 12px !important;
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    color: #374151 !important;
+    gap: 6px !important;
+}
+
+#permissionsGrid .perm-group-header label {
+    margin-left: auto !important;
+    font-weight: 400 !important;
+    text-transform: none !important;
+    font-size: 11px !important;
+    color: #6b7280 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    cursor: pointer !important;
+}
+
+#permissionsGrid .perm-items-list {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    max-height: 100% !important;
+    overflow: visible !important;
+}
+
+#permissionsGrid .perm-row {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 9px 12px !important;
+    border-bottom: 1px solid #f3f4f6 !important;
+    background: #fff !important;
+    min-height: 44px !important;
+}
+
+#permissionsGrid .perm-row:last-child {
+    border-bottom: none !important;
+}
+
+#permissionsGrid .perm-row:hover {
+    background: #f9fafb !important;
+}
+
+#permissionsGrid .perm-row-text {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+#permissionsGrid .perm-row-label {
+    display: block !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #111827 !important;
+}
+
+#permissionsGrid .perm-row-desc {
+    display: block !important;
+    font-size: 11px !important;
+    color: #9ca3af !important;
+}
+
+#permissionsGrid .perm-toggle {
+    display: block !important;
+    width: 36px !important;
+    height: 20px !important;
+    background: #d1d5db !important;
+    border-radius: 10px !important;
+    cursor: pointer !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+    margin-left: 12px !important;
+    transition: background 0.15s !important;
+}
+
+#permissionsGrid .perm-toggle.on {
+    background: #3b82f6 !important;
+}
+
+#permissionsGrid .perm-toggle::after {
+    content: '' !important;
+    position: absolute !important;
+    width: 16px !important;
+    height: 16px !important;
+    background: white !important;
+    border-radius: 50% !important;
+    top: 2px !important;
+    left: 2px !important;
+    transition: left 0.15s !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+}
+
+#permissionsGrid .perm-toggle.on::after {
+    left: 18px !important;
+}
+/* ===== END PERMISSION GRID ===== */

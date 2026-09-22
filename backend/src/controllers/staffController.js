@@ -32,6 +32,7 @@ const { fingerprint } = require('../utils/deviceParser');
 const { logSecurityEvent } = require('../utils/securityLogger');
 const { dualWrite } = require('../services/dualWriteService');
 const { adminDualWrite, mirrorAdminCreate, mirrorAdminUpdate, mirrorAdminRemove } = require('../utils/adminDualWriteHelpers');
+const { resolvePostgresAdminId } = require('../utils/hrmDualWriteHelpers');
 
 const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,29}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -566,70 +567,113 @@ exports.getStaffRoster = async (req, res) => {
     }
 };
 
+async function clearEmployeeLinksForAdmin(mongoAdminId, employeeRef = null) {
+    const staffLegacyId = String(mongoAdminId);
+
+    await Employee.updateMany(
+        { linkedAdminId: staffLegacyId },
+        { $unset: { linkedAdminId: 1 } }
+    );
+
+    if (employeeRef) {
+        await Employee.findByIdAndUpdate(employeeRef, { $unset: { linkedAdminId: 1 } });
+    }
+
+    try {
+        const prisma = require('../config/prismaClient');
+        const pgAdminId = await resolvePostgresAdminId(staffLegacyId);
+        if (pgAdminId) {
+            await prisma.employee.updateMany({
+                where: { linkedAdminId: pgAdminId },
+                data: { linkedAdminId: null }
+            });
+        }
+        if (employeeRef) {
+            await prisma.employee.updateMany({
+                where: { legacyId: String(employeeRef) },
+                data: { linkedAdminId: null }
+            });
+        }
+    } catch (pgErr) {
+        console.warn('[REVOKE-PG]', pgErr.message);
+    }
+}
+
 exports.revokeStaffAccess = async (req, res) => {
     try {
         const staff = await findStaffById(req.params.id);
         if (!staff) {
-            return res.status(404).json({ success: false, message: 'Staff account not found.' });
+            return res.status(404).json({ success: false, message: 'Admin not found' });
         }
 
         const { username } = staff;
         const staffLegacyId = String(staff._id);
+        const employeeRef = staff.employeeRef || null;
         const revoked = await revokeAllSessions(username);
 
+        await clearEmployeeLinksForAdmin(staffLegacyId, employeeRef);
+
         await adminDualWrite(
-            () => Admin.findByIdAndUpdate(
-                staff._id,
-                { status: ACCOUNT_STATUS.BLOCKED },
-                { returnDocument: 'after' }
-            ),
-            (updated) => mirrorAdminUpdate(updated, { operation: 'revokeStaffAccess' }),
+            () => Admin.findByIdAndDelete(staff._id),
+            () => mirrorAdminRemove(staffLegacyId),
             {
                 operation: 'revokeStaffAccess',
                 mongoId: staffLegacyId
             }
         );
 
-        if (staff.employeeRef) {
-            const employee = await Employee.findById(staff.employeeRef);
-            if (employee?.linkedAdminId) {
-                employee.linkedAdminId = null;
-                await dualWrite(
-                    () => employee.save(),
-                    async (saved) => {
-                        const repo = require('../repositories/employeeRepository');
-                        const pgEmployee = await repo.findByLegacyId(String(saved._id));
-                        if (pgEmployee?.linkedAdminId) {
-                            await repo.unlinkAdminAccount(pgEmployee.id);
-                        }
-                    },
-                    {
-                        model: 'Employee',
-                        operation: 'revokeStaffAccess',
-                        mongoId: (saved) => String(saved._id)
-                    }
-                );
-            }
-        }
-
         await logSecurityEvent({
             action: 'Staff Access Revoked',
             actor: req.adminAccount.username,
             actorType: 'admin',
             ipAddress: clientIp(req),
-            details: `Revoked system access for "${username}" and cleared employee link`,
+            details: `Revoked system access for "${username}", deleted admin account, and cleared employee links`,
             resourceType: 'staff',
             resourceId: staffLegacyId
         });
 
         res.status(200).json({
             success: true,
-            message: `System access revoked for "${username}". The account is suspended and unlinked from HRM.`,
+            message: 'Access revoked',
             revokedSessions: revoked
         });
     } catch (error) {
-        console.error('Revoke Staff Access Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to revoke staff access.' });
+        console.error('[REVOKE]', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to revoke staff access.' });
+    }
+};
+
+exports.cleanupOrphanRecords = async (req, res) => {
+    try {
+        let fixed = 0;
+        const emps = await Employee.find({
+            linkedAdminId: { $exists: true, $nin: [null, ''] }
+        });
+
+        for (const emp of emps) {
+            const admin = await Admin.findById(emp.linkedAdminId);
+            if (!admin) {
+                await Employee.findByIdAndUpdate(emp._id, { $unset: { linkedAdminId: 1 } });
+                try {
+                    const prisma = require('../config/prismaClient');
+                    await prisma.employee.updateMany({
+                        where: { legacyId: String(emp._id) },
+                        data: { linkedAdminId: null }
+                    });
+                } catch (pgErr) {
+                    console.warn('[CLEANUP-PG]', pgErr.message);
+                }
+                fixed += 1;
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Fixed ${fixed} orphan record(s)`
+        });
+    } catch (error) {
+        console.error('[CLEANUP]', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to clean orphan records.' });
     }
 };
 

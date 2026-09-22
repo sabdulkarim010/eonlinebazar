@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (Assign Access Fix)  
+**Last updated:** 2026-09-21 (Staff UI Polish)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ⚠️ PARTIAL — employee profile has 5 tabs only; all access management in Staff Directory; broader pagination gaps remain
 
@@ -255,6 +255,19 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Staff UI Polish — 2026-09-21
+
+- Staff Directory: search padding fix, permission card grid, icon action buttons with tooltips
+- Files: `view-staff.html`, `_staff.css`, `admin-staff.js`
+- Tests: Jest **228/228** passing
+
+### Staff Access Final Fix — 2026-09-21
+
+- Assign modal search box icon/clear-button UX; full modal reset on open; permission items render in `#permissionsGrid`
+- Revoke deletes admin + clears dual-store employee links; `POST /api/admin/staff/cleanup-orphans` fixes stale `linkedAdminId` orphans
+- Files: `admin-staff.js`, `view-staff.html`, `_staff.css`, `staffController.js`, `staffRoutes.js`
+- Tests: Jest **228/228** passing
 
 ### Assign Access Fix — 2026-09-21
 

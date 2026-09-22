@@ -9,10 +9,10 @@ const sidebarLabelRepository = require('../../repositories/sidebarLabelRepositor
 exports.listSidebarLabels = async (req, res) => {
     try {
         const labels = await sidebarLabelRepository.findAllMap();
-        res.status(200).json({ success: true, labels });
+        return res.status(200).json({ success: true, labels });
     } catch (error) {
-        console.error('listSidebarLabels Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to load sidebar labels.' });
+        console.warn('listSidebarLabels Error:', error.message);
+        return res.status(200).json({ success: true, labels: {} });
     }
 };
 

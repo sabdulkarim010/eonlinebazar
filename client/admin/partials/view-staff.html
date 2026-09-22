@@ -15,6 +15,9 @@
                 <i class="fa-solid fa-rotate staff-refresh-btn__icon" aria-hidden="true"></i>
                 <span class="staff-refresh-btn__label">Refresh</span>
             </button>
+            <button type="button" id="cleanupOrphansBtn" class="staff-fix-db-btn" data-superadmin-only="true" title="Clear orphan employee–admin links">
+                🔧 Fix DB
+            </button>
         </div>
     </div>
 
@@ -95,10 +98,13 @@
                 <section class="staff-assign-step">
                     <h4 class="staff-assign-step__title">Step 1 — Select Employee</h4>
                     <div class="form-group" id="staffAssignEmployeeField">
-                        <div class="staff-assign-search-wrap">
-                            <i class="fa-solid fa-magnifying-glass staff-assign-search-icon" aria-hidden="true"></i>
-                            <input type="search" id="staffAssignEmployeeSearch" class="staff-assign-search-input" placeholder="Search by name or EMP-ID…" autocomplete="off">
-                            <div id="staffAssignEmployeeDropdown" class="staff-assign-dropdown" hidden></div>
+                        <div style="position:relative; width:100%;" class="emp-search-wrap">
+                            <svg style="position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:#9ca3af; pointer-events:none;" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <input type="text" id="empSearchInput" class="emp-search-input" placeholder="Search by name or EMP-ID..." autocomplete="off" style="width:100%; padding:10px 36px 10px 40px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; box-sizing:border-box; outline:none;">
+                            <button type="button" id="empSearchClear" aria-label="Clear search" style="display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:18px; color:#9ca3af; cursor:pointer; padding:0; line-height:1;">×</button>
+                            <div id="staffAssignEmployeeDropdown" class="emp-dropdown hidden"></div>
                         </div>
                         <p id="staffAssignSelectedHint" class="staff-assign-hint">Only employees without linked admin access are listed.</p>
                         <p id="staffAssignEmployeeError" class="staff-field-error" hidden></p>
@@ -149,7 +155,7 @@
                             <button type="button" class="staff-preset-btn staff-preset-btn--ghost" data-preset="clear">Reset</button>
                         </div>
                     </div>
-                    <div id="staffAssignPermissionGrid" class="permission-grid permission-grid--modules staff-assign-perm-grid"></div>
+                    <div id="permissionsGrid" class="permission-grid permission-grid--modules"></div>
                     <p id="staffAssignPermissionsError" class="staff-field-error" hidden></p>
                 </section>
             </div>

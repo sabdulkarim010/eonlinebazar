@@ -2967,5 +2967,32 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Backend assignable filter | ✅ Fixed | `$and` Mongo query; assignable-only PG filter avoids over-excluding |
 | Jest regression suite | ✅ | **228/228** passing |
 
+## Staff Access Final Fix — 2026-09-21
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Search icon overlap | ✅ Fixed | `emp-search-wrap` + left padding on input; icon does not cover typed text |
+| Clear search button | ✅ Fixed | × toggles on input; clears selection, dropdown, and username |
+| Modal reset on open | ✅ Fixed | `resetAssignModal()` clears all fields, errors, toggles, presets |
+| Permission items visible | ✅ Fixed | `renderAssignPermissions()` + `#permissionsGrid`; handles all API shapes |
+| Revoke full cleanup | ✅ Fixed | Deletes admin account; clears Mongo + PG `Employee.linkedAdminId` |
+| Orphan record repair | ✅ Fixed | `POST /api/admin/staff/cleanup-orphans` + Super Admin **Fix DB** button |
+| Jest regression suite | ✅ | **228/228** passing |
+
+## Staff UI Polish — 2026-09-21
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Search icon overlap | ✅ Fixed | `#empSearchInput` with 40px left padding + inline SVG icon |
+| Permission cards | ✅ Fixed | Group cards with visible rows, toggle switches, group "All" checkbox |
+| Permission items force-visible | ✅ Fixed | `#permissionsGrid` scoped CSS overrides; strict `isValidPermissionEntry` filter removes `sectionPermissions` leak |
+| Sidebar labels endpoint | ✅ Fixed | `sidebarLabelRepository` lazy Prisma + try/catch; `listSidebarLabels` returns `{ labels: {} }` not 500 when PG model missing |
+| Actions column | ✅ Fixed | Three icon buttons with CSS tooltips (Edit / Suspend / Revoke) |
+| Jest regression suite | ✅ | **228/228** passing |
+
 
 
