@@ -1291,7 +1291,7 @@
   window.openBannerDrawer = openBannerDrawer;
   window.closeBannerDrawer = closeBannerDrawer;
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     syncOverlayLabel();
     onBannerHeightPresetChange('desktop');
     onBannerHeightPresetChange('mobile');
@@ -1300,7 +1300,14 @@
     syncBannerTextColorHex();
     switchPreviewTab('desktop');
     applyPreviewState({});
-    ensureBannerLinkOptions();
+
+    if (typeof window.waitForAdminPermissions === 'function') {
+      await window.waitForAdminPermissions();
+    }
+    if (typeof window.hasAdminPermission === 'function'
+      && (window.hasAdminPermission('manage_settings') || window.hasAdminPermission('manage_catalog'))) {
+      ensureBannerLinkOptions();
+    }
 
     document.getElementById('openAddBannerBtn')?.addEventListener('click', () => {
       resetBannerForm(true);

@@ -470,8 +470,8 @@ function buildAdminEmployeeProfileShape(admin, employee) {
   const adminFallbackName = String(admin?.name || admin?.displayName || admin?.username || 'Admin').trim();
   const employeeName = String(employee?.fullName || '').trim();
   const displayName = employeeName || adminFallbackName;
-  const adminImage = String(admin?.image || '').trim();
-  const employeePhoto = String(employee?.photo || '').trim();
+  const adminImage = String(admin?.image || admin?.avatar || '').trim();
+  const employeePhoto = String(employee?.photo || employee?.image || '').trim();
 
   return {
     adminId: admin?.legacyId || admin?.id || null,
@@ -480,6 +480,7 @@ function buildAdminEmployeeProfileShape(admin, employee) {
     username: String(admin?.username || '').trim(),
     role,
     photo: employeePhoto || adminImage || null,
+    image: employeePhoto || adminImage || null,
     employeeId: employee?.legacyId || employee?.id || null,
     employeeName: employee?.fullName || null,
     employeeCode: employee?.employeeId || null
@@ -493,14 +494,16 @@ function buildAdminEmployeeProfileShape(admin, employee) {
 async function getAdminWithEmployeeData(adminId) {
   if (!adminId) return null;
 
+  const profileSelect = { ...SAFE_SELECT, image: true };
+
   let admin = await prisma.admin.findUnique({
     where: { id: String(adminId) },
-    select: SAFE_SELECT
+    select: profileSelect
   });
   if (!admin) {
     admin = await prisma.admin.findUnique({
       where: { legacyId: String(adminId) },
-      select: SAFE_SELECT
+      select: profileSelect
     });
   }
   if (!admin) return null;

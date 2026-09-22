@@ -247,6 +247,18 @@ async function loadCurrentAdmin() {
  * account has no permission for, then make sure the visible section is one
  * they are allowed to see.
  */
+function hideEmptyMenuGroups(nav = document.querySelector('.sidebar-menu')) {
+    if (!nav) return;
+
+    nav.querySelectorAll('li.menu-group').forEach((group) => {
+        const visibleTargets = [...group.querySelectorAll('li[data-target]')]
+            .filter((child) => child.style.display !== 'none');
+        const visibleSubItems = [...group.querySelectorAll('.submenu > li')]
+            .filter((child) => child.style.display !== 'none');
+        group.style.display = (visibleTargets.length || visibleSubItems.length) ? '' : 'none';
+    });
+}
+
 function applyRoleToSidebar() {
     const nav = document.querySelector('.sidebar-menu');
     if (!nav) return;
@@ -260,18 +272,14 @@ function applyRoleToSidebar() {
         item.style.display = hasPermission(required) ? '' : 'none';
     });
 
-    // A collapsible group with nothing left inside it is just noise.
-    nav.querySelectorAll('li.menu-group').forEach(group => {
-        const visibleChildren = [...group.querySelectorAll('li[data-target]')]
-            .filter(child => child.style.display !== 'none');
-        group.style.display = visibleChildren.length ? '' : 'none';
-    });
-
     // Any element can opt into permission gating with data-permission="key"
     // (settings cards, the finance shortcut, action buttons, …).
     document.querySelectorAll('[data-permission]').forEach(el => {
-        el.style.display = hasPermission(el.dataset.permission) ? '' : 'none';
+        const host = el.closest('li') || el;
+        host.style.display = hasPermission(el.dataset.permission) ? '' : 'none';
     });
+
+    hideEmptyMenuGroups(nav);
 
     // Show the role on the sidebar profile card instead of a hardcoded label.
     const profileInfo = document.querySelector('.admin-profile .info');
@@ -855,6 +863,7 @@ window.applySuperAdminOnlyVisibility = applySuperAdminOnlyVisibility;
 window.isAdminSuperAdmin = isSuperAdmin;
 window.hasAdminPermission = hasPermission;
 window.waitForAdminPermissions = waitForAdminPermissions;
+window.getCurrentAdminProfile = () => currentAdmin;
 
 function normalizeAssignEmployee(row) {
     if (!row || typeof row !== 'object') return null;
@@ -1782,6 +1791,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     applyRoleToSidebar();
+    if (typeof window.loadAdminSidebarProfile === 'function') {
+        await window.loadAdminSidebarProfile(true);
+    }
     if (typeof window.applyDashboardWidgetPermissions === 'function') {
         window.applyDashboardWidgetPermissions();
     }

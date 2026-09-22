@@ -13,9 +13,10 @@ function formatSidebarRole(role) {
 }
 
 function updateSidebarDisplay(profileData = {}) {
-    const displayName = profileData.displayName || profileData.username || 'Admin';
-    const roleLabel = formatSidebarRole(profileData.role);
-    const photo = profileData.photo || profileData.image || null;
+    const me = typeof window.getCurrentAdminProfile === 'function' ? window.getCurrentAdminProfile() : null;
+    const displayName = profileData.displayName || profileData.username || me?.name || me?.username || 'Admin';
+    const roleLabel = formatSidebarRole(profileData.role || me?.role);
+    const photo = profileData.photo || profileData.image || me?.image || null;
 
     if (typeof window.updateAdminProfileUI === 'function') {
         window.updateAdminProfileUI({
@@ -51,6 +52,10 @@ function clearAdminSidebarCache() {
 }
 
 async function loadAdminSidebarProfile(forceRefresh = false) {
+    if (typeof window.waitForAdminPermissions === 'function') {
+        await window.waitForAdminPermissions();
+    }
+
     if (!forceRefresh) {
         try {
             const cached = sessionStorage.getItem(ADMIN_PROFILE_CACHE_KEY);
@@ -78,9 +83,13 @@ async function loadAdminSidebarProfile(forceRefresh = false) {
         if (res.ok && data.success && data.data) {
             sessionStorage.setItem(ADMIN_PROFILE_CACHE_KEY, JSON.stringify(data.data));
             updateSidebarDisplay(data.data);
+            return;
         }
+
+        updateSidebarDisplay({});
     } catch (error) {
         console.error('Failed to load admin sidebar profile:', error);
+        updateSidebarDisplay({});
     }
 }
 

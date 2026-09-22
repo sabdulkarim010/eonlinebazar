@@ -249,7 +249,8 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-loyalty-program': 'manage_settings',
     'view-store-config': 'manage_settings',
     'view-messages': 'manage_settings',
-    'view-settings': null, // own profile / 2FA — platform fields are guarded server-side
+    'view-settings': 'manage_settings',
+    'view-erp-expenses': 'manage_settings',
     'view-staff': 'manage_staff',
     'view-staff-audit': 'manage_security',
     'view-activity-feed': 'manage_security',

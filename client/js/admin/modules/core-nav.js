@@ -611,7 +611,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setupNavbarLinkForm();
     setupCouponForm();
-    initAddProductFormUI();
+
+    if (typeof window.waitForAdminPermissions === 'function') {
+        await window.waitForAdminPermissions();
+    }
+    if (adminCan('manage_inventory') || adminCan('manage_catalog')) {
+        initAddProductFormUI();
+    }
 });
 
 /* ==========================================================================

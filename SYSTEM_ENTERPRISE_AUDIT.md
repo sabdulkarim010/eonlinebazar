@@ -3072,5 +3072,17 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | 403 toast noise on limited staff login | ✅ Fixed | `SILENT_403_PATHS` in `handleAdminApiAuthResponse()` |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## RBAC — sidebar gaps + boot 403s + profile photo — 2026-09-22
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `view-erp-expenses` / `view-settings` in SECTION_PERMISSIONS | ✅ Fixed | Both require `manage_settings` — Finance + Settings groups hide for attendance-only staff |
+| `hideEmptyMenuGroups()` | ✅ Fixed | Runs after item + `[data-permission]` hiding; collapses empty `li.menu-group` |
+| Boot: suppliers/warehouses/pages | ✅ Fixed | Gated in `core-nav.js`, `admin-banner.js`; expenses section early exit |
+| Sidebar profile photo (PG read) | ✅ Fixed | `admin.image` included in profile select; `/me` fallback + reload after RBAC boot |
+| Jest regression suite | ✅ | **231/231** passing |
+
 
 

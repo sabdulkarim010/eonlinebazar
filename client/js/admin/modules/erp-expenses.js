@@ -301,6 +301,10 @@ async function loadExpenses(page, limit) {
 }
 
 async function loadExpensesSection() {
+    if (typeof window.hasAdminPermission === 'function' && !window.hasAdminPermission('manage_settings')) {
+        return;
+    }
+
     await fetchExpenseCategories();
     populateCategorySelects();
     ensureExpensePagination()?.resetPage();

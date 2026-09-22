@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-22 (RBAC attendance-only staff boot gating)
+**Last updated:** 2026-09-22 (RBAC sidebar gaps + profile photo)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 

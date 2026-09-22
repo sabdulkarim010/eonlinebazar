@@ -123,15 +123,23 @@ function updateAdminProfileUI(adminData = {}) {
 
     if (!avatarImg) return;
 
+    const initialsUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=d97706&color=fff`;
+
     if (avatarUrl) {
         const bust = avatarUrl.includes('?') ? `${avatarUrl}&t=${Date.now()}` : `${avatarUrl}?t=${Date.now()}`;
+        avatarImg.onerror = () => {
+            avatarImg.onerror = null;
+            avatarImg.src = initialsUrl;
+        };
+        avatarImg.onload = () => {
+            avatarImg.style.display = 'block';
+        };
         avatarImg.src = bust;
         avatarImg.style.display = 'block';
-        avatarImg.onerror = () => {
-            avatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=d97706&color=fff`;
-        };
     } else {
-        avatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=d97706&color=fff`;
+        avatarImg.onerror = null;
+        avatarImg.src = initialsUrl;
+        avatarImg.style.display = 'block';
     }
 }
 

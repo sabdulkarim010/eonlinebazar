@@ -2426,3 +2426,16 @@ backend/src/controllers/admin/employeeController.js [MOD] trim roster fields for
 docs/audit/HRM_AUDIT.md [MOD] permission gating changelog
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] RBAC boot gating section
 README.md [MOD] last updated
+
+# RBAC sidebar gaps + boot 403s + profile photo: 2026-09-22
+backend/src/config/permissions.js [MOD] view-erp-expenses + view-settings → manage_settings
+client/js/admin-staff.js [MOD] hideEmptyMenuGroups; data-permission hides parent li; profile reload after RBAC
+client/js/admin/modules/core-nav.js [MOD] gate initAddProductFormUI on manage_inventory|manage_catalog
+client/js/admin-banner.js [MOD] gate ensureBannerLinkOptions on manage_settings|manage_catalog
+client/js/admin/modules/erp-expenses.js [MOD] loadExpensesSection manage_settings guard
+client/js/admin/modules/adminSidebar.js [MOD] waitForAdminPermissions; getCurrentAdminProfile fallback
+client/js/admin/modules/core-boot.js [MOD] avatar onerror → initials fallback
+backend/src/repositories/adminRepository.js [MOD] profile select includes admin.image; image alias on shape
+docs/audit/HRM_AUDIT.md [MOD] changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] RBAC sidebar section
+README.md [MOD] last updated

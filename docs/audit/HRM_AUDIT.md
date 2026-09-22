@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-22 (attendance-only staff permission gating)  
+**Last updated:** 2026-09-22 (sidebar map + boot gating + profile photo)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -255,6 +255,14 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Sidebar map, boot gating, profile photo — 2026-09-22
+
+- **SECTION_PERMISSIONS:** `view-erp-expenses` + `view-settings` → `manage_settings`; empty menu groups collapse after `[data-permission]` pass
+- **Boot gates:** `initAddProductFormUI()` (suppliers/warehouses), `ensureBannerLinkOptions()` (pages), `loadExpensesSection()` early exit
+- **Profile photo:** PG `getAdminWithEmployeeData` now selects `admin.image`; sidebar waits for permissions + refreshes after RBAC boot; `/me` image fallback via `getCurrentAdminProfile()`
+- Files: `permissions.js`, `admin-staff.js`, `core-nav.js`, `admin-banner.js`, `erp-expenses.js`, `adminSidebar.js`, `core-boot.js`, `adminRepository.js`
+- Tests: Jest **231/231** passing
 
 ### Attendance-only staff permission gating — 2026-09-22
 
