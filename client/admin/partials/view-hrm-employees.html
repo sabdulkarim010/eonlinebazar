@@ -125,12 +125,12 @@
         </div>
         <form id="employeeForm" onsubmit="event.preventDefault(); saveEmployee();">
             <input type="hidden" id="employeeEditId" value="">
-            <div class="hrm-tabs employee-form-tabs" id="employeeFormTabs">
-                <button type="button" class="hrm-tab active" data-employee-tab="emp-tab-personal" onclick="switchEmployeeFormTab('emp-tab-personal')">Personal</button>
-                <button type="button" class="hrm-tab" data-employee-tab="emp-tab-contact" onclick="switchEmployeeFormTab('emp-tab-contact')">Contact</button>
-                <button type="button" class="hrm-tab" data-employee-tab="emp-tab-employment" onclick="switchEmployeeFormTab('emp-tab-employment')">Employment</button>
-                <button type="button" class="hrm-tab" data-employee-tab="emp-tab-salary" onclick="switchEmployeeFormTab('emp-tab-salary')">Salary &amp; Bank</button>
-                <button type="button" class="hrm-tab" data-employee-tab="emp-tab-refs" onclick="switchEmployeeFormTab('emp-tab-refs')">References</button>
+            <div class="hrm-tabs employee-form-tabs emp-modal-tabs" id="employeeFormTabs">
+                <button type="button" class="hrm-tab emp-tab-btn active" data-employee-tab="emp-tab-personal" onclick="switchEmployeeFormTab('emp-tab-personal')">Personal</button>
+                <button type="button" class="hrm-tab emp-tab-btn" data-employee-tab="emp-tab-contact" onclick="switchEmployeeFormTab('emp-tab-contact')">Contact</button>
+                <button type="button" class="hrm-tab emp-tab-btn" data-employee-tab="emp-tab-employment" onclick="switchEmployeeFormTab('emp-tab-employment')">Employment</button>
+                <button type="button" class="hrm-tab emp-tab-btn" data-employee-tab="emp-tab-salary" onclick="switchEmployeeFormTab('emp-tab-salary')">Salary &amp; Bank</button>
+                <button type="button" class="hrm-tab emp-tab-btn" data-employee-tab="emp-tab-refs" onclick="switchEmployeeFormTab('emp-tab-refs')">References</button>
             </div>
             <div class="modal-body employee-form-body">
                 <!-- Tab 1: Personal -->

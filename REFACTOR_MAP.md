@@ -2329,3 +2329,20 @@ client/css/admin/_staff.css [MOD] 40px search padding; permission card grid; sta
 client/js/admin-staff.js [MOD] renderAssignPermissions rewrite; getSelectedPermissions; icon row actions
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Staff UI Polish section
 README.md [MOD] Staff UI Polish last updated
+#
+# HRM Final Polish: 2026-09-22
+client/css/admin/_hrm.css [MOD] emp-tab-btn fixed sizing; weekend day pills; delete button styles
+client/admin/partials/view-hrm-employees.html [MOD] emp-tab-btn classes on form tabs
+client/admin/partials/view-hrm-attendance.html [MOD] weekend day checkboxes; dailySheetPaginationContainer
+client/js/admin/modules/hrm-employees.js [MOD] permanent delete button + wireEmployeeDeleteButtons
+client/js/admin/modules/hrm-attendance.js [MOD] daily sheet pagination; weekendDays; present checkOut
+backend/src/controllers/admin/employeeController.js [MOD] permanent deleteEmployee
+backend/src/controllers/admin/attendanceController.js [MOD] daily sheet pagination; present office times
+backend/src/repositories/attendanceRepository.js [MOD] getDailySheet pagination; local combineDateAndTime
+backend/src/services/attendanceSettingsService.js [MOD] weekendDays array support
+backend/src/models/Settings.js [MOD] weekendDays default
+backend/src/routes/adminRoutes.js [MOD] DELETE employee requires Super Admin
+tests/hrm.test.js [MOD] permanent delete expectations
+docs/audit/HRM_AUDIT.md [MOD] HRM Final Polish changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Final Polish section
+README.md [MOD] HRM Final Polish last updated

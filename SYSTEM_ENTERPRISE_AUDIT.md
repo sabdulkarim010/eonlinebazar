@@ -2994,5 +2994,18 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Actions column | ✅ Fixed | Three icon buttons with CSS tooltips (Edit / Suspend / Revoke) |
 | Jest regression suite | ✅ | **228/228** passing |
 
+## HRM Final Polish — 2026-09-22
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Employee modal tab sizing | ✅ Fixed | Fixed-width tabs; only color changes on active |
+| Permanent employee delete | ✅ Fixed | Super Admin `DELETE /hrm/employees/:id` + row delete button |
+| Daily Sheet office times | ✅ Fixed | Present → check-in/out from attendance settings |
+| Flexible weekend days | ✅ Fixed | `weekendDays: [0,6]` + 7-day pill UI |
+| Daily Sheet pagination | ✅ Fixed | Backend page/limit + `AdminPagination` UI |
+| Jest regression suite | ✅ | **228/228** passing |
+
 
 

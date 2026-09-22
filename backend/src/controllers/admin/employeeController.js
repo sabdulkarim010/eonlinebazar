@@ -16,7 +16,7 @@ const Leave = require('../../models/leave');
 const cloudinary = require('../../config/cloudinary');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { dualWrite } = require('../../services/dualWriteService');
-const { adminDualWrite, mirrorAdminCreate, mirrorAdminUpdate, mirrorAdminFields } = require('../../utils/adminDualWriteHelpers');
+const { adminDualWrite, mirrorAdminCreate, mirrorAdminUpdate, mirrorAdminFields, mirrorAdminRemove } = require('../../utils/adminDualWriteHelpers');
 
 function getEmployeeRepository() {
     return require('../../repositories/employeeRepository');
@@ -501,45 +501,58 @@ exports.updateEmployee = async (req, res) => {
 
 /**
  * DELETE /api/admin/hrm/employees/:id
- * Soft delete — status set to terminated.
+ * Permanent delete — Super Admin only. Removes employee and related HRM records.
  */
 exports.deleteEmployee = async (req, res) => {
     try {
-        const employee = await findEmployeeRecord(req.params.id);
+        const { id } = req.params;
+        const employee = await Employee.findById(id);
         if (!employee) {
-            return res.status(404).json({ success: false, message: 'Employee not found.' });
+            return res.status(404).json({ success: false, message: 'Not found' });
         }
 
-        employee.status = 'terminated';
-        await dualWrite(
-            () => employee.save(),
-            async (saved) => {
-                const repo = getEmployeeRepository();
-                const pgRow = await repo.findByLegacyId(String(saved._id));
-                if (pgRow) await repo.terminate(pgRow.id);
-            },
-            {
-                model: 'Employee',
-                operation: 'update',
-                mongoId: (saved) => String(saved._id)
-            }
-        );
-        await suspendLinkedAdminAccess(employee);
+        const empCode = employee.employeeId || 'EMP';
+        const legacyId = String(employee._id);
+
+        if (employee.linkedAdminId) {
+            const adminId = String(employee.linkedAdminId);
+            await adminDualWrite(
+                () => Admin.findByIdAndDelete(adminId),
+                () => mirrorAdminRemove(adminId),
+                { operation: 'deleteEmployeeRevokeAdmin', mongoId: adminId }
+            );
+        }
+
+        await Attendance.deleteMany({ staffId: legacyId, staffType: 'employee' });
+        await Payroll.deleteMany({ staffId: legacyId, staffType: 'employee' });
+        await Leave.deleteMany({ staffId: legacyId, staffType: 'employee' });
+
+        try {
+            const prisma = require('../../config/prismaClient');
+            await prisma.employee.deleteMany({ where: { legacyId } });
+        } catch (pgErr) {
+            console.warn('[DELETE-EMP-PG]', pgErr.message);
+        }
+
+        await Employee.findByIdAndDelete(id);
 
         await logSecurityEvent({
-            action: 'Employee Terminated',
+            action: 'Employee Permanently Deleted',
             actor: actorName(req),
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `${employee.employeeId} — ${employee.fullName}`,
+            details: `${empCode} — ${employee.fullName}`,
             resourceType: 'employee',
-            resourceId: String(employee._id)
+            resourceId: legacyId
         });
 
-        res.status(200).json({ success: true, message: 'Employee terminated.', data: employee });
+        res.status(200).json({
+            success: true,
+            message: `Employee ${empCode} deleted`
+        });
     } catch (error) {
-        console.error('deleteEmployee Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to terminate employee.' });
+        console.error('[DELETE-EMP]', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to delete employee.' });
     }
 };
 

@@ -83,7 +83,18 @@ function combineDateAndTime(dateNormalized, timeStr) {
   if (!timeStr || !dateNormalized) return null;
   const match = /^(\d{1,2}):(\d{2})$/.exec(String(timeStr).trim());
   if (!match) return null;
-  const d = new Date(dateNormalized);
+
+  let d;
+  const rawDate = dateNormalized instanceof Date
+    ? null
+    : String(dateNormalized).trim();
+  if (rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+    const [y, mo, day] = rawDate.split('-').map(Number);
+    d = new Date(y, mo - 1, day);
+  } else {
+    d = new Date(dateNormalized);
+  }
+  if (Number.isNaN(d.getTime())) return null;
   d.setHours(Number(match[1]), Number(match[2]), 0, 0);
   return d;
 }
@@ -558,7 +569,7 @@ async function getSummary(staffType, staffId, month, year) {
   };
 }
 
-async function getDailySheet(dateInput, department = '') {
+async function getDailySheet(dateInput, department = '', page = 1, limit = 10) {
   const date = normalizeDate(dateInput);
   const dateKey = formatDateKey(date);
   if (!date) throw new Error('A valid date is required.');
@@ -569,9 +580,14 @@ async function getDailySheet(dateInput, department = '') {
     employeeWhere.department = dept;
   }
 
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+  const total = await prisma.employee.count({ where: employeeWhere });
   const employees = await prisma.employee.findMany({
     where: employeeWhere,
     orderBy: { fullName: 'asc' },
+    skip: (safePage - 1) * safeLimit,
+    take: safeLimit,
     select: {
       id: true,
       legacyId: true,
@@ -624,7 +640,11 @@ async function getDailySheet(dateInput, department = '') {
           }
           : null
       };
-    })
+    }),
+    total,
+    page: safePage,
+    limit: safeLimit,
+    totalPages: Math.max(1, Math.ceil(total / safeLimit))
   };
 }
 

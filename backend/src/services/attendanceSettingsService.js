@@ -14,8 +14,19 @@ const DEFAULT_ATTENDANCE_SETTINGS = Object.freeze({
     halfDayCutoff: '13:00',
     autoMarkAbsentAfter: '20:00',
     weekendSaturday: true,
-    weekendSunday: true
+    weekendSunday: true,
+    weekendDays: [0, 6]
 });
+
+function normalizeWeekendDays(src = {}) {
+    if (Array.isArray(src.weekendDays)) {
+        return [...new Set(src.weekendDays.map((d) => Number(d)).filter((d) => d >= 0 && d <= 6))].sort((a, b) => a - b);
+    }
+    const days = [];
+    if (src.weekendSunday !== false && src.weekendSunday !== 'false' && src.weekendSunday !== 0) days.push(0);
+    if (src.weekendSaturday !== false && src.weekendSaturday !== 'false' && src.weekendSaturday !== 0) days.push(6);
+    return days.length ? days : [...DEFAULT_ATTENDANCE_SETTINGS.weekendDays];
+}
 
 function getSettingsRepository() {
     return require('../repositories/settingsRepository');
@@ -53,7 +64,8 @@ function normalizeAttendanceSettings(input = {}) {
             ? autoMarkAbsentAfter
             : DEFAULT_ATTENDANCE_SETTINGS.autoMarkAbsentAfter,
         weekendSaturday: src.weekendSaturday !== false && src.weekendSaturday !== 'false' && src.weekendSaturday !== 0,
-        weekendSunday: src.weekendSunday !== false && src.weekendSunday !== 'false' && src.weekendSunday !== 0
+        weekendSunday: src.weekendSunday !== false && src.weekendSunday !== 'false' && src.weekendSunday !== 0,
+        weekendDays: normalizeWeekendDays(src)
     };
 }
 
@@ -118,9 +130,8 @@ function isWeekendDay(dateInput, attendanceSettings) {
     const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
     if (Number.isNaN(date.getTime())) return false;
     const day = date.getDay();
-    if (day === 6 && settings.weekendSaturday) return true;
-    if (day === 0 && settings.weekendSunday) return true;
-    return false;
+    const weekendDays = settings.weekendDays || normalizeWeekendDays(settings);
+    return weekendDays.includes(day);
 }
 
 module.exports = {
@@ -130,5 +141,6 @@ module.exports = {
     saveAttendanceSettings,
     isCheckInLate,
     isWeekendDay,
-    parseTimeToMinutes
+    parseTimeToMinutes,
+    normalizeWeekendDays
 };

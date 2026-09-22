@@ -149,14 +149,21 @@ async function assertDateWritable(req, res, dateInput, { overrideLock = false } 
     return true;
 }
 
-async function getDailySheetMongo(dateInput, department = '') {
+async function getDailySheetMongo(dateInput, department = '', page = 1, limit = 10) {
     const date = Attendance.normalizeDate(dateInput);
     const dateKey = attendanceRepo.formatDateKey(date);
     const query = { status: 'active' };
     const dept = String(department || '').trim();
     if (dept && dept.toLowerCase() !== 'all') query.department = dept;
 
-    const employees = await Employee.find(query).sort({ fullName: 1 }).lean();
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+    const total = await Employee.countDocuments(query);
+    const employees = await Employee.find(query)
+        .sort({ fullName: 1 })
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .lean();
     const staffIds = employees.map((e) => String(e._id));
     const rows = staffIds.length
         ? await Attendance.find({ date, staffId: { $in: staffIds } }).lean()
@@ -183,7 +190,11 @@ async function getDailySheetMongo(dateInput, department = '') {
                     }
                     : null
             };
-        })
+        }),
+        total,
+        page: safePage,
+        limit: safeLimit,
+        totalPages: Math.max(1, Math.ceil(total / safeLimit))
     };
 }
 
@@ -377,19 +388,27 @@ async function persistAttendanceMark(req, body) {
     record.modifiedAt = new Date();
     if (body.isManualEntry !== undefined) record.isManualEntry = Boolean(body.isManualEntry);
 
+    const dateKey = attendanceRepo.formatDateKey(date);
     let checkInTimeStr = body.checkIn;
-    if (checkInTimeStr === undefined && status === 'present' && !record.clockIn) {
-        checkInTimeStr = attendanceSettings.officeStart;
+    let checkOutTimeStr = body.checkOut;
+
+    if (status === 'present') {
+        if ((checkInTimeStr === undefined || checkInTimeStr === '') && !record.clockIn) {
+            checkInTimeStr = attendanceSettings.officeStart;
+        }
+        if ((checkOutTimeStr === undefined || checkOutTimeStr === '') && !record.clockOut) {
+            checkOutTimeStr = attendanceSettings.officeEnd;
+        }
     }
 
     if (checkInTimeStr !== undefined) {
         record.clockIn = checkInTimeStr
-            ? combineDateAndTime(date, checkInTimeStr) || new Date(checkInTimeStr)
+            ? combineDateAndTime(dateKey, checkInTimeStr) || combineDateAndTime(date, checkInTimeStr)
             : null;
     }
-    if (body.checkOut !== undefined) {
-        record.clockOut = body.checkOut
-            ? combineDateAndTime(date, body.checkOut) || new Date(body.checkOut)
+    if (checkOutTimeStr !== undefined) {
+        record.clockOut = checkOutTimeStr
+            ? combineDateAndTime(dateKey, checkOutTimeStr) || combineDateAndTime(date, checkOutTimeStr)
             : null;
     }
 
@@ -695,11 +714,13 @@ exports.getDailySheet = async (req, res) => {
     try {
         const dateInput = req.query.date || new Date();
         const department = req.query.dept || req.query.department || '';
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
 
         const sheet = await routedRead(
             'attendance',
-            () => getDailySheetMongo(dateInput, department),
-            () => attendanceRepo.getDailySheet(dateInput, department)
+            () => getDailySheetMongo(dateInput, department, page, limit),
+            () => attendanceRepo.getDailySheet(dateInput, department, page, limit)
         );
 
         const lockInfo = await getLockStatusMerged(dateInput);
@@ -710,7 +731,10 @@ exports.getDailySheet = async (req, res) => {
                 ...sheet,
                 isLocked: Boolean(lockInfo?.isLocked),
                 lockInfo: lockInfo || null
-            }
+            },
+            total: sheet.total,
+            page: sheet.page,
+            totalPages: sheet.totalPages
         });
     } catch (error) {
         console.error('getDailySheet Error:', error);

@@ -610,7 +610,7 @@ router.post('/hrm/employees/:id/photo', verifyAdmin, checkPermission('manage_sta
 router.post('/hrm/employees/:id/documents', verifyAdmin, checkPermission('manage_staff'), employeeDocumentUpload, employeeController.uploadEmployeeDocument);
 router.delete('/hrm/employees/:id/documents/:docId', verifyAdmin, checkPermission('manage_staff'), employeeController.deleteEmployeeDocument);
 router.patch('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.updateEmployee);
-router.delete('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.deleteEmployee);
+router.delete('/hrm/employees/:id', verifyAdmin, requireSuperAdmin, employeeController.deleteEmployee);
 
 // — Attendance —
 // Named sub-paths MUST register before bare GET /hrm/attendance (list route last).

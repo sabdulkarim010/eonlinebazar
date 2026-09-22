@@ -361,7 +361,8 @@ const settingsSchema = new mongoose.Schema({
             halfDayCutoff: '13:00',
             autoMarkAbsentAfter: '20:00',
             weekendSaturday: true,
-            weekendSunday: true
+            weekendSunday: true,
+            weekendDays: [0, 6]
         })
     },
     /** Email (Resend/Brevo) + WhatsApp (Baileys) notification config. */

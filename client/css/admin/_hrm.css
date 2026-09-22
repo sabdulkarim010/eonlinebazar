@@ -227,6 +227,55 @@
     padding: 0 16px;
 }
 
+/* Employee modal tabs — fixed size, color-only active state */
+#employeeModal .employee-form-tabs,
+#employeeProfileModal .hrm-tabs,
+.emp-modal-tabs {
+    display: flex;
+    border-bottom: 2px solid #e5e7eb;
+    gap: 0;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    margin: 0 0 12px;
+    padding: 0 16px;
+}
+
+#employeeModal .hrm-tab,
+#employeeProfileModal .hrm-tab,
+.emp-tab-btn {
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #6b7280 !important;
+    border: none !important;
+    background: none !important;
+    cursor: pointer !important;
+    border-bottom: 2px solid transparent !important;
+    margin-bottom: -2px !important;
+    white-space: nowrap !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+    text-align: center !important;
+    transition: color 0.15s !important;
+    border-radius: 0 !important;
+}
+
+#employeeModal .hrm-tab.active,
+#employeeProfileModal .hrm-tab.active,
+.emp-tab-btn.active {
+    color: #3b82f6 !important;
+    border-bottom-color: #3b82f6 !important;
+    font-weight: 600 !important;
+    background: none !important;
+}
+
+#employeeModal .hrm-tab:hover:not(.active),
+#employeeProfileModal .hrm-tab:hover:not(.active),
+.emp-tab-btn:hover:not(.active) {
+    color: #374151 !important;
+    background: #f9fafb !important;
+}
+
 .form-row-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -845,6 +894,69 @@
 /* Employee profile Access tab */
 .employee-access-perm-group {
     margin-bottom: 12px;
+}
+
+/* Weekend day picker (Attendance Settings) */
+.weekend-days .day-label span {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.day-checkboxes {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.day-check {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    user-select: none;
+    transition: all 0.15s;
+}
+
+.day-check input[type="checkbox"] {
+    display: none;
+}
+
+.day-check:has(input:checked) {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #3b82f6;
+    font-weight: 600;
+}
+
+.emp-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.emp-action-btn.delete-emp-btn {
+    color: #ef4444;
+    border-color: #fecaca;
+}
+
+.emp-action-btn.delete-emp-btn:hover {
+    background: #fef2f2;
+    border-color: #f87171;
 }
 
 .employee-access-perm-group strong {

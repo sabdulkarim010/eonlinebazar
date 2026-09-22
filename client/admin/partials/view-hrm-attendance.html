@@ -121,6 +121,7 @@
                 </tbody>
             </table>
         </div>
+        <div id="dailySheetPaginationContainer"></div>
     </div>
 
     <!-- TAB: Attendance register -->
@@ -242,10 +243,17 @@
                         <label for="attAutoAbsentAfter">Auto mark absent after</label>
                         <input type="time" id="attAutoAbsentAfter" value="20:00" required>
                     </div>
-                    <div class="form-group attendance-weekend-row">
-                        <label>Weekend</label>
-                        <label class="att-weekend-check"><input type="checkbox" id="attWeekendSat" checked> Sat</label>
-                        <label class="att-weekend-check"><input type="checkbox" id="attWeekendSun" checked> Sun</label>
+                    <div class="form-group weekend-days">
+                        <label class="day-label"><span>WEEKENDS</span></label>
+                        <div class="day-checkboxes" id="attWeekendDayCheckboxes">
+                            <label class="day-check"><input type="checkbox" name="weekend" value="0" class="weekend-day-cb" checked><span>Sun</span></label>
+                            <label class="day-check"><input type="checkbox" name="weekend" value="1" class="weekend-day-cb"><span>Mon</span></label>
+                            <label class="day-check"><input type="checkbox" name="weekend" value="2" class="weekend-day-cb"><span>Tue</span></label>
+                            <label class="day-check"><input type="checkbox" name="weekend" value="3" class="weekend-day-cb"><span>Wed</span></label>
+                            <label class="day-check"><input type="checkbox" name="weekend" value="4" class="weekend-day-cb"><span>Thu</span></label>
+                            <label class="day-check"><input type="checkbox" name="weekend" value="5" class="weekend-day-cb"><span>Fri</span></label>
+                            <label class="day-check"><input type="checkbox" name="weekend" value="6" class="weekend-day-cb" checked><span>Sat</span></label>
+                        </div>
                     </div>
                 </div>
                 <div class="saas-settings-card-footer">

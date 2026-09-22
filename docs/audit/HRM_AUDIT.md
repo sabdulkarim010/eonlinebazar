@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (Staff UI Polish)  
+**Last updated:** 2026-09-22 (HRM Final Polish)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ⚠️ PARTIAL — employee profile has 5 tabs only; all access management in Staff Directory; broader pagination gaps remain
 
@@ -255,6 +255,16 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### HRM Final Polish — 2026-09-22
+
+- **Employee modal tabs:** Fixed-size tab bar (`emp-tab-btn`); active state color-only change
+- **Permanent delete:** `DELETE /api/admin/hrm/employees/:id` (Super Admin) removes employee + attendance/payroll/leave + linked admin
+- **Daily Sheet check-in/out:** Present marks use `officeStart` / `officeEnd` from attendance settings; local date/time combine fix
+- **Flexible weekends:** `weekendDays` array (0–6) with 7-day pill picker in Shifts settings
+- **Daily Sheet pagination:** `?page=&limit=` on daily-sheet API + `dailySheetPaginationContainer`
+- Files: `view-hrm-employees.html`, `hrm-employees.js`, `_hrm.css`, `view-hrm-attendance.html`, `hrm-attendance.js`, `employeeController.js`, `attendanceController.js`, `attendanceRepository.js`, `attendanceSettingsService.js`, `adminRoutes.js`, `tests/hrm.test.js`
+- Tests: Jest **228/228** passing
 
 ### Staff UI Polish — 2026-09-21
 

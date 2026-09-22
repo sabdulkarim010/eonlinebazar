@@ -821,7 +821,7 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             expect(stats.body.data.totalActive).toBeGreaterThanOrEqual(1);
         });
 
-        test('soft-deletes employee by setting status to terminated', async () => {
+        test('permanently deletes employee record (Super Admin)', async () => {
             const token = await adminToken();
 
             const created = await request(app)
@@ -838,10 +838,11 @@ describe('HRM — Attendance, Payroll, Leave', () => {
                 .set(auth(token));
 
             expect(deleted.status).toBe(200);
-            expect(deleted.body.data.status).toBe('terminated');
+            expect(deleted.body.success).toBe(true);
+            expect(deleted.body.message).toMatch(/deleted/i);
 
             const fetched = await Employee.findById(created.body.data._id);
-            expect(fetched.status).toBe('terminated');
+            expect(fetched).toBeNull();
         });
 
         test('returns full profile with attendance, payroll, and leave snapshot', async () => {
@@ -960,27 +961,18 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             const activeAgain = await Admin.findById(linkedAdminId);
             expect(activeAgain.status).toBe('active');
 
-            const terminated = await request(app)
+            const permanentlyDeleted = await request(app)
                 .delete(`/api/admin/hrm/employees/${employeeId}`)
                 .set(auth(token));
 
-            expect(terminated.status).toBe(200);
+            expect(permanentlyDeleted.status).toBe(200);
+            expect(permanentlyDeleted.body.success).toBe(true);
 
-            const suspendedAfterTerminate = await Admin.findById(linkedAdminId);
-            expect(suspendedAfterTerminate.status).toBe('blocked');
+            const deletedEmployee = await Employee.findById(employeeId);
+            expect(deletedEmployee).toBeNull();
 
-            const unlinked = await request(app)
-                .post(`/api/admin/hrm/employees/${employeeId}/unlink-access`)
-                .set(auth(token));
-
-            expect(unlinked.status).toBe(200);
-            expect(unlinked.body.success).toBe(true);
-
-            const unlinkedEmployee = await Employee.findById(employeeId);
-            expect(unlinkedEmployee.linkedAdminId).toBeNull();
-
-            const unlinkedAdmin = await Admin.findById(linkedAdminId);
-            expect(unlinkedAdmin.status).toBe('blocked');
+            const deletedAdmin = await Admin.findById(linkedAdminId);
+            expect(deletedAdmin).toBeNull();
         });
 
         test('uploads employee photo via multipart endpoint', async () => {

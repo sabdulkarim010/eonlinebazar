@@ -36,6 +36,22 @@ let dailySheetLocked = false;
 let dailySheetLockInfo = null;
 let dailySheetPastDateViewOnly = false;
 let dailySheetEditEmployeeId = null;
+let dailySheetPg = null;
+const dailySheetPgState = { page: 1, limit: 10, total: 0 };
+
+function initDailySheetPg() {
+    if (!dailySheetPg && typeof AdminPagination !== 'undefined') {
+        dailySheetPg = AdminPagination.ensure('dailySheetPaginationContainer', {
+            defaultLimit: 10,
+            onPageChange: (page, limit) => {
+                dailySheetPgState.page = page;
+                dailySheetPgState.limit = limit;
+                loadDailySheet();
+            }
+        });
+    }
+    return dailySheetPg;
+}
 
 /** Staff roster is read by all three HRM sections — fetched once per page load. */
 let hrmStaffCache = [];
@@ -478,8 +494,7 @@ function renderDailySheetRows(employees) {
     const tbody = document.getElementById('dailySheetTableBody');
     if (!tbody) return;
 
-    const deptFilter = document.getElementById('dailySheetDept')?.value || '';
-    const rows = (employees || []).filter((e) => !deptFilter || e.department === deptFilter);
+    const rows = employees || [];
 
     if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="9" class="table-status-empty">No active employees for this filter.</td></tr>';
@@ -573,7 +588,11 @@ async function loadDailySheet() {
 
     const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
     const dept = document.getElementById('dailySheetDept')?.value || '';
-    const params = new URLSearchParams({ date });
+    const params = new URLSearchParams({
+        date,
+        page: String(dailySheetPgState.page),
+        limit: String(dailySheetPgState.limit)
+    });
     if (dept) params.set('dept', dept);
 
     try {
@@ -589,11 +608,26 @@ async function loadDailySheet() {
         dailySheetCache = result.data?.employees || [];
         dailySheetLocked = Boolean(result.data?.isLocked);
         dailySheetLockInfo = result.data?.lockInfo || null;
+        dailySheetPgState.total = result.total ?? result.data?.total ?? dailySheetCache.length;
 
         populateDailySheetDepartments(dailySheetCache);
         updateDailySheetPastDateUI();
         renderDailySheetRows(dailySheetCache);
         updateDailySheetLockUI();
+
+        initDailySheetPg()?.setTotal(dailySheetPgState.total);
+        if (typeof AdminPagination !== 'undefined') {
+            AdminPagination.render('dailySheetPaginationContainer', {
+                total: dailySheetPgState.total,
+                page: dailySheetPgState.page,
+                limit: dailySheetPgState.limit,
+                onPageChange: (newPage, newLimit) => {
+                    dailySheetPgState.page = newPage;
+                    dailySheetPgState.limit = newLimit;
+                    loadDailySheet();
+                }
+            });
+        }
     } catch (err) {
         console.error('loadDailySheet:', err);
         showHrmToast(err.message || 'Failed to load daily sheet.', 'error');
@@ -762,6 +796,7 @@ async function markDailySheetStatus(employeeId, status, triggerEl) {
         const markBody = { employeeId, date, status };
         if (status === 'present') {
             markBody.checkIn = hrmAttendanceSettings.officeStart || '09:00';
+            markBody.checkOut = hrmAttendanceSettings.officeEnd || '18:00';
         }
 
         const res = await fetch('/api/admin/hrm/attendance/mark', {
@@ -1016,7 +1051,11 @@ function setupDailySheetSection() {
     const deptSelect = document.getElementById('dailySheetDept');
     if (deptSelect && !deptSelect.dataset.bound) {
         deptSelect.dataset.bound = '1';
-        deptSelect.addEventListener('change', () => renderDailySheetRows(dailySheetCache));
+        deptSelect.addEventListener('change', () => {
+            dailySheetPgState.page = 1;
+            dailySheetPg?.resetPage?.();
+            loadDailySheet();
+        });
     }
 
     const bindClick = (id, fn) => {
@@ -1245,8 +1284,23 @@ let hrmAttendanceSettings = {
     halfDayCutoff: '13:00',
     autoMarkAbsentAfter: '20:00',
     weekendSaturday: true,
-    weekendSunday: true
+    weekendSunday: true,
+    weekendDays: [0, 6]
 };
+
+function readWeekendDaysFromForm() {
+    return [...document.querySelectorAll('.weekend-day-cb:checked')]
+        .map((cb) => Number(cb.value))
+        .filter((d) => d >= 0 && d <= 6)
+        .sort((a, b) => a - b);
+}
+
+function applyWeekendDaysToForm(weekendDays = []) {
+    const selected = new Set((weekendDays || []).map(Number));
+    document.querySelectorAll('.weekend-day-cb').forEach((cb) => {
+        cb.checked = selected.has(Number(cb.value));
+    });
+}
 
 function parseHrmTimeToMinutes(timeStr) {
     const match = String(timeStr || '').trim().match(/^(\d{1,2}):(\d{2})$/);
@@ -1272,10 +1326,13 @@ function applyAttendanceSettingsToForm(data = {}) {
     setVal('attGracePeriod', data.gracePeriodMinutes);
     setVal('attHalfDayCutoff', data.halfDayCutoff);
     setVal('attAutoAbsentAfter', data.autoMarkAbsentAfter);
-    const sat = document.getElementById('attWeekendSat');
-    const sun = document.getElementById('attWeekendSun');
-    if (sat) sat.checked = data.weekendSaturday !== false;
-    if (sun) sun.checked = data.weekendSunday !== false;
+    let weekendDays = Array.isArray(data.weekendDays) ? data.weekendDays : null;
+    if (!weekendDays) {
+        weekendDays = [];
+        if (data.weekendSunday !== false) weekendDays.push(0);
+        if (data.weekendSaturday !== false) weekendDays.push(6);
+    }
+    applyWeekendDaysToForm(weekendDays.length ? weekendDays : [0, 6]);
 }
 
 async function loadAttendanceSettings() {
@@ -1289,14 +1346,16 @@ async function loadAttendanceSettings() {
 
 async function saveAttendanceSettings() {
     const btn = document.getElementById('attendanceSettingsSaveBtn');
+    const weekendDays = readWeekendDaysFromForm();
     const payload = {
         officeStart: document.getElementById('attOfficeStart')?.value || '09:00',
         officeEnd: document.getElementById('attOfficeEnd')?.value || '18:00',
         gracePeriodMinutes: Number(document.getElementById('attGracePeriod')?.value) || 15,
         halfDayCutoff: document.getElementById('attHalfDayCutoff')?.value || '13:00',
         autoMarkAbsentAfter: document.getElementById('attAutoAbsentAfter')?.value || '20:00',
-        weekendSaturday: document.getElementById('attWeekendSat')?.checked !== false,
-        weekendSunday: document.getElementById('attWeekendSun')?.checked !== false
+        weekendDays,
+        weekendSaturday: weekendDays.includes(6),
+        weekendSunday: weekendDays.includes(0)
     };
 
     if (btn) {

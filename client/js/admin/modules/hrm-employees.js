@@ -119,6 +119,10 @@ async function loadEmployeeStats() {
    TABLE
    ================================================================== */
 
+function isEmployeeSuperAdmin() {
+    return typeof window.isAdminSuperAdmin === 'function' && window.isAdminSuperAdmin();
+}
+
 function renderEmployeeTable(rows) {
     const tbody = document.getElementById('employeeTableBody');
     if (!tbody) return;
@@ -127,6 +131,8 @@ function renderEmployeeTable(rows) {
         tbody.innerHTML = '<tr><td colspan="10" class="table-status-empty">No employees found.</td></tr>';
         return;
     }
+
+    const showDelete = isEmployeeSuperAdmin();
 
     tbody.innerHTML = rows.map((e) => `
         <tr>
@@ -150,10 +156,66 @@ function renderEmployeeTable(rows) {
                     <button type="button" class="catalog-action-btn ${e.status === 'terminated' ? 'activate' : 'delete'}" onclick="toggleEmployeeStatus('${e._id}', '${employeeEscape(e.status || 'active')}')" title="${e.status === 'terminated' ? 'Reactivate' : 'Terminate'}">
                         <i class="fa-solid ${e.status === 'terminated' ? 'fa-user-check' : 'fa-user-slash'}"></i>
                     </button>
+                    ${showDelete ? `
+                    <button type="button" class="emp-action-btn delete-emp-btn"
+                            data-id="${employeeEscape(e._id)}"
+                            data-name="${employeeEscape(e.fullName)}"
+                            data-code="${employeeEscape(e.employeeId || 'EMP')}"
+                            title="Delete Employee permanently">
+                        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </button>` : ''}
                 </div>
             </td>
         </tr>
     `).join('');
+
+    wireEmployeeDeleteButtons();
+}
+
+function wireEmployeeDeleteButtons() {
+    document.querySelectorAll('.delete-emp-btn').forEach((btn) => {
+        if (btn.dataset.bound === 'true') return;
+        btn.dataset.bound = 'true';
+        btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            const name = btn.dataset.name;
+            const code = btn.dataset.code;
+
+            const confirmed = confirm(
+                `⚠️ PERMANENTLY DELETE ${name} (${code})?\n\n`
+                + 'This will also delete:\n'
+                + '• All attendance records\n'
+                + '• All payroll records\n'
+                + '• All leave records\n'
+                + '• System access (if granted)\n\n'
+                + 'This CANNOT be undone. Continue?'
+            );
+            if (!confirmed) return;
+
+            try {
+                const res = await fetch(`/api/admin/hrm/employees/${id}`, {
+                    method: 'DELETE',
+                    headers: employeeAuthHeaders()
+                });
+                const data = await res.json();
+                if (res.ok && data.success !== false) {
+                    showToast(`✅ ${name} deleted`, 'success');
+                    btn.closest('tr')?.remove();
+                    await loadEmployeeStats();
+                    const tbody = document.getElementById('employeeTableBody');
+                    if (tbody && !tbody.querySelector('tr')) {
+                        tbody.innerHTML = '<tr><td colspan="10" class="table-status-empty">No employees found.</td></tr>';
+                    }
+                } else {
+                    showToast(data.message || 'Delete failed', 'error');
+                }
+            } catch (err) {
+                showToast(`Delete failed: ${err.message}`, 'error');
+            }
+        });
+    });
 }
 
 async function exportEmployeesCsvReport() {
