@@ -156,6 +156,10 @@ async function getDailySheetMongo(dateInput, department = '', page = 1, limit = 
     const dept = String(department || '').trim();
     if (dept && dept.toLowerCase() !== 'all') query.department = dept;
 
+    const { getSuperAdminLinkedEmployeeLegacyIds, buildMongoExcludeSuperAdminClause } = require('../../utils/superAdminEmployee');
+    const excludeSuperAdmin = buildMongoExcludeSuperAdminClause(await getSuperAdminLinkedEmployeeLegacyIds());
+    if (excludeSuperAdmin) Object.assign(query, excludeSuperAdmin);
+
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
     const total = await Employee.countDocuments(query);

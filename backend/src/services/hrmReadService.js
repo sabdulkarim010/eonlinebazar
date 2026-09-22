@@ -218,11 +218,18 @@ async function fetchAllActiveEmployees(query = {}) {
   filters.orderByFullName = true;
   const assignableOnly = String(query.assignable || '').toLowerCase() === 'true'
     || (filters.hasAccess === false && String(query.all || '').toLowerCase() === 'true');
+  const excludeSuperAdmin = String(query.all || '').toLowerCase() === 'true'
+    && String(query.includeSuperAdmin || '').toLowerCase() !== 'true';
 
   return routedRead(
     'employee',
     async () => {
       const clauses = [{ status: 'active' }];
+      if (excludeSuperAdmin) {
+        const { getSuperAdminLinkedEmployeeLegacyIds, buildMongoExcludeSuperAdminClause } = require('../utils/superAdminEmployee');
+        const excludeClause = buildMongoExcludeSuperAdminClause(await getSuperAdminLinkedEmployeeLegacyIds());
+        if (excludeClause) clauses.push(excludeClause);
+      }
       if (filters.department) clauses.push({ department: filters.department });
       if (filters.designation) clauses.push({ designation: filters.designation });
       if (filters.employeeType) clauses.push({ employeeType: filters.employeeType });
@@ -249,6 +256,11 @@ async function fetchAllActiveEmployees(query = {}) {
       let employees = mapEmployeesToMongo(rows);
       if (filters.hasAccess === false) {
         employees = await filterEmployeesWithoutLinkedAccess(employees, { assignableOnly });
+      }
+      if (excludeSuperAdmin) {
+        const { getSuperAdminLinkedEmployeeLegacyIds } = require('../utils/superAdminEmployee');
+        const excludeIds = new Set(await getSuperAdminLinkedEmployeeLegacyIds());
+        employees = employees.filter((row) => !excludeIds.has(String(row._id)));
       }
       return employees;
     }

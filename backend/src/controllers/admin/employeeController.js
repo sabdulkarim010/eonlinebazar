@@ -506,6 +506,19 @@ exports.updateEmployee = async (req, res) => {
 exports.deleteEmployee = async (req, res) => {
     try {
         const { id } = req.params;
+
+        const isSuperAdminLinked = await Admin.findOne({
+            employeeRef: id,
+            role: ROLES.SUPER_ADMIN
+        }).select('_id').lean();
+
+        if (isSuperAdminLinked) {
+            return res.status(403).json({
+                success: false,
+                message: 'Cannot delete the Super Admin employee.'
+            });
+        }
+
         const employee = await Employee.findById(id);
         if (!employee) {
             return res.status(404).json({ success: false, message: 'Not found' });

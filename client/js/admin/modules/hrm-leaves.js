@@ -19,6 +19,7 @@ const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 let leavePg = null;
 const leavePgState = { page: 1, limit: 10 };
+let applyLeaveStaffSearch = null;
 
 function initLeavePg() {
     if (!leavePg && typeof AdminPagination !== 'undefined') {
@@ -331,8 +332,35 @@ function closeApplyLeaveModal() {
     if (modal) modal.style.display = 'none';
 }
 
+function buildApplyLeaveStaffOptions() {
+    const select = document.getElementById('applyLeaveStaff');
+    if (!select) return [{ value: '', label: 'Select staff member' }];
+    return [...select.options].map((opt) => ({
+        value: opt.value,
+        label: opt.textContent.trim()
+    }));
+}
+
+function mountApplyLeaveStaffSearch() {
+    const select = document.getElementById('applyLeaveStaff');
+    if (!select || typeof window.createSearchableSelect !== 'function') return;
+
+    if (applyLeaveStaffSearch?.destroy) {
+        applyLeaveStaffSearch.destroy();
+        applyLeaveStaffSearch = null;
+    }
+
+    applyLeaveStaffSearch = window.createSearchableSelect({
+        mountEl: select,
+        placeholder: 'Search staff by name…',
+        options: buildApplyLeaveStaffOptions(),
+        ariaLabel: 'Staff member'
+    });
+}
+
 async function openApplyLeaveModal() {
     await window.hrmLoadStaffOptions(['applyLeaveStaff'], { placeholder: 'Select staff member' });
+    mountApplyLeaveStaffSearch();
 
     const start = document.getElementById('applyLeaveStartDate');
     const end = document.getElementById('applyLeaveEndDate');
@@ -344,8 +372,12 @@ async function openApplyLeaveModal() {
 }
 
 async function submitLeaveApplication() {
+    const staffValue = applyLeaveStaffSearch?.getValue?.()
+        || document.getElementById('applyLeaveStaff')?.value
+        || '';
+
     const payload = {
-        staffUsername: document.getElementById('applyLeaveStaff')?.value,
+        staffUsername: staffValue,
         leaveType: document.getElementById('applyLeaveType')?.value,
         startDate: document.getElementById('applyLeaveStartDate')?.value,
         endDate: document.getElementById('applyLeaveEndDate')?.value,

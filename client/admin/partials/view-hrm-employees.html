@@ -1,21 +1,21 @@
 <section id="view-hrm-employees" class="admin-section" style="display: none;">
-    <div class="section-header-box">
-        <div>
-            <h3><i class="fa-solid fa-people-carry-box"></i> Employees</h3>
-            <p class="section-subtitle">Operational staff roster — designations, documents, attendance &amp; payroll linked.</p>
+    <div class="page-header-compact">
+        <div class="page-header-left">
+            <h2>Employees</h2>
+            <span class="page-subtitle">HRM &amp; Staff operational roster</span>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button type="button" class="btn-secondary" id="employeesExportCsvBtn" onclick="exportEmployeesCsvReport()" title="Export employees as CSV">
-                <i class="fa-solid fa-file-csv"></i> Export CSV
+        <div class="page-header-actions">
+            <button type="button" class="btn-sm-outline" id="employeesExportCsvBtn" onclick="exportEmployeesCsvReport()" title="Export employees as CSV">
+                ↓ Export CSV
             </button>
-            <button type="button" class="btn-secondary" id="employeesRefreshBtn">
-                <i class="fa-solid fa-rotate"></i> Refresh
+            <button type="button" class="btn-sm-outline" id="employeesRefreshBtn">
+                ↻ Refresh
             </button>
-            <button type="button" class="btn-secondary" onclick="openDesignationManager()">
-                <i class="fa-solid fa-briefcase"></i> Manage Designations
+            <button type="button" class="btn-sm-outline" onclick="openDesignationManager()">
+                ⚙ Designations
             </button>
-            <button type="button" class="btn-primary" onclick="openAddEmployeeModal()">
-                <i class="fa-solid fa-plus"></i> Add Employee
+            <button type="button" class="btn-primary-sm" onclick="openAddEmployeeModal()">
+                + Add Employee
             </button>
         </div>
     </div>
@@ -112,7 +112,7 @@
 </section>
 
 <!-- Add / Edit Employee — tabbed modal -->
-<div id="employeeModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeEmployeeModal()">
+<div id="employeeModal" class="custom-modal-overlay admin-modal-overlay emp-edit-modal" style="display: none;" onclick="if(event.target===this) closeEmployeeModal()">
     <div class="custom-modal-box admin-modal employee-modal-wide admin-modal--wide">
         <div class="modal-header">
             <div>
@@ -132,7 +132,7 @@
                 <button type="button" class="hrm-tab emp-tab-btn" data-employee-tab="emp-tab-salary" onclick="switchEmployeeFormTab('emp-tab-salary')">Salary &amp; Bank</button>
                 <button type="button" class="hrm-tab emp-tab-btn" data-employee-tab="emp-tab-refs" onclick="switchEmployeeFormTab('emp-tab-refs')">References</button>
             </div>
-            <div class="modal-body employee-form-body">
+            <div class="modal-body employee-form-body emp-edit-tab-content">
                 <!-- Tab 1: Personal -->
                 <div id="emp-tab-personal" class="employee-form-panel">
                     <div class="employee-photo-upload" onclick="document.getElementById('employeePhotoInput').click()">
@@ -377,14 +377,15 @@
                     </div>
                 </div>
             </div>
-            <div class="danger-zone" id="empDangerZone" style="display:none">
-                <div class="danger-zone-inner">
+            <div class="edit-danger-zone" id="editDangerZone" style="display:none">
+                <div class="edit-danger-header">⚠️ Danger Zone</div>
+                <div class="edit-danger-row">
                     <div>
-                        <strong>Delete Employee</strong>
-                        <p>Permanently removes this employee and all their records. Cannot be undone.</p>
+                        <strong>Delete this employee permanently</strong>
+                        <small>All records including attendance, payroll, leave and system access will be removed.</small>
                     </div>
-                    <button type="button" id="deleteEmpBtn" class="btn-danger-outline">
-                        🗑 Delete Permanently
+                    <button type="button" id="deleteEmpBtn" class="btn-delete-sm">
+                        🗑 Delete
                     </button>
                 </div>
             </div>
@@ -397,7 +398,7 @@
 </div>
 
 <!-- Employee profile modal (read-only, tabbed) -->
-<div id="employeeProfileModal" class="custom-modal-overlay admin-modal-overlay" style="display: none;" onclick="if(event.target===this) closeEmployeeProfileModal()">
+<div id="employeeProfileModal" class="custom-modal-overlay admin-modal-overlay emp-view-modal" style="display: none;" onclick="if(event.target===this) closeEmployeeProfileModal()">
     <div class="custom-modal-box admin-modal employee-modal-wide admin-modal--wide">
         <div class="modal-header employee-profile-header">
             <div class="employee-profile-head">
@@ -422,7 +423,7 @@
             <button type="button" class="hrm-tab" data-profile-tab="profile-tab-payroll" onclick="switchProfileTab('profile-tab-payroll')">Payroll</button>
             <button type="button" class="hrm-tab" data-profile-tab="profile-tab-leave" onclick="switchProfileTab('profile-tab-leave')">Leave</button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body emp-profile-tab-content">
             <div id="profile-tab-overview" class="employee-profile-panel"></div>
             <div id="profile-tab-documents" class="employee-profile-panel" style="display:none;">
                 <div class="employee-docs-toolbar">

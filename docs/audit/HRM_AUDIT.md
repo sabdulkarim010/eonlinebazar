@@ -1,8 +1,8 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-22 (HRM Complete — SweetAlert + Polish)  
+**Last updated:** 2026-09-22 (HRM System — COMPLETE)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
-**Status:** ⚠️ PARTIAL — employee profile has 5 tabs only; all access management in Staff Directory; broader pagination gaps remain
+**Status:** ✅ COMPLETE — Employees, Attendance, Payroll, Leave fully operational; Super Admin protected; UI polished
 
 ---
 
@@ -396,6 +396,16 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 - **BUG 2 confirmed:** No staff past-date restriction in `attendanceController.js` or Daily Sheet / clock-in UI
 - Updated File Inventory with per-file ✅/⚠️ status; Feature Checklist 24/26 complete
 - Status changed from ✅ COMPLETE → ⚠️ PARTIAL until bugs are fixed
+
+## HRM System — COMPLETE ✅ — 2026-09-22
+
+- **Employees:** Compact page header; tabbed add/edit modal with fixed panel height; danger-zone delete (Super Admin only, Swal confirm); Super Admin linked employee never deletable
+- **Attendance:** Daily sheet with pagination, office-time Present marks, flexible weekend days, inline action toolbar; Super Admin excluded from daily sheet
+- **Leave:** Searchable Apply Leave staff picker; Super Admin excluded from staff roster dropdowns
+- **Payroll:** Generate from attendance, approve/paid workflow, PDF pay slip
+- **Designations:** Full CRUD manager
+- **Access:** Staff Directory assign/revoke; employee `access-info` API; Super Admin employee protected on backend + frontend
+- **Tests:** Jest **229/229** passing (includes Super Admin delete guard)
 
 ### HRM Complete — SweetAlert + Polish — 2026-09-22
 

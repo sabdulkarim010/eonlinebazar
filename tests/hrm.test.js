@@ -845,6 +845,37 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             expect(fetched).toBeNull();
         });
 
+        test('blocks permanent delete when employee is linked to Super Admin', async () => {
+            const token = await adminToken();
+            const superAdmin = await Admin.findOne({ role: 'superadmin' }).sort({ createdAt: 1 });
+
+            const created = await request(app)
+                .post('/api/admin/hrm/employees')
+                .set(auth(token))
+                .send({
+                    fullName: 'Protected Super Admin Employee',
+                    phone: '01700000999',
+                    designation: 'Director'
+                });
+
+            expect(created.status).toBe(201);
+            const employeeId = created.body.data._id;
+            const previousRef = superAdmin.employeeRef;
+            superAdmin.employeeRef = String(employeeId);
+            await superAdmin.save();
+
+            const blocked = await request(app)
+                .delete(`/api/admin/hrm/employees/${employeeId}`)
+                .set(auth(token));
+
+            expect(blocked.status).toBe(403);
+            expect(blocked.body.message).toMatch(/Super Admin/i);
+
+            superAdmin.employeeRef = previousRef || null;
+            await superAdmin.save();
+            await Employee.findByIdAndDelete(employeeId);
+        });
+
         test('returns full profile with attendance, payroll, and leave snapshot', async () => {
             const token = await adminToken();
 

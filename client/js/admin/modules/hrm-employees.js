@@ -163,13 +163,69 @@ function renderEmployeeTable(rows) {
     `).join('');
 }
 
-function updateEmployeeDangerZone(employee = null) {
-    const zone = document.getElementById('empDangerZone');
+async function fetchEmployeeAccessInfo(employeeId) {
+    if (!employeeId) return { isSuperAdmin: false };
+    try {
+        const res = await fetch(`/api/admin/hrm/employees/${employeeId}/access-info`, {
+            headers: employeeAuthHeaders()
+        });
+        if (!res.ok) return { isSuperAdmin: false };
+        return await res.json();
+    } catch (err) {
+        console.warn('fetchEmployeeAccessInfo:', err.message);
+        return { isSuperAdmin: false };
+    }
+}
+
+async function updateEmployeeDangerZone(employee = null) {
+    const zone = document.getElementById('editDangerZone')
+        || document.getElementById('empDangerZone');
     if (!zone) return;
 
-    const show = Boolean(employee?._id) && isEmployeeSuperAdmin();
-    zone.style.display = show ? 'block' : 'none';
-    editingEmployeeForDelete = show ? employee : null;
+    if (!employee?._id || !isEmployeeSuperAdmin()) {
+        zone.style.display = 'none';
+        editingEmployeeForDelete = null;
+        return;
+    }
+
+    const accessInfo = await fetchEmployeeAccessInfo(employee._id);
+    if (accessInfo.isSuperAdmin) {
+        zone.style.display = 'none';
+        editingEmployeeForDelete = null;
+        return;
+    }
+
+    zone.style.display = 'block';
+    editingEmployeeForDelete = employee;
+}
+
+function sanitizeEmployeeProfileTabs() {
+    const tabsContainer = document.getElementById('employeeProfileTabs');
+    if (!tabsContainer) return;
+
+    const allowed = new Set([
+        'profile-tab-overview',
+        'profile-tab-documents',
+        'profile-tab-attendance',
+        'profile-tab-payroll',
+        'profile-tab-leave'
+    ]);
+
+    tabsContainer.querySelectorAll('.hrm-tab').forEach((btn) => {
+        const tabId = btn.getAttribute('data-profile-tab');
+        if (!tabId || !allowed.has(tabId)) btn.remove();
+    });
+
+    allowed.forEach((panelId) => {
+        const panel = document.getElementById(panelId);
+        if (panel && !panel.closest('#employeeProfileModal')) {
+            panel.remove();
+        }
+    });
+
+    document.querySelectorAll('#employeeProfileModal .employee-profile-panel').forEach((panel) => {
+        if (!allowed.has(panel.id)) panel.remove();
+    });
 }
 
 async function deleteEmployeePermanently() {
@@ -745,7 +801,7 @@ async function openEditEmployeeModal(id) {
         const title = document.getElementById('employeeModalTitle');
         if (title) title.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit Employee';
 
-        updateEmployeeDangerZone(result.data);
+        await updateEmployeeDangerZone(result.data);
         document.getElementById('employeeModal').style.display = 'flex';
     } catch (err) {
         console.error('openEditEmployeeModal:', err);
@@ -1122,6 +1178,7 @@ async function openEmployeeProfile(id) {
         renderProfilePayroll(result.data.payrollHistory || []);
         renderProfileLeave(result.data);
 
+        sanitizeEmployeeProfileTabs();
         switchProfileTab('profile-tab-overview');
         document.getElementById('employeeProfileModal').style.display = 'flex';
     } catch (err) {
@@ -1350,6 +1407,7 @@ function setupHrmEmployeesSection() {
 document.addEventListener('DOMContentLoaded', () => {
     setupHrmEmployeesSection();
     wireEmployeeDeleteButton();
+    sanitizeEmployeeProfileTabs();
 });
 
 // Backward-compatible alias

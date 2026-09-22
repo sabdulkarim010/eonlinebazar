@@ -542,7 +542,9 @@ exports.getStaffRoster = async (req, res) => {
 
         const includeEmployment = Boolean(req.adminAccount?.hasPermission?.('manage_staff'));
 
-        const data = accounts.map((account) => {
+        const data = accounts
+            .filter((account) => account.role !== ROLES.SUPER_ADMIN)
+            .map((account) => {
             const entry = {
                 id: String(account._id),
                 username: account.username,
