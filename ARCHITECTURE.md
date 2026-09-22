@@ -390,6 +390,7 @@ See also: `docs/SETUP.md`, `ecommerce-chat/docs/SETUP.md`, `devops/first-time-se
 | `EMAIL_PROVIDER` | `resend` \| `brevo` \| `disabled` |
 | `WA_ENABLED` | `true` to start Baileys WhatsApp on boot |
 | `ADMIN_WHATSAPP_NUMBER` | Digits for admin test messages |
+| `ADMIN_DELETE_PASSWORD` | Required for `DELETE /api/admin/hrm/employees/:id/permanent` — permanent employee removal |
 
 Services: `backend/src/services/emailService.js`, `whatsappService.js`, `notificationConfigService.js`. Admin UI: **System Settings → Notifications**. Setup: `docs/NOTIFICATION_SETUP.md`.
 

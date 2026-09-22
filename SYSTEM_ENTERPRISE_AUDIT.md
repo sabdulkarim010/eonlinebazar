@@ -3034,5 +3034,21 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Super Admin excluded from ops lists | ✅ Fixed | Daily sheet, staff roster, all=true dropdowns |
 | Jest regression suite | ✅ | **229/229** passing |
 
+## HRM FINAL — 2026-09-22
+
+**Status:** ✅ **Complete**
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Two-stage employee delete | ✅ Fixed | Soft deactivate + password-gated permanent delete |
+| Profile modal More tab | ✅ Fixed | 6 tabs; Terminate / Deactivate / Permanent Delete |
+| SweetAlert2 z-index | ✅ Fixed | Always on top of modals via `.swal-on-top` |
+| Super Admin terminate disabled | ✅ Fixed | Table + More tab; `adminRole` on list API |
+| Edit modal danger zone removed | ✅ Fixed | Delete actions moved to View modal More tab |
+| Add Employee button order | ✅ Fixed | Primary blue button first in header actions |
+| Employee soft-delete fields | ✅ Fixed | `isDeleted` / `deletedAt`; filtered from lists |
+| `ADMIN_DELETE_PASSWORD` env | ✅ Fixed | Required for permanent delete route |
+| Jest regression suite | ✅ | **231/231** passing |
+
 
 

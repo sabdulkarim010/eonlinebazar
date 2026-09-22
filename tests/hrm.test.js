@@ -845,6 +845,82 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             expect(fetched).toBeNull();
         });
 
+        test('soft-deactivates employee and hides from list', async () => {
+            const token = await adminToken();
+
+            const created = await request(app)
+                .post('/api/admin/hrm/employees')
+                .set(auth(token))
+                .send({
+                    fullName: 'Soft Delete Target',
+                    phone: '01700000088',
+                    role: 'Labour'
+                });
+
+            expect(created.status).toBe(201);
+            const employeeId = created.body.data._id;
+
+            const deactivated = await request(app)
+                .patch(`/api/admin/hrm/employees/${employeeId}/deactivate`)
+                .set(auth(token));
+
+            expect(deactivated.status).toBe(200);
+            expect(deactivated.body.success).toBe(true);
+
+            const stored = await Employee.findById(employeeId);
+            expect(stored).toBeTruthy();
+            expect(stored.isDeleted).toBe(true);
+            expect(stored.status).toBe('terminated');
+
+            const list = await request(app)
+                .get('/api/admin/hrm/employees')
+                .set(auth(token));
+
+            expect(list.status).toBe(200);
+            const ids = (list.body.data || []).map((row) => String(row._id));
+            expect(ids).not.toContain(String(employeeId));
+
+            await Employee.findByIdAndDelete(employeeId);
+        });
+
+        test('permanent delete via password-protected route', async () => {
+            const token = await adminToken();
+            const previousPw = process.env.ADMIN_DELETE_PASSWORD;
+            process.env.ADMIN_DELETE_PASSWORD = 'test-delete-pw';
+
+            const created = await request(app)
+                .post('/api/admin/hrm/employees')
+                .set(auth(token))
+                .send({
+                    fullName: 'Password Delete Target',
+                    phone: '01700000089',
+                    role: 'Labour'
+                });
+
+            expect(created.status).toBe(201);
+            const employeeId = created.body.data._id;
+
+            const wrongPw = await request(app)
+                .delete(`/api/admin/hrm/employees/${employeeId}/permanent`)
+                .set(auth(token))
+                .send({ adminPassword: 'wrong-password' });
+
+            expect(wrongPw.status).toBe(401);
+
+            const deleted = await request(app)
+                .delete(`/api/admin/hrm/employees/${employeeId}/permanent`)
+                .set(auth(token))
+                .send({ adminPassword: 'test-delete-pw' });
+
+            expect(deleted.status).toBe(200);
+            expect(deleted.body.success).toBe(true);
+
+            const fetched = await Employee.findById(employeeId);
+            expect(fetched).toBeNull();
+
+            process.env.ADMIN_DELETE_PASSWORD = previousPw;
+        });
+
         test('blocks permanent delete when employee is linked to Super Admin', async () => {
             const token = await adminToken();
             const superAdmin = await Admin.findOne({ role: 'superadmin' }).sort({ createdAt: 1 });

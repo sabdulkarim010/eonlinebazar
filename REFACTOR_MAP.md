@@ -2379,3 +2379,18 @@ tests/hrm.test.js [MOD] Super Admin delete blocked test
 docs/audit/HRM_AUDIT.md [MOD] HRM System COMPLETE section; status COMPLETE
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM System 100% section
 README.md [MOD] HRM complete note
+
+# HRM FINAL — Two-stage delete + Swal z-index: 2026-09-22
+backend/src/models/employee.js [MOD] isDeleted, deletedAt fields
+backend/src/controllers/admin/employeeController.js [MOD] deactivateEmployee, permanentDeleteEmployee, enrichEmployeesWithAdminRole
+backend/src/routes/adminRoutes.js [MOD] PATCH deactivate + DELETE permanent routes
+backend/src/services/hrmReadService.js [MOD] isDeleted filter on employee lists/stats
+client/admin/partials/view-hrm-employees.html [MOD] More tab; removed edit danger zone; Add Employee first in header
+client/css/admin/_hrm.css [MOD] More tab styles; SweetAlert2 z-index; terminate-btn disabled
+client/js/admin/modules/hrm-employees.js [MOD] swalOnTop; profile More tab wiring; Super Admin terminate disable
+tests/hrm.test.js [MOD] deactivate + password permanent delete tests
+docs/audit/HRM_AUDIT.md [MOD] HRM FINAL changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM FINAL section
+README.md [MOD] test count 231; ADMIN_DELETE_PASSWORD note
+ARCHITECTURE.md [MOD] ADMIN_DELETE_PASSWORD env var
+.env [MOD] ADMIN_DELETE_PASSWORD=

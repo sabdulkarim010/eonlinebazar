@@ -1365,3 +1365,87 @@
     max-height: calc(100vh - 200px) !important;
     overflow-y: auto !important;
 }
+
+/* Profile modal — More tab actions */
+.emp-more-section {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.emp-more-heading {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #374151;
+}
+
+.emp-more-danger {
+    border-color: #fecaca;
+    background: #fffbfb;
+}
+
+.emp-more-danger-heading {
+    color: #b91c1c;
+}
+
+.emp-more-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 0;
+    border-top: 1px solid #f3f4f6;
+}
+
+.emp-more-row:first-of-type {
+    border-top: none;
+    padding-top: 0;
+}
+
+.emp-more-copy {
+    flex: 1;
+    min-width: 0;
+}
+
+.emp-more-copy strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #111827;
+}
+
+.emp-more-copy small {
+    display: block;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.btn-warn-outline {
+    border-color: #f59e0b !important;
+    color: #b45309 !important;
+}
+
+.btn-warn-outline:hover {
+    background: #fffbeb !important;
+}
+
+.catalog-action-btn.terminate-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* SweetAlert2 always on top */
+.swal2-container {
+    z-index: 99999 !important;
+}
+
+.swal2-popup {
+    z-index: 99999 !important;
+}
+
+.swal-on-top {
+    z-index: 99999 !important;
+}

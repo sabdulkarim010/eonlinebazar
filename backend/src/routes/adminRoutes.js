@@ -609,6 +609,8 @@ router.post('/hrm/employees', verifyAdmin, checkPermission('manage_staff'), empl
 router.post('/hrm/employees/:id/photo', verifyAdmin, checkPermission('manage_staff'), employeePhotoUpload, employeeController.uploadEmployeePhoto);
 router.post('/hrm/employees/:id/documents', verifyAdmin, checkPermission('manage_staff'), employeeDocumentUpload, employeeController.uploadEmployeeDocument);
 router.delete('/hrm/employees/:id/documents/:docId', verifyAdmin, checkPermission('manage_staff'), employeeController.deleteEmployeeDocument);
+router.patch('/hrm/employees/:id/deactivate', verifyAdmin, requireSuperAdmin, employeeController.deactivateEmployee);
+router.delete('/hrm/employees/:id/permanent', verifyAdmin, requireSuperAdmin, employeeController.permanentDeleteEmployee);
 router.patch('/hrm/employees/:id', verifyAdmin, checkPermission('manage_staff'), employeeController.updateEmployee);
 router.delete('/hrm/employees/:id', verifyAdmin, requireSuperAdmin, employeeController.deleteEmployee);
 

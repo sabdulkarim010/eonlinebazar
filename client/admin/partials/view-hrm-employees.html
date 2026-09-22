@@ -5,6 +5,9 @@
             <span class="page-subtitle">HRM &amp; Staff operational roster</span>
         </div>
         <div class="page-header-actions">
+            <button type="button" class="btn-primary-sm" onclick="openAddEmployeeModal()">
+                + Add Employee
+            </button>
             <button type="button" class="btn-sm-outline" id="employeesExportCsvBtn" onclick="exportEmployeesCsvReport()" title="Export employees as CSV">
                 ↓ Export CSV
             </button>
@@ -13,9 +16,6 @@
             </button>
             <button type="button" class="btn-sm-outline" onclick="openDesignationManager()">
                 ⚙ Designations
-            </button>
-            <button type="button" class="btn-primary-sm" onclick="openAddEmployeeModal()">
-                + Add Employee
             </button>
         </div>
     </div>
@@ -377,18 +377,6 @@
                     </div>
                 </div>
             </div>
-            <div class="edit-danger-zone" id="editDangerZone" style="display:none">
-                <div class="edit-danger-header">⚠️ Danger Zone</div>
-                <div class="edit-danger-row">
-                    <div>
-                        <strong>Delete this employee permanently</strong>
-                        <small>All records including attendance, payroll, leave and system access will be removed.</small>
-                    </div>
-                    <button type="button" id="deleteEmpBtn" class="btn-delete-sm">
-                        🗑 Delete
-                    </button>
-                </div>
-            </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="closeEmployeeModal()">Cancel</button>
                 <button type="submit" class="btn-primary" id="employeeSaveBtn">Save Employee</button>
@@ -422,6 +410,7 @@
             <button type="button" class="hrm-tab" data-profile-tab="profile-tab-attendance" onclick="switchProfileTab('profile-tab-attendance')">Attendance</button>
             <button type="button" class="hrm-tab" data-profile-tab="profile-tab-payroll" onclick="switchProfileTab('profile-tab-payroll')">Payroll</button>
             <button type="button" class="hrm-tab" data-profile-tab="profile-tab-leave" onclick="switchProfileTab('profile-tab-leave')">Leave</button>
+            <button type="button" class="hrm-tab" data-profile-tab="profile-tab-more" onclick="switchProfileTab('profile-tab-more')">More</button>
         </div>
         <div class="modal-body emp-profile-tab-content">
             <div id="profile-tab-overview" class="employee-profile-panel"></div>
@@ -459,6 +448,36 @@
                 <div id="profileLeaveBalance" class="hrm-balance-grid"></div>
                 <h4 class="employee-section-title">Recent Leave Applications</h4>
                 <div id="profileLeaveRecent"></div>
+            </div>
+            <div id="profile-tab-more" class="employee-profile-panel" style="display:none;">
+                <h4 class="employee-section-title">More Options</h4>
+                <div class="emp-more-section">
+                    <h5 class="emp-more-heading">Employee Actions</h5>
+                    <div class="emp-more-row">
+                        <div class="emp-more-copy">
+                            <strong>Terminate Employment</strong>
+                            <small>Employee will be deactivated and lose access. They remain in records for payroll and audit purposes.</small>
+                        </div>
+                        <button type="button" id="profileTerminateBtn" class="btn-sm-outline">Terminate</button>
+                    </div>
+                </div>
+                <div class="emp-more-section emp-more-danger" id="profileMoreDangerZone" style="display:none;">
+                    <h5 class="emp-more-heading emp-more-danger-heading">⚠ Danger Zone</h5>
+                    <div class="emp-more-row">
+                        <div class="emp-more-copy">
+                            <strong>Soft Delete (Deactivate)</strong>
+                            <small>Remove from all active lists. Can be restored later.</small>
+                        </div>
+                        <button type="button" id="deactivateEmpBtn" class="btn-sm-outline btn-warn-outline">Deactivate Employee</button>
+                    </div>
+                    <div class="emp-more-row">
+                        <div class="emp-more-copy">
+                            <strong>Permanent Delete</strong>
+                            <small>Requires admin password. Removes all data forever.</small>
+                        </div>
+                        <button type="button" id="permDeleteEmpBtn" class="btn-delete-sm">🗑 Delete Permanently</button>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="modal-footer">

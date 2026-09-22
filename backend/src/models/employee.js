@@ -89,6 +89,8 @@ const employeeSchema = new mongoose.Schema({
 
     // ── Meta ──────────────────────────────────────────────
     status: { type: String, enum: EMPLOYEE_STATUSES, default: 'active' },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
     notes: { type: String, default: '', trim: true },
     createdBy: { type: String, default: '', trim: true },
     createdAt: { type: Date, default: Date.now }

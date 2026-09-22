@@ -1,8 +1,8 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-22 (HRM System — COMPLETE)  
+**Last updated:** 2026-09-22 (HRM FINAL)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
-**Status:** ✅ COMPLETE — Employees, Attendance, Payroll, Leave fully operational; Super Admin protected; UI polished
+**Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
 ---
 
@@ -57,7 +57,7 @@
 | `client/admin/partials/sidebar.html` | Sidebar profile HTML (`#adminProfilePic`, `.admin-profile .info`) | ✅ |
 | `client/js/admin/modules/sidebarLabels.js` | Super Admin sidebar label apply (read-only in sidebar) | ✅ |
 | `client/js/admin/modules/settings-menu-labels.js` | Settings → Customize Menu Labels editor (Super Admin) | ✅ |
-| `client/js/admin/modules/hrm-employees.js` | Employee UI — 5 profile tabs only (no Access tab); `authHeaders()` | ✅ |
+| `client/js/admin/modules/hrm-employees.js` | Employee UI — 6 profile tabs (Overview…Leave + More); two-stage delete; Swal z-index helper | ✅ |
 | `client/js/admin-staff.js` | Staff Directory — stepped Assign modal, perm toggles, presets, row actions | ✅ |
 | `client/css/admin/_staff.css` | Assign modal steps, `.perm-toggle`, validation, password show/hide | ✅ |
 | `client/admin/partials/view-staff.html` | System Staff Directory — Assign New Access, Active Admins stat card | ✅ |
@@ -396,6 +396,16 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 - **BUG 2 confirmed:** No staff past-date restriction in `attendanceController.js` or Daily Sheet / clock-in UI
 - Updated File Inventory with per-file ✅/⚠️ status; Feature Checklist 24/26 complete
 - Status changed from ✅ COMPLETE → ⚠️ PARTIAL until bugs are fixed
+
+## HRM FINAL — 2026-09-22 ✅
+
+- **Two-stage delete:** Soft deactivate (`PATCH /hrm/employees/:id/deactivate` sets `isDeleted`, `deletedAt`, `status: terminated`) + permanent delete (`DELETE /hrm/employees/:id/permanent` requires `ADMIN_DELETE_PASSWORD` in `.env`)
+- **More tab:** 6th profile modal tab — Terminate, Deactivate, Permanent Delete (danger zone removed from Edit modal)
+- **SweetAlert2 z-index:** `.swal-on-top` + `swalOnTop()` helper; CSS `z-index: 99999` on `.swal2-container`
+- **Super Admin guard:** Terminate button disabled in table + More tab; `adminRole` enriched on employee list API
+- **Employee model:** `isDeleted`, `deletedAt` fields; list queries filter `{ isDeleted: { $ne: true } }`
+- **Header UX:** Add Employee button first (blue primary); Export/Refresh/Designations grey outline
+- **Tests:** Jest **231/231** passing (deactivate + password permanent delete)
 
 ## HRM System — COMPLETE ✅ — 2026-09-22
 

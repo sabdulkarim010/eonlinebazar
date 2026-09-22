@@ -103,6 +103,11 @@ async function resolveMongoAdminStaffId(staffSelector) {
   return account ? String(account._id) : '__no_match__';
 }
 
+/** Exclude soft-deleted employees from operational lists. */
+function buildNotDeletedMongoClause() {
+  return { isDeleted: { $ne: true } };
+}
+
 function buildEmployeeListFilters(query = {}) {
   const filters = {};
   const status = String(query.status || '').trim().toLowerCase();
@@ -162,6 +167,7 @@ async function fetchEmployeesPage({ query, skip, limit }) {
   return routedRead(
     'employee',
     async () => {
+      const mongoClauses = [buildNotDeletedMongoClause()];
       const mongoFilter = {};
       if (filters.status) mongoFilter.status = filters.status;
       if (filters.department) mongoFilter.department = filters.department;
@@ -188,9 +194,12 @@ async function fetchEmployeesPage({ query, skip, limit }) {
         mongoFilter.linkedAdminId = { $nin: [null, ''] };
       }
 
+      mongoClauses.push(mongoFilter);
+      const listFilter = mongoClauses.length === 1 ? mongoClauses[0] : { $and: mongoClauses };
+
       const [employees, total] = await Promise.all([
-        Employee.find(mongoFilter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-        Employee.countDocuments(mongoFilter)
+        Employee.find(listFilter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        Employee.countDocuments(listFilter)
       ]);
       return { employees, total };
     },
@@ -224,7 +233,7 @@ async function fetchAllActiveEmployees(query = {}) {
   return routedRead(
     'employee',
     async () => {
-      const clauses = [{ status: 'active' }];
+      const clauses = [{ status: 'active' }, buildNotDeletedMongoClause()];
       if (excludeSuperAdmin) {
         const { getSuperAdminLinkedEmployeeLegacyIds, buildMongoExcludeSuperAdminClause } = require('../utils/superAdminEmployee');
         const excludeClause = buildMongoExcludeSuperAdminClause(await getSuperAdminLinkedEmployeeLegacyIds());
@@ -271,14 +280,17 @@ async function fetchEmployeeStats() {
   return routedRead(
     'employee',
     async () => {
+      const notDeletedMatch = { $match: buildNotDeletedMongoClause() };
       const [totals, byDepartment, byDesignation] = await Promise.all([
-        Employee.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+        Employee.aggregate([notDeletedMatch, { $group: { _id: '$status', count: { $sum: 1 } } }]),
         Employee.aggregate([
+          notDeletedMatch,
           { $match: { status: 'active' } },
           { $group: { _id: '$department', count: { $sum: 1 } } },
           { $sort: { _id: 1 } }
         ]),
         Employee.aggregate([
+          notDeletedMatch,
           { $match: { status: 'active' } },
           { $group: { _id: '$designation', count: { $sum: 1 } } },
           { $sort: { count: -1, _id: 1 } }

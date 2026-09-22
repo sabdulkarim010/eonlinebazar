@@ -198,6 +198,27 @@ const {
     fetchEmployeeByIdentifier,
     fetchEmployeeProfileBundle
 } = require('../../services/hrmReadService');
+const { isSuperAdminLinkedEmployee } = require('../../utils/superAdminEmployee');
+
+async function enrichEmployeesWithAdminRole(employees) {
+    if (!Array.isArray(employees) || !employees.length) return employees || [];
+
+    const adminIds = [...new Set(
+        employees
+            .filter((row) => row.linkedAdminId)
+            .map((row) => String(row.linkedAdminId))
+    )];
+
+    if (!adminIds.length) return employees;
+
+    const admins = await Admin.find({ _id: { $in: adminIds } }).select('role').lean();
+    const roleById = Object.fromEntries(admins.map((row) => [String(row._id), row.role]));
+
+    return employees.map((row) => ({
+        ...row,
+        adminRole: row.linkedAdminId ? (roleById[String(row.linkedAdminId)] || null) : null
+    }));
+}
 
 const MIN_ACCESS_PASSWORD_LENGTH = 8;
 
@@ -286,7 +307,7 @@ async function suspendLinkedAdminAccess(employee) {
 exports.getAllEmployees = async (req, res) => {
     try {
         if (String(req.query.all || '').toLowerCase() === 'true') {
-            const employees = await fetchAllActiveEmployees(req.query);
+            const employees = await enrichEmployeesWithAdminRole(await fetchAllActiveEmployees(req.query));
             const list = Array.isArray(employees) ? employees : [];
             return res.status(200).json({
                 success: true,
@@ -299,10 +320,11 @@ exports.getAllEmployees = async (req, res) => {
         const { page, limit, skip } = parsePagination(req.query);
 
         const { employees, total } = await fetchEmployeesPage({ query: req.query, skip, limit });
+        const enriched = await enrichEmployeesWithAdminRole(employees);
 
         res.status(200).json({
             success: true,
-            data: employees,
+            data: enriched,
             pagination: {
                 page,
                 limit,
@@ -499,6 +521,146 @@ exports.updateEmployee = async (req, res) => {
     }
 };
 
+async function performPermanentEmployeeDelete(id, req) {
+    if (await isSuperAdminLinkedEmployee(id)) {
+        const err = new Error('Cannot delete the Super Admin employee.');
+        err.status = 403;
+        throw err;
+    }
+
+    const employee = await Employee.findById(id);
+    if (!employee) {
+        const err = new Error('Employee not found');
+        err.status = 404;
+        throw err;
+    }
+
+    const empCode = employee.employeeId || 'EMP';
+    const legacyId = String(employee._id);
+
+    if (employee.linkedAdminId) {
+        const adminId = String(employee.linkedAdminId);
+        await adminDualWrite(
+            () => Admin.findByIdAndDelete(adminId),
+            () => mirrorAdminRemove(adminId),
+            { operation: 'deleteEmployeeRevokeAdmin', mongoId: adminId }
+        );
+    }
+
+    await Attendance.deleteMany({ staffId: legacyId, staffType: 'employee' });
+    await Payroll.deleteMany({ staffId: legacyId, staffType: 'employee' });
+    await Leave.deleteMany({ staffId: legacyId, staffType: 'employee' });
+
+    try {
+        const prisma = require('../../config/prismaClient');
+        await prisma.employee.deleteMany({ where: { legacyId } });
+    } catch (pgErr) {
+        console.warn('[DELETE-EMP-PG]', pgErr.message);
+    }
+
+    await Employee.findByIdAndDelete(id);
+
+    await logSecurityEvent({
+        action: 'Employee Permanently Deleted',
+        actor: actorName(req),
+        actorType: 'admin',
+        ipAddress: getClientIp(req),
+        details: `${empCode} — ${employee.fullName}`,
+        resourceType: 'employee',
+        resourceId: legacyId
+    });
+
+    return { employee, message: `${employee.fullName} permanently deleted` };
+}
+
+/**
+ * PATCH /api/admin/hrm/employees/:id/deactivate
+ * Soft delete — hides employee from lists while preserving records.
+ */
+exports.deactivateEmployee = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (await isSuperAdminLinkedEmployee(id)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Cannot deactivate Super Admin.'
+            });
+        }
+
+        const employee = await findEmployeeRecord(id);
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Employee not found' });
+        }
+
+        employee.status = 'terminated';
+        employee.isDeleted = true;
+        employee.deletedAt = new Date();
+
+        await dualWrite(
+            () => employee.save(),
+            async (saved) => {
+                const repo = getEmployeeRepository();
+                const pgRow = await repo.findByLegacyId(String(saved._id));
+                if (pgRow) await repo.terminate(pgRow.id);
+            },
+            {
+                model: 'Employee',
+                operation: 'deactivate',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
+
+        await suspendLinkedAdminAccess(employee);
+
+        await logSecurityEvent({
+            action: 'Employee Deactivated',
+            actor: actorName(req),
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${employee.employeeId} — ${employee.fullName}`,
+            resourceType: 'employee',
+            resourceId: String(employee._id)
+        });
+
+        res.json({ success: true, message: 'Employee deactivated' });
+    } catch (error) {
+        console.error('[DEACTIVATE-EMP]', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to deactivate employee.' });
+    }
+};
+
+/**
+ * DELETE /api/admin/hrm/employees/:id/permanent
+ * Permanent delete — Super Admin only, requires ADMIN_DELETE_PASSWORD.
+ */
+exports.permanentDeleteEmployee = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { adminPassword } = req.body || {};
+
+        const correctPw = process.env.ADMIN_DELETE_PASSWORD;
+        if (!correctPw || adminPassword !== correctPw) {
+            return res.status(401).json({
+                success: false,
+                message: 'Incorrect admin password.'
+            });
+        }
+
+        const { message } = await performPermanentEmployeeDelete(id, req);
+        res.json({ success: true, message });
+    } catch (error) {
+        if (error.status === 403) {
+            return res.status(403).json({ success: false, message: error.message });
+        }
+        if (error.status === 404) {
+            return res.status(404).json({ success: false, message: error.message });
+        }
+        console.error('[PERMANENT-DELETE-EMP]', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to delete employee.' });
+    }
+};
+
 /**
  * DELETE /api/admin/hrm/employees/:id
  * Permanent delete — Super Admin only. Removes employee and related HRM records.
@@ -506,64 +668,15 @@ exports.updateEmployee = async (req, res) => {
 exports.deleteEmployee = async (req, res) => {
     try {
         const { id } = req.params;
-
-        const isSuperAdminLinked = await Admin.findOne({
-            employeeRef: id,
-            role: ROLES.SUPER_ADMIN
-        }).select('_id').lean();
-
-        if (isSuperAdminLinked) {
-            return res.status(403).json({
-                success: false,
-                message: 'Cannot delete the Super Admin employee.'
-            });
-        }
-
-        const employee = await Employee.findById(id);
-        if (!employee) {
-            return res.status(404).json({ success: false, message: 'Not found' });
-        }
-
-        const empCode = employee.employeeId || 'EMP';
-        const legacyId = String(employee._id);
-
-        if (employee.linkedAdminId) {
-            const adminId = String(employee.linkedAdminId);
-            await adminDualWrite(
-                () => Admin.findByIdAndDelete(adminId),
-                () => mirrorAdminRemove(adminId),
-                { operation: 'deleteEmployeeRevokeAdmin', mongoId: adminId }
-            );
-        }
-
-        await Attendance.deleteMany({ staffId: legacyId, staffType: 'employee' });
-        await Payroll.deleteMany({ staffId: legacyId, staffType: 'employee' });
-        await Leave.deleteMany({ staffId: legacyId, staffType: 'employee' });
-
-        try {
-            const prisma = require('../../config/prismaClient');
-            await prisma.employee.deleteMany({ where: { legacyId } });
-        } catch (pgErr) {
-            console.warn('[DELETE-EMP-PG]', pgErr.message);
-        }
-
-        await Employee.findByIdAndDelete(id);
-
-        await logSecurityEvent({
-            action: 'Employee Permanently Deleted',
-            actor: actorName(req),
-            actorType: 'admin',
-            ipAddress: getClientIp(req),
-            details: `${empCode} — ${employee.fullName}`,
-            resourceType: 'employee',
-            resourceId: legacyId
-        });
-
-        res.status(200).json({
-            success: true,
-            message: `Employee ${empCode} deleted`
-        });
+        const { message } = await performPermanentEmployeeDelete(id, req);
+        res.status(200).json({ success: true, message });
     } catch (error) {
+        if (error.status === 403) {
+            return res.status(403).json({ success: false, message: error.message });
+        }
+        if (error.status === 404) {
+            return res.status(404).json({ success: false, message: error.message });
+        }
         console.error('[DELETE-EMP]', error);
         res.status(500).json({ success: false, message: error.message || 'Failed to delete employee.' });
     }
