@@ -218,8 +218,17 @@ window.createSearchableSelect = function createSearchableSelect(config) {
 
     function filterOptions(query) {
         const q = String(query || '').trim().toLowerCase();
-        if (!q) return allOptions;
+        if (!q) return [];
         return allOptions.filter((item) => item.label.toLowerCase().includes(q));
+    }
+
+    function hideDropdownList() {
+        isOpen = false;
+        dropdown.hidden = true;
+        dropdown.innerHTML = '';
+        textInput.setAttribute('aria-expanded', 'false');
+        root.classList.remove('is-open');
+        highlightedIndex = -1;
     }
 
     function renderDropdown(items) {
@@ -227,7 +236,7 @@ window.createSearchableSelect = function createSearchableSelect(config) {
         if (!items.length) {
             const empty = document.createElement('li');
             empty.className = 'searchable-select-option searchable-select-option--empty';
-            empty.textContent = 'No matches found';
+            empty.textContent = 'No results found';
             empty.setAttribute('role', 'presentation');
             dropdown.appendChild(empty);
             return;
@@ -254,6 +263,11 @@ window.createSearchableSelect = function createSearchableSelect(config) {
 
     function openDropdown() {
         if (isDisabled) return;
+        const q = String(textInput.value || '').trim();
+        if (!q) {
+            hideDropdownList();
+            return;
+        }
         isOpen = true;
         dropdown.hidden = false;
         textInput.setAttribute('aria-expanded', 'true');
@@ -263,10 +277,7 @@ window.createSearchableSelect = function createSearchableSelect(config) {
     }
 
     function closeDropdown() {
-        isOpen = false;
-        dropdown.hidden = true;
-        textInput.setAttribute('aria-expanded', 'false');
-        root.classList.remove('is-open');
+        hideDropdownList();
         setDisplayFromValue(selectedValue);
     }
 
@@ -278,33 +289,49 @@ window.createSearchableSelect = function createSearchableSelect(config) {
         if (typeof onChange === 'function') onChange(selectedValue);
     }
 
-    textInput.addEventListener('focus', () => {
-        if (isDisabled) return;
-        openDropdown();
-    });
-
     textInput.addEventListener('input', () => {
-        if (!isOpen) openDropdown();
+        if (isDisabled) return;
+
+        const selectedLabel = allOptions.find((item) => item.value === selectedValue)?.label || '';
+        if (textInput.value !== selectedLabel) {
+            selectedValue = '';
+            hiddenInput.value = '';
+            syncNativeSelect('');
+            updatePlaceholderState();
+        }
+
+        const q = String(textInput.value || '').trim();
+        if (!q) {
+            hideDropdownList();
+            return;
+        }
+
+        isOpen = true;
+        dropdown.hidden = false;
+        textInput.setAttribute('aria-expanded', 'true');
+        root.classList.add('is-open');
         highlightedIndex = -1;
         renderDropdown(filterOptions(textInput.value));
     });
 
     textInput.addEventListener('keydown', (event) => {
+        const q = String(textInput.value || '').trim();
         const items = filterOptions(textInput.value);
         if (event.key === 'ArrowDown') {
+            if (!q) return;
             event.preventDefault();
             if (!isOpen) openDropdown();
-            highlightedIndex = Math.min(highlightedIndex + 1, items.length - 1);
+            highlightedIndex = Math.min(highlightedIndex + 1, Math.max(items.length - 1, 0));
             renderDropdown(items);
         } else if (event.key === 'ArrowUp') {
+            if (!q || !isOpen) return;
             event.preventDefault();
             highlightedIndex = Math.max(highlightedIndex - 1, 0);
             renderDropdown(items);
         } else if (event.key === 'Enter') {
+            if (!isOpen || highlightedIndex < 0 || !items[highlightedIndex]) return;
             event.preventDefault();
-            if (highlightedIndex >= 0 && items[highlightedIndex]) {
-                selectOption(items[highlightedIndex].value);
-            }
+            selectOption(items[highlightedIndex].value);
         } else if (event.key === 'Escape') {
             closeDropdown();
         }

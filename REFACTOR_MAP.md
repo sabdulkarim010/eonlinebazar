@@ -2394,3 +2394,35 @@ SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM FINAL section
 README.md [MOD] test count 231; ADMIN_DELETE_PASSWORD note
 ARCHITECTURE.md [MOD] ADMIN_DELETE_PASSWORD env var
 .env [MOD] ADMIN_DELETE_PASSWORD=
+
+# HRM staff search type-to-filter: 2026-09-22
+client/js/bd-districts.js [MOD] createSearchableSelect — hide list until query typed
+client/js/admin/modules/hrm-attendance.js [MOD] hrmMountStaffSearchSelect, hrmGetStaffSearchValue
+client/js/admin/modules/hrm-leaves.js [MOD] shared staff search mount
+client/js/admin/modules/hrm-payroll.js [MOD] searchable staff on generate + salary config modals
+client/js/admin-staff.js [MOD] unified "No results found" copy
+client/css/admin/_hrm.css [MOD] admin modal searchable-select styling
+docs/audit/HRM_AUDIT.md [MOD] staff search changelog
+
+# HRM staff roster exclude admin logins + employee PG personal-field sync: 2026-09-22
+backend/src/controllers/staffController.js [MOD] getStaffRoster returns [] for /hrm/staff; /staff/roster role:staff only
+backend/src/controllers/admin/employeeController.js [MOD] mirrorEmployeeSaveToPostgres; syncReferences; debug logs
+backend/src/utils/hrmDualWriteHelpers.js [MOD] gender, bloodGroup, maritalStatus, references in PG write map
+backend/src/repositories/employeeRepository.js [MOD] personal fields in update; syncReferences(); enum mappers
+client/js/admin/modules/hrm-employees.js [MOD] [HRM-SAVE] references debug log
+docs/audit/HRM_AUDIT.md [MOD] roster + PG sync changelog
+
+# Daily Sheet status dropdown contrast fix: 2026-09-22
+client/css/admin/_hrm.css [MOD] .att-split-menu light background + readable option text
+docs/audit/HRM_AUDIT.md [MOD] dropdown contrast changelog
+
+# RBAC attendance-only staff boot gating: 2026-09-22
+client/js/admin-staff.js [MOD] waitForAdminPermissions(); expose on window
+client/js/admin/modules/core-nav.js [MOD] async initDashboard permission gates; catalog fetches moved inside init
+client/js/admin/modules/core-auth.js [MOD] SILENT_403_PATHS; silent 403 option in handleAdminApiAuthResponse
+client/js/admin/modules/hrm-attendance.js [MOD] hrmLoadStaffOptions gated by manage_staff in loadHrmAttendanceSection
+backend/src/routes/adminRoutes.js [MOD] GET /hrm/employees allows view_attendance
+backend/src/controllers/admin/employeeController.js [MOD] trim roster fields for attendance-only readers
+docs/audit/HRM_AUDIT.md [MOD] permission gating changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] RBAC boot gating section
+README.md [MOD] last updated

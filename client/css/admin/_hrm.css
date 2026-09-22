@@ -685,29 +685,31 @@
     position: absolute;
     top: calc(100% + 4px);
     right: 0;
-    z-index: 20;
+    z-index: 1000;
     min-width: 120px;
-    background: #0f172a;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    background-color: #ffffff;
+    color: #1a1a1a;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
 .att-split-menu button {
-    background: transparent;
+    background-color: transparent;
     border: none;
-    color: inherit;
+    color: #1a1a1a;
     text-align: left;
-    padding: 8px 12px;
+    padding: 8px 14px;
     font-size: 12px;
     cursor: pointer;
 }
 
 .att-split-menu button:hover {
-    background: rgba(59, 130, 246, 0.15);
+    background-color: #f0f4ff;
+    color: #1d4ed8;
 }
 
 .att-saved-flash {
@@ -1448,4 +1450,40 @@
 
 .swal-on-top {
     z-index: 99999 !important;
+}
+
+/* HRM modals — type-to-search staff picker */
+.admin-modal .searchable-select {
+    position: relative;
+    width: 100%;
+}
+
+.admin-modal .searchable-select-dropdown {
+    z-index: 30;
+    max-height: 220px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+}
+
+.admin-modal .searchable-select-option {
+    padding: 10px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.admin-modal .searchable-select-option:last-child {
+    border-bottom: none;
+}
+
+.admin-modal .searchable-select-option:hover,
+.admin-modal .searchable-select-option.is-highlighted {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.admin-modal .searchable-select-option--empty {
+    color: #6b7280;
+    font-style: italic;
+    cursor: default;
 }

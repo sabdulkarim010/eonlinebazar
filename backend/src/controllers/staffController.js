@@ -533,8 +533,17 @@ exports.getAdminProfileForChat = async (req, res) => {
    ================================================================== */
 exports.getStaffRoster = async (req, res) => {
     try {
+        // HRM leave/attendance/payroll pickers load operational employees from
+        // GET /hrm/employees?all=true. Every Admin document is a panel login
+        // account (roles: superadmin | staff) — no "login-free" Admin rows exist.
+        const isHrmStaffPicker = /\/hrm\/staff(?:\?|$)/.test(String(req.originalUrl || ''));
+        if (isHrmStaffPicker) {
+            return res.status(200).json({ success: true, data: [] });
+        }
+
         const accounts = await Admin.find({
-            status: ACCOUNT_STATUS.ACTIVE
+            status: ACCOUNT_STATUS.ACTIVE,
+            role: ROLES.STAFF
         })
             .select('username name displayName role baseSalary department joiningDate employeeId')
             .sort({ username: 1 })
@@ -542,9 +551,7 @@ exports.getStaffRoster = async (req, res) => {
 
         const includeEmployment = Boolean(req.adminAccount?.hasPermission?.('manage_staff'));
 
-        const data = accounts
-            .filter((account) => account.role !== ROLES.SUPER_ADMIN)
-            .map((account) => {
+        const data = accounts.map((account) => {
             const entry = {
                 id: String(account._id),
                 username: account.username,

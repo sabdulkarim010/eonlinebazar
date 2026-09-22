@@ -959,6 +959,7 @@ function setEmployeeSaveError(message) {
 async function saveEmployee() {
     const id = document.getElementById('employeeEditId')?.value?.trim();
     const payload = buildEmployeePayload();
+    console.log('[HRM-SAVE] payload references:', JSON.stringify(payload.references));
 
     if (!payload.fullName || !payload.phone || !payload.designation) {
         showToast('Full name, phone, and designation are required.', 'warning');

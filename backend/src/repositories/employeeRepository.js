@@ -62,6 +62,47 @@ function toSalaryTypeEnum(value) {
   return 'MONTHLY';
 }
 
+function toGenderEnum(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (v === 'male') return 'MALE';
+  if (v === 'female') return 'FEMALE';
+  if (v === 'other') return 'OTHER';
+  return null;
+}
+
+function toBloodGroupEnum(value) {
+  const map = {
+    'A+': 'A_POSITIVE',
+    'A-': 'A_NEGATIVE',
+    'B+': 'B_POSITIVE',
+    'B-': 'B_NEGATIVE',
+    'O+': 'O_POSITIVE',
+    'O-': 'O_NEGATIVE',
+    'AB+': 'AB_POSITIVE',
+    'AB-': 'AB_NEGATIVE'
+  };
+  const key = String(value || '').trim().toUpperCase();
+  return map[key] || null;
+}
+
+function toMaritalStatusEnum(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (v === 'single') return 'SINGLE';
+  if (v === 'married') return 'MARRIED';
+  if (v === 'divorced') return 'DIVORCED';
+  if (v === 'widowed') return 'WIDOWED';
+  return null;
+}
+
+function applyPersonalIdentityFields(target, data) {
+  if (data.dateOfBirth !== undefined) target.dateOfBirth = data.dateOfBirth ?? null;
+  if (data.religion !== undefined) target.religion = String(data.religion ?? '').trim();
+  if (data.nationalId !== undefined) target.nationalId = String(data.nationalId ?? '').trim();
+  if (data.gender !== undefined) target.gender = toGenderEnum(data.gender);
+  if (data.bloodGroup !== undefined) target.bloodGroup = toBloodGroupEnum(data.bloodGroup);
+  if (data.maritalStatus !== undefined) target.maritalStatus = toMaritalStatusEnum(data.maritalStatus);
+}
+
 // ── syncEmployeeAliases (mirrors employee.js pre-save) ───────────────────────
 function syncEmployeeAliases(data) {
   const out = { ...data };
@@ -309,6 +350,9 @@ async function create(data) {
     fullName,
     phone: String(data.phone).trim(),
     dateOfBirth: data.dateOfBirth ?? null,
+    gender: toGenderEnum(data.gender),
+    bloodGroup: toBloodGroupEnum(data.bloodGroup),
+    maritalStatus: toMaritalStatusEnum(data.maritalStatus),
     religion: String(data.religion ?? '').trim(),
     nationalId: String(data.nationalId ?? '').trim(),
     photo: String(data.photo ?? '').trim(),
@@ -406,6 +450,36 @@ async function update(id, data) {
   if (data.notes !== undefined) fields.notes = String(data.notes).trim();
   if (data.photo !== undefined) fields.photo = String(data.photo).trim();
   if (data.photoPublicId !== undefined) fields.photoPublicId = String(data.photoPublicId).trim();
+  if (data.alternatePhone !== undefined) fields.alternatePhone = String(data.alternatePhone).trim();
+  if (data.permanentAddress !== undefined) {
+    fields.permanentAddress = String(data.permanentAddress).trim();
+  }
+  if (data.dateOfBirth !== undefined) fields.dateOfBirth = data.dateOfBirth ?? null;
+  if (data.joiningDate !== undefined) fields.joiningDate = data.joiningDate ?? null;
+  if (data.shift !== undefined) fields.shift = String(data.shift).trim();
+  if (data.bankName !== undefined) fields.bankName = String(data.bankName).trim();
+  if (data.bankAccountNumber !== undefined) {
+    fields.bankAccountNumber = String(data.bankAccountNumber).trim();
+  }
+  if (data.bkashNumber !== undefined) fields.bkashNumber = String(data.bkashNumber).trim();
+
+  applyPersonalIdentityFields(fields, data);
+
+  if (data.emergencyContactName !== undefined || data.emergencyContact?.name !== undefined) {
+    fields.emergencyContactName = String(
+      data.emergencyContactName ?? data.emergencyContact?.name ?? ''
+    ).trim();
+  }
+  if (data.emergencyContactPhone !== undefined || data.emergencyContact?.phone !== undefined) {
+    fields.emergencyContactPhone = String(
+      data.emergencyContactPhone ?? data.emergencyContact?.phone ?? ''
+    ).trim();
+  }
+  if (data.emergencyContactRelation !== undefined || data.emergencyContact?.relation !== undefined) {
+    fields.emergencyContactRelation = String(
+      data.emergencyContactRelation ?? data.emergencyContact?.relation ?? ''
+    ).trim();
+  }
 
   if (
     data.designation !== undefined
@@ -534,6 +608,29 @@ async function listReferences(employeeId) {
   return records.map(toReferenceShape);
 }
 
+/** Replace embedded Mongo references[] on the PG EmployeeReference table. */
+async function syncReferences(employeeId, references = []) {
+  await prisma.employeeReference.deleteMany({ where: { employeeId } });
+
+  const rows = (Array.isArray(references) ? references : [])
+    .map((ref) => ({
+      name: String(ref?.name ?? '').trim(),
+      phone: String(ref?.phone ?? '').trim(),
+      relation: String(ref?.relation ?? '').trim(),
+      address: String(ref?.address ?? '').trim()
+    }))
+    .filter((ref) => ref.name || ref.phone)
+    .slice(0, 5);
+
+  if (!rows.length) return [];
+
+  await prisma.employeeReference.createMany({
+    data: rows.map((ref) => ({ employeeId, ...ref }))
+  });
+
+  return listReferences(employeeId);
+}
+
 async function addReference(employeeId, refData) {
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
@@ -643,6 +740,7 @@ module.exports = {
   addDocument,
   removeDocument,
   listReferences,
+  syncReferences,
   addReference,
   removeReference,
   linkAdminAccount,

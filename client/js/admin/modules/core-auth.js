@@ -16,11 +16,36 @@ if (!token) {
     window.location.replace('/admin-login');
 }
 
+/** Endpoints staff users may hit during boot before sidebar gating — no permission toast. */
+const SILENT_403_PATHS = [
+    '/api/admin/whatsapp-alerts',
+    '/api/admin/orders',
+    '/api/admin/logs',
+    '/api/admin/enterprise-summary',
+    '/api/admin/analytics',
+    '/api/admin/dashboard-analytics',
+    '/api/admin/platform-settings',
+    '/api/admin/categories',
+    '/api/admin/customers',
+    '/api/admin/products',
+    '/api/admin/suppliers',
+    '/api/admin/warehouses',
+    '/api/admin/pages',
+    '/api/admin/courier',
+    '/api/admin/hrm/staff'
+];
+
+function isSilent403(url, options = {}) {
+    if (options.silent === true) return true;
+    const target = String(url || '');
+    return SILENT_403_PATHS.some((path) => target.includes(path));
+}
+
 /**
  * Shared admin API auth/rate-limit handler.
  * Returns 'rate_limited' | 'auth_failed' | 'forbidden' | 'ok' — never redirects on HTTP 429.
  */
-function handleAdminApiAuthResponse(res, data = {}) {
+function handleAdminApiAuthResponse(res, data = {}, options = {}) {
     if (res.status === 429) {
         const msg = data.message || 'Too many requests — please wait and try again.';
         if (typeof showToast === 'function') showToast(msg, 'warning');
@@ -33,8 +58,11 @@ function handleAdminApiAuthResponse(res, data = {}) {
         return 'auth_failed';
     }
     if (res.status === 403) {
-        const msg = data.message || 'Access denied.';
-        if (typeof showToast === 'function') showToast(msg, 'warning');
+        const requestUrl = options.url || res.url || '';
+        if (!isSilent403(requestUrl, options)) {
+            const msg = data.message || 'Access denied.';
+            if (typeof showToast === 'function') showToast(msg, 'warning');
+        }
         return 'forbidden';
     }
     return 'ok';

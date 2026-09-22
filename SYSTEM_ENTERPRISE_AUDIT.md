@@ -3050,5 +3050,27 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | `ADMIN_DELETE_PASSWORD` env | ✅ Fixed | Required for permanent delete route |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## Daily Sheet status dropdown contrast — 2026-09-22
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `.att-split-menu` invisible options | ✅ Fixed | Dark `#0f172a` panel + `color: inherit` → white panel + explicit text/hover colors in `_hrm.css` |
+| Jest regression suite | ✅ | **231/231** passing |
+
+## RBAC — attendance-only staff boot gating — 2026-09-22
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `initDashboard()` permission-aware boot | ✅ Fixed | Awaits `waitForAdminPermissions()`; gates orders, analytics, settings, catalog, security log fetches |
+| `waitForAdminPermissions()` | ✅ Added | Polls until `admin-staff.js` loads `currentAdmin` from `/me` + `/permissions` |
+| HRM attendance staff dropdown | ✅ Fixed | `hrmLoadStaffOptions()` only when `manage_staff`; Daily Sheet uses `view_attendance` route |
+| `GET /hrm/employees` read for attendance | ✅ Fixed | `checkPermission('manage_staff', 'view_attendance')`; sensitive fields stripped for attendance-only readers |
+| 403 toast noise on limited staff login | ✅ Fixed | `SILENT_403_PATHS` in `handleAdminApiAuthResponse()` |
+| Jest regression suite | ✅ | **231/231** passing |
+
 
 

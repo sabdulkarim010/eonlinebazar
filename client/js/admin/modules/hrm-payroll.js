@@ -150,6 +150,7 @@ function closeGeneratePayrollModal() {
 
 async function openGeneratePayrollModal() {
     await window.hrmLoadStaffOptions(['generatePayrollStaff'], { placeholder: 'Select staff member' });
+    window.hrmMountStaffSearchSelect('generatePayrollStaff', { placeholder: 'Search staff by name or ID…' });
     window.hrmFillMonthSelect('generatePayrollMonth', currentMonth());
 
     const yearInput = document.getElementById('generatePayrollYear');
@@ -160,7 +161,7 @@ async function openGeneratePayrollModal() {
 }
 
 function readGeneratePayrollPayload() {
-    const staffValue = document.getElementById('generatePayrollStaff')?.value;
+    const staffValue = window.hrmGetStaffSearchValue('generatePayrollStaff');
     return {
         ...(window.hrmParseStaffSelect ? window.hrmParseStaffSelect(staffValue) : { staffUsername: staffValue }),
         staffValue,
@@ -373,6 +374,7 @@ function closeSalaryConfigModal() {
 
 async function openSalaryConfigModal() {
     await window.hrmLoadStaffOptions(['salaryConfigStaff'], { placeholder: 'Select staff member' });
+    window.hrmMountStaffSearchSelect('salaryConfigStaff', { placeholder: 'Search staff by name or ID…' });
 
     const modal = document.getElementById('salaryConfigModal');
     if (modal) modal.style.display = 'flex';
@@ -380,7 +382,7 @@ async function openSalaryConfigModal() {
 
 /** Fill the form from the cached roster so the current values are visible. */
 function prefillSalaryConfig() {
-    const username = document.getElementById('salaryConfigStaff')?.value;
+    const username = window.hrmGetStaffSearchValue('salaryConfigStaff');
     const staff = username ? window.hrmFindStaff(username) : null;
 
     const salary = document.getElementById('salaryConfigBaseSalary');
@@ -400,7 +402,7 @@ function prefillSalaryConfig() {
 
 async function saveSalaryConfig() {
     const payload = {
-        staffUsername: document.getElementById('salaryConfigStaff')?.value,
+        staffUsername: window.hrmGetStaffSearchValue('salaryConfigStaff'),
         baseSalary: Number(document.getElementById('salaryConfigBaseSalary')?.value),
         department: document.getElementById('salaryConfigDepartment')?.value?.trim() || '',
         employeeId: document.getElementById('salaryConfigEmployeeId')?.value?.trim() || ''

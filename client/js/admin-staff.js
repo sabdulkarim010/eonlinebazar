@@ -118,6 +118,22 @@ function hasPermission(permission) {
     return Array.isArray(currentAdmin?.permissions) && currentAdmin.permissions.includes(permission);
 }
 
+/**
+ * initDashboard() must not fire permission-gated API calls until /me + /permissions
+ * have populated currentAdmin (hasAdminPermission exists earlier but reads empty state).
+ */
+function waitForAdminPermissions() {
+    return new Promise((resolve) => {
+        if (currentAdmin) return resolve();
+        const iv = setInterval(() => {
+            if (currentAdmin) {
+                clearInterval(iv);
+                resolve();
+            }
+        }, 50);
+    });
+}
+
 function formatDateTime(value) {
     if (!value) return '—';
     const date = new Date(value);
@@ -838,6 +854,7 @@ window.loadStaffSection = loadStaffSection;
 window.applySuperAdminOnlyVisibility = applySuperAdminOnlyVisibility;
 window.isAdminSuperAdmin = isSuperAdmin;
 window.hasAdminPermission = hasPermission;
+window.waitForAdminPermissions = waitForAdminPermissions;
 
 function normalizeAssignEmployee(row) {
     if (!row || typeof row !== 'object') return null;
@@ -1151,7 +1168,7 @@ function renderStaffAssignDropdown(filter = '') {
         .slice(0, 12);
 
     if (!matches.length) {
-        dropdown.innerHTML = `<p class="emp-no-results">No employees found matching "${escapeHtml(needle)}"</p>`;
+        dropdown.innerHTML = '<p class="emp-no-results">No results found</p>';
         showStaffAssignDropdown();
         return;
     }

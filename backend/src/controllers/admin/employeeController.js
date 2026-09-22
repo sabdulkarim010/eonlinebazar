@@ -9,7 +9,7 @@
 const mongoose = require('mongoose');
 const Admin = require('../../models/admin');
 const Employee = require('../../models/employee');
-const { ROLES, ACCOUNT_STATUS, sanitizePermissions } = require('../../config/permissions');
+const { ROLES, ACCOUNT_STATUS, sanitizePermissions, accountHasPermission } = require('../../config/permissions');
 const Attendance = require('../../models/attendance');
 const Payroll = require('../../models/payroll');
 const Leave = require('../../models/leave');
@@ -200,6 +200,33 @@ const {
 } = require('../../services/hrmReadService');
 const { isSuperAdminLinkedEmployee } = require('../../utils/superAdminEmployee');
 
+function actorHasManageStaff(req) {
+    const account = req.adminAccount;
+    if (!account) return false;
+    if (typeof account.isSuperAdmin === 'function' && account.isSuperAdmin()) return true;
+    return accountHasPermission(account, 'manage_staff');
+}
+
+/** Attendance-only readers get a minimal roster — no salary, bank, or identity fields. */
+function toAttendanceRosterRow(employee) {
+    const row = employee && typeof employee.toObject === 'function' ? employee.toObject() : employee;
+    if (!row) return null;
+    return {
+        _id: row._id,
+        fullName: row.fullName,
+        employeeId: row.employeeId,
+        designation: row.designation,
+        department: row.department,
+        photo: row.photo || row.profilePhoto || null
+    };
+}
+
+function filterEmployeesForAttendanceReader(employees) {
+    return (Array.isArray(employees) ? employees : [])
+        .map(toAttendanceRosterRow)
+        .filter(Boolean);
+}
+
 async function enrichEmployeesWithAdminRole(employees) {
     if (!Array.isArray(employees) || !employees.length) return employees || [];
 
@@ -280,6 +307,31 @@ async function syncLinkedAdminName(employee, newName) {
     );
 }
 
+async function mirrorEmployeeSaveToPostgres(saved) {
+    const repo = getEmployeeRepository();
+    const payload = mapMongoEmployeeToPostgresWrite(saved);
+    const plain = saved.toObject ? saved.toObject() : saved;
+    const references = Array.isArray(plain.references) ? plain.references : [];
+
+    try {
+        const pgRow = await repo.findByLegacyId(String(saved._id));
+        if (!pgRow) {
+            const created = await repo.create(payload);
+            await repo.syncReferences(created.id, references);
+            return;
+        }
+        if (plain.status === 'terminated') {
+            await repo.terminate(pgRow.id);
+            return;
+        }
+        await repo.update(pgRow.id, payload);
+        await repo.syncReferences(pgRow.id, references);
+    } catch (err) {
+        console.error('[EMP-UPDATE] PG sync failed:', err.message || err);
+        throw err;
+    }
+}
+
 async function suspendLinkedAdminAccess(employee) {
     if (!employee?.linkedAdminId) return;
     await adminDualWrite(
@@ -306,8 +358,13 @@ async function suspendLinkedAdminAccess(employee) {
  */
 exports.getAllEmployees = async (req, res) => {
     try {
+        const fullAccess = actorHasManageStaff(req);
+
         if (String(req.query.all || '').toLowerCase() === 'true') {
-            const employees = await enrichEmployeesWithAdminRole(await fetchAllActiveEmployees(req.query));
+            let employees = await enrichEmployeesWithAdminRole(await fetchAllActiveEmployees(req.query));
+            if (!fullAccess) {
+                employees = filterEmployeesForAttendanceReader(employees);
+            }
             const list = Array.isArray(employees) ? employees : [];
             return res.status(200).json({
                 success: true,
@@ -319,8 +376,11 @@ exports.getAllEmployees = async (req, res) => {
 
         const { page, limit, skip } = parsePagination(req.query);
 
-        const { employees, total } = await fetchEmployeesPage({ query: req.query, skip, limit });
-        const enriched = await enrichEmployeesWithAdminRole(employees);
+        let { employees, total } = await fetchEmployeesPage({ query: req.query, skip, limit });
+        let enriched = await enrichEmployeesWithAdminRole(employees);
+        if (!fullAccess) {
+            enriched = filterEmployeesForAttendanceReader(enriched);
+        }
 
         res.status(200).json({
             success: true,
@@ -418,9 +478,7 @@ exports.createEmployee = async (req, res) => {
 
         const employee = await dualWrite(
             () => Employee.create(fields),
-            async (saved) => {
-                await getEmployeeRepository().create(mapMongoEmployeeToPostgresWrite(saved));
-            },
+            mirrorEmployeeSaveToPostgres,
             {
                 model: 'Employee',
                 operation: 'create',
@@ -458,6 +516,11 @@ exports.updateEmployee = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Employee not found.' });
         }
 
+        console.log('[EMP-UPDATE] incoming body keys:', Object.keys(req.body || {}));
+        if (req.body?.references !== undefined) {
+            console.log('[EMP-UPDATE] references received:', req.body.references);
+        }
+
         const fields = pickEmployeeFields(req.body || {}, { partial: true });
         if (!Object.keys(fields).length) {
             return res.status(400).json({ success: false, message: 'No changes supplied.' });
@@ -476,19 +539,7 @@ exports.updateEmployee = async (req, res) => {
         Object.assign(employee, fields);
         await dualWrite(
             () => employee.save(),
-            async (saved) => {
-                const repo = getEmployeeRepository();
-                const pgRow = await repo.findByLegacyId(String(saved._id));
-                if (!pgRow) {
-                    await repo.create(mapMongoEmployeeToPostgresWrite(saved));
-                    return;
-                }
-                if (saved.status === 'terminated') {
-                    await repo.terminate(pgRow.id);
-                    return;
-                }
-                await repo.update(pgRow.id, mapMongoEmployeeToPostgresWrite(saved));
-            },
+            mirrorEmployeeSaveToPostgres,
             {
                 model: 'Employee',
                 operation: 'update',

@@ -521,7 +521,11 @@ window.logout = function() {
  * ১৩.৩: সিস্টেম இனிশিয়ালাইজেশন (SYSTEM BOOT)
  * ড্যাশবোর্ড লোড হওয়ার সাথে সাথে এই ফাংশনটি রান করে পুরো সিস্টেম সচল করবে
  */
-function initDashboard() {
+function adminCan(permission) {
+    return typeof window.hasAdminPermission === 'function' && window.hasAdminPermission(permission);
+}
+
+async function initDashboard() {
     verifyAdminTokenOnLoad();
     initAdminNotifications();
     updateDashboardDate();
@@ -530,19 +534,45 @@ function initDashboard() {
     setupAdminSettingsForms();
     setupManualOrderEngine();
     if (typeof setupMasterOrderEditor === 'function') setupMasterOrderEditor();
-    setupWhatsAppAlertBadge();
-    fetchAdminSettings();
-    if (typeof loadSandboxStatus === 'function') loadSandboxStatus();
-
-    // ২. কোর মডিউলগুলোর ডাটা সার্ভার থেকে সিঙ্ক করা
-    fetchDashboardData();   // ওভারভিউ এবং কাস্টমার ডাটা
     initAdminPaginationInstances();
-    fetchLiveOrders();      // লাইভ অর্ডারস
-    fetchLiveProducts();    // ম্যানেজ প্রোডাক্টস ডাটা
-    fetchSecurityLogs();    // সিকিউরিটি লগস
-    setupAnalyticsChartToggles();
-    setupCustomerSegmentTabs();
-    if (typeof updateBulkActionPanel === 'function') updateBulkActionPanel();
+
+    if (typeof window.waitForAdminPermissions === 'function') {
+        await window.waitForAdminPermissions();
+    }
+
+    if (adminCan('manage_orders')) {
+        setupWhatsAppAlertBadge();
+    }
+
+    if (adminCan('manage_settings')) {
+        fetchAdminSettings();
+        if (typeof loadSandboxStatus === 'function') loadSandboxStatus();
+    }
+
+    if (adminCan('view_analytics')) {
+        fetchDashboardData();
+        setupAnalyticsChartToggles();
+        setupCustomerSegmentTabs();
+    }
+
+    if (adminCan('manage_orders')) {
+        fetchLiveOrders();
+        if (typeof updateBulkActionPanel === 'function') updateBulkActionPanel();
+    }
+
+    if (adminCan('manage_inventory')) {
+        fetchLiveProducts();
+    }
+
+    if (adminCan('manage_security')) {
+        fetchSecurityLogs();
+    }
+
+    if (adminCan('manage_inventory') || adminCan('manage_catalog')) {
+        fetchCategories();
+        fetchBrands();
+        fetchAttributes();
+    }
 }
 
 /* ==========================================================================
@@ -550,10 +580,10 @@ function initDashboard() {
    ========================================================================== */
 
 // DOM সম্পূর্ণ লোড হওয়ার পর সিস্টেম বুট করা
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     ensureCleanAdminUrl();
     initAdminPaginationInstances();
-    initDashboard();
+    await initDashboard();
     setupSidebarNavigation();
     setupGlobalSearch();
     setupSyncButton();
@@ -579,9 +609,6 @@ document.addEventListener('DOMContentLoaded', () => {
         profileUploadInput.addEventListener('change', uploadAdminProfilePic);
     }
 
-    fetchCategories();
-    fetchBrands();
-    fetchAttributes();
     setupNavbarLinkForm();
     setupCouponForm();
     initAddProductFormUI();

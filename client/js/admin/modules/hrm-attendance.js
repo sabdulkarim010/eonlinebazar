@@ -248,6 +248,39 @@ async function hrmLoadStaffOptions(selectIds = [], { placeholder = 'All staff', 
     return { staff: hrmStaffCache, employees: hrmEmployeeCache };
 }
 
+const hrmStaffSearchInstances = {};
+
+/** Type-to-search staff picker — list hidden until the user types. */
+function hrmMountStaffSearchSelect(selectId, { placeholder = 'Search staff by name or ID…' } = {}) {
+    const select = document.getElementById(selectId);
+    if (!select || typeof window.createSearchableSelect !== 'function') return null;
+
+    if (hrmStaffSearchInstances[selectId]?.destroy) {
+        hrmStaffSearchInstances[selectId].destroy();
+        delete hrmStaffSearchInstances[selectId];
+    }
+
+    const options = [...select.options]
+        .filter((opt) => opt.value)
+        .map((opt) => ({ value: opt.value, label: opt.textContent.trim() }));
+
+    const instance = window.createSearchableSelect({
+        mountEl: select,
+        placeholder,
+        options,
+        ariaLabel: 'Staff member'
+    });
+
+    hrmStaffSearchInstances[selectId] = instance;
+    return instance;
+}
+
+function hrmGetStaffSearchValue(selectId) {
+    return hrmStaffSearchInstances[selectId]?.getValue?.()
+        || document.getElementById(selectId)?.value
+        || '';
+}
+
 function hrmFindStaff(username) {
     return hrmStaffCache.find((s) => s.username === username) || null;
 }
@@ -1276,6 +1309,7 @@ function closeMarkAttendanceModal() {
 
 async function openMarkAttendanceModal() {
     await hrmLoadStaffOptions(['markAttendanceStaff'], { placeholder: 'Select staff member' });
+    hrmMountStaffSearchSelect('markAttendanceStaff', { placeholder: 'Search staff by name or ID…' });
 
     const dateInput = document.getElementById('markAttendanceDate');
     if (dateInput && !dateInput.value) dateInput.value = hrmTodayInputValue();
@@ -1285,7 +1319,7 @@ async function openMarkAttendanceModal() {
 }
 
 async function saveAttendance() {
-    const staffValue = document.getElementById('markAttendanceStaff')?.value;
+    const staffValue = hrmGetStaffSearchValue('markAttendanceStaff');
     const payload = {
         ...hrmParseStaffSelect(staffValue),
         date: document.getElementById('markAttendanceDate')?.value,
@@ -1658,10 +1692,12 @@ async function loadHrmAttendanceSection() {
     hrmFillYearInput('hrmLateYear', now.getFullYear());
 
     applyManualEntryTabVisibility();
-    await Promise.all([
-        hrmLoadStaffOptions(['hrmAttendanceStaffFilter']),
-        loadAttendanceSettings()
-    ]);
+
+    const staffOptionLoads = [loadAttendanceSettings()];
+    if (typeof window.hasAdminPermission === 'function' && window.hasAdminPermission('manage_staff')) {
+        staffOptionLoads.push(hrmLoadStaffOptions(['hrmAttendanceStaffFilter']));
+    }
+    await Promise.all(staffOptionLoads);
 
     const pendingStaff = window.hrmPendingAttendanceStaff;
     if (pendingStaff) {
@@ -1725,6 +1761,8 @@ Object.assign(window, {
     hrmFillMonthSelect,
     hrmFillYearInput,
     hrmLoadStaffOptions,
+    hrmMountStaffSearchSelect,
+    hrmGetStaffSearchValue,
     hrmParseStaffSelect,
     hrmInvalidateEmployeeCache,
     hrmFindStaff,

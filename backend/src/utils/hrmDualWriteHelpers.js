@@ -31,6 +31,9 @@ function mapMongoEmployeeToPostgresWrite(doc) {
     fullName: plain.fullName,
     phone: plain.phone,
     dateOfBirth: plain.dateOfBirth,
+    gender: plain.gender,
+    bloodGroup: plain.bloodGroup,
+    maritalStatus: plain.maritalStatus,
     religion: plain.religion,
     nationalId: plain.nationalId,
     photo: plain.photo,
@@ -58,7 +61,8 @@ function mapMongoEmployeeToPostgresWrite(doc) {
     notes: plain.notes,
     employeeId: plain.employeeId,
     createdBy: plain.createdBy,
-    legacyId: String(doc._id)
+    legacyId: String(doc._id),
+    references: Array.isArray(plain.references) ? plain.references : []
   };
 }
 

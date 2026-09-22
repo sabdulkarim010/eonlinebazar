@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-22 (HRM FINAL)  
+**Last updated:** 2026-09-22 (attendance-only staff permission gating)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -256,6 +256,15 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 
 ## Change Log
 
+### Attendance-only staff permission gating — 2026-09-22
+
+- **Dashboard boot:** `initDashboard()` awaits `waitForAdminPermissions()` then gates WhatsApp/orders/logs/analytics/settings/catalog fetches by permission
+- **HRM attendance:** `hrmLoadStaffOptions()` skipped in `loadHrmAttendanceSection()` unless `manage_staff` — Daily Sheet still loads with `view_attendance` only
+- **Backend roster read:** `GET /hrm/employees` allows `view_attendance`; attendance-only callers receive trimmed fields (`_id`, `fullName`, `employeeId`, `designation`, `department`, `photo`)
+- **403 UX:** `SILENT_403_PATHS` in `core-auth.js` suppresses boot-time permission toasts for staff with limited roles
+- Files: `admin-staff.js`, `core-nav.js`, `core-auth.js`, `hrm-attendance.js`, `adminRoutes.js`, `employeeController.js`
+- Tests: Jest **231/231** passing
+
 ### HRM Final Polish — 2026-09-22
 
 - **Employee modal tabs:** Fixed-size tab bar (`emp-tab-btn`); active state color-only change
@@ -396,6 +405,34 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 - **BUG 2 confirmed:** No staff past-date restriction in `attendanceController.js` or Daily Sheet / clock-in UI
 - Updated File Inventory with per-file ✅/⚠️ status; Feature Checklist 24/26 complete
 - Status changed from ✅ COMPLETE → ⚠️ PARTIAL until bugs are fixed
+
+## Daily Sheet status dropdown contrast — 2026-09-22
+
+**What was wrong:** `.att-split-menu` (Daily Sheet chevron status picker) used dark slate background `#0f172a` with `color: inherit` on buttons — menu text inherited dark table body color, making Late/Absent/Leave options invisible.
+
+**What was fixed:** Light dropdown panel (`#ffffff` bg, `#1a1a1a` text), explicit item colors, blue hover (`#f0f4ff` / `#1d4ed8`), `z-index: 1000`.
+
+**File changed:** `client/css/admin/_hrm.css`
+
+## HRM staff roster + employee field sync — 2026-09-22
+
+**What was wrong**
+- `GET /api/admin/hrm/staff` returned every active Admin login account (except superadmin), so Apply Leave showed duplicates (e.g. Nurjahan as admin + employee).
+- Personal fields and references saved to Mongo but appeared blank after refresh when `READ_PG_EMPLOYEE=true` — PostgreSQL mirror omitted `gender`, `bloodGroup`, `maritalStatus`, and `references[]`.
+
+**What was fixed**
+- `getStaffRoster`: HRM path (`/hrm/staff`) returns `[]`; order-assignment path (`/staff/roster`) queries `role: 'staff'` only (excludes superadmin).
+- `mapMongoEmployeeToPostgresWrite` + `employeeRepository.update()` now sync all personal/identity fields.
+- New `syncReferences()` replaces PG `EmployeeReference` rows on each save.
+- Debug logs: `[EMP-UPDATE]` on backend, `[HRM-SAVE]` references on frontend.
+
+**Files changed:** `staffController.js`, `employeeController.js`, `hrmDualWriteHelpers.js`, `employeeRepository.js`, `hrm-employees.js`
+
+## Staff search type-to-filter — 2026-09-22
+
+- **`createSearchableSelect`:** Dropdown hidden until user types; empty query shows no list; "No results found" when filter yields nothing
+- **HRM modals wired:** Apply Leave, Mark Attendance, Generate Payroll, Salary Config use `hrmMountStaffSearchSelect`
+- **Staff Assign modal:** Already type-to-filter; unified empty-state copy
 
 ## HRM FINAL — 2026-09-22 ✅
 

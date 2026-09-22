@@ -596,7 +596,7 @@ router.delete('/hrm/designations/:id', verifyAdmin, checkPermission('manage_staf
 // before the bare /:id routes so they are never read as a record id.
 router.get('/hrm/employees/stats', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeStats);
 router.get('/hrm/employees/export', verifyAdmin, checkPermission('manage_staff'), exportController.exportEmployeesCSV);
-router.get('/hrm/employees', verifyAdmin, checkPermission('manage_staff'), employeeController.getAllEmployees);
+router.get('/hrm/employees', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), employeeController.getAllEmployees);
 router.get('/hrm/employees/:id/profile', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeProfile);
 router.get('/hrm/employees/:id/access-info', verifyAdmin, checkPermission('manage_staff'), employeeController.getAccessInfo);
 router.get('/hrm/employees/:id/access-status', verifyAdmin, checkPermission('manage_staff'), employeeController.getAccessStatus);
