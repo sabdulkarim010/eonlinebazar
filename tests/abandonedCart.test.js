@@ -2,6 +2,10 @@
  * CRM — Abandoned cart list + recovery notification tests.
  ********************************************************************/
 
+jest.mock('../backend/src/services/mailer', () => ({
+    sendAbandonedCartEmail: jest.fn().mockResolvedValue({ delivered: true })
+}));
+
 const request = require('supertest');
 const Cart = require('../backend/src/models/cart');
 const Product = require('../backend/src/models/product');
