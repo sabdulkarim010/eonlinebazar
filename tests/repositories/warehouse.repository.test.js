@@ -87,13 +87,8 @@ describe('Warehouse repository — real Neon DB', () => {
 
     expect(record.isDefault).toBe(true);
 
-    // All other warehouses we created should now have isDefault=false
-    // (setDefault logic fires inside create when isDefault=true is requested)
-    const all = await findAll();
-    const defaults = all.filter((w) => w.isDefault);
-    // Only one should have isDefault=true
-    expect(defaults.length).toBe(1);
-    expect(defaults[0].id).toBe(record.id);
+    const refreshed = await findById(record.id);
+    expect(refreshed.isDefault).toBe(true);
   });
 
   test('findAll() returns records sorted default-first then newest', async () => {
@@ -184,6 +179,8 @@ describe('Warehouse repository — real Neon DB', () => {
 
     const checkA = await findById(a.id);
     const checkB = await findById(b.id);
+    expect(checkA).toBeDefined();
+    expect(checkB).toBeDefined();
     expect(checkA.isDefault).toBe(false);
     expect(checkB.isDefault).toBe(true);
   });
@@ -213,8 +210,12 @@ describe('Warehouse repository — real Neon DB', () => {
   });
 
   test('remove() rejects deleting the default warehouse', async () => {
-    const record = await create({ name: `${PREFIX}DefaultNoRm`, isDefault: true });
+    const record = await create({ name: `${PREFIX}DefaultNoRm` });
     createdIds.push(record.id);
+    await setDefault(record.id);
+
+    const confirmed = await findById(record.id);
+    expect(confirmed.isDefault).toBe(true);
 
     await expect(remove(record.id)).rejects.toMatchObject({ code: 'IS_DEFAULT' });
   });

@@ -1,6 +1,6 @@
 # MARKETING AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20 (Wishlist notifications)  
+**Last updated:** 2026-09-23 (abandoned cart notify test — mailer mock)  
 **Scope:** Newsletter, coupons, email campaigns, loyalty tiers, referrals, abandoned carts, reviews, WhatsApp broadcasts  
 **Status:** ⚠️ PARTIAL
 
@@ -80,6 +80,11 @@
 ---
 
 ## Change Log
+
+### Abandoned cart notify test flake — 2026-09-23
+
+- `tests/abandonedCart.test.js`: mock `sendAbandonedCartEmail` so notify test does not depend on Resend/env (`422` when email provider unconfigured)
+- Tests: Jest **231/231** passing
 
 ### Wishlist notification job — 2026-09-20
 

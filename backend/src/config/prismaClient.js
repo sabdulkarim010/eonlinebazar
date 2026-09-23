@@ -37,12 +37,14 @@ const { PrismaClient } = require('../../../generated/prisma/client.mts');
 const _globalRef = global;
 
 function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL_POOLED;
+  const connectionString = String(
+    process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL || ''
+  ).trim();
   if (!connectionString) {
     throw new Error(
-      '[prismaClient] DATABASE_URL_POOLED is not set. ' +
-      'Add it to .env (Neon pooler endpoint). ' +
-      'DATABASE_URL (direct endpoint) is reserved for the Prisma CLI only.'
+      '[prismaClient] DATABASE_URL_POOLED (or DATABASE_URL) is not set. ' +
+      'Add the Neon pooler URL to .env as DATABASE_URL_POOLED. ' +
+      'DATABASE_URL (direct endpoint) may be used as a fallback for CI/tests.'
     );
   }
 

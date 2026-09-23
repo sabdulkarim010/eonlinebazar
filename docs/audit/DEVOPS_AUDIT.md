@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (CI test gate on main deploy workflow)  
+**Last updated:** 2026-09-23 (CI repository test PostgreSQL env resolution)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -108,11 +108,19 @@
 
 ## Change Log
 
+### CI repository test PostgreSQL env — 2026-09-23
+
+- `deploy.yml` test job: `DATABASE_URL` + `DATABASE_URL_POOLED` secrets; resolve step copies direct URL when pooler secret absent
+- `scripts/run-repository-tests.js`: validates Neon connection string before `node --test`; clear error when secrets missing
+- `prismaClient.js`: falls back to `DATABASE_URL` when `DATABASE_URL_POOLED` unset (CI/tests)
+- `warehouseRepository.setDefault()`: return value from `update()` (fixes flaky read-after-write on Neon HTTP)
+- `warehouse.repository.test.js`: scoped default assertions to test records only
+
 ### CI test gate — 2026-09-23
 
 - Added `test` job to `.github/workflows/deploy.yml` — runs `npm ci`, `npx prisma generate`, `npm test --passWithNoTests`, `npm run test:repositories --if-present` on Node 22 before deploy
 - Deploy job now `needs: [test]` — production SSH deploy blocked when tests fail
-- Test job env: `NODE_ENV=test`, secrets `DATABASE_URL_POOLED`, `MONGODB_URI`, `JWT_SECRET`
+- Test job env: `NODE_ENV=test`, secrets `DATABASE_URL_POOLED`, `DATABASE_URL`, `MONGODB_URI`, `JWT_SECRET`
 
 ### Email + WhatsApp Notification Overhaul — 2026-09-21
 

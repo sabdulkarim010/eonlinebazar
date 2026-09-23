@@ -2578,3 +2578,17 @@ backend/src/routes/adminRoutes.js [MOD] PATCH /orders/:orderId/assign accepts up
 docs/audit/ORDERS_AUDIT.md [MOD] staff RBAC change log
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] staff order RBAC section
 README.md [MOD] last updated
+
+# Abandoned cart notify test fix — 2026-09-23
+tests/abandonedCart.test.js [MOD] mock sendAbandonedCartEmail for stable notify test
+docs/audit/MARKETING_AUDIT.md [MOD] change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] abandoned cart test section
+
+# CI repository test PostgreSQL env — 2026-09-23
+.github/workflows/deploy.yml [MOD] DATABASE_URL secret + resolve step for repository tests
+scripts/run-repository-tests.js [NEW] env validation before node --test repository suite
+backend/src/config/prismaClient.js [MOD] DATABASE_URL fallback when POOLED unset
+backend/src/repositories/warehouseRepository.js [MOD] setDefault/create return fresh rows
+tests/repositories/warehouse.repository.test.js [MOD] scoped default assertions; setDefault before remove-default test
+package.json [MOD] test:repositories uses run-repository-tests.js
+docs/audit/DEVOPS_AUDIT.md [MOD] CI repository env change log

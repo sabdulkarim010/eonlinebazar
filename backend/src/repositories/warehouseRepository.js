@@ -112,6 +112,8 @@ async function create(data) {
       where: { id: { not: record.id }, isDefault: true },
       data: { isDefault: false }
     });
+    const refreshed = await prisma.warehouse.findUnique({ where: { id: record.id } });
+    return toShape(refreshed || record);
   }
 
   return toShape(record);
@@ -232,12 +234,11 @@ async function setDefault(id) {
     where: { id: { not: id }, isDefault: true },
     data: { isDefault: false }
   });
-  await prisma.warehouse.update({
+  const updated = await prisma.warehouse.update({
     where: { id },
     data: { isDefault: true }
   });
 
-  const updated = await prisma.warehouse.findUnique({ where: { id } });
   return toShape(updated);
 }
 

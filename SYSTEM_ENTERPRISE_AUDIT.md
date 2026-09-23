@@ -3220,5 +3220,25 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Status dropdown | ✅ | `canChangeOrderStatus()` helper — `manage_orders` OR `update_order_status` |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## CI Repository Test PostgreSQL Env — 2026-09-23
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| GitHub Actions `DATABASE_URL_POOLED` missing | ✅ | `deploy.yml` resolves from `DATABASE_URL` secret fallback |
+| `scripts/run-repository-tests.js` | ✅ | Fail-fast when no Neon URL; explicit file list (no shell glob) |
+| `prismaClient.js` fallback | ✅ | `DATABASE_URL_POOLED \|\| DATABASE_URL` |
+| Warehouse repo Neon HTTP flake | ✅ | `setDefault`/`create` return post-write rows; test assertions scoped |
+
+## Abandoned Cart Notify Test — 2026-09-23
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `abandonedCart.test.js` notify 422 flake | ✅ | Mock `sendAbandonedCartEmail` — no dependency on Resend env in CI |
+| Jest regression suite | ✅ | **231/231** passing |
+
 
 

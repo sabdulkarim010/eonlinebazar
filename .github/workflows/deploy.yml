@@ -11,6 +11,7 @@ jobs:
 
     env:
       NODE_ENV: test
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DATABASE_URL_POOLED: ${{ secrets.DATABASE_URL_POOLED }}
       MONGODB_URI: ${{ secrets.MONGODB_URI }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -33,6 +34,17 @@ jobs:
 
       - name: Run Jest test suite
         run: npm test --passWithNoTests
+
+      - name: Resolve PostgreSQL URL for repository tests
+        run: |
+          if [ -z "$DATABASE_URL_POOLED" ] && [ -n "$DATABASE_URL" ]; then
+            echo "DATABASE_URL_POOLED=$DATABASE_URL" >> "$GITHUB_ENV"
+            echo "Using DATABASE_URL as DATABASE_URL_POOLED fallback for repository tests."
+          fi
+          if [ -z "$DATABASE_URL_POOLED" ]; then
+            echo "::error::Configure GitHub secret DATABASE_URL_POOLED and/or DATABASE_URL for repository integration tests."
+            exit 1
+          fi
 
       - name: Run repository integration tests
         run: npm run test:repositories --if-present
