@@ -390,7 +390,10 @@
     <div class="custom-modal-box admin-modal employee-modal-wide admin-modal--wide">
         <div class="modal-header employee-profile-header">
             <div class="employee-profile-head">
-                <img id="profileHeaderPhoto" src="" alt="" class="employee-profile-photo">
+                <span class="emp-avatar-wrap">
+                    <img id="profileHeaderPhoto" src="" alt="" class="employee-profile-photo">
+                    <div id="profileHeaderPhotoFallback" class="emp-avatar-initials" style="display:none" aria-hidden="true"></div>
+                </span>
                 <div>
                     <h3 id="profileHeaderName">Employee Profile</h3>
                     <p class="edit-modal-subtitle" id="profileHeaderMeta"></p>

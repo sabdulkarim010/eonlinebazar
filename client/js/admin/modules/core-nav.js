@@ -239,6 +239,11 @@ async function loadAllCustomersForSegmentCache() {
 }
 
 window.fetchCustomers = async function fetchCustomers(pageOrReset = 1, limitArg) {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('view_customers', 'manage_customers')) {
+        return;
+    }
+
     if (customerListLoading) return;
     const pg = ensureCustomerPagination();
 
@@ -500,6 +505,9 @@ window.uploadAdminProfilePic = async function(event) {
  */
 window.logout = function() {
     const goLogout = () => {
+        if (typeof window.teardownLiveChat === 'function') {
+            window.teardownLiveChat();
+        }
         if (typeof window.clearAdminSidebarCache === 'function') window.clearAdminSidebarCache();
         try { showToast("Logging out...", "info"); } catch (e) { /* never block logout */ }
         window.location.href = '/admin/logout';
@@ -650,6 +658,8 @@ function hideIsolatedAdminViews(activeSectionId) {
     });
 }
 
+const CHAT_SECTION_IDS = Object.freeze(['view-chat', 'view-chat-analytics', 'view-canned-responses']);
+
 function navigateAdminSection(targetId, clickedItem) {
     if (!targetId) return;
 
@@ -658,6 +668,13 @@ function navigateAdminSection(targetId, clickedItem) {
 
     const previousActiveSection = document.querySelector('.admin-section.active');
     const previousSectionId = previousActiveSection?.id || null;
+
+    if (previousSectionId
+        && CHAT_SECTION_IDS.includes(previousSectionId)
+        && previousSectionId !== sectionId
+        && typeof window.teardownLiveChat === 'function') {
+        window.teardownLiveChat();
+    }
 
     const resolvedItem = clickedItem
         || document.querySelector(`.sidebar-menu li[data-target="${navTargetId}"]`);

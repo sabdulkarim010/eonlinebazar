@@ -46,9 +46,9 @@ const PERMISSIONS = Object.freeze([
     {
         key: 'manage_inventory',
         label: 'Manage Inventory',
-        description: 'Preset shortcut — grants all Inventory keys via Inventory Manager / Full Admin.',
+        description: 'Preset shortcut — grants all Catalog & Inventory keys via Inventory Manager / Full Admin.',
         icon: 'fa-boxes-stacked',
-        group: 'Inventory',
+        group: 'Catalog',
         preset_only: true
     },
     {
@@ -56,7 +56,7 @@ const PERMISSIONS = Object.freeze([
         label: 'Manage Catalog',
         description: 'Preset shortcut — grants catalog category/brand/attribute keys.',
         icon: 'fa-layer-group',
-        group: 'Inventory',
+        group: 'Catalog',
         preset_only: true
     },
     {
@@ -64,14 +64,15 @@ const PERMISSIONS = Object.freeze([
         label: 'Manage Coupons',
         description: 'Create discount codes and control redemption limits.',
         icon: 'fa-ticket',
-        group: 'Operations'
+        group: 'Marketing'
     },
     {
         key: 'manage_customers',
         label: 'Manage Customers',
-        description: 'View customer profiles, order history, and account status.',
+        description: 'Preset shortcut — grants customer and support ticket keys.',
         icon: 'fa-users',
-        group: 'Operations'
+        group: 'Sales & Orders',
+        preset_only: true
     },
     {
         key: 'manage_settings',
@@ -166,6 +167,13 @@ const PERMISSIONS = Object.freeze([
         icon: 'fa-triangle-exclamation',
         group: 'Attendance'
     },
+    {
+        key: 'view_own_attendance',
+        label: 'View Own Attendance',
+        description: 'View personal attendance history and records.',
+        icon: 'fa-calendar-check',
+        group: 'Attendance'
+    },
     // ── Granular HRM ────────────────────────────────────────────────────
     {
         key: 'view_employees',
@@ -230,48 +238,62 @@ const PERMISSIONS = Object.freeze([
         icon: 'fa-file-signature',
         group: 'HRM'
     },
+    {
+        key: 'apply_own_leave',
+        label: 'Apply Own Leave',
+        description: 'Submit leave applications for yourself.',
+        icon: 'fa-plane',
+        group: 'HRM'
+    },
+    {
+        key: 'view_own_payslip',
+        label: 'View Own Payslip',
+        description: 'View personal salary slips.',
+        icon: 'fa-file-invoice-dollar',
+        group: 'HRM'
+    },
     // ── Granular Inventory ─────────────────────────────────────────────
     {
         key: 'view_products',
         label: 'View products',
         description: 'Browse the product catalog and stock levels.',
         icon: 'fa-box',
-        group: 'Inventory'
+        group: 'Catalog'
     },
     {
         key: 'edit_products',
         label: 'Edit products',
         description: 'Create and update product listings.',
         icon: 'fa-pen',
-        group: 'Inventory'
+        group: 'Catalog'
     },
     {
         key: 'manage_stock',
         label: 'Manage stock',
         description: 'Adjust stock quantities and warehouse assignments.',
         icon: 'fa-warehouse',
-        group: 'Inventory'
+        group: 'Catalog'
     },
     {
         key: 'manage_suppliers',
         label: 'Manage Suppliers',
         description: 'View and manage supplier records.',
         icon: 'fa-building',
-        group: 'Inventory'
+        group: 'Catalog'
     },
     {
         key: 'manage_warehouses',
         label: 'Manage Warehouses',
         description: 'View and manage warehouse locations.',
         icon: 'fa-warehouse',
-        group: 'Inventory'
+        group: 'Catalog'
     },
     {
         key: 'manage_purchase_orders',
         label: 'Manage Purchase Orders',
         description: 'Create and manage purchase orders.',
         icon: 'fa-file-invoice',
-        group: 'Inventory'
+        group: 'Catalog'
     },
     // ── Granular Orders ───────────────────────────────────────────────
     {
@@ -415,17 +437,18 @@ const PERMISSION_IMPLICATIONS = Object.freeze({
     manage_orders: [],
     manage_support_tickets: ['manage_tickets'],
     manage_inventory: [
-        'view_products', 'edit_products', 'manage_stock',
+        'view_products', 'edit_products', 'manage_stock', 'manage_catalog',
         'manage_suppliers', 'manage_warehouses', 'manage_purchase_orders'
     ],
     manage_marketing: [
-        'manage_banners', 'manage_navbar', 'manage_loyalty', 'manage_coupons',
-        'manage_marketing'
+        'manage_banners', 'manage_navbar', 'manage_loyalty', 'manage_coupons'
     ],
     manage_settings: [
-        'manage_settings', 'view_accounts', 'view_financial_reports', 'manage_expenses'
+        'view_accounts', 'view_financial_reports', 'manage_expenses'
     ],
-    manage_customers: ['view_orders'],
+    manage_customers: [
+        'view_customers', 'manage_tickets', 'view_reviews'
+    ],
     view_analytics: ['view_orders'],
     view_attendance: ['view_daily_sheet', 'view_attendance_register', 'view_late_report']
 });

@@ -20,17 +20,17 @@ const {
 const { verifyAdmin } = require('../middlewares/authMiddleware');
 const { checkPermission } = require('../middlewares/rbac');
 
-const canManageCatalog = checkPermission('manage_catalog');
+const canManageNavbar = checkPermission('manage_marketing', 'manage_navbar');
 
 // Storefront — published links only
 router.get('/', getPublicNavbarLinks);
 
 // Admin Catalog Management → Navbar Menu Links
-router.get('/admin', verifyAdmin, canManageCatalog, getAdminNavbarLinks);
-router.post('/admin', verifyAdmin, canManageCatalog, createNavbarLink);
-router.patch('/admin/reorder', verifyAdmin, canManageCatalog, reorderNavbarLinks);
-router.put('/admin/:id', verifyAdmin, canManageCatalog, updateNavbarLink);
-router.patch('/admin/:id', verifyAdmin, canManageCatalog, updateNavbarLink);
-router.delete('/admin/:id', verifyAdmin, canManageCatalog, deleteNavbarLink);
+router.get('/admin', verifyAdmin, canManageNavbar, getAdminNavbarLinks);
+router.post('/admin', verifyAdmin, canManageNavbar, createNavbarLink);
+router.patch('/admin/reorder', verifyAdmin, canManageNavbar, reorderNavbarLinks);
+router.put('/admin/:id', verifyAdmin, canManageNavbar, updateNavbarLink);
+router.patch('/admin/:id', verifyAdmin, canManageNavbar, updateNavbarLink);
+router.delete('/admin/:id', verifyAdmin, canManageNavbar, deleteNavbarLink);
 
 module.exports = router;

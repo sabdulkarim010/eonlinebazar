@@ -288,6 +288,26 @@ function calculateLateness(clockInAt, shiftStart, graceMinutes) {
  * Paginated register. Filters: ?from= &to= (or ?date=), ?staff= (username or
  * id), ?status=, plus ?todayStats=true for the section KPI row.
  */
+/** GET /api/admin/hrm/attendance/my — self-service attendance history for linked employee/admin. */
+exports.getMyAttendance = async (req, res) => {
+    try {
+        const { resolveSelfServiceStaffSubject, staffSelectorFromSubject } = require('../../utils/hrmStaffResolver');
+        const subject = await resolveSelfServiceStaffSubject(req.adminAccount);
+        if (!subject) {
+            return res.status(404).json({
+                success: false,
+                message: 'No employee profile linked to your admin account.'
+            });
+        }
+
+        req.query = { ...req.query, staff: staffSelectorFromSubject(subject) };
+        return exports.getAttendanceList(req, res);
+    } catch (error) {
+        console.error('getMyAttendance Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load your attendance.' });
+    }
+};
+
 exports.getAttendanceList = async (req, res) => {
     try {
         const { page, limit, skip } = parsePagination(req.query);

@@ -236,6 +236,11 @@ async function savePO() {
 }
 
 async function loadPOs() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('manage_purchase_orders', 'manage_inventory')) {
+        return;
+    }
+
     const tbody = document.getElementById('purchaseOrdersTableBody');
     if (!tbody) return;
 

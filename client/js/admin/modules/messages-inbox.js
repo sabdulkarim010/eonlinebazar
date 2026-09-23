@@ -554,6 +554,11 @@ function renderMessagesInbox(messages = adminMessagesCache, page, limit) {
 }
 
 window.fetchAdminMessages = async function fetchAdminMessages() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('manage_tickets', 'manage_customers')) {
+        return;
+    }
+
     const section = document.getElementById('view-messages');
     if (!section) return;
 

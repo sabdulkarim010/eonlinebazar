@@ -65,7 +65,7 @@ router.post('/apply', optionalVerifyUser, applyCoupon);
 router.get('/active-check', checkActiveCoupons);
 
 // Admin — list / CRUD (permission: manage_coupons)
-const canManageCoupons = checkPermission('manage_coupons');
+const canManageCoupons = checkPermission('manage_marketing', 'manage_coupons');
 
 router.get('/', verifyAdmin, canManageCoupons, getCoupons);
 router.get('/:id', verifyAdmin, canManageCoupons, getCouponById);

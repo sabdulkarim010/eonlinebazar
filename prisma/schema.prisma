@@ -763,6 +763,7 @@ model Admin {
 
   @@index([role])
   @@index([status])
+  @@index([status, role])
   @@map("admins")
 }
 
@@ -873,6 +874,7 @@ model Employee {
 
   @@index([status])
   @@index([department])
+  @@index([employeeId])
   @@index([designation])
   @@index([employeeType])
   @@map("employees")
@@ -1019,6 +1021,7 @@ model Attendance {
   employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([staffId, date])
+  @@index([date, employeeId])
   @@index([date, status])
   @@index([adminId])
   @@index([employeeId])
@@ -1128,7 +1131,9 @@ model Leave {
   employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([staffId, startDate])
+  @@index([staffId, status])
   @@index([status, startDate])
+  @@index([startDate])
   @@index([startDate, endDate])
   @@index([adminId])
   @@index([employeeId])

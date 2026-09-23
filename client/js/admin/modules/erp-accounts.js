@@ -49,6 +49,11 @@ function renderAccountsSummary(data) {
 }
 
 async function loadAccountsSection() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('view_accounts', 'manage_settings', 'view_analytics')) {
+        return;
+    }
+
     const loading = document.getElementById('accountsLoading');
     const error = document.getElementById('accountsError');
     const content = document.getElementById('accountsContent');

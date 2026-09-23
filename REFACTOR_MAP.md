@@ -2498,3 +2498,86 @@ client/js/urlUtils.js [MOD] appendCacheBust skips CDN hosts
 docs/audit/HRM_AUDIT.md [MOD] F1–F10 G1–G3 resolved
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] gap fixes section
 README.md [MOD] last updated
+
+# Master Audit P1 Fixes — 2026-09-23
+client/js/admin/modules/orders-table.js [MOD] hideReturnRequestsPanel, restoreOrdersListTab, no recursion
+client/js/admin/modules/orders-return-requests.js [MOD] back button uses restoreOrdersListTab
+backend/src/routes/adminRoutes.js [MOD] reviews + abandoned carts permission guards; sync-failures route
+backend/src/models/FailedSync.js [NEW] dual-write failure tracker
+backend/src/services/failedSyncService.js [NEW] record, list, reconcile on startup
+backend/src/services/dualWriteService.js [MOD] recordFailedSync on PG failure
+backend/src/utils/hrmDualWriteHelpers.js [MOD] mirrorEmployeeSaveToPostgres exported
+backend/src/controllers/admin/employeeController.js [MOD] delegate mirror to hrmDualWriteHelpers
+backend/src/controllers/admin/syncFailuresController.js [NEW] GET sync-failures
+backend/src/server.js [MOD] reconcileFailedSyncs on startup
+docs/audit/MASTER_ENTERPRISE_AUDIT.md [MOD] P1 items marked resolved
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] P1 fixes section
+README.md [MOD] last updated
+
+# Master Audit P2 Fixes — 2026-09-23
+backend/src/config/permissions.js [MOD] view_own_attendance, apply_own_leave, view_own_payslip keys
+backend/src/routes/adminRoutes.js [MOD] HRM self-service routes
+backend/src/middlewares/authMiddleware.js [MOD] superadmin 2FA enforcement in verifyAdmin
+backend/src/utils/hrmStaffResolver.js [MOD] resolveSelfServiceStaffSubject
+backend/src/controllers/admin/attendanceController.js [MOD] getMyAttendance
+backend/src/controllers/admin/leaveController.js [MOD] applyOwnLeave, getMyLeaveBalance
+backend/src/controllers/admin/payrollController.js [MOD] getMyPayslips
+client/js/admin/modules/chat-admin.js [MOD] teardownLiveChat
+client/js/admin/modules/core-nav.js [MOD] chat teardown on navigate/logout
+client/js/admin/modules/hrm-attendance.js [MOD] safeEmployeePhoto
+client/js/admin/modules/hrm-employees.js [MOD] photo fallback
+client/js/admin/modules/hrm-leaves.js [MOD] Apply My Leave flow
+client/js/admin/modules/hrm-payroll.js [MOD] my-payslips self-service
+client/js/admin-staff.js [MOD] sidebar alts + twoFaWarning
+client/admin/partials/view-hrm-leaves.html [MOD] Apply My Leave UI
+client/admin/partials/view-hrm-employees.html [MOD] profile photo fallback
+client/admin/partials/view-staff.html [MOD] twoFaWarning banner
+client/css/admin/_hrm.css [MOD] emp-avatar styles
+client/css/admin/_staff.css [MOD] security-warning
+devops/nginx.conf [MOD] /socket.io/ WebSocket proxy
+docs/audit/*.md [MOD] P2 audit updates
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] P2 fixes section
+README.md [MOD] last updated
+
+# P3 Granular RBAC Route Guards — 2026-09-23
+backend/src/config/permissions.js [MOD] groups, implications, manage_customers preset_only
+backend/src/routes/adminRoutes.js [MOD] catalog, marketing, finance, customer, ticket guards
+backend/src/routes/productRoutes.js [MOD] edit_products granular guard
+backend/src/routes/categoryRoutes.js [MOD] manage_inventory + manage_catalog
+backend/src/routes/brandRoutes.js [MOD] manage_inventory + manage_catalog
+backend/src/routes/attributeRoutes.js [MOD] manage_inventory + manage_catalog
+backend/src/routes/bannerRoutes.js [MOD] manage_marketing + manage_banners
+backend/src/routes/navbarLinkRoutes.js [MOD] manage_marketing + manage_navbar
+backend/src/routes/couponRoutes.js [MOD] manage_marketing + manage_coupons
+client/js/admin-staff.js [MOD] hasAnyAdminPermission helper
+client/js/admin/modules/erp-*.js [MOD] section load gates
+client/js/admin/modules/catalog-*.js [MOD] section load gates
+client/js/admin/modules/messages-inbox.js [MOD] fetchAdminMessages gate
+client/js/admin/modules/products-table.js [MOD] fetchLiveProducts gate
+client/js/admin/modules/core-nav.js [MOD] fetchCustomers gate
+client/js/admin-banner.js [MOD] loadBanners gate
+docs/audit/MASTER_ENTERPRISE_AUDIT.md [MOD] P3 resolved
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] P3 section
+README.md [MOD] last updated
+
+# P4 Performance & Security Polish — 2026-09-23
+backend/src/models/*.js [MOD] Mongo performance indexes
+prisma/schema.prisma [MOD] PG performance indexes
+backend/src/controllers/admin/employeeController.js [MOD] sanitization
+backend/src/controllers/admin/leaveController.js [MOD] sanitization
+backend/src/middlewares/securityMiddleware.js [MOD] 2FA rate limits
+client/js/admin-staff.js [MOD] error handlers
+.cursorrules [MOD] production checklist
+docs/audit/*.md [MOD] P4 updates
+README.md [MOD] permissions + migrate step
+
+# P4 Performance & Security Polish — 2026-09-23
+backend/src/models/*.js [MOD] Mongo performance indexes
+prisma/schema.prisma [MOD] PG performance indexes
+backend/src/controllers/admin/employeeController.js [MOD] sanitization
+backend/src/controllers/admin/leaveController.js [MOD] sanitization
+backend/src/middlewares/securityMiddleware.js [MOD] 2FA rate limits
+client/js/admin-staff.js [MOD] error handlers
+.cursorrules [MOD] production checklist
+docs/audit/*.md [MOD] P4 updates
+README.md [MOD] permissions + migrate step

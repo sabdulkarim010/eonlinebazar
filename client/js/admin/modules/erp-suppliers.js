@@ -29,6 +29,11 @@ function resetSupplierForm() {
 }
 
 async function loadSuppliers() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('manage_suppliers', 'manage_inventory')) {
+        return;
+    }
+
     const tbody = document.getElementById('suppliersTableBody');
     if (!tbody) return;
 

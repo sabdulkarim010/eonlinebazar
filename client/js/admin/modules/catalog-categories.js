@@ -27,6 +27,11 @@ function getAuthToken() {
 window.getAuthToken = getAuthToken;
 
 async function loadCategories() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('manage_catalog', 'manage_inventory')) {
+        return;
+    }
+
     const authToken = getAdminAuthToken();
 
     try {

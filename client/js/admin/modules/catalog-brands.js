@@ -11,6 +11,11 @@ import '../admin-core.js';
 /* shared state: globalBrands lives on window (admin-core) */
 
 async function fetchBrands() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('manage_catalog', 'manage_inventory')) {
+        return;
+    }
+
     try {
         const response = await fetch('/api/brands');
         const data = await response.json();

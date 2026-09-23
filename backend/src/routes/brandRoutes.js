@@ -14,7 +14,7 @@ const { getBrands, createBrand, updateBrand, deleteBrand } = require('../control
 const { verifyAdmin } = require('../middlewares/authMiddleware');
 const { checkPermission } = require('../middlewares/rbac');
 
-const canManageCatalog = checkPermission('manage_catalog');
+const canManageCatalog = checkPermission('manage_inventory', 'manage_catalog');
 
 // ১. সব ব্র্যান্ড নিয়ে আসা (পাবলিক)
 router.get('/', getBrands);

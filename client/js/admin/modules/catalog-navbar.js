@@ -228,6 +228,11 @@ function syncNavbarLinkCustomPageUi() {
 }
 
 async function fetchNavbarLinks() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('manage_navbar', 'manage_marketing')) {
+        return;
+    }
+
     try {
         const response = await fetch('/api/navbar-links/admin', {
             headers: { Authorization: `Bearer ${token}` }

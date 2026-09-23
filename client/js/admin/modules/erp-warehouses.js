@@ -29,6 +29,11 @@ function resetWarehouseForm() {
 }
 
 async function loadWarehouses() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('manage_warehouses', 'manage_inventory')) {
+        return;
+    }
+
     const tbody = document.getElementById('warehousesTableBody');
     if (!tbody) return;
 

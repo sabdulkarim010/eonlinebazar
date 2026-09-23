@@ -3155,5 +3155,58 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Cloudinary cache bust (I) | ✅ | CDN hosts skipped in `appendCacheBust()` |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## Master Audit P1 Fixes — 2026-09-23
+
+**Status:** ✅ Complete (items 1–3 of 4; item 4 = ops task)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| P1-1 Return Requests stack overflow | ✅ | `hideReturnRequestsPanel()` + `window.restoreOrdersListTab()` — no mutual calls between tab switchers |
+| P1-2 Reviews API permission | ✅ | `GET /api/admin/reviews` → `checkPermission('manage_orders', 'view_reviews')`; moderate/delete unchanged |
+| P1-3 Abandoned carts API permission | ✅ | CRM routes accept `manage_marketing`, `view_abandoned_carts`, `manage_orders` |
+| P1-4 Dual-write failure tracking | ✅ | `FailedSync` model; `failedSyncService`; `dualWriteService` records failures; startup reconcile; `GET /api/admin/system/sync-failures` (superadmin) |
+| Jest regression suite | ✅ | **231/231** passing |
+
+## Master Audit P2 Fixes — 2026-09-23
+
+**Status:** ✅ Complete (items 1–4)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| P2-1 Live Chat teardown / WebSocket | ✅ | `teardownLiveChat()` in `chat-admin.js`; called on section leave, logout, `beforeunload`; nginx `/socket.io/` upgrade block |
+| P2-2 Cloudinary 404 employee photos | ✅ | `safeEmployeePhoto()` in HRM modules; `.emp-avatar-*` CSS; profile modal fallback |
+| P2-3 HRM self-service permissions | ✅ | `view_own_attendance`, `apply_own_leave`, `view_own_payslip`; self-service API routes; leaves/payroll UI |
+| P2-4 Superadmin 2FA enforcement | ✅ | `verifyAdmin` 403 when superadmin lacks 2FA (test env exempt); `#twoFaWarning` on Staff page |
+| Jest regression suite | ✅ | **231/231** passing |
+
+## P3 Granular RBAC Route Guards — 2026-09-23
+
+**Status:** ✅ Complete
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Catalog & inventory routes | ✅ | Products, suppliers, warehouses, POs, categories/brands/attributes — coarse + granular keys |
+| Marketing routes | ✅ | Banners, navbar, coupons, master-settings loyalty; newsletter unchanged |
+| Finance routes | ✅ | Accounts summary, analytics, expenses, P&L — `view_accounts` / `view_financial_reports` / `manage_expenses` |
+| Customers & support | ✅ | Customer GET + tickets/messages use `view_customers` / `manage_tickets` |
+| PERMISSION_IMPLICATIONS | ✅ | `manage_inventory`, `manage_marketing`, `manage_customers`, `manage_settings` synced |
+| Permission groups | ✅ | Catalog, Marketing, Sales & Orders, Accounts group labels corrected |
+| Frontend section gates | ✅ | 15 section load functions use `hasAnyAdminPermission` |
+| Jest regression suite | ✅ | **231/231** passing |
+
+## P4 Performance & Security Polish — 2026-09-23
+
+**Status:** ✅ Complete (core items 1–6)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| P4-1 Database indexes | ✅ | 7 Mongo index defs + 5 Prisma `@@index` additions (migrate pending) |
+| P4-2 Rate limiting | ✅ | `express-rate-limit` ^8.6; auth + api limiters; 2FA routes guarded |
+| P4-3 Input sanitization | ✅ | Employee update + leave apply string trim/slice; no joi/zod yet |
+| P4-4 Dead code cleanup | ✅ | Removed `[HRM-SAVE]`, `[EMP-UPDATE]`, `[PERMS-FILTER]` debug logs |
+| P4-5 Error boundaries | ✅ | `window.error` + `unhandledrejection` handlers in admin-staff.js |
+| P4-6 Documentation | ✅ | README, MASTER audit, .cursorrules production checklist |
+| Jest regression suite | ✅ | **231/231** passing |
+
 
 

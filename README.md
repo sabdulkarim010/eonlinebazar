@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-23 (HRM + Orders RBAC gap fixes A–I)
+**Last updated:** 2026-09-23 (P4 indexes, sanitization, enterprise readiness)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
@@ -25,7 +25,7 @@
 | **CRM** | Recovery, referrals, support, marketing, and loyalty |
 | **HRM** | RBAC, attendance, payroll, and leave management |
 
-The web client uses vanilla JavaScript with a modular ES architecture. The API runs on Node.js and Express with MongoDB Atlas, Redis caching, PDFKit document generation, and scheduled cron jobs. Production is hosted on an Ubuntu DigitalOcean droplet behind Nginx, supervised by PM2, with media stored on Cloudinary.
+The web client uses vanilla JavaScript with a modular ES architecture. The API runs on Node.js and Express with **dual-write: MongoDB Atlas + PostgreSQL (Neon/Prisma)** — PostgreSQL is the primary read source when `READ_PG_*` flags are ON. Redis caching, PDFKit document generation, and scheduled cron jobs round out the stack. Production is hosted on an Ubuntu DigitalOcean droplet behind Nginx, supervised by PM2, with media stored on Cloudinary.
 
 ---
 
@@ -106,7 +106,7 @@ Staff identity, time tracking, compensation, and leave — gated by `manage_staf
 
 | Module | Description |
 |--------|-------------|
-| **Granular RBAC & Staff Activity Audit** | Super-admin vs staff with **47** explicit permission keys (coarse + granular: Attendance tabs, HRM payroll/leave, Operations, Inventory, Marketing, Accounts). Every sensitive action writes a **staff activity audit** entry (`resourceType` + `resourceId`). **Unified Activity Feed** timeline (`GET /api/admin/activity-feed`) and dashboard widgets gated by `SECTION_PERMISSIONS` + route `checkPermission()`. |
+| **Granular RBAC & Staff Activity Audit** | Super-admin vs staff with **54** permission keys (**48** grantable granular keys + 6 coarse presets). Self-service portal (`view_own_attendance`, `apply_own_leave`, `view_own_payslip`). Every sensitive action writes a **staff activity audit** entry. **Unified Activity Feed** gated by `SECTION_PERMISSIONS` + route `checkPermission()`. |
 | **Attendance & Shift Management** | **Daily Sheet** tab for same-day roster marking (auto-save, bulk present/absent, dept filter), **date lock** (Super Admin), **Manual Entry** panel with audit trail, clock-in / clock-out with optional **GPS tagging**, one row per staff per day, named shifts with grace-period **late penalties**, plus register, summary, and late reports. |
 | **Payroll Engine & Automated Pay Slips** | Attendance-driven runs: `baseSalary × min(presentDays / workingDays, 1) + overtime + bonus − deductions`. Workflow is draft → approved → paid. Each slip is a **PDFKit** pay slip with pro-rated working-day calculation. |
 | **Leave Management** | **Casual**, **Sick**, and **Annual** leave (plus unpaid) with balances, a month **calendar** view, and automatic attendance sync — approving leave stamps `holiday` rows across the span. |
@@ -160,11 +160,12 @@ Each domain has a dedicated audit file with **File Inventory**, **Feature Checkl
 
 The repository ships with **100% passing automated coverage: 231 / 231 tests** across **26 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, Resend, or Cloudinary calls are required.
 
-PostgreSQL repository integration tests (157 tests, real Neon) run separately — Jest cannot load the generated `.mts` Prisma client:
+PostgreSQL repository integration tests (241 tests, real Neon) run separately:
 
 ```bash
-npm test                  # 22 suites, 198 tests — MongoDB in-memory
+npm test                  # 26 suites, 231 tests — MongoDB in-memory
 npm run test:repositories # 32 files, 241 tests — Neon PostgreSQL (serial concurrency)
+cd backend && npx prisma migrate deploy  # apply PG schema (production)
 
 **Stage 4 analytics read cutover (Part 3.1):** set any of `READ_PG_FINANCE_ANALYTICS`, `READ_PG_PROFIT_LOSS`, `READ_PG_ACCOUNTS_SUMMARY`, `READ_PG_CRM`, or `READ_PG_ENTERPRISE_SUMMARY=true` to switch dashboard analytics reads from Mongo aggregates to Prisma (default OFF).
 

@@ -91,6 +91,7 @@ const {
 const cacheController = require('../controllers/cacheController');
 const sandboxController = require('../controllers/sandboxController');
 const backupController = require('../controllers/admin/backupController');
+const syncFailuresController = require('../controllers/admin/syncFailuresController');
 const sidebarLabelController = require('../controllers/admin/sidebarLabelController');
 const supportSlaController = require('../controllers/admin/supportSlaController');
 const securityMonitorController = require('../controllers/admin/securityMonitorController');
@@ -181,8 +182,8 @@ router.get('/notifications', verifyAdmin, notificationController.getMyNotificati
 router.patch('/notifications/:id/read', verifyAdmin, notificationController.markAsRead);
 
 // ১. কাস্টমারদের ডাটা পাওয়ার রাস্তা (GET)
-router.get('/customers/export', verifyAdmin, checkPermission('manage_customers'), exportController.exportCustomersCSV);
-router.get('/customers', verifyAdmin, checkPermission('manage_customers'), adminController.getAllCustomers);
+router.get('/customers/export', verifyAdmin, checkPermission('manage_customers', 'view_customers'), exportController.exportCustomersCSV);
+router.get('/customers', verifyAdmin, checkPermission('manage_customers', 'view_customers'), adminController.getAllCustomers);
 
 // POS quick-add customer (must be before /customers/:id)
 router.post('/customers/quick', verifyAdmin, checkPermission('manage_customers'), adminController.createQuickCustomer);
@@ -191,20 +192,20 @@ router.post('/customers/quick', verifyAdmin, checkPermission('manage_customers')
 router.get('/enterprise-summary', verifyAdmin, checkPermission('view_analytics'), enterpriseSummaryController.getEnterpriseSummary);
 
 // Accounts overview — cash flow, liquidity, and balance metrics (GET)
-router.get('/accounts-summary', verifyAdmin, checkPermission('view_analytics'), accountsSummaryController.getAccountsSummary);
+router.get('/accounts-summary', verifyAdmin, checkPermission('manage_settings', 'view_accounts', 'view_analytics'), accountsSummaryController.getAccountsSummary);
 
 // ১গ. Sales & Order Analytics Dashboard (GET)
 router.get('/dashboard-analytics', verifyAdmin, checkPermission('view_analytics'), getDashboardAnalytics);
 
 // ১ঘ. Finance date-range analytics (GET)
 // URL: GET /api/admin/analytics?period=&startDate=&endDate=
-router.get('/analytics', verifyAdmin, checkPermission('view_analytics'), getFinanceAnalytics);
+router.get('/analytics', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports', 'view_analytics'), getFinanceAnalytics);
 
 // Backward-compatible alias
-router.get('/analytics/filter', verifyAdmin, checkPermission('view_analytics'), getFinanceAnalytics);
+router.get('/analytics/filter', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports', 'view_analytics'), getFinanceAnalytics);
 
 // Google Analytics 4 configuration status (Admin Settings dashboard link)
-router.get('/analytics/status', verifyAdmin, checkPermission('view_analytics'), (req, res) => {
+router.get('/analytics/status', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports', 'view_analytics'), (req, res) => {
     res.json({
         success: true,
         enabled: process.env.GOOGLE_ANALYTICS_ENABLED === 'true',
@@ -218,8 +219,8 @@ router.put('/users/:id/avatar', verifyAdmin, checkPermission('manage_customers')
 router.delete('/users/:id/avatar', verifyAdmin, checkPermission('manage_customers'), adminController.deleteCustomerAvatar);
 router.put('/customers/:id/avatar', verifyAdmin, checkPermission('manage_customers'), upload.single('avatar'), adminController.updateCustomerAvatar);
 router.delete('/customers/:id/avatar', verifyAdmin, checkPermission('manage_customers'), adminController.deleteCustomerAvatar);
-router.get('/customers/:id/orders', verifyAdmin, checkPermission('manage_customers'), adminController.getCustomerOrders);
-router.get('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.getCustomerById);
+router.get('/customers/:id/orders', verifyAdmin, checkPermission('manage_customers', 'view_customers'), adminController.getCustomerOrders);
+router.get('/customers/:id', verifyAdmin, checkPermission('manage_customers', 'view_customers'), adminController.getCustomerById);
 router.put('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.updateCustomer);
 router.patch('/customers/:id/status', verifyAdmin, checkPermission('manage_customers'), adminController.updateCustomerStatus);
 router.delete('/customers/:id', verifyAdmin, checkPermission('manage_customers'), adminController.deleteCustomer);
@@ -230,7 +231,7 @@ router.post('/customers/:userId/wallet', verifyAdmin, checkPermission('manage_cu
 
 // Admin review moderation
 // URL: GET /api/admin/reviews
-router.get('/reviews', verifyAdmin, checkPermission('manage_orders'), getAllReviews);
+router.get('/reviews', verifyAdmin, checkPermission('manage_orders', 'view_reviews'), getAllReviews);
 router.patch('/reviews/:id/moderate', verifyAdmin, checkPermission('manage_orders'), moderateReview);
 router.delete('/reviews/:id', verifyAdmin, checkPermission('manage_orders'), deleteReview);
 
@@ -298,7 +299,7 @@ router.patch('/orders/:orderId/book-courier', verifyAdmin, checkPermission('mana
 router.get('/orders/:orderId/courier-status', verifyAdmin, checkPermission('manage_orders'), adminCourierController.getCourierStatus);
 
 // Manual stock alert trigger (admin testing)
-router.get('/stock/check-now', verifyAdmin, checkPermission('manage_inventory'), async (req, res) => {
+router.get('/stock/check-now', verifyAdmin, checkPermission('manage_inventory', 'manage_stock', 'edit_products'), async (req, res) => {
     try {
         const payload = await checkAndAlertLowStock();
         res.json({ success: true, ...payload });
@@ -316,13 +317,13 @@ router.get('/stock/check-now', verifyAdmin, checkPermission('manage_inventory'),
 router.get(
     '/products/import-template',
     verifyAdmin,
-    checkPermission('manage_inventory'),
+    checkPermission('manage_inventory', 'view_products'),
     downloadImportTemplate
 );
 router.post(
     '/products/bulk-import',
     verifyAdmin,
-    checkPermission('manage_inventory'),
+    checkPermission('manage_inventory', 'edit_products'),
     importFileUpload,
     bulkImportProductsHandler
 );
@@ -381,7 +382,7 @@ router.get('/login-history', verifyAdmin, checkPermission('manage_security'), ad
 router.get('/security/rate-limit-stats', verifyAdmin, checkPermission('manage_security'), securityMonitorController.getRateLimitStats);
 
 // ✨ AI product content assist (Anthropic proxy)
-router.post('/ai/product-assist', verifyAdmin, checkPermission('manage_inventory'), adminController.aiProductAssist);
+router.post('/ai/product-assist', verifyAdmin, checkPermission('manage_inventory', 'edit_products'), adminController.aiProductAssist);
 
 // ৩. টোকেন ভেরিফিকেশন (GET)
 router.get('/verify-token', verifyAdmin, adminController.verifyAdminToken);
@@ -417,13 +418,13 @@ router.put('/settings/attendance', verifyAdmin, checkPermission('manage_staff'),
 // ৫খ. মাস্টার সেটিংস — অ্যানাউন্সমেন্ট, ফ্রি শিপিং, ক্যাশব্যাক, পয়েন্ট, রিফান্ড (Singleton)
 // একটি সেভ অ্যাকশনেই সব সেটিংস আপডেট হয়।
 // URL: GET|POST|PUT /api/admin/master-settings
-router.get('/master-settings', verifyAdmin, masterSettingsController.getMasterSettings);
-router.put('/master-settings', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateMasterSettings);
-router.post('/master-settings', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateMasterSettings);
+router.get('/master-settings', verifyAdmin, checkPermission('manage_settings', 'manage_loyalty', 'manage_marketing'), masterSettingsController.getMasterSettings);
+router.put('/master-settings', verifyAdmin, checkPermission('manage_settings', 'manage_loyalty', 'manage_marketing'), masterSettingsController.updateMasterSettings);
+router.post('/master-settings', verifyAdmin, checkPermission('manage_settings', 'manage_loyalty', 'manage_marketing'), masterSettingsController.updateMasterSettings);
 
 // URL: POST|PUT /api/admin/master-settings/update — unified "Save Master Settings"
-router.post('/master-settings/update', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateMasterSettings);
-router.put('/master-settings/update', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateMasterSettings);
+router.post('/master-settings/update', verifyAdmin, checkPermission('manage_settings', 'manage_loyalty', 'manage_marketing'), masterSettingsController.updateMasterSettings);
+router.put('/master-settings/update', verifyAdmin, checkPermission('manage_settings', 'manage_loyalty', 'manage_marketing'), masterSettingsController.updateMasterSettings);
 
 /********************************************************************
  # ৫গ. 💳 DYNAMIC PAYMENT METHOD CATALOG (CRUD)
@@ -490,26 +491,26 @@ router.post('/pages/:slug', verifyAdmin, checkPermission('manage_settings'), pag
  # ৫চ. ✉️ CUSTOMER MESSAGES INBOX
  # URL: /api/admin/messages
  ********************************************************************/
-router.get('/messages', verifyAdmin, checkPermission('manage_settings'), contactController.listContactMessages);
-router.patch('/messages/:id/read', verifyAdmin, checkPermission('manage_settings'), contactController.markContactMessageRead);
-router.patch('/messages/:id/unread', verifyAdmin, checkPermission('manage_settings'), contactController.markContactMessageUnread);
-router.delete('/messages/:id', verifyAdmin, checkPermission('manage_settings'), contactController.deleteContactMessage);
+router.get('/messages', verifyAdmin, checkPermission('manage_customers', 'manage_tickets'), contactController.listContactMessages);
+router.patch('/messages/:id/read', verifyAdmin, checkPermission('manage_customers', 'manage_tickets'), contactController.markContactMessageRead);
+router.patch('/messages/:id/unread', verifyAdmin, checkPermission('manage_customers', 'manage_tickets'), contactController.markContactMessageUnread);
+router.delete('/messages/:id', verifyAdmin, checkPermission('manage_customers', 'manage_tickets'), contactController.deleteContactMessage);
 
 /********************************************************************
  # ৫চ.২ 🎫 SUPPORT TICKET LIFECYCLE (ContactMessage tickets)
  # URL: /api/admin/tickets/*
  ********************************************************************/
-router.get('/tickets/stats', verifyAdmin, checkPermission('manage_settings'), contactController.getTicketStats);
-router.get('/support/sla-report', verifyAdmin, checkPermission('manage_customers'), supportSlaController.getSlaReport);
-router.patch('/tickets/:id/assign', verifyAdmin, checkPermission('manage_settings'), contactController.assignTicket);
-router.patch('/tickets/:id/status', verifyAdmin, checkPermission('manage_settings'), contactController.updateTicketStatus);
+router.get('/tickets/stats', verifyAdmin, checkPermission('manage_customers', 'manage_tickets'), contactController.getTicketStats);
+router.get('/support/sla-report', verifyAdmin, checkPermission('manage_customers', 'manage_tickets'), supportSlaController.getSlaReport);
+router.patch('/tickets/:id/assign', verifyAdmin, checkPermission('manage_customers', 'manage_tickets'), contactController.assignTicket);
+router.patch('/tickets/:id/status', verifyAdmin, checkPermission('manage_customers', 'manage_tickets'), contactController.updateTicketStatus);
 
 /********************************************************************
  # ৫চ.১ 🤝 CRM AUTOMATION DASHBOARDS
  # URL: /api/admin/crm/*
  ********************************************************************/
-router.get('/crm/abandoned-carts', verifyAdmin, checkPermission('manage_marketing'), crmController.getAbandonedCartStats);
-router.post('/crm/abandoned-carts/:userId/notify', verifyAdmin, checkPermission('manage_marketing'), crmController.notifyAbandonedCart);
+router.get('/crm/abandoned-carts', verifyAdmin, checkPermission('manage_marketing', 'view_abandoned_carts', 'manage_orders'), crmController.getAbandonedCartStats);
+router.post('/crm/abandoned-carts/:userId/notify', verifyAdmin, checkPermission('manage_marketing', 'view_abandoned_carts', 'manage_orders'), crmController.notifyAbandonedCart);
 
 /********************************************************************
  # ERP Finance — Expense Ledger (for advanced P&L)
@@ -517,64 +518,64 @@ router.post('/crm/abandoned-carts/:userId/notify', verifyAdmin, checkPermission(
  # Permission: manage_settings (finance/settings owner)
  # Named /summary is declared before /:id so it is never read as an id.
  ********************************************************************/
-router.get('/expenses/summary', verifyAdmin, checkPermission('manage_settings'), expenseController.getExpenseSummary);
-router.post('/expenses/upload-receipt', verifyAdmin, checkPermission('manage_settings'), expenseController.receiptUploadMiddleware, expenseController.uploadExpenseReceipt);
-router.get('/expenses', verifyAdmin, checkPermission('manage_settings'), expenseController.getAllExpenses);
-router.post('/expenses', verifyAdmin, checkPermission('manage_settings'), expenseController.createExpense);
-router.patch('/expenses/:id', verifyAdmin, checkPermission('manage_settings'), expenseController.updateExpense);
-router.delete('/expenses/:id', verifyAdmin, checkPermission('manage_settings'), expenseController.deleteExpense);
+router.get('/expenses/summary', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.getExpenseSummary);
+router.post('/expenses/upload-receipt', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.receiptUploadMiddleware, expenseController.uploadExpenseReceipt);
+router.get('/expenses', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.getAllExpenses);
+router.post('/expenses', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.createExpense);
+router.patch('/expenses/:id', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.updateExpense);
+router.delete('/expenses/:id', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.deleteExpense);
 
 /********************************************************************
  # ERP Finance — Dynamic Expense Categories
  # URL: /api/admin/expense-categories
  # Named routes declared before /:id to avoid param collisions.
  ********************************************************************/
-router.get('/expense-categories/admin', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.getAdminExpenseCategories);
-router.patch('/expense-categories/other-custom-toggle', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.toggleOtherCustomInput);
-router.get('/expense-categories', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.getActiveExpenseCategories);
-router.post('/expense-categories', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.createExpenseCategory);
-router.patch('/expense-categories/:id/toggle', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.toggleExpenseCategoryActive);
-router.delete('/expense-categories/:id', verifyAdmin, checkPermission('manage_settings'), expenseCategoryController.deleteExpenseCategory);
+router.get('/expense-categories/admin', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.getAdminExpenseCategories);
+router.patch('/expense-categories/other-custom-toggle', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.toggleOtherCustomInput);
+router.get('/expense-categories', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.getActiveExpenseCategories);
+router.post('/expense-categories', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.createExpenseCategory);
+router.patch('/expense-categories/:id/toggle', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.toggleExpenseCategoryActive);
+router.delete('/expense-categories/:id', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.deleteExpenseCategory);
 
 /********************************************************************
  # ERP Finance — Advanced Profit & Loss (superadmin only)
  # URL: /api/admin/finance/profit-loss[/export-pdf|/export-csv]
  ********************************************************************/
-router.get('/finance/profit-loss', verifyAdmin, requireSuperAdmin, profitLossController.getProfitLossReport);
-router.get('/finance/profit-loss/export-pdf', verifyAdmin, requireSuperAdmin, exportController.exportPLtoPDF);
-router.get('/finance/profit-loss/export-csv', verifyAdmin, requireSuperAdmin, exportController.exportPLtoCSV);
-router.get('/finance/export', verifyAdmin, requireSuperAdmin, financeExportController.exportFinanceReport);
+router.get('/finance/profit-loss', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports'), profitLossController.getProfitLossReport);
+router.get('/finance/profit-loss/export-pdf', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports'), exportController.exportPLtoPDF);
+router.get('/finance/profit-loss/export-csv', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports'), exportController.exportPLtoCSV);
+router.get('/finance/export', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports'), financeExportController.exportFinanceReport);
 router.get('/orders/export', verifyAdmin, checkPermission('manage_orders', 'view_orders', 'update_order_status'), exportController.exportOrdersCSV);
 router.get('/orders/export-csv', verifyAdmin, checkPermission('manage_orders', 'view_orders', 'update_order_status'), exportController.exportOrdersCSV);
-router.get('/products/export', verifyAdmin, checkPermission('manage_inventory'), exportController.exportProductsCSV);
+router.get('/products/export', verifyAdmin, checkPermission('manage_inventory', 'view_products'), exportController.exportProductsCSV);
 
 /********************************************************************
  # ERP — Suppliers, Warehouses, Purchase Orders
  # URL: /api/admin/suppliers | /warehouses | /purchase-orders
  ********************************************************************/
-router.get('/suppliers', verifyAdmin, checkPermission('manage_inventory'), supplierController.getAllSuppliers);
-router.get('/suppliers/:id', verifyAdmin, checkPermission('manage_inventory'), supplierController.getSupplierById);
-router.post('/suppliers', verifyAdmin, checkPermission('manage_inventory'), supplierController.createSupplier);
-router.put('/suppliers/:id', verifyAdmin, checkPermission('manage_inventory'), supplierController.updateSupplier);
-router.delete('/suppliers/:id', verifyAdmin, checkPermission('manage_inventory'), supplierController.deleteSupplier);
+router.get('/suppliers', verifyAdmin, checkPermission('manage_inventory', 'manage_suppliers'), supplierController.getAllSuppliers);
+router.get('/suppliers/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_suppliers'), supplierController.getSupplierById);
+router.post('/suppliers', verifyAdmin, checkPermission('manage_inventory', 'manage_suppliers'), supplierController.createSupplier);
+router.put('/suppliers/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_suppliers'), supplierController.updateSupplier);
+router.delete('/suppliers/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_suppliers'), supplierController.deleteSupplier);
 
-router.get('/warehouses', verifyAdmin, checkPermission('manage_inventory'), warehouseController.getAllWarehouses);
-router.get('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory'), warehouseController.getWarehouseById);
-router.post('/warehouses', verifyAdmin, checkPermission('manage_inventory'), warehouseController.createWarehouse);
-router.put('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory'), warehouseController.updateWarehouse);
-router.delete('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory'), warehouseController.deleteWarehouse);
+router.get('/warehouses', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseController.getAllWarehouses);
+router.get('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseController.getWarehouseById);
+router.post('/warehouses', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseController.createWarehouse);
+router.put('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseController.updateWarehouse);
+router.delete('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseController.deleteWarehouse);
 
 // Product detail with supplier/warehouse populated — admin-only because the
 // public product endpoint must not expose vendor names or phone numbers.
-router.get('/products/:id', verifyAdmin, checkPermission('manage_inventory'), productController.getAdminProductById);
+router.get('/products/:id', verifyAdmin, checkPermission('manage_inventory', 'view_products'), productController.getAdminProductById);
 
-router.get('/purchase-orders', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.getAllPOs);
-router.post('/purchase-orders', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.createPO);
+router.get('/purchase-orders', verifyAdmin, checkPermission('manage_inventory', 'manage_purchase_orders'), purchaseOrderController.getAllPOs);
+router.post('/purchase-orders', verifyAdmin, checkPermission('manage_inventory', 'manage_purchase_orders'), purchaseOrderController.createPO);
 // Action routes are declared before /:id so "receive"/"cancel" are not read as ids.
-router.post('/purchase-orders/:id/receive', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.receivePO);
-router.post('/purchase-orders/:id/cancel', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.cancelPO);
-router.get('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.getPOById);
-router.put('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory'), purchaseOrderController.updatePO);
+router.post('/purchase-orders/:id/receive', verifyAdmin, checkPermission('manage_inventory', 'manage_purchase_orders'), purchaseOrderController.receivePO);
+router.post('/purchase-orders/:id/cancel', verifyAdmin, checkPermission('manage_inventory', 'manage_purchase_orders'), purchaseOrderController.cancelPO);
+router.get('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_purchase_orders'), purchaseOrderController.getPOById);
+router.put('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_purchase_orders'), purchaseOrderController.updatePO);
 
 /********************************************************************
  # 👥 HRM — Attendance & Shifts, Payroll, Leave
@@ -635,6 +636,7 @@ router.put('/hrm/attendance/update', verifyAdmin, checkPermission('manage_staff'
 router.delete('/hrm/attendance/remove', verifyAdmin, checkPermission('manage_staff', 'manual_attendance'), attendanceController.removeAttendanceRecord);
 router.post('/hrm/attendance/clock-in', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockIn);
 router.post('/hrm/attendance/clock-out', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockOut);
+router.get('/hrm/attendance/my', verifyAdmin, checkPermission('view_attendance', 'view_own_attendance', 'manage_staff'), attendanceController.getMyAttendance);
 router.get('/hrm/attendance', verifyAdmin, checkPermission('view_attendance_register', 'view_attendance', 'manage_staff'), attendanceController.getAttendanceList);
 
 // — Shifts —
@@ -644,6 +646,7 @@ router.patch('/hrm/shifts/:id', verifyAdmin, checkPermission('manage_staff'), at
 router.delete('/hrm/shifts/:id', verifyAdmin, checkPermission('manage_staff'), attendanceController.deleteShift);
 
 // — Payroll —
+router.get('/hrm/payroll/my-payslips', verifyAdmin, checkPermission('view_own_payslip', 'view_payroll', 'manage_staff'), payrollController.getMyPayslips);
 router.get('/hrm/payroll', verifyAdmin, checkPermission('view_payroll', 'manage_payroll', 'manage_staff'), payrollController.getAllPayrolls);
 router.get('/hrm/payroll/calculate', verifyAdmin, checkPermission('manage_staff'), payrollController.previewPayrollFromAttendance);
 router.post('/hrm/payroll/generate', verifyAdmin, checkPermission('manage_staff', 'process_payroll', 'manage_payroll'), payrollController.generatePayroll);
@@ -655,7 +658,9 @@ router.patch('/hrm/payroll/:id/paid', verifyAdmin, checkPermission('manage_staff
 // — Leave —
 router.get('/hrm/leaves', verifyAdmin, checkPermission('view_leave_requests', 'manage_leave', 'manage_staff'), leaveController.getAllLeaves);
 router.get('/hrm/leaves/balance', verifyAdmin, checkPermission('view_leave_requests', 'manage_leave', 'manage_staff'), leaveController.getLeaveBalance);
+router.get('/hrm/leaves/my-balance', verifyAdmin, checkPermission('apply_own_leave', 'view_leave_requests', 'manage_leave', 'manage_staff'), leaveController.getMyLeaveBalance);
 router.get('/hrm/leaves/calendar', verifyAdmin, checkPermission('view_leave_requests', 'manage_leave', 'manage_staff'), leaveController.getLeaveCalendar);
+router.post('/hrm/leaves/apply-own', verifyAdmin, checkPermission('apply_own_leave', 'manage_leave', 'manage_staff'), leaveController.applyOwnLeave);
 router.post('/hrm/leaves/apply', verifyAdmin, checkPermission('apply_leave_for_staff', 'manage_leave', 'manage_staff'), leaveController.applyLeave);
 router.patch('/hrm/leaves/:id/approve', verifyAdmin, checkPermission('approve_leave', 'manage_leave', 'manage_staff'), leaveController.approveLeave);
 router.patch('/hrm/leaves/:id/reject', verifyAdmin, checkPermission('approve_leave', 'manage_leave', 'manage_staff'), leaveController.rejectLeave);
@@ -705,6 +710,7 @@ router.post('/update-profile-pic', verifyAdmin, upload.single('profilePic'), adm
 router.get('/system/backup-now', verifyAdmin, requireSuperAdmin, backupController.triggerBackup);
 router.get('/system/backup-postgres', verifyAdmin, requireSuperAdmin, backupController.triggerPostgresBackup);
 router.get('/system/backup-status', verifyAdmin, requireSuperAdmin, backupController.getBackupStatus);
+router.get('/system/sync-failures', verifyAdmin, requireSuperAdmin, syncFailuresController.getSyncFailures);
 
 // 🧪 Sandbox mode — super-admin only (Stripe-style test/live data separation)
 router.get('/sandbox/status', verifyAdmin, requireSuperAdmin, sandboxController.getSandboxStatus);

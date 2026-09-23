@@ -301,7 +301,8 @@ async function loadExpenses(page, limit) {
 }
 
 async function loadExpensesSection() {
-    if (typeof window.hasAdminPermission === 'function' && !window.hasAdminPermission('manage_settings')) {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('manage_expenses', 'manage_settings')) {
         return;
     }
 

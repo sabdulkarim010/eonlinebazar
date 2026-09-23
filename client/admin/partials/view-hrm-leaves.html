@@ -8,8 +8,11 @@
             <button type="button" class="btn-secondary" id="leavesRefreshBtn">
                 <i class="fa-solid fa-rotate"></i> Refresh
             </button>
-            <button type="button" class="btn-primary" id="applyLeaveBtn" data-permission="apply_leave_for_staff" onclick="openApplyLeaveModal()">
-                <i class="fa-solid fa-plus"></i> Apply Leave
+            <button type="button" class="btn-primary" id="applyLeaveForStaffBtn" data-permission="apply_leave_for_staff" onclick="openApplyLeaveModal(false)">
+                <i class="fa-solid fa-plus"></i> Apply Leave for Staff
+            </button>
+            <button type="button" class="btn-primary" id="applyOwnLeaveBtn" data-permission="apply_own_leave" onclick="openApplyLeaveModal(true)" style="display:none">
+                <i class="fa-solid fa-plane"></i> Apply My Leave
             </button>
         </div>
     </div>
@@ -135,8 +138,8 @@
     <div class="custom-modal-box" style="max-width:560px;">
         <div class="modal-header">
             <div>
-                <h3><i class="fa-solid fa-plane-departure"></i> Apply Leave</h3>
-                <p class="edit-modal-subtitle">Submit a leave application on behalf of a staff member</p>
+                <h3 id="applyLeaveModalTitle"><i class="fa-solid fa-plane-departure"></i> Apply Leave</h3>
+                <p class="edit-modal-subtitle" id="applyLeaveModalSubtitle">Submit a leave application on behalf of a staff member</p>
             </div>
             <button type="button" class="close-icon-btn" onclick="closeApplyLeaveModal()" aria-label="Close">
                 <i class="fa-solid fa-xmark"></i>
@@ -144,11 +147,15 @@
         </div>
         <form id="applyLeaveForm" onsubmit="event.preventDefault(); submitLeaveApplication();">
             <div class="modal-body">
-                <div class="form-group">
+                <div class="form-group" id="applyLeaveStaffGroup">
                     <label for="applyLeaveStaff">Staff *</label>
                     <select id="applyLeaveStaff" required>
                         <option value="">Select staff member</option>
                     </select>
+                </div>
+                <div class="form-group" id="applyLeaveSelfInfo" style="display:none">
+                    <label>Applicant</label>
+                    <p class="edit-modal-subtitle" id="applyLeaveSelfName">Your account</p>
                 </div>
                 <div class="form-group">
                     <label for="applyLeaveType">Leave Type *</label>

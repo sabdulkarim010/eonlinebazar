@@ -45,6 +45,10 @@ function actorName(req) {
     return req.adminAccount?.username || req.admin?.username || 'admin';
 }
 
+function sanitizeLeaveString(str, maxLen = 1000) {
+    return typeof str === 'string' ? str.trim().slice(0, maxLen) : str;
+}
+
 async function findStaff(identifier) {
     const value = String(identifier || '').trim();
     if (!value) return null;
@@ -102,9 +106,107 @@ async function stampLeaveOnAttendance(leave) {
  * Staff applies for leave; an admin may apply on behalf of a staff member
  * by passing staffId/staffUsername.
  */
+/** POST /api/admin/hrm/leaves/apply-own — submit leave for the logged-in staff member only. */
+exports.applyOwnLeave = async (req, res) => {
+    try {
+        const { resolveSelfServiceStaffSubject } = require('../../utils/hrmStaffResolver');
+        const subject = await resolveSelfServiceStaffSubject(req.adminAccount);
+        if (!subject) {
+            return res.status(404).json({
+                success: false,
+                message: 'No employee profile linked to your admin account.'
+            });
+        }
+
+        const body = req.body || {};
+        if (body.reason) body.reason = sanitizeLeaveString(body.reason);
+        const leaveType = String(body.leaveType || '').trim().toLowerCase();
+        if (!LEAVE_TYPES.includes(leaveType)) {
+            return res.status(400).json({
+                success: false,
+                message: `Leave type must be one of: ${LEAVE_TYPES.join(', ')}.`
+            });
+        }
+
+        const startDate = new Date(body.startDate);
+        const endDate = new Date(body.endDate);
+        if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+            return res.status(400).json({ success: false, message: 'Start and end dates are required.' });
+        }
+        if (endDate < startDate) {
+            return res.status(400).json({ success: false, message: 'End date cannot be before the start date.' });
+        }
+
+        const leave = await dualWrite(
+            () => Leave.create({
+                staffId: subject.staffId,
+                staffUsername: subject.staffUsername,
+                staffName: subject.staffName || subject.staffUsername,
+                leaveType,
+                startDate,
+                endDate,
+                reason: sanitizeLeaveString(body.reason || ''),
+                attachmentUrl: sanitizeLeaveString(body.attachmentUrl || '', 2048)
+            }),
+            async (saved) => { await mirrorLeaveApply(saved); },
+            {
+                model: 'Leave',
+                operation: 'create',
+                mongoId: (saved) => String(saved._id)
+            }
+        );
+
+        await logSecurityEvent({
+            action: 'Own Leave Applied',
+            actor: actorName(req),
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${subject.staffUsername} — ${leaveType}, ${leave.totalDays} day(s)`,
+            resourceType: 'leave',
+            resourceId: String(leave._id)
+        });
+
+        notifyAdminsWithPermission(
+            'manage_staff',
+            'leave',
+            'Leave application submitted',
+            `${subject.staffUsername} applied for ${leaveType} leave (${leave.totalDays} day(s))`,
+            'view-hrm-leaves'
+        ).catch((err) => {
+            console.warn('[Leave] In-app notification failed:', err.message);
+        });
+
+        res.status(201).json({ success: true, message: 'Leave application submitted.', data: leave });
+    } catch (error) {
+        console.error('applyOwnLeave Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to submit leave application.' });
+    }
+};
+
+/** GET /api/admin/hrm/leaves/my-balance — self-service leave balance for linked employee/admin. */
+exports.getMyLeaveBalance = async (req, res) => {
+    try {
+        const { resolveSelfServiceStaffSubject, staffSelectorFromSubject } = require('../../utils/hrmStaffResolver');
+        const subject = await resolveSelfServiceStaffSubject(req.adminAccount);
+        if (!subject) {
+            return res.status(404).json({
+                success: false,
+                message: 'No employee profile linked to your admin account.'
+            });
+        }
+
+        req.query = { ...req.query, staff: staffSelectorFromSubject(subject) };
+        return exports.getLeaveBalance(req, res);
+    } catch (error) {
+        console.error('getMyLeaveBalance Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load your leave balance.' });
+    }
+};
+
 exports.applyLeave = async (req, res) => {
     try {
         const body = req.body || {};
+        if (body.reason) body.reason = sanitizeLeaveString(body.reason);
 
         const account = body.staffId || body.staffUsername
             ? await findStaff(body.staffId || body.staffUsername)
@@ -139,8 +241,8 @@ exports.applyLeave = async (req, res) => {
                 leaveType,
                 startDate,
                 endDate,
-                reason: String(body.reason || '').trim(),
-                attachmentUrl: String(body.attachmentUrl || '').trim()
+                reason: sanitizeLeaveString(body.reason || ''),
+                attachmentUrl: sanitizeLeaveString(body.attachmentUrl || '', 2048)
             }),
             async (saved) => { await mirrorLeaveApply(saved); },
             {

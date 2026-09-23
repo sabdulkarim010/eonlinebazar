@@ -764,6 +764,11 @@
   }
 
   async function loadBanners() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('manage_banners', 'manage_marketing')) {
+      return;
+    }
+
     try {
       ensureBannerLinkOptions();
       const res = await fetch('/api/admin/banners', {

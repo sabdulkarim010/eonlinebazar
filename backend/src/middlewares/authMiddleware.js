@@ -81,6 +81,23 @@ const verifyAdmin = async (req, res, next) => {
         const account = await attachAdminAccount(req, res, decoded);
         if (!account) return;
 
+        // Superadmin must enable 2FA before using protected admin APIs (staff 2FA remains optional).
+        if (process.env.NODE_ENV !== 'test'
+            && typeof account.isSuperAdmin === 'function'
+            && account.isSuperAdmin()
+            && account.twoFactorEnabled === false) {
+            const routePath = String(req.path || '');
+            const isTwoFaRoute = routePath.startsWith('/2fa/');
+            if (!isTwoFaRoute) {
+                return res.status(403).json({
+                    success: false,
+                    error: '2FA required for superadmin',
+                    message: '2FA required for superadmin. Enable it in Security Settings.',
+                    redirect: '/admin/setup-2fa'
+                });
+            }
+        }
+
         next();
     } catch (err) {
         return res.status(401).json({

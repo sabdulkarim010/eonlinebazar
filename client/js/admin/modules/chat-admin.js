@@ -30,6 +30,23 @@ let isAgentTyping = false;
 let typingTimer = null;
 let chatSocket = null;
 let socketBound = false;
+
+/** Tear down legacy in-panel chat socket and polling (prevents ghost connections). */
+function teardownLiveChat() {
+    if (chatSocket) {
+        try {
+            chatSocket.removeAllListeners();
+            chatSocket.disconnect();
+        } catch (_) { /* ignore disconnect errors */ }
+        chatSocket = null;
+    }
+    window._chatSocket = null;
+    socketBound = false;
+    if (window._chatPollInterval) {
+        clearInterval(window._chatPollInterval);
+        window._chatPollInterval = null;
+    }
+}
 let chatVolumeChartInstance = null;
 let analyticsPeriod = '7d';
 
@@ -295,6 +312,7 @@ function initChatSocket() {
         transports: ['websocket', 'polling'],
         reconnection: true
     });
+    window._chatSocket = chatSocket;
     bindSocketEvents(chatSocket);
 }
 
@@ -1317,7 +1335,10 @@ async function deleteCannedResponseUI(id) {
     }
 }
 
+window.addEventListener('beforeunload', teardownLiveChat);
+
 Object.assign(window, {
+    teardownLiveChat,
     initChatModule,
     selectConversation,
     sendAdminMessage,

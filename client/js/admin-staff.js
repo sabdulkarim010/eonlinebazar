@@ -129,6 +129,12 @@ function hasPermission(permission) {
     return false;
 }
 
+/** True when the staff account holds any of the listed permissions (OR). */
+function hasAnyPermission(...keys) {
+    if (isSuperAdmin()) return true;
+    return keys.filter(Boolean).some((key) => hasPermission(key));
+}
+
 /**
  * initDashboard() must not fire permission-gated API calls until /me + /permissions
  * have populated currentAdmin (hasAdminPermission exists earlier but reads empty state).
@@ -302,9 +308,16 @@ function applyRoleToSidebar() {
             return;
         }
 
-        const required = item.dataset.permission
-            || sectionPermissionMap[item.getAttribute('data-target')];
-        item.style.display = hasPermission(required) ? '' : 'none';
+        const target = item.getAttribute('data-target');
+        const required = item.dataset.permission || sectionPermissionMap[target];
+        const selfServiceAlts = {
+            'view-hrm-attendance': ['view_own_attendance'],
+            'view-hrm-payroll': ['view_own_payslip'],
+            'view-hrm-leaves': ['apply_own_leave']
+        }[target] || [];
+        const allowed = hasPermission(required)
+            || selfServiceAlts.some((perm) => hasPermission(perm));
+        item.style.display = allowed ? '' : 'none';
     });
 
     // Step 2 — permission-gated links (external submenu links, settings cards, …)
@@ -757,6 +770,15 @@ function renderStaffSummary(summary) {
 
     const securityEl = document.getElementById('staffSecurityStatus');
     const hintEl = document.getElementById('staffSecurityHint');
+    const twoFaWarning = document.getElementById('twoFaWarning');
+    if (twoFaWarning) {
+        if (without2fa > 0) {
+            twoFaWarning.style.removeProperty('display');
+        } else {
+            twoFaWarning.style.display = 'none';
+        }
+    }
+
     if (securityEl) {
         if (without2fa > 0) {
             securityEl.textContent = `${without2fa} without 2FA`;
@@ -907,6 +929,7 @@ window.loadStaffSection = loadStaffSection;
 window.applySuperAdminOnlyVisibility = applySuperAdminOnlyVisibility;
 window.isAdminSuperAdmin = isSuperAdmin;
 window.hasAdminPermission = hasPermission;
+window.hasAnyAdminPermission = hasAnyPermission;
 
 function canFetchLiveOrders() {
     return hasPermission('view_orders') || hasPermission('manage_orders');
@@ -1062,9 +1085,6 @@ function renderAssignPermissions(rawData, activeKeys = []) {
         && typeof p.group === 'string'
         && p.group.length > 0
     );
-
-    console.log('[PERMS-FILTER] after filter:', perms.length, 'items');
-    console.log('[PERMS-FILTER] first item:', perms[0]);
 
     perms = perms.map((p) => ({
         ...p,
@@ -1865,6 +1885,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.loadSidebarLabels(true);
         }
     }
+});
+
+window.addEventListener('error', (event) => {
+    console.error('[ADMIN-ERROR]', event.message, event.filename, event.lineno);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('[ADMIN-PROMISE]', event.reason);
+    event.preventDefault();
 });
 
 

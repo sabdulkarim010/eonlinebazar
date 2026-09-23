@@ -30,6 +30,10 @@ async function resolvePostgresAdminId(mongoAdminId) {
     return require('../../utils/hrmDualWriteHelpers').resolvePostgresAdminId(mongoAdminId);
 }
 
+function sanitizeEmployeeString(str, maxLen = 500) {
+    return typeof str === 'string' ? str.trim().slice(0, maxLen) : str;
+}
+
 /**
  * Best-effort PG sync for linkedAdminId after Mongo grant/reconcile.
  * PG failure must never block the Mongo write path.
@@ -307,29 +311,8 @@ async function syncLinkedAdminName(employee, newName) {
     );
 }
 
-async function mirrorEmployeeSaveToPostgres(saved) {
-    const repo = getEmployeeRepository();
-    const payload = mapMongoEmployeeToPostgresWrite(saved);
-    const plain = saved.toObject ? saved.toObject() : saved;
-    const references = Array.isArray(plain.references) ? plain.references : [];
-
-    try {
-        const pgRow = await repo.findByLegacyId(String(saved._id));
-        if (!pgRow) {
-            const created = await repo.create(payload);
-            await repo.syncReferences(created.id, references);
-            return;
-        }
-        if (plain.status === 'terminated') {
-            await repo.terminate(pgRow.id);
-            return;
-        }
-        await repo.update(pgRow.id, payload);
-        await repo.syncReferences(pgRow.id, references);
-    } catch (err) {
-        console.error('[EMP-UPDATE] PG sync failed:', err.message || err);
-        throw err;
-    }
+function mirrorEmployeeSaveToPostgres(saved) {
+    return require('../../utils/hrmDualWriteHelpers').mirrorEmployeeSaveToPostgres(saved);
 }
 
 async function suspendLinkedAdminAccess(employee) {
@@ -516,12 +499,12 @@ exports.updateEmployee = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Employee not found.' });
         }
 
-        console.log('[EMP-UPDATE] incoming body keys:', Object.keys(req.body || {}));
-        if (req.body?.references !== undefined) {
-            console.log('[EMP-UPDATE] references received:', req.body.references);
-        }
+        const body = req.body || {};
+        if (body.fullName) body.fullName = sanitizeEmployeeString(body.fullName);
+        if (body.religion) body.religion = sanitizeEmployeeString(body.religion);
+        if (body.notes) body.notes = sanitizeEmployeeString(body.notes, 2000);
 
-        const fields = pickEmployeeFields(req.body || {}, { partial: true });
+        const fields = pickEmployeeFields(body, { partial: true });
         if (!Object.keys(fields).length) {
             return res.status(400).json({ success: false, message: 'No changes supplied.' });
         }

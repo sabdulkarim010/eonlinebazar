@@ -1,6 +1,6 @@
 # CHAT AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20  
+**Last updated:** 2026-09-23 (Legacy in-panel socket teardown)  
 **Scope:** Live chat microservice (`ecommerce-chat/`), React chat admin (`admin-dashboard/`), storefront widget, mobile support, socket teardown  
 **Status:** ⚠️ PARTIAL
 
@@ -77,6 +77,14 @@
 ---
 
 ## Change Log
+
+### Legacy in-panel chat socket teardown — 2026-09-23
+
+- **`teardownLiveChat()`** disconnects `chatSocket`, clears `window._chatPollInterval`, resets `socketBound`
+- Called when leaving `view-chat` / analytics / canned-responses, on admin logout, and `beforeunload`
+- **Nginx:** `/socket.io/` location with WebSocket upgrade + `proxy_read_timeout 3600s` for store admin realtime
+- Standalone `/chat-admin` dashboard unchanged
+- Tests: Jest **231/231** passing
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

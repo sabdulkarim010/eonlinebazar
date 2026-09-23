@@ -136,8 +136,8 @@ function setOrderReturnRequestsView(show) {
 
     if (show === true) {
         loadReturnRequests('pending');
-    } else if (typeof setOrderStatusTab === 'function') {
-        setOrderStatusTab('all');
+    } else if (typeof window.restoreOrdersListTab === 'function') {
+        window.restoreOrdersListTab('all');
     }
 }
 

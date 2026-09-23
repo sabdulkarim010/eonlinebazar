@@ -286,6 +286,8 @@ orderSchema.index({ orderId: 1 });
 orderSchema.index({ user: 1 });
 orderSchema.index({ status: 1 });
 orderSchema.index({ createdAt: -1 });
+// `user` is the customer reference (legacy field name — same role as customerId).
+orderSchema.index({ user: 1, status: 1 });
 orderSchema.index({ 'paymentProof.status': 1, 'paymentProof.submittedAt': -1 });
 
 orderSchema.statics.STATUSES = ORDER_STATUSES;

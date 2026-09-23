@@ -238,6 +238,8 @@ adminSchema.methods.toSafeObject = function toSafeObject() {
  * queries that filter by role/status (store branding, staff listing) behave
  * predictably. Safe to run on every boot — it only touches missing fields.
  */
+adminSchema.index({ status: 1, role: 1 });
+
 adminSchema.statics.ensureRbacDefaults = async function ensureRbacDefaults() {
     const [roleResult, statusResult, marketingResult] = await Promise.all([
         this.updateMany(

@@ -342,6 +342,11 @@ function plRenderReport(report) {
 /* ------------------------------------------------------------------ */
 
 async function loadPLReport(startDate, endDate, groupBy) {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('view_financial_reports', 'manage_settings')) {
+        return;
+    }
+
     const els = plGetEls();
     if (startDate && els.start) els.start.value = startDate;
     if (endDate && els.end) els.end.value = endDate;
@@ -457,6 +462,11 @@ function exportExcel() { return plDownloadExport('excel'); }
 let plInitialized = false;
 
 function initProfitLossReport() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('view_financial_reports', 'manage_settings')) {
+        return;
+    }
+
     const els = plGetEls();
     if (!els.generateBtn) return; // finance partial not mounted (non-superadmin)
 

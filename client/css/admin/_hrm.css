@@ -1704,3 +1704,39 @@
     font-style: italic;
     cursor: default;
 }
+
+/* ── Employee photo avatars (Cloudinary 404 fallback) ─────────────── */
+.emp-avatar-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.emp-avatar-initials {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #e0e7ff;
+    color: #4f46e5;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.emp-avatar-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+#profileHeaderPhotoFallback.emp-avatar-initials {
+    width: 96px;
+    height: 96px;
+    font-size: 28px;
+}

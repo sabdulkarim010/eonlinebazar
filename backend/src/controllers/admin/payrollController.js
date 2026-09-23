@@ -319,6 +319,26 @@ exports.generatePayroll = async (req, res) => {
  * Paginated salary ledger. Filters: ?month= &year= &status= &staff=.
  * Also returns the total payable for the filtered set.
  */
+/** GET /api/admin/hrm/payroll/my-payslips — self-service payslip list for linked employee/admin. */
+exports.getMyPayslips = async (req, res) => {
+    try {
+        const { resolveSelfServiceStaffSubject, staffSelectorFromSubject } = require('../../utils/hrmStaffResolver');
+        const subject = await resolveSelfServiceStaffSubject(req.adminAccount);
+        if (!subject) {
+            return res.status(404).json({
+                success: false,
+                message: 'No employee profile linked to your admin account.'
+            });
+        }
+
+        req.query = { ...req.query, staff: staffSelectorFromSubject(subject) };
+        return exports.getAllPayrolls(req, res);
+    } catch (error) {
+        console.error('getMyPayslips Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load your payslips.' });
+    }
+};
+
 exports.getAllPayrolls = async (req, res) => {
     try {
         const { page, limit, skip } = parsePagination(req.query);

@@ -28,8 +28,8 @@ const { verifyAdmin } = require('../middlewares/authMiddleware');
 const { checkPermission } = require('../middlewares/rbac');
 const upload = require('../middlewares/uploadMiddleware');
 
-// প্রোডাক্ট/স্টক পরিবর্তনের জন্য প্রয়োজনীয় পারমিশন গেট
-const canManageInventory = checkPermission('manage_inventory');
+// Product write access — coarse preset or granular edit key
+const canEditProducts = checkPermission('manage_inventory', 'edit_products');
 
 /********************************************************************
  # PRODUCT ROUTES (প্রোডাক্টের এপিআই রাস্তাসমূহ)
@@ -57,7 +57,7 @@ router.get('/:id', getProductById);
 
 // ৩. নতুন প্রোডাক্ট যোগ করার রুট (অ্যাডমিন অনলি + ১০টি ইমেজ লিমিট)
 // URL: POST /api/products
-router.post('/', verifyAdmin, canManageInventory, upload.array('productImages', 10), createProduct, (error, req, res, next) => {
+router.post('/', verifyAdmin, canEditProducts, upload.array('productImages', 10), createProduct, (error, req, res, next) => {
     if (error) {
         return res.status(400).json({ success: false, message: "Upload limit exceeded! Maximum 10 images allowed." });
     }
@@ -65,7 +65,7 @@ router.post('/', verifyAdmin, canManageInventory, upload.array('productImages', 
 
 // ৪. প্রোডাক্ট এডিট বা আপডেট করার রুট (অ্যাডমিন অনলি + ১০টি ইমেজ লিমিট)
 // URL: PUT /api/products/:id
-router.put('/:id', verifyAdmin, canManageInventory, upload.array('productImages', 10), updateProduct, (error, req, res, next) => {
+router.put('/:id', verifyAdmin, canEditProducts, upload.array('productImages', 10), updateProduct, (error, req, res, next) => {
     if (error) {
         return res.status(400).json({ success: false, message: "Upload limit exceeded! Maximum 10 images allowed." });
     }
@@ -73,7 +73,7 @@ router.put('/:id', verifyAdmin, canManageInventory, upload.array('productImages'
 
 // ৫. প্রোডাক্ট ডিলিট করার রুট (অ্যাডমিন অনলি)
 // URL: DELETE /api/products/:id
-router.delete('/:id', verifyAdmin, canManageInventory, deleteProduct);
+router.delete('/:id', verifyAdmin, canEditProducts, deleteProduct);
 
 module.exports = router;
 

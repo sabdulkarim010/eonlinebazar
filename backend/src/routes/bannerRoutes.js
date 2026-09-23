@@ -8,13 +8,13 @@ const { checkPermission } = require('../middlewares/rbac');
 router.get('/store/banners', ctrl.getActiveBanners);
 
 // Admin
-router.get('/admin/banners', verifyAdmin, checkPermission('manage_catalog'), ctrl.getAllBanners);
-router.post('/admin/banners', verifyAdmin, checkPermission('manage_catalog'),
+router.get('/admin/banners', verifyAdmin, checkPermission('manage_marketing', 'manage_banners'), ctrl.getAllBanners);
+router.post('/admin/banners', verifyAdmin, checkPermission('manage_marketing', 'manage_banners'),
   ctrl.uploadMiddleware, ctrl.createBanner);
-router.patch('/admin/banners/reorder', verifyAdmin, checkPermission('manage_catalog'), ctrl.reorderBanners);
-router.put('/admin/banners/settings', verifyAdmin, checkPermission('manage_catalog'), ctrl.updateSettings);
-router.patch('/admin/banners/:id', verifyAdmin, checkPermission('manage_catalog'),
+router.patch('/admin/banners/reorder', verifyAdmin, checkPermission('manage_marketing', 'manage_banners'), ctrl.reorderBanners);
+router.put('/admin/banners/settings', verifyAdmin, checkPermission('manage_marketing', 'manage_banners'), ctrl.updateSettings);
+router.patch('/admin/banners/:id', verifyAdmin, checkPermission('manage_marketing', 'manage_banners'),
   ctrl.uploadMiddleware, ctrl.updateBanner);
-router.delete('/admin/banners/:id', verifyAdmin, checkPermission('manage_catalog'), ctrl.deleteBanner);
+router.delete('/admin/banners/:id', verifyAdmin, checkPermission('manage_marketing', 'manage_banners'), ctrl.deleteBanner);
 
 module.exports = router;

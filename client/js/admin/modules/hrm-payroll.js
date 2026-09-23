@@ -105,8 +105,14 @@ async function loadPayrollList() {
     if (year) params.set('year', year);
     if (status) params.set('status', status);
 
+    const selfOnly = typeof window.hasAdminPermission === 'function'
+        && window.hasAdminPermission('view_own_payslip')
+        && !window.hasAdminPermission('view_payroll')
+        && !window.hasAdminPermission('manage_staff');
+    const payrollBase = selfOnly ? '/api/admin/hrm/payroll/my-payslips' : '/api/admin/hrm/payroll';
+
     try {
-        const res = await fetch(`/api/admin/hrm/payroll?${params.toString()}`, {
+        const res = await fetch(`${payrollBase}?${params.toString()}`, {
             headers: window.hrmAuthHeaders()
         });
         const result = await res.json();
@@ -472,7 +478,11 @@ async function loadHrmPayrollSection() {
     window.hrmFillMonthSelect('hrmPayrollMonth', currentMonth());
     window.hrmFillYearInput('hrmPayrollYear', currentYear());
 
-    if (typeof window.hasAdminPermission === 'function' && window.hasAdminPermission('view_payroll')) {
+    const canViewPayroll = typeof window.hasAdminPermission === 'function'
+        && (window.hasAdminPermission('view_payroll')
+            || window.hasAdminPermission('view_own_payslip')
+            || window.hasAdminPermission('manage_staff'));
+    if (canViewPayroll) {
         await loadPayrollList();
     }
 }

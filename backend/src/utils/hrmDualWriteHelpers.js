@@ -98,6 +98,26 @@ async function mirrorLeaveApply(savedDoc) {
   });
 }
 
+async function mirrorEmployeeSaveToPostgres(saved) {
+  const repo = getEmployeeRepository();
+  const payload = mapMongoEmployeeToPostgresWrite(saved);
+  const plain = saved.toObject ? saved.toObject() : saved;
+  const references = Array.isArray(plain.references) ? plain.references : [];
+
+  const pgRow = await repo.findByLegacyId(String(saved._id));
+  if (!pgRow) {
+    const created = await repo.create(payload);
+    await repo.syncReferences(created.id, references);
+    return;
+  }
+  if (plain.status === 'terminated') {
+    await repo.terminate(pgRow.id);
+    return;
+  }
+  await repo.update(pgRow.id, payload);
+  await repo.syncReferences(pgRow.id, references);
+}
+
 module.exports = {
   getEmployeeRepository,
   getAttendanceRepository,
@@ -107,5 +127,6 @@ module.exports = {
   resolvePostgresAdminId,
   mirrorAttendanceDoc,
   mirrorPayrollDoc,
-  mirrorLeaveApply
+  mirrorLeaveApply,
+  mirrorEmployeeSaveToPostgres
 };

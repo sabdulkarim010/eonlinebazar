@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (Staff UI Polish)  
+**Last updated:** 2026-09-23 (P4 rate limiting + input sanitization)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -105,6 +105,20 @@
 ---
 
 ## Change Log
+
+### P4 rate limiting + input sanitization — 2026-09-23
+
+- **Rate limiting:** `express-rate-limit` ^8.6 via `rateLimiter.js` + `securityMiddleware.js`; 2FA setup/verify routes now auth-limited
+- **Input validation:** No joi/zod/express-validator in stack; `mongo-sanitize` + HRM string trim/slice on employee update and leave apply
+- **Admin error handlers:** Global `error` + `unhandledrejection` listeners in `admin-staff.js`
+- Tests: Jest **231/231** passing
+
+### Superadmin 2FA enforcement — 2026-09-23
+
+- **`verifyAdmin`:** Blocks superadmin accounts with `twoFactorEnabled === false` on all routes except `/2fa/*` (skipped in `NODE_ENV=test`)
+- **Staff UI:** `#twoFaWarning` banner on Admin Access & Roles when any account lacks 2FA
+- Staff accounts remain optional for 2FA
+- Tests: Jest **231/231** passing
 
 ### Staff UI Polish — 2026-09-21
 

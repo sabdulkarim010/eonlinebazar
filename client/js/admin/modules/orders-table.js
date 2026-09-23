@@ -162,10 +162,31 @@ window.filterByDate = function(value) {
     applyOrderFilters(true);
 };
 
+/** Hide return-requests panel without calling setOrderReturnRequestsView (avoids recursion). */
+function hideReturnRequestsPanel() {
+    const main = document.getElementById('ordersMainPanel');
+    const panel = document.getElementById('returnRequestsPanel');
+    if (main) main.hidden = false;
+    if (panel) panel.hidden = true;
+    document.querySelectorAll('#view-orders .order-tab').forEach((tab) => {
+        if (tab.dataset.status === 'return-requests') {
+            tab.classList.remove('active');
+        }
+    });
+}
+
+/** Restore the live orders list tab after leaving return requests (no cross-call to return-requests module). */
+window.restoreOrdersListTab = function(status = 'all') {
+    hideReturnRequestsPanel();
+    currentOrderStatusFilter = status;
+    document.querySelectorAll('#view-orders .order-tab').forEach((tab) => {
+        tab.classList.toggle('active', tab.dataset.status === status);
+    });
+    applyOrderFilters(false);
+};
+
 window.setOrderStatusTab = function(status) {
-    if (typeof setOrderReturnRequestsView === 'function') {
-        setOrderReturnRequestsView(false);
-    }
+    hideReturnRequestsPanel();
     currentOrderStatusFilter = status;
     document.querySelectorAll('#view-orders .order-tab').forEach((tab) => {
         tab.classList.toggle('active', tab.dataset.status === status);

@@ -259,6 +259,11 @@ async function runAdminDataSync() {
 }
 
 async function fetchCoupons() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('manage_coupons', 'manage_marketing')) {
+        return;
+    }
+
     try {
         const response = await fetch('/api/coupons', {
             headers: getCouponAuthHeaders()

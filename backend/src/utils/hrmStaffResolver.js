@@ -111,10 +111,60 @@ async function resolveHrmSubject(input = {}) {
     };
 }
 
+/**
+ * Resolve the Employee row linked to a login Admin (employeeRef or linkedAdminId).
+ */
+async function resolveLinkedEmployeeFromAdmin(account) {
+    if (!account) return null;
+
+    if (account.employeeRef) {
+        const byRef = await findEmployeeRecord(account.employeeRef);
+        if (byRef) return byRef;
+    }
+
+    if (account._id) {
+        const byLink = await Employee.findOne({ linkedAdminId: String(account._id) });
+        if (byLink) return byLink;
+    }
+
+    return null;
+}
+
+/**
+ * Self-service HRM subject for the logged-in admin (prefers linked Employee).
+ */
+async function resolveSelfServiceStaffSubject(account) {
+    const employee = await resolveLinkedEmployeeFromAdmin(account);
+    if (employee) {
+        return resolveHrmSubject({
+            staffType: 'employee',
+            staffId: String(employee._id)
+        });
+    }
+
+    if (!account?._id) return null;
+    return resolveHrmSubject({
+        staffType: 'admin',
+        staffId: String(account._id),
+        staffUsername: account.username
+    });
+}
+
+function staffSelectorFromSubject(subject) {
+    if (!subject) return '';
+    if (subject.staffType === 'employee') {
+        return `employee:${subject.staffId}`;
+    }
+    return subject.staffUsername || subject.staffId;
+}
+
 module.exports = {
     findAdmin,
     findEmployeeRecord,
     parseStaffSelector,
     resolveHrmSubject,
-    resolveClockStaff
+    resolveClockStaff,
+    resolveLinkedEmployeeFromAdmin,
+    resolveSelfServiceStaffSubject,
+    staffSelectorFromSubject
 };

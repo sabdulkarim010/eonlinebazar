@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (HRM + Orders RBAC gap fixes A–I)  
+**Last updated:** 2026-09-23 (P2 HRM self-service + employee photo fallback)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -255,6 +255,16 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### P2 HRM self-service portal — 2026-09-23
+
+- **Permissions:** `view_own_attendance`, `apply_own_leave`, `view_own_payslip` in `permissions.js`
+- **API routes:** `GET /hrm/attendance/my`, `POST /hrm/leaves/apply-own`, `GET /hrm/leaves/my-balance`, `GET /hrm/payroll/my-payslips`
+- **Resolver:** `resolveSelfServiceStaffSubject()` links Admin → Employee via `employeeRef` / `linkedAdminId`
+- **Frontend:** Apply My Leave button when `apply_own_leave` without `apply_leave_for_staff`; payroll/leaves use self-service endpoints
+- **Sidebar:** Self-service alt permissions unlock HRM sections for staff with own-only keys
+- **Photos:** `safeEmployeePhoto()` initials fallback for broken Cloudinary URLs in employees + attendance
+- Tests: Jest **231/231** passing
 
 ### HRM + Orders RBAC gap fixes (A–I) — 2026-09-23
 

@@ -142,6 +142,19 @@ connectDB().then(async () => {
         console.error('PostgreSQL bootstrap failed — cron dual-write will not work:', err.message);
     }
 
+    // Retry unresolved Mongo→PG dual-write failures (best-effort, non-blocking).
+    if (process.env.NODE_ENV !== 'test') {
+        try {
+            const { reconcileFailedSyncs } = require('./services/failedSyncService');
+            const result = await reconcileFailedSyncs();
+            if (result.attempted > 0) {
+                console.log(`🔄 Dual-write reconcile: ${result.resolved}/${result.attempted} resolved`);
+            }
+        } catch (err) {
+            console.error('Dual-write reconcile bootstrap error:', err.message);
+        }
+    }
+
     // Start background stock alert cron job
     try {
         const { startStockAlertCron } = require('./services/stockAlertService');

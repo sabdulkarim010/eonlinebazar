@@ -124,6 +124,28 @@ function hrmEscape(value) {
     }[ch]));
 }
 
+function safeEmployeePhoto(url, name) {
+    const initials = (name || '?')
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+
+    if (!url) {
+        return `<div class="emp-avatar-initials">${hrmEscape(initials)}</div>`;
+    }
+
+    return `
+        <span class="emp-avatar-wrap">
+            <img src="${hrmEscape(url)}"
+                alt="${hrmEscape(name || '')}"
+                class="emp-avatar-img"
+                onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex'">
+            <div class="emp-avatar-initials" style="display:none">${hrmEscape(initials)}</div>
+        </span>`;
+}
+
 function hrmAuthHeaders(json = false) {
     const headers = { Authorization: `Bearer ${token}` };
     if (json) headers['Content-Type'] = 'application/json';
@@ -584,9 +606,7 @@ function renderDailySheetRows(employees) {
 
     tbody.innerHTML = rows.map((row) => {
         const status = row.attendance?.status || 'none';
-        const photo = row.photo
-            ? `<img src="${hrmEscape(row.photo)}" alt="" class="hrm-employee-thumb">`
-            : `<span class="hrm-employee-thumb hrm-employee-thumb--placeholder">${hrmEscape((row.name || '?').charAt(0))}</span>`;
+        const photo = safeEmployeePhoto(row.photo, row.name);
         const isEditing = String(dailySheetEditEmployeeId) === String(row.employeeId);
         const mainRow = `
             <tr data-employee-id="${hrmEscape(row.employeeId)}" data-department="${hrmEscape(row.department || '')}">
@@ -1857,6 +1877,7 @@ document.addEventListener('DOMContentLoaded', setupHrmAttendanceSection);
 // time, so barrel import order does not matter.
 Object.assign(window, {
     hrmEscape,
+    safeEmployeePhoto,
     hrmAuthHeaders,
     hrmFormatDate,
     hrmFormatTime,

@@ -79,6 +79,11 @@ function applyLowStockClientFilter(products) {
  * ১০.১: ক্লাউড ডাটাবেজ থেকে প্রোডাক্ট পেজ লাইভ সিঙ্ক করা (page/limit API)
  */
 async function fetchLiveProducts(pageOrReset = 1, limitArg) {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('view_products', 'manage_inventory')) {
+        return;
+    }
+
     if (productListLoading) return;
     productListLoading = true;
 

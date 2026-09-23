@@ -40,7 +40,9 @@ const leaveSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 leaveSchema.index({ staffId: 1, startDate: -1 });
+leaveSchema.index({ staffId: 1, status: 1 });
 leaveSchema.index({ status: 1, startDate: -1 });
+leaveSchema.index({ startDate: 1 });
 leaveSchema.index({ startDate: 1, endDate: 1 });
 
 /** Inclusive whole-day span between two dates, minimum 1. */

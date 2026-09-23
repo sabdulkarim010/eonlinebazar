@@ -256,6 +256,21 @@ Before declaring a task done:
 
 ---
 
+## Production Checklist
+
+Before any PR merge:
+
+1. `npm test` must pass (231/231)
+2. New routes must have `checkPermission()`
+3. New sidebar items must have `data-permission` attribute
+4. New permission keys must be added to `PERMISSIONS` array with correct group
+5. Dual-write: both Mongo AND PG saves must be implemented
+6. No debug `console.log` in production code
+7. Update `HRM_AUDIT.md` for HRM changes
+8. Update `MASTER_ENTERPRISE_AUDIT.md`
+
+---
+
 ## When in doubt — which `.md` file?
 
 | Topic | File |

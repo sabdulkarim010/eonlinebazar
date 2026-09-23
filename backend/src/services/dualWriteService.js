@@ -13,6 +13,7 @@
 'use strict';
 
 const { reloadRootEnv, assertPooledDatabaseUrl } = require('../config/postgresBootstrap');
+const { recordFailedSync } = require('./failedSyncService');
 
 /**
  * Execute a MongoDB write, then attempt a best-effort PostgreSQL mirror write.
@@ -43,9 +44,38 @@ async function dualWrite(mongoWriteFn, postgresWriteFn, context = {}) {
     };
 
     console.error('[DUAL-WRITE-FAILURE]', reconciliationEntry);
+
+    await recordFailedSync({
+      entity: reconciliationEntry.model,
+      mongoId: reconciliationEntry.mongoId,
+      operation: reconciliationEntry.operation,
+      error: reconciliationEntry.error,
+      payload: buildFailurePayload(context, result)
+    });
   }
 
   return result;
+}
+
+function buildFailurePayload(context, result) {
+  if (context.payload !== undefined && context.payload !== null) {
+    try {
+      return typeof context.payload === 'string'
+        ? context.payload
+        : JSON.stringify(context.payload);
+    } catch (_) {
+      return String(context.payload);
+    }
+  }
+
+  if (!result) return '';
+
+  try {
+    const plain = typeof result.toObject === 'function' ? result.toObject() : result;
+    return JSON.stringify(plain);
+  } catch (_) {
+    return '';
+  }
 }
 
 function resolveMongoId(context, result) {

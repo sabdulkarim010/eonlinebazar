@@ -144,6 +144,19 @@ function applySecurityMiddleware(app) {
     app.post('/api/admin/login', authLimiter);
     app.post('/api/admin/auth/login', authLimiter);
 
+    const adminTwoFaRoutes = [
+        '/api/admin/2fa/totp/setup',
+        '/api/admin/2fa/totp/verify',
+        '/api/admin/2fa/totp/disable',
+        '/api/admin/2fa/sms/send',
+        '/api/admin/2fa/sms/verify',
+        '/api/admin/auth/2fa'
+    ];
+    adminTwoFaRoutes.forEach((route) => {
+        app.post(route, authLimiter);
+        app.put(route, authLimiter);
+    });
+
     app.post(
         '/api/coupons/apply',
         rateLimit({

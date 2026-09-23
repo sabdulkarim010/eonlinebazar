@@ -45,7 +45,9 @@ const attendanceSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 attendanceSchema.index({ staffId: 1, date: -1 });
+attendanceSchema.index({ date: 1, staffId: 1 });
 attendanceSchema.index({ date: -1, status: 1 });
+attendanceSchema.index({ status: 1 });
 
 /** Midnight of the given day — the canonical key for one attendance row. */
 attendanceSchema.statics.normalizeDate = function normalizeDate(input) {

@@ -80,11 +80,19 @@ function employeeFormatMoney(amount) {
 }
 
 function employeePhotoCell(photo, name) {
-    if (photo) {
-        return `<img src="${employeeEscape(photo)}" alt="" class="staff-avatar-thumb employee-avatar-sm">`;
+    if (typeof window.safeEmployeePhoto === 'function') {
+        return window.safeEmployeePhoto(photo, name);
     }
-    const initials = encodeURIComponent(String(name || 'E').slice(0, 2));
-    return `<img src="https://ui-avatars.com/api/?name=${initials}&background=64748b&color=fff&size=72" alt="" class="staff-avatar-thumb employee-avatar-sm">`;
+    const initials = (name || '?').split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+    if (!photo) {
+        return `<div class="emp-avatar-initials">${employeeEscape(initials)}</div>`;
+    }
+    return `
+        <span class="emp-avatar-wrap">
+            <img src="${employeeEscape(photo)}" alt="${employeeEscape(name || '')}" class="emp-avatar-img"
+                onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex'">
+            <div class="emp-avatar-initials" style="display:none">${employeeEscape(initials)}</div>
+        </span>`;
 }
 
 function formatDate(value) {
@@ -963,8 +971,6 @@ function setEmployeeSaveError(message) {
 async function saveEmployee() {
     const id = document.getElementById('employeeEditId')?.value?.trim();
     const payload = buildEmployeePayload();
-    console.log('[HRM-SAVE] payload references:', JSON.stringify(payload.references));
-
     if (!payload.fullName || !payload.phone || !payload.designation) {
         showToast('Full name, phone, and designation are required.', 'warning');
         return;
@@ -1248,12 +1254,26 @@ async function openEmployeeProfile(id) {
         const e = result.data.employee;
 
         const photo = document.getElementById('profileHeaderPhoto');
+        const photoFallback = document.getElementById('profileHeaderPhotoFallback');
         if (photo) {
+            const initials = (e.fullName || 'E').split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
             if (e.photo) {
                 photo.src = e.photo;
                 photo.style.display = 'block';
+                photo.onerror = () => {
+                    photo.style.display = 'none';
+                    if (photoFallback) {
+                        photoFallback.textContent = initials;
+                        photoFallback.style.display = 'flex';
+                    }
+                };
+                if (photoFallback) photoFallback.style.display = 'none';
             } else {
-                photo.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(e.fullName || 'E')}&background=2563eb&color=fff&size=128`;
+                photo.style.display = 'none';
+                if (photoFallback) {
+                    photoFallback.textContent = initials;
+                    photoFallback.style.display = 'flex';
+                }
             }
         }
 
