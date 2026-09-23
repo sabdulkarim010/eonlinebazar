@@ -1,14 +1,14 @@
-<section id="view-hrm-attendance" class="admin-section" style="display: none;">
+<section id="view-hrm-attendance" class="admin-section hrm-section" style="display: none;">
     <div class="section-header-box">
         <div>
-            <h3><i class="fa-solid fa-user-clock"></i> Attendance &amp; Shifts</h3>
-            <p class="section-subtitle">Daily attendance register, shift roster, and late arrival reporting.</p>
+            <h3 class="section-page-title"><i class="fa-solid fa-user-clock"></i> Attendance &amp; Shifts</h3>
+            <p class="section-subtitle section-page-subtitle">Daily attendance register, shift roster, and late arrival reporting.</p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button type="button" class="btn-secondary" id="attendanceRefreshBtn">
                 <i class="fa-solid fa-rotate"></i> Refresh
             </button>
-            <button type="button" class="btn-primary" onclick="openMarkAttendanceModal()">
+            <button type="button" class="btn-primary" data-permission="mark_attendance_today" onclick="openMarkAttendanceModal()">
                 <i class="fa-solid fa-check-to-slot"></i> Mark Attendance
             </button>
         </div>
@@ -45,20 +45,20 @@
         </div>
     </div>
 
-    <div class="hrm-tabs" id="hrmAttendanceTabs">
-        <button type="button" class="hrm-tab active" data-hrm-tab="hrm-tab-daily-sheet">
+    <div class="hrm-tabs hrm-attendance-tabs" id="hrmAttendanceTabs">
+        <button type="button" class="hrm-tab active" data-hrm-tab="hrm-tab-daily-sheet" data-permission="view_daily_sheet">
             <i class="fa-solid fa-table-list"></i> Daily Sheet
         </button>
-        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-register">
+        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-register" data-permission="view_attendance_register">
             <i class="fa-solid fa-list-check"></i> Attendance Register
         </button>
-        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-shifts">
+        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-shifts" data-permission="view_shifts">
             <i class="fa-solid fa-business-time"></i> Shifts
         </button>
-        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-late">
+        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-late" data-permission="view_late_report">
             <i class="fa-solid fa-clock"></i> Late Report
         </button>
-        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-manual" id="hrmManualEntryTab">
+        <button type="button" class="hrm-tab" data-hrm-tab="hrm-tab-manual" id="hrmManualEntryTab" data-permission="manual_attendance">
             <i class="fa-solid fa-pen-to-square"></i> Manual Entry
         </button>
     </div>
@@ -84,18 +84,18 @@
             <button type="button" id="dailySheetRefreshBtn" class="btn-outline-sm">
                 ↻ Refresh
             </button>
-            <button type="button" id="dailySheetMarkAllPresentBtn" class="btn-success-sm">
+            <button type="button" id="dailySheetMarkAllPresentBtn" class="btn-success-sm" data-permission="mark_attendance_today">
                 ✓ All Present
             </button>
-            <button type="button" id="dailySheetMarkAllAbsentBtn" class="btn-danger-sm">
+            <button type="button" id="dailySheetMarkAllAbsentBtn" class="btn-danger-sm" data-permission="mark_attendance_today">
                 ✗ All Absent
             </button>
             <div class="date-lock-controls" id="dailySheetLockBar">
                 <span id="dailySheetLockStatus" class="att-lock-status att-lock-status--open">🔓 Unlocked</span>
-                <button type="button" id="dailySheetLockBtn" class="btn-outline-sm" data-superadmin-only="true" hidden>
+                <button type="button" id="dailySheetLockBtn" class="btn-outline-sm" data-permission="lock_attendance_dates" hidden>
                     🔒 Lock Date
                 </button>
-                <button type="button" id="dailySheetUnlockBtn" class="btn-outline-sm" data-superadmin-only="true" hidden>
+                <button type="button" id="dailySheetUnlockBtn" class="btn-outline-sm" data-permission="lock_attendance_dates" hidden>
                     🔓 Unlock
                 </button>
             </div>
@@ -315,7 +315,7 @@
                     </div>
                 </div>
                 <div class="saas-settings-card-footer">
-                    <button type="submit" class="btn-submit saas-settings-save-btn" id="manualEntrySaveBtn">
+                    <button type="submit" class="btn-submit saas-settings-save-btn" id="manualEntrySaveBtn" data-permission="manual_attendance">
                         <i class="fa-solid fa-floppy-disk"></i> Save Entry
                     </button>
                 </div>

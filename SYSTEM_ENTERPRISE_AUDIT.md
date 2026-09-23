@@ -3084,5 +3084,32 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Sidebar profile photo (PG read) | ✅ Fixed | `admin.image` included in profile select; `/me` fallback + reload after RBAC boot |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## Frontend tab + action permission gating — 2026-09-23
+
+**Status:** ✅ Complete
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Sidebar `data-permission` | ✅ | 31 nav items tagged; group headers auto-hide when empty |
+| Attendance tab gating | ✅ | 5 tabs + Mark/Lock/Bulk buttons use granular keys |
+| Leave / Payroll actions | ✅ | Apply Leave, approve/reject, Generate Payroll gated |
+| `hasPermission()` implications | ✅ | Frontend reads `permissionImplications` from `/api/admin/permissions` |
+| Permission modal (47 keys) | ✅ | Dynamic `renderPermissionCheckboxes()` — Marketing + Accounts groups render |
+| Jest regression suite | ✅ | **231/231** passing |
+
+## Granular RBAC permission expansion — 2026-09-23
+
+**Status:** ✅ Complete (backend catalog + route guards)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Permission catalog | ✅ | **47** keys (25 legacy + 22 new granular) in `permissions.js` |
+| SECTION_PERMISSIONS | ✅ | 32 sidebar `data-target` entries mapped to specific keys + 7 legacy section keys |
+| PERMISSION_IMPLICATIONS | ✅ | `manage_staff`, `manage_orders`, `manage_inventory`, `manage_marketing`, `manage_settings` imply children |
+| Attendance route guards | ✅ | `view_daily_sheet`, `view_attendance_register`, `view_shifts`, `view_late_report`, granular mark/manual |
+| HRM route guards | ✅ | `view_employees`, `view_payroll`, `view_leave_requests`, `apply_leave_for_staff`, `approve_leave` |
+| `.cursorrules` Permission System Rules | ✅ | Documented 5-step permission workflow |
+| Jest regression suite | ✅ | **231/231** passing |
+
 
 

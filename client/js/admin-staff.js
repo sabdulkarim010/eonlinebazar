@@ -24,6 +24,7 @@ function authHeaders(json = true) {
 let currentAdmin = null;          // { username, role, permissions, ... }
 let permissionCatalog = [];       // [{ key, label, description, icon, group }]
 let sectionPermissionMap = {};    // { 'view-orders': 'manage_orders', ... }
+let permissionImplications = {};  // parent key → implied child keys (from API)
 let staffAccounts = [];
 
 /* ==========================================================================
@@ -115,7 +116,17 @@ function applySuperAdminOnlyVisibility() {
 function hasPermission(permission) {
     if (isSuperAdmin()) return true;
     if (!permission) return true;
-    return Array.isArray(currentAdmin?.permissions) && currentAdmin.permissions.includes(permission);
+
+    const granted = Array.isArray(currentAdmin?.permissions) ? currentAdmin.permissions : [];
+    if (granted.includes(permission)) return true;
+
+    for (const [parent, children] of Object.entries(permissionImplications)) {
+        if (granted.includes(parent) && Array.isArray(children) && children.includes(permission)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -163,7 +174,9 @@ const STAFF_GROUP_EMOJI = {
     Attendance: '🕐',
     HRM: '👥',
     Inventory: '📦',
-    Orders: '🛒'
+    Orders: '🛒',
+    Marketing: '📣',
+    Accounts: '💰'
 };
 
 /** One-click permission presets — keys must match config/permissions.js. */
@@ -240,6 +253,7 @@ async function loadCurrentAdmin() {
     currentAdmin = meResult.admin;
     permissionCatalog = catalogResult.permissions || [];
     sectionPermissionMap = catalogResult.sectionPermissions || {};
+    permissionImplications = catalogResult.permissionImplications || {};
 }
 
 /**
@@ -268,15 +282,31 @@ function applyRoleToSidebar() {
     nav.querySelectorAll('li[data-target]').forEach(item => {
         if (item.dataset.superadminOnly === 'true') return;
 
-        const required = sectionPermissionMap[item.getAttribute('data-target')];
+        const required = item.dataset.permission
+            || sectionPermissionMap[item.getAttribute('data-target')];
         item.style.display = hasPermission(required) ? '' : 'none';
     });
 
     // Any element can opt into permission gating with data-permission="key"
     // (settings cards, the finance shortcut, action buttons, …).
-    document.querySelectorAll('[data-permission]').forEach(el => {
-        const host = el.closest('li') || el;
+    nav.querySelectorAll('[data-permission]').forEach(el => {
+        const host = el.closest('li[data-target]') || el;
         host.style.display = hasPermission(el.dataset.permission) ? '' : 'none';
+    });
+
+    // Hide group headers when all children hidden
+    document.querySelectorAll('.sidebar-menu .menu-group').forEach((group) => {
+        const visible = [...group.querySelectorAll('li[data-target]')]
+            .filter((li) => li.style.display !== 'none');
+        group.style.display = visible.length === 0 ? 'none' : '';
+    });
+
+    document.querySelectorAll('.sidebar-menu .has-submenu').forEach((parent) => {
+        const visibleChildren = [...parent.querySelectorAll('li[data-target]')]
+            .filter((li) => li.style.display !== 'none');
+        if (visibleChildren.length === 0) {
+            parent.style.display = 'none';
+        }
     });
 
     hideEmptyMenuGroups(nav);
@@ -947,6 +977,9 @@ async function loadAssignPermissions(force = false) {
         if (!sectionPermissionMap || !Object.keys(sectionPermissionMap).length) {
             sectionPermissionMap = data.sectionPermissions || sectionPermissionMap;
         }
+        if (data.permissionImplications && typeof data.permissionImplications === 'object') {
+            permissionImplications = data.permissionImplications;
+        }
         return permissionCatalog;
     } catch (error) {
         console.error('loadAssignPermissions:', error);
@@ -1052,6 +1085,7 @@ function renderAssignPermissions(rawData, activeKeys = []) {
         Settings: '🔧',
         General: '🔑',
         Marketing: '📣',
+        Accounts: '💰',
         Customers: '👤'
     };
 

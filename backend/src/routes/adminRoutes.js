@@ -596,7 +596,7 @@ router.delete('/hrm/designations/:id', verifyAdmin, checkPermission('manage_staf
 // before the bare /:id routes so they are never read as a record id.
 router.get('/hrm/employees/stats', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeStats);
 router.get('/hrm/employees/export', verifyAdmin, checkPermission('manage_staff'), exportController.exportEmployeesCSV);
-router.get('/hrm/employees', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), employeeController.getAllEmployees);
+router.get('/hrm/employees', verifyAdmin, checkPermission('view_employees', 'manage_staff'), employeeController.getAllEmployees);
 router.get('/hrm/employees/:id/profile', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeProfile);
 router.get('/hrm/employees/:id/access-info', verifyAdmin, checkPermission('manage_staff'), employeeController.getAccessInfo);
 router.get('/hrm/employees/:id/access-status', verifyAdmin, checkPermission('manage_staff'), employeeController.getAccessStatus);
@@ -616,12 +616,12 @@ router.delete('/hrm/employees/:id', verifyAdmin, requireSuperAdmin, employeeCont
 
 // — Attendance —
 // Named sub-paths MUST register before bare GET /hrm/attendance (list route last).
-router.get('/hrm/attendance/daily-sheet', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getDailySheet);
-router.get('/hrm/attendance/lock-status', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getLockStatus);
-router.get('/hrm/attendance/manual-entries', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getManualEntries);
-router.get('/hrm/attendance/summary', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getAttendanceSummary);
-router.get('/hrm/attendance/late-report', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getLateReport);
-router.post('/hrm/attendance/mark', verifyAdmin, checkPermission('manage_staff', 'mark_attendance_today'), attendanceController.markAttendance);
+router.get('/hrm/attendance/daily-sheet', verifyAdmin, checkPermission('view_daily_sheet', 'view_attendance', 'manage_staff'), attendanceController.getDailySheet);
+router.get('/hrm/attendance/lock-status', verifyAdmin, checkPermission('view_daily_sheet', 'view_attendance', 'manage_staff'), attendanceController.getLockStatus);
+router.get('/hrm/attendance/manual-entries', verifyAdmin, checkPermission('manual_attendance', 'view_attendance', 'manage_staff'), attendanceController.getManualEntries);
+router.get('/hrm/attendance/summary', verifyAdmin, checkPermission('view_attendance', 'manage_staff'), attendanceController.getAttendanceSummary);
+router.get('/hrm/attendance/late-report', verifyAdmin, checkPermission('view_late_report', 'view_attendance', 'manage_staff'), attendanceController.getLateReport);
+router.post('/hrm/attendance/mark', verifyAdmin, checkPermission('mark_attendance_today', 'mark_attendance_any_date', 'manage_staff'), attendanceController.markAttendance);
 router.post('/hrm/attendance/bulk-mark', verifyAdmin, checkPermission('manage_staff'), attendanceController.bulkMarkAttendance);
 router.post(
     '/hrm/attendance/manual-entry',
@@ -635,16 +635,16 @@ router.put('/hrm/attendance/update', verifyAdmin, checkPermission('manage_staff'
 router.delete('/hrm/attendance/remove', verifyAdmin, checkPermission('manage_staff'), attendanceController.removeAttendanceRecord);
 router.post('/hrm/attendance/clock-in', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockIn);
 router.post('/hrm/attendance/clock-out', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockOut);
-router.get('/hrm/attendance', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), attendanceController.getAttendanceList);
+router.get('/hrm/attendance', verifyAdmin, checkPermission('view_attendance_register', 'view_attendance', 'manage_staff'), attendanceController.getAttendanceList);
 
 // — Shifts —
-router.get('/hrm/shifts', verifyAdmin, checkPermission('manage_staff'), attendanceController.getShifts);
+router.get('/hrm/shifts', verifyAdmin, checkPermission('view_shifts', 'manage_staff'), attendanceController.getShifts);
 router.post('/hrm/shifts', verifyAdmin, checkPermission('manage_staff'), attendanceController.createShift);
 router.patch('/hrm/shifts/:id', verifyAdmin, checkPermission('manage_staff'), attendanceController.updateShift);
 router.delete('/hrm/shifts/:id', verifyAdmin, checkPermission('manage_staff'), attendanceController.deleteShift);
 
 // — Payroll —
-router.get('/hrm/payroll', verifyAdmin, checkPermission('manage_staff'), payrollController.getAllPayrolls);
+router.get('/hrm/payroll', verifyAdmin, checkPermission('view_payroll', 'manage_payroll', 'manage_staff'), payrollController.getAllPayrolls);
 router.get('/hrm/payroll/calculate', verifyAdmin, checkPermission('manage_staff'), payrollController.previewPayrollFromAttendance);
 router.post('/hrm/payroll/generate', verifyAdmin, checkPermission('manage_staff'), payrollController.generatePayroll);
 router.post('/hrm/payroll/salary-config', verifyAdmin, checkPermission('manage_staff'), payrollController.updateSalaryConfig);
@@ -653,12 +653,12 @@ router.patch('/hrm/payroll/:id/approve', verifyAdmin, checkPermission('manage_st
 router.patch('/hrm/payroll/:id/paid', verifyAdmin, checkPermission('manage_staff'), payrollController.markPaid);
 
 // — Leave —
-router.get('/hrm/leaves', verifyAdmin, checkPermission('manage_staff'), leaveController.getAllLeaves);
-router.get('/hrm/leaves/balance', verifyAdmin, checkPermission('manage_staff'), leaveController.getLeaveBalance);
-router.get('/hrm/leaves/calendar', verifyAdmin, checkPermission('manage_staff'), leaveController.getLeaveCalendar);
-router.post('/hrm/leaves/apply', verifyAdmin, checkPermission('manage_staff'), leaveController.applyLeave);
-router.patch('/hrm/leaves/:id/approve', verifyAdmin, checkPermission('manage_staff'), leaveController.approveLeave);
-router.patch('/hrm/leaves/:id/reject', verifyAdmin, checkPermission('manage_staff'), leaveController.rejectLeave);
+router.get('/hrm/leaves', verifyAdmin, checkPermission('view_leave_requests', 'manage_leave', 'manage_staff'), leaveController.getAllLeaves);
+router.get('/hrm/leaves/balance', verifyAdmin, checkPermission('view_leave_requests', 'manage_leave', 'manage_staff'), leaveController.getLeaveBalance);
+router.get('/hrm/leaves/calendar', verifyAdmin, checkPermission('view_leave_requests', 'manage_leave', 'manage_staff'), leaveController.getLeaveCalendar);
+router.post('/hrm/leaves/apply', verifyAdmin, checkPermission('apply_leave_for_staff', 'manage_leave', 'manage_staff'), leaveController.applyLeave);
+router.patch('/hrm/leaves/:id/approve', verifyAdmin, checkPermission('approve_leave', 'manage_leave', 'manage_staff'), leaveController.approveLeave);
+router.patch('/hrm/leaves/:id/reject', verifyAdmin, checkPermission('approve_leave', 'manage_leave', 'manage_staff'), leaveController.rejectLeave);
 
 /********************************************************************
  # ৫ছ. 📧 NEWSLETTER & EMAIL CAMPAIGNS

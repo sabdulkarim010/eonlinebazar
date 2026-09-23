@@ -25,7 +25,7 @@
             
             <nav class="sidebar-menu" id="adminSidebarMenu">
                 <ul>
-                    <li class="active" data-target="view-overview" data-nav-group="dashboard" data-breadcrumb="Dashboard">
+                    <li class="active" data-target="view-overview" data-permission="view_analytics" data-nav-group="dashboard" data-breadcrumb="Dashboard">
                         <i class="fa-solid fa-chart-pie"></i> Dashboard
                     </li>
 
@@ -36,17 +36,17 @@
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
-                            <li data-target="view-pos" data-breadcrumb="POS System" data-permission="manage_orders">
+                            <li data-target="view-pos" data-permission="manage_orders" data-breadcrumb="POS System">
                                 <i class="fa-solid fa-calculator"></i> POS System
                             </li>
-                            <li data-target="view-orders" data-breadcrumb="Orders &amp; Fulfillment">
+                            <li data-target="view-orders" data-permission="view_orders" data-breadcrumb="Orders &amp; Fulfillment">
                                 <i class="fa-solid fa-cart-shopping"></i> Orders &amp; Fulfillment
                                 <span id="sidebarOrdersBadge" class="sidebar-nav-badge" hidden>0</span>
                             </li>
-                            <li data-target="view-customers" data-breadcrumb="Customer Database">
+                            <li data-target="view-customers" data-permission="view_customers" data-breadcrumb="Customer Database">
                                 <i class="fa-solid fa-users"></i> Customers
                             </li>
-                            <li data-target="view-messages" data-breadcrumb="Support Tickets">
+                            <li data-target="view-messages" data-permission="manage_support_tickets" data-breadcrumb="Support Tickets">
                                 <i class="fa-solid fa-envelope-open-text"></i> Support Tickets
                                 <span id="sidebarMessagesBadge" class="sidebar-nav-badge" hidden>0</span>
                             </li>
@@ -56,10 +56,10 @@
                                     <i class="fa-solid fa-up-right-from-square sidebar-external-icon"></i>
                                 </a>
                             </li>
-                            <li data-target="view-reviews" data-breadcrumb="Reviews &amp; Feedback">
+                            <li data-target="view-reviews" data-permission="view_reviews" data-breadcrumb="Reviews &amp; Feedback">
                                 <i class="fa-solid fa-star"></i> Reviews &amp; Feedback
                             </li>
-                            <li data-target="view-crm-abandoned" data-breadcrumb="Abandoned Carts">
+                            <li data-target="view-crm-abandoned" data-permission="manage_orders" data-breadcrumb="Abandoned Carts">
                                 <i class="fa-solid fa-cart-arrow-down"></i> Abandoned Carts
                             </li>
                         </ul>
@@ -72,28 +72,28 @@
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
-                            <li data-target="view-manage-products" data-breadcrumb="Inventory Management">
+                            <li data-target="view-manage-products" data-permission="view_products" data-breadcrumb="Inventory Management">
                                 <i class="fa-solid fa-boxes-stacked"></i> Inventory Management
                             </li>
-                            <li data-target="view-add-product" data-breadcrumb="Add Product">
+                            <li data-target="view-add-product" data-permission="edit_products" data-breadcrumb="Add Product">
                                 <i class="fa-solid fa-circle-plus"></i> Add New Product
                             </li>
-                            <li data-target="manage-category" data-breadcrumb="Categories">
+                            <li data-target="manage-category" data-permission="manage_catalog" data-breadcrumb="Categories">
                                 <i class="fa-solid fa-tags"></i> Categories
                             </li>
-                            <li data-target="manage-brands" data-breadcrumb="Brands">
+                            <li data-target="manage-brands" data-permission="manage_catalog" data-breadcrumb="Brands">
                                 <i class="fa-solid fa-copyright"></i> Brands
                             </li>
-                            <li data-target="manage-attributes" data-breadcrumb="Attributes">
+                            <li data-target="manage-attributes" data-permission="manage_catalog" data-breadcrumb="Attributes">
                                 <i class="fa-solid fa-sliders"></i> Attributes
                             </li>
-                            <li data-target="view-suppliers" data-breadcrumb="Suppliers">
+                            <li data-target="view-suppliers" data-permission="manage_suppliers" data-breadcrumb="Suppliers">
                                 <i class="fa-solid fa-truck-field"></i> Suppliers
                             </li>
-                            <li data-target="view-warehouses" data-breadcrumb="Warehouses">
+                            <li data-target="view-warehouses" data-permission="manage_warehouses" data-breadcrumb="Warehouses">
                                 <i class="fa-solid fa-warehouse"></i> Warehouses
                             </li>
-                            <li data-target="view-purchase-orders" data-breadcrumb="Purchase Orders">
+                            <li data-target="view-purchase-orders" data-permission="manage_purchase_orders" data-breadcrumb="Purchase Orders">
                                 <i class="fa-solid fa-file-invoice"></i> Purchase Orders
                             </li>
                         </ul>
@@ -106,22 +106,22 @@
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
-                            <li data-target="view-newsletter-campaigns" data-breadcrumb="Marketing Campaigns">
+                            <li data-target="view-newsletter-campaigns" data-permission="manage_marketing" data-breadcrumb="Marketing Campaigns">
                                 <i class="fa-solid fa-paper-plane"></i> Marketing Campaigns
                             </li>
-                            <li data-target="view-newsletter-subscribers" data-breadcrumb="Newsletter Subscribers">
+                            <li data-target="view-newsletter-subscribers" data-permission="manage_marketing" data-breadcrumb="Newsletter Subscribers">
                                 <i class="fa-solid fa-users"></i> Newsletter Subscribers
                             </li>
-                            <li data-target="manage-coupons" data-breadcrumb="Coupons">
+                            <li data-target="manage-coupons" data-permission="manage_coupons" data-breadcrumb="Coupons">
                                 <i class="fa-solid fa-ticket"></i> Coupons
                             </li>
-                            <li data-target="view-banners" data-breadcrumb="Hero Banners">
+                            <li data-target="view-banners" data-permission="manage_banners" data-breadcrumb="Hero Banners">
                                 <i class="fa-solid fa-images"></i> Hero Banners
                             </li>
-                            <li data-target="manage-navbar-links" data-breadcrumb="Navbar Menu Links">
+                            <li data-target="manage-navbar-links" data-permission="manage_navbar" data-breadcrumb="Navbar Menu Links">
                                 <i class="fa-solid fa-bars"></i> Navbar Menu Links
                             </li>
-                            <li data-target="view-loyalty-program" data-breadcrumb="Loyalty Program">
+                            <li data-target="view-loyalty-program" data-permission="manage_loyalty" data-breadcrumb="Loyalty Program">
                                 <i class="fa-solid fa-gift"></i> Loyalty Program
                             </li>
                         </ul>
@@ -134,19 +134,19 @@
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
-                            <li data-target="view-hrm-employees" data-breadcrumb="Employees">
+                            <li data-target="view-hrm-employees" data-permission="view_employees" data-breadcrumb="Employees">
                                 <i class="fa-solid fa-people-carry-box"></i> Employees
                             </li>
-                            <li data-target="view-staff" data-superadmin-only="true" data-breadcrumb="Admin Access &amp; Roles">
+                            <li data-target="view-staff" data-permission="manage_staff" data-superadmin-only="true" data-breadcrumb="Admin Access &amp; Roles">
                                 <i class="fa-solid fa-user-check"></i> System Staff Directory
                             </li>
-                            <li data-target="view-hrm-attendance" data-breadcrumb="Attendance &amp; Shifts">
+                            <li data-target="view-hrm-attendance" data-permission="view_attendance" data-breadcrumb="Attendance &amp; Shifts">
                                 <i class="fa-solid fa-user-clock"></i> Attendance &amp; Shifts
                             </li>
-                            <li data-target="view-hrm-payroll" data-breadcrumb="Payroll &amp; Salary">
+                            <li data-target="view-hrm-payroll" data-permission="view_payroll" data-breadcrumb="Payroll &amp; Salary">
                                 <i class="fa-solid fa-money-check-dollar"></i> Payroll &amp; Salary
                             </li>
-                            <li data-target="view-hrm-leaves" data-breadcrumb="Leave Management">
+                            <li data-target="view-hrm-leaves" data-permission="view_leave_requests" data-breadcrumb="Leave Management">
                                 <i class="fa-solid fa-plane-departure"></i> Leave Management
                             </li>
                         </ul>
@@ -159,13 +159,13 @@
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
-                            <li data-target="view-accounts" data-breadcrumb="Accounts Overview">
+                            <li data-target="view-accounts" data-permission="view_accounts" data-breadcrumb="Accounts Overview">
                                 <i class="fa-solid fa-wallet"></i> Accounts Overview
                             </li>
-                            <li data-target="view-finance" data-breadcrumb="Financial Reports" data-superadmin-only="true">
+                            <li data-target="view-finance" data-permission="view_financial_reports" data-superadmin-only="true" data-breadcrumb="Financial Reports">
                                 <i class="fa-solid fa-chart-line"></i> Financial Reports
                             </li>
-                            <li data-target="view-erp-expenses" data-breadcrumb="Expense Tracking">
+                            <li data-target="view-erp-expenses" data-permission="manage_expenses" data-breadcrumb="Expense Tracking">
                                 <i class="fa-solid fa-receipt"></i> Expense Tracking
                             </li>
                             <li class="sidebar-sub-external">
@@ -184,10 +184,10 @@
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
-                            <li data-target="view-settings" data-breadcrumb="System Settings">
+                            <li data-target="view-settings" data-permission="manage_settings" data-breadcrumb="System Settings">
                                 <i class="fa-solid fa-gear"></i> Settings Hub
                             </li>
-                            <li data-target="view-activity-feed" data-breadcrumb="Activity Feed">
+                            <li data-target="view-activity-feed" data-permission="manage_security" data-breadcrumb="Activity Feed">
                                 <i class="fa-solid fa-clock-rotate-left"></i> Activity Feed
                             </li>
                             <li data-target="view-system-backup" data-superadmin-only="true" data-breadcrumb="Backup &amp; Restore">

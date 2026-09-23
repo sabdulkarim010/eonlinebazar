@@ -134,6 +134,34 @@ const PERMISSIONS = Object.freeze([
         icon: 'fa-pen-to-square',
         group: 'Attendance'
     },
+    {
+        key: 'view_daily_sheet',
+        label: 'View Daily Sheet',
+        description: 'View the daily attendance sheet.',
+        icon: 'fa-calendar-day',
+        group: 'Attendance'
+    },
+    {
+        key: 'view_attendance_register',
+        label: 'View Attendance Register',
+        description: 'View full attendance register history.',
+        icon: 'fa-table-list',
+        group: 'Attendance'
+    },
+    {
+        key: 'view_shifts',
+        label: 'View Shifts',
+        description: 'View shift rosters and schedules.',
+        icon: 'fa-clock',
+        group: 'Attendance'
+    },
+    {
+        key: 'view_late_report',
+        label: 'View Late Report',
+        description: 'View late arrival reports.',
+        icon: 'fa-triangle-exclamation',
+        group: 'Attendance'
+    },
     // ── Granular HRM ────────────────────────────────────────────────────
     {
         key: 'view_employees',
@@ -163,6 +191,41 @@ const PERMISSIONS = Object.freeze([
         icon: 'fa-umbrella-beach',
         group: 'HRM'
     },
+    {
+        key: 'view_payroll',
+        label: 'View Payroll',
+        description: 'View payroll and salary records.',
+        icon: 'fa-money-bill-wave',
+        group: 'HRM'
+    },
+    {
+        key: 'process_payroll',
+        label: 'Process Payroll',
+        description: 'Run and process payroll cycles.',
+        icon: 'fa-money-check',
+        group: 'HRM'
+    },
+    {
+        key: 'view_leave_requests',
+        label: 'View Leave Requests',
+        description: 'View staff leave applications.',
+        icon: 'fa-plane-departure',
+        group: 'HRM'
+    },
+    {
+        key: 'approve_leave',
+        label: 'Approve/Reject Leave',
+        description: 'Approve or reject leave applications.',
+        icon: 'fa-check-circle',
+        group: 'HRM'
+    },
+    {
+        key: 'apply_leave_for_staff',
+        label: 'Apply Leave for Staff',
+        description: 'Submit leave on behalf of a staff member.',
+        icon: 'fa-file-signature',
+        group: 'HRM'
+    },
     // ── Granular Inventory ─────────────────────────────────────────────
     {
         key: 'view_products',
@@ -183,6 +246,27 @@ const PERMISSIONS = Object.freeze([
         label: 'Manage stock',
         description: 'Adjust stock quantities and warehouse assignments.',
         icon: 'fa-warehouse',
+        group: 'Inventory'
+    },
+    {
+        key: 'manage_suppliers',
+        label: 'Manage Suppliers',
+        description: 'View and manage supplier records.',
+        icon: 'fa-building',
+        group: 'Inventory'
+    },
+    {
+        key: 'manage_warehouses',
+        label: 'Manage Warehouses',
+        description: 'View and manage warehouse locations.',
+        icon: 'fa-warehouse',
+        group: 'Inventory'
+    },
+    {
+        key: 'manage_purchase_orders',
+        label: 'Manage Purchase Orders',
+        description: 'Create and manage purchase orders.',
+        icon: 'fa-file-invoice',
         group: 'Inventory'
     },
     // ── Granular Orders ───────────────────────────────────────────────
@@ -206,6 +290,79 @@ const PERMISSIONS = Object.freeze([
         description: 'Approve returns and issue refunds.',
         icon: 'fa-rotate-left',
         group: 'Orders'
+    },
+    {
+        key: 'manage_couriers',
+        label: 'Manage Couriers',
+        description: 'View and manage courier assignments.',
+        icon: 'fa-truck',
+        group: 'Orders'
+    },
+    // ── Granular Operations (Sales & Support) ─────────────────────────
+    {
+        key: 'view_customers',
+        label: 'View Customers',
+        description: 'View customer list and profiles.',
+        icon: 'fa-users',
+        group: 'Operations'
+    },
+    {
+        key: 'manage_support_tickets',
+        label: 'Manage Support Tickets',
+        description: 'View and respond to support tickets.',
+        icon: 'fa-headset',
+        group: 'Operations'
+    },
+    {
+        key: 'view_reviews',
+        label: 'View Reviews',
+        description: 'View product reviews and feedback.',
+        icon: 'fa-star',
+        group: 'Operations'
+    },
+    // ── Granular Marketing ────────────────────────────────────────────
+    {
+        key: 'manage_banners',
+        label: 'Manage Banners',
+        description: 'Edit hero banners and promotions.',
+        icon: 'fa-image',
+        group: 'Marketing'
+    },
+    {
+        key: 'manage_navbar',
+        label: 'Manage Navbar Links',
+        description: 'Edit navigation menu links.',
+        icon: 'fa-bars',
+        group: 'Marketing'
+    },
+    {
+        key: 'manage_loyalty',
+        label: 'Manage Loyalty Program',
+        description: 'Configure loyalty points and rewards.',
+        icon: 'fa-gift',
+        group: 'Marketing'
+    },
+    // ── Granular Accounts ─────────────────────────────────────────────
+    {
+        key: 'view_accounts',
+        label: 'View Accounts Overview',
+        description: 'View financial accounts summary.',
+        icon: 'fa-chart-pie',
+        group: 'Accounts'
+    },
+    {
+        key: 'view_financial_reports',
+        label: 'View Financial Reports',
+        description: 'Access financial and revenue reports.',
+        icon: 'fa-file-chart-line',
+        group: 'Accounts'
+    },
+    {
+        key: 'manage_expenses',
+        label: 'Manage Expenses',
+        description: 'View and record business expenses.',
+        icon: 'fa-receipt',
+        group: 'Accounts'
     }
 ]);
 
@@ -215,14 +372,30 @@ const PERMISSION_SET = new Set(PERMISSION_KEYS);
 /** Legacy coarse permissions imply their granular children for backward compatibility. */
 const PERMISSION_IMPLICATIONS = Object.freeze({
     manage_staff: [
-        'view_attendance', 'mark_attendance_today', 'mark_attendance_any_date',
+        'view_employees', 'edit_employees',
+        'view_attendance', 'view_daily_sheet', 'view_attendance_register', 'view_shifts',
+        'view_late_report', 'mark_attendance_today', 'mark_attendance_any_date',
         'lock_attendance_dates', 'manual_attendance',
-        'view_employees', 'edit_employees', 'manage_payroll', 'manage_leave'
+        'view_payroll', 'process_payroll', 'view_leave_requests', 'approve_leave',
+        'apply_leave_for_staff', 'manage_payroll', 'manage_leave'
     ],
-    manage_orders: ['view_orders', 'update_order_status', 'process_refunds'],
-    manage_inventory: ['view_products', 'edit_products', 'manage_stock'],
+    manage_orders: [
+        'view_orders', 'update_order_status', 'process_refunds', 'manage_couriers'
+    ],
+    manage_inventory: [
+        'view_products', 'edit_products', 'manage_stock',
+        'manage_suppliers', 'manage_warehouses', 'manage_purchase_orders'
+    ],
+    manage_marketing: [
+        'manage_banners', 'manage_navbar', 'manage_loyalty', 'manage_coupons',
+        'manage_marketing'
+    ],
+    manage_settings: [
+        'manage_settings', 'view_accounts', 'view_financial_reports', 'manage_expenses'
+    ],
     manage_customers: ['view_orders'],
-    view_analytics: ['view_orders']
+    view_analytics: ['view_orders'],
+    view_attendance: ['view_daily_sheet', 'view_attendance_register', 'view_late_report']
 });
 
 /**
@@ -232,44 +405,43 @@ const PERMISSION_IMPLICATIONS = Object.freeze({
  */
 const SECTION_PERMISSIONS = Object.freeze({
     'view-overview': 'view_analytics',
-    'view-customers': 'manage_customers',
-    'view-orders': 'manage_orders',
     'view-pos': 'manage_orders',
-    'view-add-product': 'manage_inventory',
-    'view-manage-products': 'manage_inventory',
+    'view-orders': 'view_orders',
+    'view-customers': 'view_customers',
+    'view-messages': 'manage_support_tickets',
+    'view-reviews': 'view_reviews',
+    'view-crm-abandoned': 'manage_orders',
+    'view-manage-products': 'view_products',
+    'view-add-product': 'edit_products',
     'manage-category': 'manage_catalog',
     'manage-brands': 'manage_catalog',
-    'manage-navbar-links': 'manage_catalog',
     'manage-attributes': 'manage_catalog',
+    'view-suppliers': 'manage_suppliers',
+    'view-warehouses': 'manage_warehouses',
+    'view-purchase-orders': 'manage_purchase_orders',
+    'view-newsletter-campaigns': 'manage_marketing',
+    'view-newsletter-subscribers': 'manage_marketing',
     'manage-coupons': 'manage_coupons',
+    'view-banners': 'manage_banners',
+    'manage-navbar-links': 'manage_navbar',
+    'view-loyalty-program': 'manage_loyalty',
+    'view-hrm-employees': 'view_employees',
+    'view-staff': 'manage_staff',
+    'view-hrm-attendance': 'view_attendance',
+    'view-hrm-payroll': 'view_payroll',
+    'view-hrm-leaves': 'view_leave_requests',
+    'view-accounts': 'view_accounts',
+    'view-finance': 'view_financial_reports',
+    'view-erp-expenses': 'manage_expenses',
+    'view-settings': 'manage_settings',
+    'view-activity-feed': 'manage_security',
+    'view-system-backup': null,
     'view-security': 'manage_security',
     'view-sessions': null, // every admin may review their own devices
     'view-audit': 'manage_security',
     'view-shipping-payments': 'manage_settings',
-    'view-loyalty-program': 'manage_settings',
     'view-store-config': 'manage_settings',
-    'view-messages': 'manage_settings',
-    'view-settings': 'manage_settings',
-    'view-erp-expenses': 'manage_settings',
-    'view-staff': 'manage_staff',
     'view-staff-audit': 'manage_security',
-    'view-activity-feed': 'manage_security',
-    'view-hrm-employees': 'view_employees',
-    'view-hrm-attendance': 'view_attendance',
-    'view-hrm-payroll': 'manage_payroll',
-    'view-hrm-leaves': 'manage_leave',
-    'view-newsletter-subscribers': 'manage_marketing',
-    'view-newsletter-campaigns': 'manage_marketing',
-    'view-crm-abandoned': 'manage_marketing',
-    'view-reviews': 'manage_orders',
-    'view-suppliers': 'manage_inventory',
-    'view-warehouses': 'manage_inventory',
-    'view-purchase-orders': 'manage_inventory',
-    // Financial reports stay owner-only; the sidebar item also carries
-    // data-superadmin-only so staff never see the entry.
-    'view-accounts': 'view_analytics',
-    'view-finance': 'manage_settings',
-    'view-banners': 'manage_catalog',
     'settings-2fa': null
 });
 

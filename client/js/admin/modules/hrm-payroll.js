@@ -456,9 +456,20 @@ async function saveSalaryConfig() {
 
 /** Called by core-nav when the Payroll & Salary section opens. */
 async function loadHrmPayrollSection() {
+    if (typeof window.waitForAdminPermissions === 'function') {
+        await window.waitForAdminPermissions();
+    }
+
+    if (typeof window.applyPermissionGating === 'function') {
+        window.applyPermissionGating(document.getElementById('view-hrm-payroll'));
+    }
+
     window.hrmFillMonthSelect('hrmPayrollMonth', currentMonth());
     window.hrmFillYearInput('hrmPayrollYear', currentYear());
-    await loadPayrollList();
+
+    if (typeof window.hasAdminPermission === 'function' && window.hasAdminPermission('view_payroll')) {
+        await loadPayrollList();
+    }
 }
 
 function setupHrmPayrollSection() {

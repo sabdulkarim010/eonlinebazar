@@ -26,7 +26,8 @@ const {
     PERMISSION_KEYS,
     getPermissionCatalog,
     sanitizePermissions,
-    SECTION_PERMISSIONS
+    SECTION_PERMISSIONS,
+    PERMISSION_IMPLICATIONS
 } = require('../config/permissions');
 const { fingerprint } = require('../utils/deviceParser');
 const { logSecurityEvent } = require('../utils/securityLogger');
@@ -79,6 +80,7 @@ exports.getPermissionCatalogue = async (req, res) => {
         success: true,
         permissions: getPermissionCatalog(),
         sectionPermissions: SECTION_PERMISSIONS,
+        permissionImplications: PERMISSION_IMPLICATIONS,
         roles: ROLES
     });
 };

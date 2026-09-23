@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-22 (sidebar map + boot gating + profile photo)  
+**Last updated:** 2026-09-23 (frontend tab + action permission gating)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -484,6 +484,25 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 - Super Admin can link own admin account to an active Employee via `PUT /api/admin/profile/link-employee`
 - Employee photo changes propagate to admin sidebar; admin display name/photo sync back to linked employee (photo only on employee upload path)
 - `employeeController.uploadEmployeePhoto` returns `photoUpdated: true` and syncs linked admin image
+
+### Frontend tab + action permission gating — 2026-09-23
+
+- **sidebar.html:** `data-permission` on all 31 sidebar nav items
+- **view-hrm-attendance.html:** Per-tab + action button `data-permission` (Daily Sheet, Register, Shifts, Late Report, Manual Entry; Mark/Lock/Bulk)
+- **hrm-attendance.js:** `applyAttendanceTabPermissions()`, scoped `applyPermissionGating()`; role-based manual entry removed in favour of `manual_attendance` key
+- **hrm-leaves.js / hrm-payroll.js:** Apply Leave + approve/reject + Generate Payroll gated after `waitForAdminPermissions()`
+- **admin-staff.js:** `hasPermission()` resolves `permissionImplications` from API; empty menu groups auto-hide
+- **permissions.js:** `view_attendance` implies `view_daily_sheet`, `view_attendance_register`, `view_late_report`
+- **Tests:** Jest **231/231** passing
+
+### Granular RBAC permission expansion — 2026-09-23
+
+- **permissions.js:** Added 22 granular keys (Attendance tabs, HRM payroll/leave, Operations, Inventory, Marketing, Accounts); total catalog **47** keys
+- **SECTION_PERMISSIONS:** Every sidebar `data-target` mapped to its own key (32 sidebar entries + legacy section keys)
+- **PERMISSION_IMPLICATIONS:** Coarse keys (`manage_staff`, `manage_orders`, `manage_inventory`, `manage_marketing`, `manage_settings`) imply new children for backward compatibility
+- **adminRoutes.js:** HRM attendance + leave + payroll routes use specific `checkPermission()` keys first (e.g. `view_daily_sheet`, `view_attendance_register`, `view_shifts`, `view_late_report`, `view_payroll`, `view_leave_requests`, `approve_leave`, `apply_leave_for_staff`)
+- **.cursorrules:** Added Permission System Rules section
+- **Tests:** Jest **231/231** passing
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

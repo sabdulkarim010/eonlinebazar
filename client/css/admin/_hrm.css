@@ -685,32 +685,60 @@
     position: absolute;
     top: calc(100% + 4px);
     right: 0;
-    z-index: 1000;
-    min-width: 120px;
-    background-color: #ffffff;
-    color: #1a1a1a;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    z-index: 9999;
+    min-width: 160px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10),
+                0 2px 8px rgba(0, 0, 0, 0.06);
+    padding: 6px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-.att-split-menu button {
-    background-color: transparent;
+.att-split-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 14px;
     border: none;
-    color: #1a1a1a;
+    border-radius: 7px;
+    background: transparent;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #374151;
     text-align: left;
-    padding: 8px 14px;
-    font-size: 12px;
     cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
-.att-split-menu button:hover {
-    background-color: #f0f4ff;
-    color: #1d4ed8;
+.att-split-menu__item:hover {
+    background: #f0f4ff;
+    color: #2563eb;
 }
+
+.att-split-menu__divider {
+    border-top: 1px solid #f1f5f9;
+    margin: 4px 0;
+}
+
+.att-split-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.att-split-dot--present { background: #22c55e; }
+.att-split-dot--late { background: #f59e0b; }
+.att-split-dot--halfday { background: #a78bfa; }
+.att-split-dot--absent { background: #ef4444; }
+.att-split-dot--leave { background: #3b82f6; }
+.att-split-dot--holiday { background: #6b7280; }
 
 .att-saved-flash {
     display: block;
@@ -1226,6 +1254,115 @@
     gap: 6px !important;
     margin-left: auto !important;
     flex-wrap: wrap !important;
+}
+
+/* ── Global HRM section spacing (compact premium) ─────────────────── */
+.hrm-section,
+.admin-section-content {
+    padding-top: 16px;
+}
+
+.section-page-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.section-page-subtitle {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 14px;
+}
+
+/* ── Attendance page: compact layout (1080p-friendly) ─────────────── */
+#view-hrm-attendance .section-header-box {
+    padding: 12px 16px;
+    margin-bottom: 12px;
+}
+
+#view-hrm-attendance .section-page-subtitle {
+    margin-bottom: 0;
+}
+
+#view-hrm-attendance .hrm-stats-grid {
+    margin-bottom: 8px;
+    gap: 10px;
+}
+
+#view-hrm-attendance .hrm-stats-grid .metric-card {
+    padding: 12px 16px;
+    min-height: unset;
+    gap: 10px;
+}
+
+#view-hrm-attendance .hrm-stats-grid .metric-card .icon {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+}
+
+#view-hrm-attendance .hrm-stats-grid .metric-card .data h3 {
+    font-size: 28px;
+    line-height: 1.1;
+}
+
+#view-hrm-attendance .hrm-stats-grid .metric-card .data p {
+    margin-bottom: 2px;
+    font-size: 11px;
+}
+
+#view-hrm-attendance .hrm-attendance-tabs {
+    margin: 8px 0 12px;
+    padding-bottom: 6px;
+}
+
+#view-hrm-attendance .hrm-attendance-tabs .hrm-tab {
+    padding: 8px 16px;
+}
+
+#view-hrm-attendance .hrm-daily-sheet-toolbar {
+    padding: 12px 0;
+    margin-bottom: 8px;
+    background: transparent;
+    border: none;
+}
+
+#view-hrm-attendance .hrm-daily-sheet-toolbar .form-group label {
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+#view-hrm-attendance .hrm-daily-sheet-toolbar input,
+#view-hrm-attendance .hrm-daily-sheet-toolbar select {
+    height: 36px;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+#view-hrm-attendance .daily-sheet-actions {
+    margin: 8px 0 !important;
+    gap: 6px !important;
+}
+
+#view-hrm-attendance .btn-outline-sm,
+#view-hrm-attendance .btn-success-sm,
+#view-hrm-attendance .btn-danger-sm {
+    padding: 6px 14px !important;
+    font-size: 13px !important;
+}
+
+#view-hrm-attendance .hrm-daily-sheet-table th,
+#view-hrm-attendance .hrm-daily-sheet-table td {
+    padding: 10px 12px;
+    vertical-align: middle;
+}
+
+#view-hrm-attendance .hrm-daily-sheet-table .hrm-employee-thumb,
+#view-hrm-attendance .hrm-daily-sheet-table .hrm-employee-thumb--placeholder {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
 }
 
 /* Employees page — compact header */

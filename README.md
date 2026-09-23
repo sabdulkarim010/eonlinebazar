@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-22 (RBAC sidebar gaps + profile photo)
+**Last updated:** 2026-09-23 (frontend tab + action permission gating)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
@@ -106,7 +106,7 @@ Staff identity, time tracking, compensation, and leave — gated by `manage_staf
 
 | Module | Description |
 |--------|-------------|
-| **Granular RBAC & Staff Activity Audit** | Super-admin vs staff with explicit permissions (`view_analytics`, `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_coupons`, `manage_customers`, `manage_settings`, `manage_security`, `manage_staff`, `manage_marketing`). Every sensitive action writes a **staff activity audit** entry (`resourceType` + `resourceId`). **Unified Activity Feed** timeline (`GET /api/admin/activity-feed`) and **role-based dashboard widgets** (ERP/CRM/Finance/HRM sections gated by permission). |
+| **Granular RBAC & Staff Activity Audit** | Super-admin vs staff with **47** explicit permission keys (coarse + granular: Attendance tabs, HRM payroll/leave, Operations, Inventory, Marketing, Accounts). Every sensitive action writes a **staff activity audit** entry (`resourceType` + `resourceId`). **Unified Activity Feed** timeline (`GET /api/admin/activity-feed`) and dashboard widgets gated by `SECTION_PERMISSIONS` + route `checkPermission()`. |
 | **Attendance & Shift Management** | **Daily Sheet** tab for same-day roster marking (auto-save, bulk present/absent, dept filter), **date lock** (Super Admin), **Manual Entry** panel with audit trail, clock-in / clock-out with optional **GPS tagging**, one row per staff per day, named shifts with grace-period **late penalties**, plus register, summary, and late reports. |
 | **Payroll Engine & Automated Pay Slips** | Attendance-driven runs: `baseSalary × min(presentDays / workingDays, 1) + overtime + bonus − deductions`. Workflow is draft → approved → paid. Each slip is a **PDFKit** pay slip with pro-rated working-day calculation. |
 | **Leave Management** | **Casual**, **Sick**, and **Annual** leave (plus unpaid) with balances, a month **calendar** view, and automatic attendance sync — approving leave stamps `holiday` rows across the span. |

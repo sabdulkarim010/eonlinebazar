@@ -233,6 +233,25 @@ Before declaring a task done:
 
 ---
 
+## Permission System Rules
+
+1. Every new sidebar item MUST have an entry in `SECTION_PERMISSIONS` (`permissions.js`).
+
+2. Every new API route MUST use `checkPermission()` with the most specific key first.
+
+3. When adding a new feature section:
+   a. Add permission key(s) to `PERMISSIONS` array
+   b. Add sidebar mapping to `SECTION_PERMISSIONS`
+   c. Add route guard with `checkPermission()`
+   d. Add to `PERMISSION_IMPLICATIONS` if it is a child of a coarse key
+   e. Update `HRM_AUDIT.md` (or the relevant area audit file)
+
+4. Never use role-based checks (`req.account.role`) in route guards — always use `checkPermission()`.
+
+5. Frontend tabs within a section MUST use `data-permission="key"` attribute to show/hide.
+
+---
+
 ## When in doubt — which `.md` file?
 
 | Topic | File |

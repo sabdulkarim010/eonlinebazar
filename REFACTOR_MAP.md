@@ -2439,3 +2439,26 @@ backend/src/repositories/adminRepository.js [MOD] profile select includes admin.
 docs/audit/HRM_AUDIT.md [MOD] changelog
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] RBAC sidebar section
 README.md [MOD] last updated
+
+# Granular RBAC permission keys — 2026-09-23
+backend/src/config/permissions.js [MOD] +22 keys; SECTION_PERMISSIONS granular map; PERMISSION_IMPLICATIONS expanded
+backend/src/routes/adminRoutes.js [MOD] HRM attendance/payroll/leave route guards use granular keys
+.cursorrules [MOD] Permission System Rules section
+docs/audit/HRM_AUDIT.md [MOD] granular RBAC changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] granular RBAC section
+README.md [MOD] last updated; 47 permission keys
+
+# Frontend tab + action permission gating — 2026-09-23
+client/admin/partials/sidebar.html [MOD] data-permission on 31 nav items
+client/admin/partials/view-hrm-attendance.html [MOD] tab + action data-permission attrs
+client/admin/partials/view-hrm-leaves.html [MOD] applyLeaveBtn data-permission
+client/admin/partials/view-hrm-payroll.html [MOD] processPayrollBtn data-permission
+client/js/admin-staff.js [MOD] permissionImplications; hasPermission resolves implications; group auto-hide
+client/js/admin/modules/hrm-attendance.js [MOD] applyAttendanceTabPermissions; applyPermissionGating; permission-based manual entry
+client/js/admin/modules/hrm-leaves.js [MOD] leave action gating after permissions load
+client/js/admin/modules/hrm-payroll.js [MOD] payroll button gating after permissions load
+backend/src/config/permissions.js [MOD] view_attendance implications
+backend/src/controllers/staffController.js [MOD] API returns permissionImplications
+docs/audit/HRM_AUDIT.md [MOD] frontend gating changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] frontend gating section
+README.md [MOD] last updated

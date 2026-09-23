@@ -331,25 +331,56 @@ function hrmResolveAdminRole() {
 }
 
 function hrmCanAccessManualEntry() {
-    const role = hrmResolveAdminRole();
-    return role === 'hr' || role === 'super_admin';
+    return typeof window.hasAdminPermission === 'function'
+        && window.hasAdminPermission('manual_attendance');
 }
 
 function hrmCanRemoveAttendance() {
     return hrmCanAccessManualEntry();
 }
 
-function applyManualEntryTabVisibility() {
-    const tab = document.getElementById('hrmManualEntryTab')
-        || document.querySelector('#hrmAttendanceTabs .hrm-tab[data-hrm-tab="hrm-tab-manual"]');
-    if (!tab) return;
+function applyPermissionGating(root = document) {
+    if (!root) return;
 
-    const allowed = hrmCanAccessManualEntry();
-    tab.hidden = !allowed;
-    tab.style.display = allowed ? '' : 'none';
+    root.querySelectorAll('[data-permission]').forEach((el) => {
+        const perm = el.dataset.permission;
+        if (!perm) return;
 
-    if (!allowed && tab.classList.contains('active')) {
-        document.querySelector('#hrmAttendanceTabs .hrm-tab[data-hrm-tab="hrm-tab-daily-sheet"]')?.click();
+        const allowed = typeof window.hasAdminPermission === 'function'
+            && window.hasAdminPermission(perm);
+
+        if (!allowed) {
+            el.style.display = 'none';
+            el.hidden = true;
+            return;
+        }
+
+        if (el.dataset.superadminOnly === 'true') return;
+
+        el.hidden = false;
+        el.style.display = '';
+    });
+}
+
+function applyAttendanceTabPermissions() {
+    const tabs = document.querySelectorAll('.hrm-attendance-tabs [data-permission]');
+    tabs.forEach((tab) => {
+        const perm = tab.dataset.permission;
+        const allowed = typeof window.hasAdminPermission === 'function'
+            && window.hasAdminPermission(perm);
+
+        tab.hidden = !allowed;
+        tab.style.display = allowed ? '' : 'none';
+    });
+
+    const activeTab = document.querySelector('.hrm-attendance-tabs .hrm-tab.active');
+    if (activeTab && activeTab.style.display === 'none') {
+        activeTab.classList.remove('active');
+    }
+
+    const firstVisible = [...tabs].find((tab) => tab.style.display !== 'none');
+    if (firstVisible) {
+        firstVisible.click();
     }
 }
 
@@ -384,15 +415,8 @@ function hrmTimeInputValue(value) {
 
 function hrmCanEditPastAttendanceDates() {
     if (hrmIsSuperAdmin()) return true;
-    try {
-        const cached = sessionStorage.getItem('adminProfile');
-        if (cached) {
-            const profile = JSON.parse(cached);
-            const role = String(profile.role || '').toLowerCase();
-            if (role === 'hr' || role === 'superadmin' || role === 'super_admin') return true;
-        }
-    } catch (_) { /* ignore corrupt cache */ }
-    return false;
+    return typeof window.hasAdminPermission === 'function'
+        && window.hasAdminPermission('mark_attendance_any_date');
 }
 
 function updateDailySheetPastDateUI() {
@@ -437,12 +461,13 @@ function updateDailySheetLockUI() {
         }
     }
 
-    if (lockBtn) lockBtn.hidden = dailySheetLocked || !hrmIsSuperAdmin();
-    if (unlockBtn) unlockBtn.hidden = !dailySheetLocked || !hrmIsSuperAdmin();
+    const canLock = typeof window.hasAdminPermission === 'function'
+        && window.hasAdminPermission('lock_attendance_dates');
 
-    if (typeof window.applySuperAdminOnlyVisibility === 'function') {
-        window.applySuperAdminOnlyVisibility();
-    }
+    if (lockBtn) lockBtn.hidden = dailySheetLocked || !canLock;
+    if (unlockBtn) unlockBtn.hidden = !dailySheetLocked || !canLock;
+
+    applyPermissionGating(document.getElementById('view-hrm-attendance'));
 }
 
 function populateDailySheetDepartments(employees) {
@@ -456,12 +481,31 @@ function populateDailySheetDepartments(employees) {
     if (current) select.value = current;
 }
 
+const DAILY_SHEET_MENU_OPTIONS = [
+    { status: 'late', label: 'Late', dotClass: 'att-split-dot--late' },
+    { status: 'half-day', label: 'Half-Day', dotClass: 'att-split-dot--halfday' },
+    { status: 'absent', label: 'Absent', dotClass: 'att-split-dot--absent', dividerBefore: true },
+    { status: 'leave', label: 'Leave', dotClass: 'att-split-dot--leave' },
+    { status: 'holiday', label: 'Holiday', dotClass: 'att-split-dot--holiday' }
+];
+
+function renderDailySheetMenuOptions(employeeId) {
+    const eid = hrmEscape(employeeId);
+    return DAILY_SHEET_MENU_OPTIONS.map((option) => {
+        const divider = option.dividerBefore ? '<div class="att-split-menu__divider" aria-hidden="true"></div>' : '';
+        return `${divider}<button type="button" class="att-split-menu__item" onclick="markDailySheetStatus('${eid}','${option.status}', this)"><span class="att-split-dot ${option.dotClass}" aria-hidden="true"></span>${option.label}</button>`;
+    }).join('');
+}
+
 function renderDailySheetActionCell(row) {
     const eid = hrmEscape(row.employeeId);
+    const canMark = typeof window.hasAdminPermission === 'function'
+        && window.hasAdminPermission('mark_attendance_today');
+
     if (dailySheetLocked) {
         return '<span class="att-lock-icon" title="Date locked">🔒</span>';
     }
-    if (dailySheetPastDateViewOnly) {
+    if (dailySheetPastDateViewOnly || !canMark) {
         return '<span class="att-view-only-label" title="Past date — view only">View only</span>';
     }
 
@@ -472,11 +516,7 @@ function renderDailySheetActionCell(row) {
                     <button type="button" class="att-split-btn__main" onclick="markDailySheetStatus('${eid}','present', this)">✓ Present</button>
                     <button type="button" class="att-split-btn__toggle" onclick="toggleDailySheetMenu(this)" aria-label="More statuses">▾</button>
                     <div class="att-split-menu" hidden>
-                        <button type="button" onclick="markDailySheetStatus('${eid}','late', this)">Late</button>
-                        <button type="button" onclick="markDailySheetStatus('${eid}','half-day', this)">Half-Day</button>
-                        <button type="button" onclick="markDailySheetStatus('${eid}','absent', this)">Absent</button>
-                        <button type="button" onclick="markDailySheetStatus('${eid}','leave', this)">Leave</button>
-                        <button type="button" onclick="markDailySheetStatus('${eid}','holiday', this)">Holiday</button>
+                        ${renderDailySheetMenuOptions(row.employeeId)}
                     </div>
                 </div>
                 <button type="button" class="att-edit-icon" onclick="toggleDailySheetEdit('${eid}')" title="Edit check-in/out" aria-label="Edit attendance">✏️</button>
@@ -1687,17 +1727,27 @@ async function loadLateReport() {
 
 /** Called by core-nav when the Attendance & Shifts section opens. */
 async function loadHrmAttendanceSection() {
+    if (typeof window.waitForAdminPermissions === 'function') {
+        await window.waitForAdminPermissions();
+    }
+
     const now = new Date();
     hrmFillMonthSelect('hrmLateMonth', now.getMonth() + 1);
     hrmFillYearInput('hrmLateYear', now.getFullYear());
 
-    applyManualEntryTabVisibility();
+    applyAttendanceTabPermissions();
+    applyPermissionGating(document.getElementById('view-hrm-attendance'));
 
-    const staffOptionLoads = [loadAttendanceSettings()];
+    const staffOptionLoads = [];
+    if (typeof window.hasAdminPermission === 'function' && window.hasAdminPermission('view_shifts')) {
+        staffOptionLoads.push(loadAttendanceSettings());
+    }
     if (typeof window.hasAdminPermission === 'function' && window.hasAdminPermission('manage_staff')) {
         staffOptionLoads.push(hrmLoadStaffOptions(['hrmAttendanceStaffFilter']));
     }
-    await Promise.all(staffOptionLoads);
+    if (staffOptionLoads.length) {
+        await Promise.all(staffOptionLoads);
+    }
 
     const pendingStaff = window.hrmPendingAttendanceStaff;
     if (pendingStaff) {
@@ -1714,12 +1764,13 @@ async function loadHrmAttendanceSection() {
     const dailyDate = document.getElementById('dailySheetDate');
     if (dailyDate && !dailyDate.value) dailyDate.value = hrmTodayInputValue();
 
-    await loadDailySheet();
+    if (typeof window.hasAdminPermission === 'function' && window.hasAdminPermission('view_daily_sheet')) {
+        await loadDailySheet();
+    }
 }
 
 function setupHrmAttendanceSection() {
     setupDailySheetSection();
-    applyManualEntryTabVisibility();
 
     hrmSetupTabs('hrmAttendanceTabs', (panelId) => {
         if (panelId === 'hrm-tab-daily-sheet') loadDailySheet();
@@ -1734,9 +1785,7 @@ function setupHrmAttendanceSection() {
             if (manualDate && !manualDate.value) manualDate.value = hrmTodayInputValue();
             loadManualEntryEmployees();
             loadManualEntries();
-            if (typeof window.applySuperAdminOnlyVisibility === 'function') {
-                window.applySuperAdminOnlyVisibility();
-            }
+            applyPermissionGating(document.getElementById('view-hrm-attendance'));
         }
     });
 
@@ -1770,6 +1819,8 @@ Object.assign(window, {
     HRM_MONTHS
 });
 
+window.applyPermissionGating = applyPermissionGating;
+window.applyAttendanceTabPermissions = applyAttendanceTabPermissions;
 window.loadHrmAttendanceSection = loadHrmAttendanceSection;
 window.loadAttendanceList = loadAttendanceList;
 window.applyAttendanceFilters = applyAttendanceFilters;

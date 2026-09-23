@@ -84,16 +84,20 @@ async function loadPendingLeaves() {
                 <td>${window.hrmEscape(leave.reason || '—')}</td>
                 <td>
                     <div class="catalog-actions">
-                        <button type="button" class="catalog-action-btn" onclick="approveLeave('${leave._id}')" title="Approve" style="color:#10b981;">
+                        <button type="button" class="catalog-action-btn leave-approve-btn" data-permission="approve_leave" onclick="approveLeave('${leave._id}')" title="Approve" style="color:#10b981;">
                             <i class="fa-solid fa-circle-check"></i>
                         </button>
-                        <button type="button" class="catalog-action-btn delete" onclick="rejectLeave('${leave._id}')" title="Reject">
+                        <button type="button" class="catalog-action-btn delete leave-reject-btn" data-permission="approve_leave" onclick="rejectLeave('${leave._id}')" title="Reject">
                             <i class="fa-solid fa-circle-xmark"></i>
                         </button>
                     </div>
                 </td>
             </tr>
         `).join('');
+
+        if (typeof window.applyPermissionGating === 'function') {
+            window.applyPermissionGating(document.getElementById('view-hrm-leaves'));
+        }
     } catch (err) {
         console.error('loadPendingLeaves:', err);
         tbody.innerHTML = '<tr><td colspan="6" class="table-status-error">Failed to load pending leaves.</td></tr>';
@@ -397,12 +401,22 @@ async function submitLeaveApplication() {
 
 /** Called by core-nav when the Leave Management section opens. */
 async function loadHrmLeavesSection() {
+    if (typeof window.waitForAdminPermissions === 'function') {
+        await window.waitForAdminPermissions();
+    }
+
     const now = new Date();
     window.hrmFillMonthSelect('hrmLeaveCalendarMonth', now.getMonth() + 1);
     window.hrmFillYearInput('hrmLeaveCalendarYear', now.getFullYear());
 
-    await loadPendingLeaves();
-    await loadLeaveBalances();
+    if (typeof window.applyPermissionGating === 'function') {
+        window.applyPermissionGating(document.getElementById('view-hrm-leaves'));
+    }
+
+    if (typeof window.hasAdminPermission === 'function' && window.hasAdminPermission('view_leave_requests')) {
+        await loadPendingLeaves();
+        await loadLeaveBalances();
+    }
 }
 
 function setupHrmLeavesSection() {
