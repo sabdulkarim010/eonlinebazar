@@ -250,6 +250,10 @@ Before declaring a task done:
 
 5. Frontend tabs within a section MUST use `data-permission="key"` attribute to show/hide.
 
+6. Each sidebar item must have its own unique permission key. Never map 2+ sidebar items to the same coarse key (e.g. do not reuse `manage_orders` for POS, abandoned carts, and orders).
+
+7. Coarse permission keys (`manage_orders`, `manage_inventory`, `manage_marketing`, `manage_catalog`, etc.) must be marked `preset_only: true` and never appear in permission modal toggles. All sidebar items use granular keys only. `getPermissionCatalog()` filters out `preset_only` entries.
+
 ---
 
 ## When in doubt — which `.md` file?

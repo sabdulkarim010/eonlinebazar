@@ -38,23 +38,26 @@ const PERMISSIONS = Object.freeze([
     {
         key: 'manage_orders',
         label: 'Manage Orders',
-        description: 'View live orders, update status, approve returns, and refund.',
+        description: 'Preset shortcut — grants all Sales & Orders keys via Order Manager / Full Admin.',
         icon: 'fa-cart-shopping',
-        group: 'Operations'
+        group: 'Sales & Orders',
+        preset_only: true
     },
     {
         key: 'manage_inventory',
         label: 'Manage Inventory',
-        description: 'Create, edit, and delete products and stock levels.',
+        description: 'Preset shortcut — grants all Inventory keys via Inventory Manager / Full Admin.',
         icon: 'fa-boxes-stacked',
-        group: 'Operations'
+        group: 'Inventory',
+        preset_only: true
     },
     {
         key: 'manage_catalog',
         label: 'Manage Catalog',
-        description: 'Categories, brands, navbar links, and product attributes.',
+        description: 'Preset shortcut — grants catalog category/brand/attribute keys.',
         icon: 'fa-layer-group',
-        group: 'Operations'
+        group: 'Inventory',
+        preset_only: true
     },
     {
         key: 'manage_coupons',
@@ -80,9 +83,10 @@ const PERMISSIONS = Object.freeze([
     {
         key: 'manage_marketing',
         label: 'Manage Marketing',
-        description: 'Newsletter subscribers, email campaigns, and promotional outreach.',
+        description: 'Preset shortcut — grants all Marketing keys via Full Admin.',
         icon: 'fa-envelope-circle-check',
-        group: 'Administration'
+        group: 'Marketing',
+        preset_only: true
     },
     {
         key: 'manage_security',
@@ -275,28 +279,56 @@ const PERMISSIONS = Object.freeze([
         label: 'View orders',
         description: 'Open the live orders list and order details.',
         icon: 'fa-receipt',
-        group: 'Orders'
+        group: 'Sales & Orders'
     },
     {
         key: 'update_order_status',
         label: 'Update order status',
         description: 'Change order status including bulk status updates.',
         icon: 'fa-truck-fast',
-        group: 'Orders'
+        group: 'Sales & Orders'
     },
     {
         key: 'process_refunds',
         label: 'Process refunds',
         description: 'Approve returns and issue refunds.',
         icon: 'fa-rotate-left',
-        group: 'Orders'
+        group: 'Sales & Orders'
     },
     {
         key: 'manage_couriers',
         label: 'Manage Couriers',
         description: 'View and manage courier assignments.',
         icon: 'fa-truck',
-        group: 'Orders'
+        group: 'Sales & Orders'
+    },
+    {
+        key: 'access_pos',
+        label: 'POS System',
+        description: 'Access the point-of-sale terminal',
+        icon: 'fa-cash-register',
+        group: 'Sales & Orders'
+    },
+    {
+        key: 'view_abandoned_carts',
+        label: 'Abandoned Carts',
+        description: 'View and recover abandoned carts',
+        icon: 'fa-cart-arrow-down',
+        group: 'Sales & Orders'
+    },
+    {
+        key: 'access_live_chat',
+        label: 'Live Chat',
+        description: 'Access live customer chat',
+        icon: 'fa-comments',
+        group: 'Sales & Orders'
+    },
+    {
+        key: 'manage_tickets',
+        label: 'Support Tickets',
+        description: 'View and respond to support tickets',
+        icon: 'fa-headset',
+        group: 'Sales & Orders'
     },
     // ── Granular Operations (Sales & Support) ─────────────────────────
     {
@@ -304,21 +336,22 @@ const PERMISSIONS = Object.freeze([
         label: 'View Customers',
         description: 'View customer list and profiles.',
         icon: 'fa-users',
-        group: 'Operations'
+        group: 'Sales & Orders'
     },
     {
         key: 'manage_support_tickets',
         label: 'Manage Support Tickets',
-        description: 'View and respond to support tickets.',
+        description: 'Legacy preset shortcut — use manage_tickets instead.',
         icon: 'fa-headset',
-        group: 'Operations'
+        group: 'Sales & Orders',
+        preset_only: true
     },
     {
         key: 'view_reviews',
         label: 'View Reviews',
         description: 'View product reviews and feedback.',
         icon: 'fa-star',
-        group: 'Operations'
+        group: 'Sales & Orders'
     },
     // ── Granular Marketing ────────────────────────────────────────────
     {
@@ -379,9 +412,8 @@ const PERMISSION_IMPLICATIONS = Object.freeze({
         'view_payroll', 'process_payroll', 'view_leave_requests', 'approve_leave',
         'apply_leave_for_staff', 'manage_payroll', 'manage_leave'
     ],
-    manage_orders: [
-        'view_orders', 'update_order_status', 'process_refunds', 'manage_couriers'
-    ],
+    manage_orders: [],
+    manage_support_tickets: ['manage_tickets'],
     manage_inventory: [
         'view_products', 'edit_products', 'manage_stock',
         'manage_suppliers', 'manage_warehouses', 'manage_purchase_orders'
@@ -405,12 +437,13 @@ const PERMISSION_IMPLICATIONS = Object.freeze({
  */
 const SECTION_PERMISSIONS = Object.freeze({
     'view-overview': 'view_analytics',
-    'view-pos': 'manage_orders',
+    'view-pos': 'access_pos',
     'view-orders': 'view_orders',
     'view-customers': 'view_customers',
-    'view-messages': 'manage_support_tickets',
+    'view-messages': 'manage_tickets',
     'view-reviews': 'view_reviews',
-    'view-crm-abandoned': 'manage_orders',
+    'view-crm-abandoned': 'view_abandoned_carts',
+    'view-live-chat': 'access_live_chat',
     'view-manage-products': 'view_products',
     'view-add-product': 'edit_products',
     'manage-category': 'manage_catalog',
@@ -470,7 +503,7 @@ function sanitizePermissions(input) {
 
 /** Permission metadata for the UI, grouped in catalog order. */
 function getPermissionCatalog() {
-    return PERMISSIONS.map(p => ({ ...p }));
+    return PERMISSIONS.filter(p => !p.preset_only).map(p => ({ ...p }));
 }
 
 /** True when account holds permission directly or via a parent coarse grant. */

@@ -33,7 +33,11 @@ function setupSyncButton() {
 
             await Promise.all([
                 typeof fetchDashboardData === 'function' ? fetchDashboardData() : Promise.resolve(),
-                typeof fetchLiveOrders === 'function' ? fetchLiveOrders() : Promise.resolve(),
+                typeof fetchLiveOrders === 'function'
+                    && typeof window.canFetchLiveOrders === 'function'
+                    && window.canFetchLiveOrders()
+                    ? fetchLiveOrders()
+                    : Promise.resolve(),
                 typeof fetchLiveProducts === 'function' ? fetchLiveProducts() : Promise.resolve(),
                 typeof fetchCategories === 'function' ? fetchCategories() : Promise.resolve(),
                 typeof loadCategories === 'function' ? loadCategories() : Promise.resolve(),

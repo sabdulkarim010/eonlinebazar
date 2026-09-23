@@ -443,7 +443,11 @@ function switchDashboardView(sectionId, sectionTitle) {
 
     // নির্দিষ্ট পেজে ইউজার গেলে তাৎক্ষণিকভাবে ডাটাবেজ থেকে লাইভ রিফ্রেশ করা
     if (sectionId === 'manage-products-section' || sectionId === 'products') fetchLiveProducts();
-    if (sectionId === 'manage-orders-section' || sectionId === 'orders') fetchLiveOrders();
+    if ((sectionId === 'manage-orders-section' || sectionId === 'orders')
+        && typeof window.canFetchLiveOrders === 'function'
+        && window.canFetchLiveOrders()) {
+        fetchLiveOrders();
+    }
     if (sectionId === 'overview' || sectionId === 'dashboard-overview') fetchDashboardData();
     if (sectionId === 'view-customers' || sectionId === 'customers') fetchDashboardData();
 }
@@ -555,8 +559,10 @@ async function initDashboard() {
         setupCustomerSegmentTabs();
     }
 
-    if (adminCan('manage_orders')) {
+    if (adminCan('view_orders') || adminCan('manage_orders')) {
         fetchLiveOrders();
+    }
+    if (adminCan('update_order_status') || adminCan('manage_orders')) {
         if (typeof updateBulkActionPanel === 'function') updateBulkActionPanel();
     }
 
@@ -717,7 +723,11 @@ function navigateAdminSection(targetId, clickedItem) {
     syncNavAccordionState(sectionId, resolvedItem);
 
     const refreshMap = {
-        'view-orders': fetchLiveOrders,
+        'view-orders': () => {
+            if (typeof window.canFetchLiveOrders === 'function' && window.canFetchLiveOrders()) {
+                fetchLiveOrders();
+            }
+        },
         'view-pos': () => window.initPosSection && window.initPosSection(),
         'view-manage-products': () => {
             loadCategoryFilter();

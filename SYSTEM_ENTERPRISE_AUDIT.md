@@ -3111,5 +3111,35 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | `.cursorrules` Permission System Rules | ✅ | Documented 5-step permission workflow |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## Sales sidebar granular permission keys — 2026-09-23
+
+**Status:** ✅ Complete
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Dedicated Sales keys | ✅ | `access_pos`, `view_abandoned_carts`, `access_live_chat`, `manage_tickets` (+ existing `view_customers`, `view_reviews`) — **51** total catalog keys |
+| SECTION_PERMISSIONS | ✅ | POS / abandoned / live chat / tickets no longer share `manage_orders` |
+| Live Chat gating | ✅ | `view-live-chat` → `access_live_chat` on sidebar external link |
+| PERMISSION_IMPLICATIONS | ✅ | `manage_orders` bundles Sales children for coarse Full Admin grants only |
+| ROLE_PRESETS | ✅ | Order Manager, HR Manager, Inventory Manager, POS Operator use explicit granular lists |
+| Nurjahan scenario (`view_orders` only) | ✅ | Only Orders & Fulfillment visible under Sales & Orders |
+| `.cursorrules` rule #6 | ✅ | One unique permission key per sidebar item |
+| Jest regression suite | ✅ | **231/231** passing |
+
+## view_orders API + preset_only coarse keys — 2026-09-23
+
+**Status:** ✅ Complete
+
+| Item | Status | Notes |
+|------|--------|-------|
+| GET /api/orders | ✅ | `view_orders` OR `manage_orders` |
+| Order route granularity | ✅ | Read/export/invoice/return-requests accept `view_orders`; refund/status use granular write keys |
+| Sales & Orders group | ✅ | Single modal group for all 11 sales keys |
+| preset_only coarse keys | ✅ | 5 keys hidden from modal; **46** toggles visible |
+| manage_orders implications | ✅ | `[]` — no sidebar side effects from coarse grant |
+| fetchLiveOrders gating | ✅ | `canFetchLiveOrders()` in refreshMap, boot, sync, realtime |
+| Live Chat external link | ✅ | Explicit permission hide in `applyRoleToSidebar()` |
+| Jest regression suite | ✅ | **231/231** passing |
+
 
 

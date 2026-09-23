@@ -71,7 +71,7 @@ router.post('/', optionalVerifyUser, createOrder);
 // 🔒 আগে এটি সম্পূর্ণ অসুরক্ষিত ছিল — যে কেউ সব কাস্টমারের অর্ডার দেখতে পারত।
 // এখন অ্যাডমিন টোকেন + manage_orders পারমিশন বাধ্যতামূলক।
 // URL: GET /api/orders
-router.get('/', verifyAdmin, checkPermission('manage_orders'), getOrders);
+router.get('/', verifyAdmin, checkPermission('manage_orders', 'view_orders'), getOrders);
 
 
 // =================================================================
@@ -107,7 +107,7 @@ router.get('/:id', verifyUser, getOrderById);
 // খ. অর্ডারের স্ট্যাটাস আপডেট করার রুট (🔒 অ্যাডমিন + manage_orders)
 // URL: PUT /api/orders/:id
 // Admin master editor (shipping + items) lives at PUT /api/admin/orders/:id/master-update
-router.put('/:id', verifyAdmin, checkPermission('manage_orders'), updateOrderStatus);
+router.put('/:id', verifyAdmin, checkPermission('manage_orders', 'update_order_status'), updateOrderStatus);
 
 // গ. অর্ডার ডিলিট করার রুট (🔒 অ্যাডমিন + manage_orders)
 // URL: DELETE /api/orders/:id

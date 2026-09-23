@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (frontend tab + action permission gating)  
+**Last updated:** 2026-09-23 (view_orders API + preset_only coarse keys)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -255,6 +255,29 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### view_orders API access + preset_only coarse keys — 2026-09-23
+
+- **GET /api/orders:** `checkPermission('manage_orders', 'view_orders')` — Nurjahan can load order list
+- **Order sub-routes:** return-requests, invoice, export gated with granular read keys; refund uses `process_refunds`; status update uses `update_order_status`
+- **Permission groups:** all Sales keys consolidated under **Sales & Orders** (single modal group)
+- **preset_only:** `manage_orders`, `manage_inventory`, `manage_catalog`, `manage_marketing`, `manage_support_tickets` hidden from modal toggles
+- **manage_orders implications:** emptied — coarse key is preset-only, no sidebar unlock side effects
+- **Frontend:** `canFetchLiveOrders()` gates refreshMap, initDashboard, sync button, realtime socket refresh
+- **Sidebar:** explicit `.sidebar-sub-external[data-permission]` hide pass for Live Chat
+- Files: `orderRoutes.js`, `adminRoutes.js`, `permissions.js`, `admin-staff.js`, `core-nav.js`, `core-boot.js`, `core-realtime.js`, `.cursorrules`
+- Tests: Jest **231/231** passing
+
+### Sales sidebar granular permission keys — 2026-09-23
+
+- **New keys (4):** `access_pos`, `view_abandoned_carts`, `access_live_chat`, `manage_tickets` — `view_customers` / `view_reviews` unchanged (already in catalog)
+- **SECTION_PERMISSIONS:** POS, abandoned carts, live chat, support tickets each map to dedicated keys (no shared `manage_orders`)
+- **PERMISSION_IMPLICATIONS:** `manage_orders` bundles all Sales keys for Full Admin preset; `manage_support_tickets` → `manage_tickets` for legacy grants
+- **Sidebar:** Live Chat `data-target="view-live-chat"` + `data-permission="access_live_chat"`; Sales items use granular keys
+- **ROLE_PRESETS:** Order Manager, HR Manager, Inventory Manager, POS Operator updated to explicit granular lists
+- **Scenario:** staff with only `view_orders` sees Sales group + Orders & Fulfillment only
+- Files: `permissions.js`, `sidebar.html`, `admin-staff.js`, `.cursorrules`
+- Tests: Jest **231/231** passing
 
 ### Sidebar map, boot gating, profile photo — 2026-09-22
 

@@ -2462,3 +2462,25 @@ backend/src/controllers/staffController.js [MOD] API returns permissionImplicati
 docs/audit/HRM_AUDIT.md [MOD] frontend gating changelog
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] frontend gating section
 README.md [MOD] last updated
+
+# Sales sidebar granular permission keys — 2026-09-23
+backend/src/config/permissions.js [MOD] +4 Sales keys; SECTION_PERMISSIONS dedicated map; manage_orders implications expanded; manage_support_tickets → manage_tickets
+client/admin/partials/sidebar.html [MOD] granular data-permission on Sales items; Live Chat gated
+client/js/admin-staff.js [MOD] ROLE_PRESETS updated; Sales & Orders group icon
+.cursorrules [MOD] Permission rule #6 — one key per sidebar item
+docs/audit/HRM_AUDIT.md [MOD] Sales granular RBAC changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Sales granular RBAC section
+README.md [MOD] last updated
+
+# view_orders API + preset_only coarse keys — 2026-09-23
+backend/src/routes/orderRoutes.js [MOD] GET / + PUT /:id granular checkPermission
+backend/src/routes/adminRoutes.js [MOD] order read/export/refund routes granular guards
+backend/src/config/permissions.js [MOD] Sales & Orders group consolidation; preset_only; manage_orders: []; getPermissionCatalog filter
+client/js/admin-staff.js [MOD] canFetchLiveOrders; sidebar-sub-external hide pass
+client/js/admin/modules/core-nav.js [MOD] fetchLiveOrders gated in initDashboard + refreshMap
+client/js/admin/modules/core-boot.js [MOD] sync button fetchLiveOrders gated
+client/js/admin/modules/core-realtime.js [MOD] socket refresh gated
+.cursorrules [MOD] preset_only rule #7
+docs/audit/HRM_AUDIT.md [MOD] changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] view_orders section
+README.md [MOD] last updated

@@ -242,7 +242,7 @@ router.put('/orders/:id/approve-return', verifyAdmin, checkPermission('manage_or
 router.put('/orders/:id/reject-return', verifyAdmin, checkPermission('manage_orders'), rejectOrderReturn);
 
 // URL: PATCH /api/admin/orders/:id/refund — flexible refund (wallet / bKash / Nagad / cash)
-router.patch('/orders/:id/refund', verifyAdmin, checkPermission('manage_orders'), processRefund);
+router.patch('/orders/:id/refund', verifyAdmin, checkPermission('manage_orders', 'process_refunds'), processRefund);
 
 // URL: POST /api/admin/orders/:id/undo-refund
 router.post('/orders/:id/undo-refund', verifyAdmin, checkPermission('manage_orders'), undoOrderRefund);
@@ -261,9 +261,9 @@ router.post('/orders/bulk-delete', verifyAdmin, checkPermission('manage_orders',
 router.put('/orders/bulk-status', verifyAdmin, checkPermission('manage_orders', 'update_order_status'), bulkUpdateOrderStatus);
 
 // URL: GET /api/admin/orders/:id/invoice — branded PDF invoice download
-router.get('/orders/return-requests', verifyAdmin, checkPermission('manage_orders'), listReturnRequests);
+router.get('/orders/return-requests', verifyAdmin, checkPermission('manage_orders', 'view_orders'), listReturnRequests);
 router.put('/orders/:id/return-request', verifyAdmin, checkPermission('manage_orders'), reviewReturnRequest);
-router.get('/orders/:id/invoice', verifyAdmin, checkPermission('manage_orders'), downloadAdminOrderInvoice);
+router.get('/orders/:id/invoice', verifyAdmin, checkPermission('manage_orders', 'view_orders'), downloadAdminOrderInvoice);
 
 // URL: GET /api/admin/payments/reconciliation — gateway/manual/COD payment overview
 router.get('/payments/reconciliation', verifyAdmin, checkPermission('manage_orders'), getPaymentReconciliation);
@@ -544,8 +544,8 @@ router.get('/finance/profit-loss', verifyAdmin, requireSuperAdmin, profitLossCon
 router.get('/finance/profit-loss/export-pdf', verifyAdmin, requireSuperAdmin, exportController.exportPLtoPDF);
 router.get('/finance/profit-loss/export-csv', verifyAdmin, requireSuperAdmin, exportController.exportPLtoCSV);
 router.get('/finance/export', verifyAdmin, requireSuperAdmin, financeExportController.exportFinanceReport);
-router.get('/orders/export', verifyAdmin, checkPermission('manage_orders'), exportController.exportOrdersCSV);
-router.get('/orders/export-csv', verifyAdmin, checkPermission('manage_orders'), exportController.exportOrdersCSV);
+router.get('/orders/export', verifyAdmin, checkPermission('manage_orders', 'view_orders', 'update_order_status'), exportController.exportOrdersCSV);
+router.get('/orders/export-csv', verifyAdmin, checkPermission('manage_orders', 'view_orders', 'update_order_status'), exportController.exportOrdersCSV);
 router.get('/products/export', verifyAdmin, checkPermission('manage_inventory'), exportController.exportProductsCSV);
 
 /********************************************************************

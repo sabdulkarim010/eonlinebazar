@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-23 (frontend tab + action permission gating)
+**Last updated:** 2026-09-23 (view_orders API + preset_only coarse keys)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 

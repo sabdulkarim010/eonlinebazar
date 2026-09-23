@@ -175,6 +175,7 @@ const STAFF_GROUP_EMOJI = {
     HRM: '👥',
     Inventory: '📦',
     Orders: '🛒',
+    'Sales & Orders': '🛒',
     Marketing: '📣',
     Accounts: '💰'
 };
@@ -182,13 +183,23 @@ const STAFF_GROUP_EMOJI = {
 /** One-click permission presets — keys must match config/permissions.js. */
 const ROLE_PRESETS = {
     fullAdmin: null,
-    inventoryManager: ['view_products', 'edit_products', 'manage_stock', 'manage_catalog', 'manage_inventory'],
-    orderManager: ['view_orders', 'update_order_status', 'process_refunds', 'manage_customers', 'manage_orders'],
-    posOperator: ['view_orders', 'update_order_status', 'view_products', 'manage_stock'],
+    inventoryManager: [
+        'view_products', 'edit_products', 'manage_stock',
+        'manage_suppliers', 'manage_warehouses', 'manage_purchase_orders'
+    ],
+    orderManager: [
+        'view_orders', 'update_order_status', 'process_refunds', 'manage_couriers',
+        'access_pos', 'view_abandoned_carts', 'view_customers', 'manage_tickets',
+        'view_reviews', 'access_live_chat'
+    ],
+    posOperator: ['access_pos', 'view_orders', 'update_order_status', 'view_customers'],
     hrManager: [
-        'view_attendance', 'mark_attendance_today', 'mark_attendance_any_date',
-        'lock_attendance_dates', 'manual_attendance',
-        'view_employees', 'edit_employees', 'manage_payroll', 'manage_leave', 'manage_staff'
+        'view_employees', 'edit_employees',
+        'view_attendance', 'view_daily_sheet', 'view_attendance_register', 'view_late_report',
+        'mark_attendance_today', 'view_shifts', 'manual_attendance', 'lock_attendance_dates',
+        'view_payroll', 'process_payroll',
+        'view_leave_requests', 'approve_leave', 'apply_leave_for_staff',
+        'manage_payroll', 'manage_leave'
     ],
     clear: []
 };
@@ -300,6 +311,16 @@ function applyRoleToSidebar() {
     nav.querySelectorAll('[data-permission]').forEach((el) => {
         const host = el.closest('li[data-target]') || el.closest('li') || el;
         host.style.display = hasPermission(el.dataset.permission) ? '' : 'none';
+    });
+
+    // Step 2b — external sidebar links (Live Chat) with data-target + data-permission on li
+    nav.querySelectorAll('.sidebar-sub-external[data-permission]').forEach((item) => {
+        const perm = item.dataset.permission;
+        if (perm && !hasPermission(perm)) {
+            item.style.display = 'none';
+        } else {
+            item.style.display = '';
+        }
     });
 
     // Step 3 — collapse empty menu groups (Sales, Marketing, Finance, Settings, …)
@@ -886,6 +907,11 @@ window.loadStaffSection = loadStaffSection;
 window.applySuperAdminOnlyVisibility = applySuperAdminOnlyVisibility;
 window.isAdminSuperAdmin = isSuperAdmin;
 window.hasAdminPermission = hasPermission;
+
+function canFetchLiveOrders() {
+    return hasPermission('view_orders') || hasPermission('manage_orders');
+}
+window.canFetchLiveOrders = canFetchLiveOrders;
 window.waitForAdminPermissions = waitForAdminPermissions;
 window.getCurrentAdminProfile = () => currentAdmin;
 
@@ -1074,6 +1100,7 @@ function renderAssignPermissions(rawData, activeKeys = []) {
         HRM: '👥',
         Inventory: '📦',
         Orders: '🛒',
+        'Sales & Orders': '🛒',
         Finance: '💰',
         CMS: '📝',
         Settings: '🔧',

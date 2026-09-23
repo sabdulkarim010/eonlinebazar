@@ -218,7 +218,10 @@ function initAdminSocket() {
         pushAdminNotification({ icon: '🛒', message: msg, createdAt: data.createdAt });
         updateSidebarOrdersBadge(1);
 
-        if (isAdminSectionActive('view-orders') && typeof fetchLiveOrders === 'function') {
+        if (isAdminSectionActive('view-orders')
+            && typeof fetchLiveOrders === 'function'
+            && typeof window.canFetchLiveOrders === 'function'
+            && window.canFetchLiveOrders()) {
             fetchLiveOrders();
         }
     });
@@ -247,7 +250,10 @@ function initAdminSocket() {
         showAdminToast(msg, 'info');
         pushAdminNotification({ icon: '📦', message: msg, createdAt: data.updatedAt });
 
-        if (isAdminSectionActive('view-orders') && typeof fetchLiveOrders === 'function') {
+        if (isAdminSectionActive('view-orders')
+            && typeof fetchLiveOrders === 'function'
+            && typeof window.canFetchLiveOrders === 'function'
+            && window.canFetchLiveOrders()) {
             fetchLiveOrders();
         }
     });

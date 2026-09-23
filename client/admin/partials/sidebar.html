@@ -36,7 +36,7 @@
                             <i class="fa-solid fa-chevron-down catalog-chevron"></i>
                         </div>
                         <ul class="submenu">
-                            <li data-target="view-pos" data-permission="manage_orders" data-breadcrumb="POS System">
+                            <li data-target="view-pos" data-permission="access_pos" data-breadcrumb="POS System">
                                 <i class="fa-solid fa-calculator"></i> POS System
                             </li>
                             <li data-target="view-orders" data-permission="view_orders" data-breadcrumb="Orders &amp; Fulfillment">
@@ -46,11 +46,11 @@
                             <li data-target="view-customers" data-permission="view_customers" data-breadcrumb="Customer Database">
                                 <i class="fa-solid fa-users"></i> Customers
                             </li>
-                            <li data-target="view-messages" data-permission="manage_support_tickets" data-breadcrumb="Support Tickets">
+                            <li data-target="view-messages" data-permission="manage_tickets" data-breadcrumb="Support Tickets">
                                 <i class="fa-solid fa-envelope-open-text"></i> Support Tickets
                                 <span id="sidebarMessagesBadge" class="sidebar-nav-badge" hidden>0</span>
                             </li>
-                            <li class="sidebar-sub-external">
+                            <li class="sidebar-sub-external" data-target="view-live-chat" data-permission="access_live_chat">
                                 <a href="/chat-admin" target="_blank" rel="noopener" class="sidebar-external-link">
                                     <i class="fa-solid fa-comments"></i> Live Chat
                                     <i class="fa-solid fa-up-right-from-square sidebar-external-icon"></i>
@@ -59,7 +59,7 @@
                             <li data-target="view-reviews" data-permission="view_reviews" data-breadcrumb="Reviews &amp; Feedback">
                                 <i class="fa-solid fa-star"></i> Reviews &amp; Feedback
                             </li>
-                            <li data-target="view-crm-abandoned" data-permission="manage_orders" data-breadcrumb="Abandoned Carts">
+                            <li data-target="view-crm-abandoned" data-permission="view_abandoned_carts" data-breadcrumb="Abandoned Carts">
                                 <i class="fa-solid fa-cart-arrow-down"></i> Abandoned Carts
                             </li>
                         </ul>
