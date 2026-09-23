@@ -2592,3 +2592,18 @@ backend/src/repositories/warehouseRepository.js [MOD] setDefault/create return f
 tests/repositories/warehouse.repository.test.js [MOD] scoped default assertions; setDefault before remove-default test
 package.json [MOD] test:repositories uses run-repository-tests.js
 docs/audit/DEVOPS_AUDIT.md [MOD] CI repository env change log
+
+# Neon HTTP repository test resilience — 2026-09-23
+backend/src/config/neonRetry.js [NEW] Neon HTTP timeout + transient retry helper
+backend/src/config/prismaClient.js [MOD] Neon adapter fetchOptions; repository-test query retry extension
+scripts/run-repository-tests.js [MOD] per-file spawn, inter-file delay, file-level retry/backoff
+tests/repositories/jestCompat.js [MOD] post-test pause when REPOSITORY_TEST=1
+backend/src/utils/superAdminEmployee.js [MOD] Prisma fallback when Mongo not connected
+backend/src/repositories/attendanceRepository.js [MOD] getDailySheet super-admin exclude preserves NULL legacyId rows
+tests/repositories/attendance.repository.test.js [MOD] scoped department filters; unique referral codes in order/user tests
+tests/repositories/order.repository.test.js [MOD] unique referralCode per run
+tests/repositories/user.repository.test.js [MOD] unique explicit referralCode in create test
+docs/audit/DEVOPS_AUDIT.md [MOD] Neon HTTP resilience change log
+docs/audit/HRM_AUDIT.md [MOD] getDailySheet exclude fix
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] repository test resilience section
+README.md [MOD] last updated

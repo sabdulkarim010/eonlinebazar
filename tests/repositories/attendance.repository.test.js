@@ -176,10 +176,11 @@ describe('Attendance repository — polymorphic staff + Neon DB', () => {
   });
 
   test('getDailySheet returns merged employee and attendance data', async () => {
+    const department = `${PREFIX}Operations`;
     const employee = await createEmployee({
       fullName: `${PREFIX} Sheet Employee`,
       phone: `019${String(Date.now()).slice(-8)}`,
-      department: 'Operations',
+      department,
       designation: 'Operator'
     });
     createdEmployeeIds.push(employee.id);
@@ -192,7 +193,7 @@ describe('Attendance repository — polymorphic staff + Neon DB', () => {
       markedBy: 'test-admin'
     }));
 
-    const sheet = await getDailySheet('2026-08-01', 'Operations');
+    const sheet = await getDailySheet('2026-08-01', department, 1, 50);
     expect(sheet.date).toBe('2026-08-01');
     expect(Array.isArray(sheet.employees)).toBe(true);
 
@@ -202,9 +203,11 @@ describe('Attendance repository — polymorphic staff + Neon DB', () => {
   });
 
   test('bulkMarkAttendance creates attendance rows for employees', async () => {
+    const department = `${PREFIX}BulkDept`;
     const employee = await createEmployee({
       fullName: `${PREFIX} Bulk Employee`,
-      phone: `016${String(Date.now()).slice(-8)}`
+      phone: `016${String(Date.now()).slice(-8)}`,
+      department
     });
     createdEmployeeIds.push(employee.id);
 
@@ -218,7 +221,7 @@ describe('Attendance repository — polymorphic staff + Neon DB', () => {
     expect(result.success).toBe(1);
     expect(result.failed).toBe(0);
 
-    const sheet = await getDailySheet('2026-08-02');
+    const sheet = await getDailySheet('2026-08-02', department, 1, 50);
     const match = sheet.employees.find((row) => row.empId === employee.employeeId);
     expect(match?.attendance?.status).toBe('absent');
   });

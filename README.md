@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-23 (staff order RBAC — delete gate, assign API, silent 403 fetches)
+**Last updated:** 2026-09-23 (Neon HTTP repository test resilience — retry, per-file runner)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 

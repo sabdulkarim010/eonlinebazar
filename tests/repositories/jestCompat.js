@@ -21,9 +21,19 @@ function describe(name, fn) {
   nodeTest.describe(name, fn);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function test(name, fn) {
   nodeTest.it(name, async () => {
     await fn();
+    if (process.env.REPOSITORY_TEST === '1') {
+      const pauseMs = Number(process.env.REPO_TEST_CASE_DELAY_MS || 50);
+      if (pauseMs > 0) {
+        await sleep(pauseMs);
+      }
+    }
   });
 }
 

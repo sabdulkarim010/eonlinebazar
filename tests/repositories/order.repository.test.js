@@ -224,7 +224,7 @@ describe('Order repository — createFromMongo', () => {
       firstName: 'Order',
       lastName: 'Buyer',
       email: `${PREFIX}${suffix}@example.com`,
-      referralCode: 'WXYZ2345',
+      referralCode: `O${String(Date.now()).slice(-7)}`,
       legacyId: mongoUserLegacyId
     });
     createdUserIds.push(user.id);

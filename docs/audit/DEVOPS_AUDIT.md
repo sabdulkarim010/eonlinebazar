@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (CI repository test PostgreSQL env resolution)  
+**Last updated:** 2026-09-23 (Neon HTTP repository test resilience)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -34,6 +34,8 @@
 | `backend/src/controllers/admin/backupController.js` | Superadmin DB backup export |
 | `tests/mocks/prismaGeneratedClient.js` | Jest CJS substitute for `generated/prisma/client.mts` (ESM) |
 | `tests/setup.js` | Jest global setup — pins all `READ_PG_*` to `'false'` for in-memory Mongo |
+| `backend/src/config/neonRetry.js` | Neon HTTP fetch timeout + transient query retry (repository tests) |
+| `scripts/run-repository-tests.js` | Per-file runner with delay, backoff retries, `REPOSITORY_TEST=1` |
 | `tests/app.js` | Test Express app — re-pins `READ_PG_*` after `dotenv.config()` |
 | `package.json` | Jest `moduleNameMapper` for Prisma generated client |
 | `backend/src/services/emailService.js` | Resend → Brevo → log email delivery |
@@ -107,6 +109,15 @@
 - Tests: Jest **228/228** passing
 
 ## Change Log
+
+### Neon HTTP repository test resilience — 2026-09-23
+
+- `scripts/run-repository-tests.js`: each `*.repository.test.js` runs in its own process with 200ms inter-file delay; failed files retried up to 2× with exponential backoff; per-test timeout 120s
+- `backend/src/config/neonRetry.js`: 90s Neon HTTP fetch timeout + up to 4 retries on transient `fetch failed` / `performIO` errors when `REPOSITORY_TEST=1`; skips retry on Prisma `P2002`/`P2003`
+- `backend/src/config/prismaClient.js`: passes Neon HTTP adapter options; query retry extension only when real client supports `$extends`
+- `tests/repositories/jestCompat.js`: 50ms post-test pause under repository test mode
+- `backend/src/utils/superAdminEmployee.js`: Prisma fallback when Mongo disconnected (repository tests)
+- Result: `npm run test:repositories` — **177/177** (21 files); `npm test` — **231/231**
 
 ### CI repository test PostgreSQL env — 2026-09-23
 

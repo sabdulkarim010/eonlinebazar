@@ -23,6 +23,10 @@ require('dotenv').config({
 });
 
 const { PrismaNeonHttp } = require('@prisma/adapter-neon');
+const {
+  buildNeonHttpAdapterOptions,
+  withRepositoryTestRetries
+} = require('./neonRetry');
 
 // The generated client emits .mts files — Node 22.18+ loads them directly via
 // native TypeScript type-stripping + require(esm). See DATABASE_MIGRATION_AUDIT.md
@@ -51,9 +55,10 @@ function createPrismaClient() {
   // PrismaNeonHttp takes the pooled connection string directly; it calls
   // neon() internally. Do NOT pass a pre-built neon() function — the
   // adapter factory signature is (connectionString, options?).
-  const adapter = new PrismaNeonHttp(connectionString);
+  const adapter = new PrismaNeonHttp(connectionString, buildNeonHttpAdapterOptions());
+  const client = new PrismaClient({ adapter });
 
-  return new PrismaClient({ adapter });
+  return withRepositoryTestRetries(client);
 }
 
 const prisma = _globalRef.__eonlinebazarPrisma ?? createPrismaClient();

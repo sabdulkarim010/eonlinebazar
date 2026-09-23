@@ -88,7 +88,7 @@ describe('User repository — referral codes', () => {
   });
 
   test('create() passes through explicit referralCode from Mongo (no regeneration)', async () => {
-    const mongoCode = 'WXYZ2345';
+    const mongoCode = `U${String(Date.now()).slice(-7)}`;
     expect(isValidReferralCode(mongoCode)).toBe(true);
 
     const record = track(await create(baseUser({ referralCode: mongoCode })));

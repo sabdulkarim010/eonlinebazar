@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (P2 HRM self-service + employee photo fallback)  
+**Last updated:** 2026-09-23 (getDailySheet super-admin exclude + repository test PG fallback)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -255,6 +255,13 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### getDailySheet super-admin exclude fix — 2026-09-23
+
+- **Bug:** `getDailySheet()` used `legacyId: { notIn: excludeIds }`, which excluded all employees with NULL `legacyId` (SQL three-valued logic)
+- **Fix:** AND clause — `(legacyId IS NULL OR legacyId NOT IN …) AND id NOT IN …`
+- **Tests:** `superAdminEmployee.js` uses Prisma when Mongo disconnected; attendance repository tests pass in CI runner
+- Repository tests: **177/177**
 
 ### P2 HRM self-service portal — 2026-09-23
 

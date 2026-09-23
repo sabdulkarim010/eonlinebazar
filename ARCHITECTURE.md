@@ -364,6 +364,10 @@ Both live in the repo-root `.env`. Neither is read by the running application ye
 | `DATABASE_URL` | **direct** (non-pooled) Neon endpoint | Prisma CLI: `validate`, `migrate`, `diff`, `generate`. Migrate needs a direct TCP connection |
 | `DATABASE_URL_POOLED` | Neon `-pooler` endpoint | reserved for the runtime client via a driver adapter (Stage 2, next step). **Never use for migrations** |
 
+Repository integration tests (`npm run test:repositories`) set `REPOSITORY_TEST=1` and use
+`backend/src/config/neonRetry.js` for Neon HTTP fetch timeouts and transient query retries.
+Optional tuning: `NEON_FETCH_TIMEOUT_MS`, `NEON_RETRY_ATTEMPTS`, `REPO_TEST_FILE_DELAY_MS`.
+
 After `npm install`, run `npx prisma generate` to recreate the gitignored
 `generated/prisma/` client. The MongoDB variables (`MONGODB_URI` and the rest)
 are unaffected and remain the live system's configuration.

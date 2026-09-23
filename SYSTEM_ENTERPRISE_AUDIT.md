@@ -3240,5 +3240,18 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | `abandonedCart.test.js` notify 422 flake | ✅ | Mock `sendAbandonedCartEmail` — no dependency on Resend env in CI |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## Neon HTTP Repository Test Resilience — 2026-09-23
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| CI `performIO` / `fetch failed` timeouts | ✅ | Per-file runner + 90s fetch timeout + 4× transient retry |
+| `scripts/run-repository-tests.js` | ✅ | Inter-file delay, file-level retry/backoff, `REPOSITORY_TEST=1` |
+| `neonRetry.js` | ✅ | Shared timeout/retry; no retry on Prisma unique/FK errors |
+| Attendance daily-sheet exclude | ✅ | NULL `legacyId` employees no longer dropped from sheet |
+| Repository integration tests | ✅ | **177/177** (21 files) |
+| Jest regression suite | ✅ | **231/231** passing |
+
 
 
