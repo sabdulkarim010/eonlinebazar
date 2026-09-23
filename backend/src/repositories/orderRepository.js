@@ -1068,8 +1068,6 @@ async function syncStatusHistoryByLegacyId(legacyId, statusHistory = []) {
     throw err;
   }
 
-  await prisma.orderStatusHistory.deleteMany({ where: { orderId: order.id } });
-
   const rows = (Array.isArray(statusHistory) ? statusHistory : [])
     .filter((entry) => entry && entry.status)
     .map((entry) => ({
@@ -1080,8 +1078,13 @@ async function syncStatusHistoryByLegacyId(legacyId, statusHistory = []) {
       note: String(entry.note || '').trim()
     }));
 
-  if (rows.length) {
-    await prisma.orderStatusHistory.createMany({ data: rows });
+  try {
+    await prisma.orderStatusHistory.deleteMany({ where: { orderId: order.id } });
+    if (rows.length) {
+      await prisma.orderStatusHistory.createMany({ data: rows });
+    }
+  } catch (historyErr) {
+    console.warn('[ORDER-HISTORY] PG sync skipped:', historyErr.message);
   }
 
   return findByLegacyId(legacyId);
