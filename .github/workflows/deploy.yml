@@ -6,7 +6,39 @@ on:
       - main
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL_POOLED: ${{ secrets.DATABASE_URL_POOLED }}
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies (CI check)
+        run: npm ci
+
+      - name: Generate Prisma client (CI check)
+        run: npx prisma generate
+
+      - name: Run Jest test suite
+        run: npm test --passWithNoTests
+
+      - name: Run repository integration tests
+        run: npm run test:repositories --if-present
+
   deploy:
+    needs: [test]
     runs-on: ubuntu-latest
 
     steps:

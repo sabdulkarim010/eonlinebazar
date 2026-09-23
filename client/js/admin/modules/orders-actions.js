@@ -16,6 +16,39 @@ const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
 const COURIER_BLOCKED_STATUSES = window.COURIER_BLOCKED_STATUSES;
 
 /* ==========================================================================
+   ORDER PERMISSION HELPERS (RBAC — mirrors backend checkPermission)
+   ========================================================================== */
+
+function adminHasOrderPermission(...keys) {
+    if (typeof window.isAdminSuperAdmin === 'function' && window.isAdminSuperAdmin()) return true;
+    if (typeof window.hasAdminPermission !== 'function') return false;
+    return keys.some((key) => window.hasAdminPermission(key));
+}
+
+function canManageOrders() {
+    return adminHasOrderPermission('manage_orders');
+}
+
+function canChangeOrderStatus() {
+    return adminHasOrderPermission('manage_orders', 'update_order_status');
+}
+
+function canAssignOrderStaff() {
+    return adminHasOrderPermission('manage_orders', 'update_order_status');
+}
+
+function canFetchOrderMasterSettings() {
+    return adminHasOrderPermission(
+        'manage_orders', 'manage_settings', 'manage_couriers',
+        'manage_loyalty', 'manage_marketing'
+    );
+}
+
+function canFetchWhatsAppAlerts() {
+    return adminHasOrderPermission('manage_orders');
+}
+
+/* ==========================================================================
    WHATSAPP PENDING ALERT BADGE (wa.me fallback queue)
    ========================================================================== */
 
@@ -440,13 +473,9 @@ function buildAdminOrderStatusCell(order) {
         badgeHtml = `<span class="status-badge status-returned"><i class="fa-solid fa-check-double"></i> Returned</span>`;
     } else if (isRefunded) {
         badgeHtml = `<span class="status-badge status-returned"><i class="fa-solid fa-money-bill-wave"></i> Refunded</span>`;
-    } else {
-        const canChangeStatus = typeof window.hasAdminPermission === 'function'
-            && (window.hasAdminPermission('manage_orders')
-                || window.hasAdminPermission('update_order_status'));
-        if (canChangeStatus) {
-            const selectClass = getStatusSelectClass(order.status);
-            badgeHtml = `
+    } else if (canChangeOrderStatus()) {
+        const selectClass = getStatusSelectClass(order.status);
+        badgeHtml = `
             <select onchange="changeOrderStatus('${orderId}', this.value)" class="status-select ${selectClass}">
                 <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>⏳ Pending</option>
                 <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>⚙️ Processing</option>
@@ -454,11 +483,10 @@ function buildAdminOrderStatusCell(order) {
                 <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>✅ Delivered</option>
                 <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>❌ Cancelled</option>
             </select>`;
-        } else {
-            const selectClass = getStatusSelectClass(order.status);
-            const statusLabel = order.status || 'Pending';
-            badgeHtml = `<span class="status-badge status-select ${selectClass}">${statusLabel}</span>`;
-        }
+    } else {
+        const selectClass = getStatusSelectClass(order.status);
+        const statusLabel = order.status || 'Pending';
+        badgeHtml = `<span class="status-badge status-select ${selectClass}">${statusLabel}</span>`;
     }
 
     const reasonDetails = getOrderReasonDetails(order);
@@ -722,9 +750,17 @@ window.updateOrdersBulkToolbar = function() {
     const countEl = document.getElementById('orders-selected-count');
     if (toolbar) toolbar.style.display = selected > 0 ? 'flex' : 'none';
     if (countEl) countEl.textContent = `${selected} order${selected !== 1 ? 's' : ''} selected`;
+
+    const bulkDeleteBtn = document.querySelector('#orders-bulk-toolbar .bulk-delete-btn');
+    if (bulkDeleteBtn) bulkDeleteBtn.style.display = canManageOrders() ? '' : 'none';
 };
 
 window.bulkDeleteOrders = function() {
+    if (!canManageOrders()) {
+        showToast('You do not have permission to delete orders.', 'warning');
+        return;
+    }
+
     const selected = [...document.querySelectorAll('#view-orders .order-row-select:checked')]
         .map((el) => el.value);
     if (!selected.length) return;
@@ -1039,6 +1075,8 @@ async function loadAssignableStaffRoster() {
 }
 
 function buildAssignStaffHtml(order) {
+    if (!canAssignOrderStaff()) return '';
+
     const orderId = order._id;
     const assigned = order.assignedStaffId ? String(order.assignedStaffId) : '';
     const roster = assignableStaffRoster || [];
@@ -1059,6 +1097,11 @@ function buildAssignStaffHtml(order) {
 }
 
 window.assignOrderToStaff = async function(orderId, staffId) {
+    if (!canAssignOrderStaff()) {
+        showToast('You do not have permission to assign orders.', 'warning');
+        return;
+    }
+
     try {
         const response = await fetch(`/api/admin/orders/${orderId}/assign`, {
             method: 'PATCH',
@@ -1095,6 +1138,11 @@ Object.assign(window, {
     buildAssignStaffHtml,
     buildCourierActionHtml,
     cacheAdminCourierSettings,
+    canAssignOrderStaff,
+    canChangeOrderStatus,
+    canFetchOrderMasterSettings,
+    canFetchWhatsAppAlerts,
+    canManageOrders,
     ensureOrderStaffRosterLoaded,
     fetchPendingWhatsAppAlerts,
     getCourierTrackingUrl,

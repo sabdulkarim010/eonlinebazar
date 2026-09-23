@@ -1,6 +1,6 @@
 # ORDERS & CHECKOUT AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20 (Group 4 — return requests queue + loyalty checkout redemption)  
+**Last updated:** 2026-09-23 (Staff order RBAC — delete gate, assign API, silent 403 fetches)  
 **Scope:** Order lifecycle, checkout, tracking, returns, refunds, POS, couriers, invoices  
 **Status:** ✅ COMPLETE
 
@@ -58,7 +58,8 @@
 - [x] Admin order list + status update — `GET/PUT /api/orders`
 - [x] Bulk order status update — `PUT /api/admin/orders/bulk-status`; `orders-actions.js` bulk Apply
 - [x] Admin manual POS orders — `orders-pos.js`, `createManualOrder`
-- [x] Order assignment to staff — `assignedStaffId` on order
+- [x] Order assignment to staff — `assignedStaffId` on order; `PATCH /assign` accepts `update_order_status`
+- [x] Staff-scoped order UI gates — delete/bulk-delete `manage_orders`; status/assign `update_order_status`; no background 403 fetches
 - [x] Courier Book & Sync (Steadfast/Pathao/RedX) — `courierSyncService.js`
 - [x] Courier auto-poll cron (3h) — `courierSyncJob.js`
 - [x] Returns & refunds (wallet/bKash) — admin + customer controllers
@@ -75,6 +76,8 @@
 |-------|----------|--------|-------|
 | Return items PG case unverified | Low | Open | Code exists; no orders with `returnItems[]` in current dataset |
 | Null productId PG case unverified | Low | Open | All OrderItems have valid productIds in live data |
+| Staff with `update_order_status` saw delete btn + 403 polls | Medium | Fixed | 2026-09-23 — UI gates + gated master-settings/WhatsApp fetches in `fetchLiveOrders` |
+| Assign order API `manage_orders`-only | Medium | Fixed | 2026-09-23 — route now accepts `update_order_status` |
 
 ---
 
@@ -88,6 +91,13 @@
 ---
 
 ## Change Log
+
+### Staff order RBAC (Dalia fix) — 2026-09-23
+
+- `orders-table.js`: delete row button gated on `canManageOrders()`; bulk delete hidden via `updateOrdersBulkToolbar`; `master-settings` + WhatsApp alert fetches skipped unless permitted
+- `orders-actions.js`: shared RBAC helpers (`canChangeOrderStatus`, `canAssignOrderStaff`, etc.); status `<select>` uses helpers; assign dropdown + PATCH guard aligned with `update_order_status`
+- `adminRoutes.js`: `PATCH /orders/:orderId/assign` accepts `manage_orders` OR `update_order_status`
+- Tests: Jest **231/231** passing
 
 ### Group 4 — Return requests + loyalty redemption — 2026-09-20
 

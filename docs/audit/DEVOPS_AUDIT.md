@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (Email + WhatsApp notification overhaul — Resend + Baileys)  
+**Last updated:** 2026-09-23 (CI test gate on main deploy workflow)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -17,7 +17,8 @@
 | `devops/nginx.conf` | Production Nginx — SSL, store :5000, chat :5001, `/chat-admin` static |
 | `devops/server-setup.sh` | Server bootstrap script |
 | `devops/first-time-server-setup.md` | DigitalOcean VPS setup guide |
-| `devops/.github/workflows/deploy.yml` | CI deploy workflow |
+| `.github/workflows/deploy.yml` | CI test gate + deploy workflow (main store) |
+| `devops/.github/workflows/deploy.yml` | Legacy/alternate CI deploy workflow |
 | `ecommerce-chat/ecosystem.config.js` | PM2 config for chat service |
 | `ecommerce-chat/devops/` | Chat-specific Docker/nginx/deploy |
 | `backend/scripts/verifyFullMigration.js` | Pre-launch Mongo vs PG verification |
@@ -53,7 +54,8 @@
 - [x] Health check endpoint — `GET /health` (public) + `GET /api/store/health`
 - [x] Error logging middleware — `backend/logs/error-YYYY-MM-DD.log` (7-day retention)
 - [x] Chat proxy paths on store gateway — `/chat-api/*`, `/chat-socket/socket.io`
-- [x] GitHub Actions deploy workflow — `devops/.github/workflows/deploy.yml`
+- [x] GitHub Actions deploy workflow — `.github/workflows/deploy.yml`
+- [x] CI test gate before deploy — `test` job runs `npm test` + `npm run test:repositories` on push to `main`
 - [x] First-time server setup guide — `devops/first-time-server-setup.md`
 - [x] Mobile EAS builds (preview APK, production AAB) — `mobile/eas.json`
 - [x] Enterprise DB index migration — `npm run migrate:indexes`
@@ -105,6 +107,12 @@
 - Tests: Jest **228/228** passing
 
 ## Change Log
+
+### CI test gate — 2026-09-23
+
+- Added `test` job to `.github/workflows/deploy.yml` — runs `npm ci`, `npx prisma generate`, `npm test --passWithNoTests`, `npm run test:repositories --if-present` on Node 22 before deploy
+- Deploy job now `needs: [test]` — production SSH deploy blocked when tests fail
+- Test job env: `NODE_ENV=test`, secrets `DATABASE_URL_POOLED`, `MONGODB_URI`, `JWT_SECRET`
 
 ### Email + WhatsApp Notification Overhaul — 2026-09-21
 

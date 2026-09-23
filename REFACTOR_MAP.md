@@ -2571,13 +2571,10 @@ client/js/admin-staff.js [MOD] error handlers
 docs/audit/*.md [MOD] P4 updates
 README.md [MOD] permissions + migrate step
 
-# P4 Performance & Security Polish — 2026-09-23
-backend/src/models/*.js [MOD] Mongo performance indexes
-prisma/schema.prisma [MOD] PG performance indexes
-backend/src/controllers/admin/employeeController.js [MOD] sanitization
-backend/src/controllers/admin/leaveController.js [MOD] sanitization
-backend/src/middlewares/securityMiddleware.js [MOD] 2FA rate limits
-client/js/admin-staff.js [MOD] error handlers
-.cursorrules [MOD] production checklist
-docs/audit/*.md [MOD] P4 updates
-README.md [MOD] permissions + migrate step
+# Staff order RBAC (Dalia fix) — 2026-09-23
+client/js/admin/modules/orders-table.js [MOD] delete btn gate; gated master-settings/WhatsApp fetches in fetchLiveOrders
+client/js/admin/modules/orders-actions.js [MOD] RBAC helpers; status/assign/bulk-delete gates
+backend/src/routes/adminRoutes.js [MOD] PATCH /orders/:orderId/assign accepts update_order_status
+docs/audit/ORDERS_AUDIT.md [MOD] staff RBAC change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] staff order RBAC section
+README.md [MOD] last updated

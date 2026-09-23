@@ -3208,5 +3208,17 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | P4-6 Documentation | ✅ | README, MASTER audit, .cursorrules production checklist |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## Staff Order RBAC (Dalia fix) — 2026-09-23
+
+**Status:** ✅ Complete
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Delete / bulk-delete UI | ✅ | Rendered only when `canManageOrders()` — `manage_orders` preset |
+| Order assign API + UI | ✅ | `PATCH /orders/:orderId/assign` accepts `update_order_status`; roster + dropdown gated |
+| Silent 403 fetches | ✅ | `fetchLiveOrders` skips `master-settings` and WhatsApp polls unless permitted |
+| Status dropdown | ✅ | `canChangeOrderStatus()` helper — `manage_orders` OR `update_order_status` |
+| Jest regression suite | ✅ | **231/231** passing |
+
 
 

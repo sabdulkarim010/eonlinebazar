@@ -30,22 +30,28 @@ async function fetchLiveOrders() {
     tableBody.innerHTML = `<tr><td colspan="${LIVE_ORDERS_TABLE_COLS}" class="loading-cell">Syncing live orders...</td></tr>`; 
     
     try {
-        const canLoadRoster = typeof window.hasAdminPermission === 'function'
-            && (window.hasAdminPermission('manage_orders')
-                || window.hasAdminPermission('update_order_status'));
+        const canLoadRoster = typeof window.canAssignOrderStaff === 'function'
+            ? window.canAssignOrderStaff()
+            : false;
         const rosterPromise = canLoadRoster && typeof ensureOrderStaffRosterLoaded === 'function'
             ? ensureOrderStaffRosterLoaded()
             : Promise.resolve();
+
+        const shouldFetchMasterSettings = typeof window.canFetchOrderMasterSettings === 'function'
+            && window.canFetchOrderMasterSettings();
+        const settingsPromise = shouldFetchMasterSettings
+            ? fetch('/api/admin/master-settings', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            : Promise.resolve(null);
 
         const [response, settingsRes] = await Promise.all([
             fetch('/api/orders', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}` }
             }),
-            fetch('/api/admin/master-settings', {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${token}` }
-            }),
+            settingsPromise,
             rosterPromise
         ]);
 
@@ -62,14 +68,16 @@ async function fetchLiveOrders() {
         const data = await response.json();
         resetAdminPollErrors('liveOrders');
 
-        try {
-            const settingsData = await settingsRes.json();
-            if (settingsData.success && settingsData.data) {
-                cacheAdminRewardSettings(settingsData.data);
-                cacheAdminCourierSettings(settingsData.data);
+        if (settingsRes) {
+            try {
+                const settingsData = await settingsRes.json();
+                if (settingsData.success && settingsData.data) {
+                    cacheAdminRewardSettings(settingsData.data);
+                    cacheAdminCourierSettings(settingsData.data);
+                }
+            } catch (settingsErr) {
+                console.warn('Could not load refund undo window from master settings:', settingsErr);
             }
-        } catch (settingsErr) {
-            console.warn('Could not load refund undo window from master settings:', settingsErr);
         }
 
         if (typeof window.hasAdminPermission === 'function'
@@ -93,7 +101,9 @@ async function fetchLiveOrders() {
         
         // টেবিল রেন্ডার করার মূল ফাংশন কল
         filterAndRenderOrders();
-        fetchPendingWhatsAppAlerts();
+        if (typeof window.canFetchWhatsAppAlerts === 'function' && window.canFetchWhatsAppAlerts()) {
+            fetchPendingWhatsAppAlerts();
+        }
         maybeOpenOrderFromDeepLink();
     } catch (error) {
         console.error("অর্ডারের ডাটা প্রসেস করতে এরর হয়েছে:", error);
@@ -310,6 +320,9 @@ window.renderOrderTable = function() {
 
         const statusCellHtml = buildAdminOrderStatusCell(order);
         const courierActionHtml = buildCourierActionHtml(order);
+        const deleteBtnHtml = typeof window.canManageOrders === 'function' && window.canManageOrders()
+            ? `<button type="button" class="action-icon delete" onclick="event.stopPropagation(); deleteOrder('${orderId}')" title="Delete Order" aria-label="Delete">🗑️</button>`
+            : '';
 
         const displayIdSafe = escapeHtml(displayId);
         const customerName = order.customerName || '—';
@@ -348,7 +361,7 @@ window.renderOrderTable = function() {
                     ${typeof buildAssignStaffHtml === 'function' ? buildAssignStaffHtml(order) : ''}
                     <button type="button" class="action-icon edit" onclick="event.stopPropagation(); openEditOrderShippingModal('${orderId}')" title="Edit Order Details" aria-label="Edit">✏️</button>
                     <button type="button" class="action-icon view" onclick="event.stopPropagation(); viewInvoice('${orderId}')" title="View Invoice" aria-label="View">👁️</button>
-                    <button type="button" class="action-icon delete" onclick="event.stopPropagation(); deleteOrder('${orderId}')" title="Delete Order" aria-label="Delete">🗑️</button>
+                    ${deleteBtnHtml}
                 </div>
             </td>
         `;

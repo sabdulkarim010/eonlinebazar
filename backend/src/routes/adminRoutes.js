@@ -279,7 +279,7 @@ router.put('/orders/:id/address', verifyAdmin, checkPermission('manage_orders'),
 router.put('/orders/:id/master-update', verifyAdmin, checkPermission('manage_orders'), masterUpdateOrder);
 
 // URL: PATCH /api/admin/orders/:orderId/assign — assign order to a staff member
-router.patch('/orders/:orderId/assign', verifyAdmin, checkPermission('manage_orders'), assignOrderToStaff);
+router.patch('/orders/:orderId/assign', verifyAdmin, checkPermission('manage_orders', 'update_order_status'), assignOrderToStaff);
 
 // URL: GET /api/admin/whatsapp-alerts/pending — wa.me fallback queue for undelivered alerts
 router.get('/whatsapp-alerts/pending', verifyAdmin, checkPermission('manage_orders'), whatsappAlertsController.getPendingWhatsAppAlertsHandler);
