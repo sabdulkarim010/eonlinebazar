@@ -551,7 +551,11 @@ function applyMasterSettingsToUI(settings) {
     applyAnnouncementSettingsToUI(settings);
     applySmsSettingsToUI(settings);
     applyCourierSettingsToUI(settings);
-    refreshAdminCourierStatus();
+    if (typeof window.hasAdminPermission === 'function'
+        && (window.hasAdminPermission('manage_orders')
+            || window.hasAdminPermission('manage_couriers'))) {
+        refreshAdminCourierStatus();
+    }
     applyWhatsAppSettingsToUI(settings);
     updateMasterSettingsPreview();
 }

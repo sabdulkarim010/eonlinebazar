@@ -121,7 +121,9 @@ function updateAdminProfileUI(adminData = {}) {
     if (roleEl) roleEl.textContent = adminData.role || 'Super Admin';
 
     syncWindowAdminRoleFromCache();
-    if (typeof window.applyManualEntryTabVisibility === 'function') {
+    if (typeof window.applyAttendanceTabPermissions === 'function') {
+        window.applyAttendanceTabPermissions();
+    } else if (typeof window.applyManualEntryTabVisibility === 'function') {
         window.applyManualEntryTabVisibility();
     }
 
@@ -130,7 +132,9 @@ function updateAdminProfileUI(adminData = {}) {
     const initialsUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=d97706&color=fff`;
 
     if (avatarUrl) {
-        const bust = avatarUrl.includes('?') ? `${avatarUrl}&t=${Date.now()}` : `${avatarUrl}?t=${Date.now()}`;
+        const bust = window.EOBUrlUtils?.appendCacheBust
+            ? window.EOBUrlUtils.appendCacheBust(avatarUrl)
+            : avatarUrl;
         avatarImg.onerror = () => {
             avatarImg.onerror = null;
             avatarImg.src = initialsUrl;

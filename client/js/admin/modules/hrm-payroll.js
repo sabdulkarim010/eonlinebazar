@@ -59,7 +59,12 @@ function payrollRowActions(row) {
         </button>
     `];
 
-    if (row.status === 'draft') {
+    const canProcess = typeof window.hasAdminPermission === 'function'
+        && (window.hasAdminPermission('process_payroll')
+            || window.hasAdminPermission('manage_payroll')
+            || window.hasAdminPermission('manage_staff'));
+
+    if (canProcess && row.status === 'draft') {
         buttons.push(`
             <button type="button" class="catalog-action-btn" onclick="approvePayroll('${row._id}')" title="Approve" style="color:#2563eb;">
                 <i class="fa-solid fa-circle-check"></i>
@@ -67,7 +72,7 @@ function payrollRowActions(row) {
         `);
     }
 
-    if (row.status === 'approved') {
+    if (canProcess && row.status === 'approved') {
         buttons.push(`
             <button type="button" class="catalog-action-btn" onclick="markPayrollPaid('${row._id}')" title="Mark Paid" style="color:#10b981;">
                 <i class="fa-solid fa-money-bill-wave"></i>

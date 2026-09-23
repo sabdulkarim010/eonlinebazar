@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (view_orders API + preset_only coarse keys)  
+**Last updated:** 2026-09-23 (HRM + Orders RBAC gap fixes A–I)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -255,6 +255,20 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### HRM + Orders RBAC gap fixes (A–I) — 2026-09-23
+
+- **A:** `applyManualEntryTabVisibility` crash — aliased to `applyAttendanceTabPermissions`; `core-boot.js` updated
+- **B (HRM backend):** Attendance edit/bulk/remove/unlock, payroll generate/approve/paid, employee stats/view/edit routes accept granular keys
+- **C (Orders backend):** Staff roster → `update_order_status`; courier status → `manage_couriers`; order list/status confirmed
+- **D:** Roster + courier API calls gated in `fetchLiveOrders` and settings platform
+- **E:** Order status dropdown gated on `update_order_status`; view-only users see badge
+- **F:** `canMark` includes `mark_attendance_any_date` + `manage_staff`
+- **G:** Payroll approve/paid buttons gated on `process_payroll` / `manage_payroll`
+- **H:** Employee section boot + edit pencil gated on `view_employees` / `edit_employees`
+- **I:** `appendCacheBust()` skips Cloudinary/CDN hosts; profile avatar uses helper
+- Audit gaps **F1–F10, G1–G3** from permission audit — **resolved**
+- Tests: Jest **231/231** passing
 
 ### view_orders API access + preset_only coarse keys — 2026-09-23
 

@@ -35,8 +35,29 @@
 
     function appendCacheBust(url, token) {
         if (!url || url.startsWith('blob:') || url.startsWith('data:')) return url || '';
-        const bust = token != null ? String(token) : String(Date.now());
-        return url.includes('?') ? `${url}&t=${bust}` : `${url}?t=${bust}`;
+        try {
+            const absolute = url.startsWith('http://') || url.startsWith('https://')
+                ? url
+                : `${global.location?.origin || 'http://localhost'}${url.startsWith('/') ? url : `/${url}`}`;
+            const parsed = new URL(absolute);
+            const skipHosts = [
+                'cloudinary.com',
+                'res.cloudinary.com',
+                'cdn.jsdelivr.net',
+                'cdnjs.cloudflare.com'
+            ];
+            if (skipHosts.some((host) => parsed.hostname.includes(host))) {
+                return url;
+            }
+            const bust = token != null ? String(token) : String(Date.now());
+            parsed.searchParams.set('t', bust);
+            if (url.startsWith('http://') || url.startsWith('https://')) {
+                return parsed.toString();
+            }
+            return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+        } catch {
+            return url;
+        }
     }
 
     function sanitizeAssetUrl(raw, prefix) {

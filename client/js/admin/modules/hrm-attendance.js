@@ -500,7 +500,11 @@ function renderDailySheetMenuOptions(employeeId) {
 function renderDailySheetActionCell(row) {
     const eid = hrmEscape(row.employeeId);
     const canMark = typeof window.hasAdminPermission === 'function'
-        && window.hasAdminPermission('mark_attendance_today');
+        && (
+            window.hasAdminPermission('mark_attendance_today')
+            || window.hasAdminPermission('mark_attendance_any_date')
+            || window.hasAdminPermission('manage_staff')
+        );
 
     if (dailySheetLocked) {
         return '<span class="att-lock-icon" title="Date locked">🔒</span>';
@@ -1892,7 +1896,7 @@ window.toggleDailySheetMenu = toggleDailySheetMenu;
 window.toggleDailySheetEdit = toggleDailySheetEdit;
 window.saveDailySheetEdit = saveDailySheetEdit;
 window.removeDailySheetAttendance = removeDailySheetAttendance;
-window.applyManualEntryTabVisibility = applyManualEntryTabVisibility;
+window.applyManualEntryTabVisibility = applyAttendanceTabPermissions;
 window.showHrmToast = showHrmToast;
 window.saveManualEntry = saveManualEntry;
 window.setDailySheetTimeNow = setDailySheetTimeNow;

@@ -2484,3 +2484,17 @@ client/js/admin/modules/core-realtime.js [MOD] socket refresh gated
 docs/audit/HRM_AUDIT.md [MOD] changelog
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] view_orders section
 README.md [MOD] last updated
+
+# HRM + Orders RBAC gap fixes (A–I) — 2026-09-23
+client/js/admin/modules/hrm-attendance.js [MOD] applyManualEntryTabVisibility alias; canMark granular
+client/js/admin/modules/core-boot.js [MOD] applyAttendanceTabPermissions call; appendCacheBust avatar
+backend/src/routes/adminRoutes.js [MOD] HRM + roster + courier granular route guards
+client/js/admin/modules/orders-table.js [MOD] roster/courier fetch gated
+client/js/admin/modules/orders-actions.js [MOD] status dropdown gated
+client/js/admin/modules/hrm-payroll.js [MOD] approve/paid buttons gated
+client/js/admin/modules/hrm-employees.js [MOD] section boot + edit pencil gated
+client/js/admin/modules/settings-platform.js [MOD] courier status gated
+client/js/urlUtils.js [MOD] appendCacheBust skips CDN hosts
+docs/audit/HRM_AUDIT.md [MOD] F1–F10 G1–G3 resolved
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] gap fixes section
+README.md [MOD] last updated

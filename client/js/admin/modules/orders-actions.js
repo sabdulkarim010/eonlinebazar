@@ -441,8 +441,12 @@ function buildAdminOrderStatusCell(order) {
     } else if (isRefunded) {
         badgeHtml = `<span class="status-badge status-returned"><i class="fa-solid fa-money-bill-wave"></i> Refunded</span>`;
     } else {
-        const selectClass = getStatusSelectClass(order.status);
-        badgeHtml = `
+        const canChangeStatus = typeof window.hasAdminPermission === 'function'
+            && (window.hasAdminPermission('manage_orders')
+                || window.hasAdminPermission('update_order_status'));
+        if (canChangeStatus) {
+            const selectClass = getStatusSelectClass(order.status);
+            badgeHtml = `
             <select onchange="changeOrderStatus('${orderId}', this.value)" class="status-select ${selectClass}">
                 <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>⏳ Pending</option>
                 <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>⚙️ Processing</option>
@@ -450,6 +454,11 @@ function buildAdminOrderStatusCell(order) {
                 <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>✅ Delivered</option>
                 <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>❌ Cancelled</option>
             </select>`;
+        } else {
+            const selectClass = getStatusSelectClass(order.status);
+            const statusLabel = order.status || 'Pending';
+            badgeHtml = `<span class="status-badge status-select ${selectClass}">${statusLabel}</span>`;
+        }
     }
 
     const reasonDetails = getOrderReasonDetails(order);

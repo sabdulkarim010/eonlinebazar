@@ -3141,5 +3141,19 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Live Chat external link | ✅ | Explicit permission hide in `applyRoleToSidebar()` |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## HRM + Orders RBAC gap fixes (A–I) — 2026-09-23
+
+**Status:** ✅ Complete
+
+| Item | Status | Notes |
+|------|--------|-------|
+| applyManualEntryTabVisibility crash | ✅ | Aliased to `applyAttendanceTabPermissions` |
+| HRM route granular guards (F1–F10) | ✅ | Attendance edit/bulk/unlock/remove, payroll, employees |
+| Orders roster/courier routes (C/D) | ✅ | `update_order_status`, `manage_couriers`; frontend gated |
+| Order status UI (E) | ✅ | Dropdown only for `update_order_status`; view-only badge |
+| Payroll/employee FE gates (G/H) | ✅ | Approve/paid + edit pencil permission-gated |
+| Cloudinary cache bust (I) | ✅ | CDN hosts skipped in `appendCacheBust()` |
+| Jest regression suite | ✅ | **231/231** passing |
+
 
 

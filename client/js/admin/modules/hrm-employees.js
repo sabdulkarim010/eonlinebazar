@@ -159,6 +159,10 @@ function renderEmployeeTable(rows) {
         return;
     }
 
+    const canEdit = typeof window.hasAdminPermission === 'function'
+        && (window.hasAdminPermission('edit_employees')
+            || window.hasAdminPermission('manage_staff'));
+
     tbody.innerHTML = rows.map((e) => {
         const isSuperAdminEmp = isLinkedToSuperAdminEmployee(e);
         const terminateTitle = isSuperAdminEmp
@@ -183,9 +187,9 @@ function renderEmployeeTable(rows) {
                     <button type="button" class="catalog-action-btn" onclick="openEmployeeProfile('${e._id}')" title="View Details">
                         <i class="fa-solid fa-id-card"></i>
                     </button>
-                    <button type="button" class="catalog-action-btn edit" onclick="openEditEmployeeModal('${e._id}')" title="Edit">
+                    ${canEdit ? `<button type="button" class="catalog-action-btn edit" onclick="openEditEmployeeModal('${e._id}')" title="Edit">
                         <i class="fa-solid fa-pen-to-square"></i>
-                    </button>
+                    </button>` : ''}
                     <button type="button" class="catalog-action-btn terminate-btn ${e.status === 'terminated' ? 'activate' : 'delete'}" ${terminateDisabled} style="${terminateStyle}" onclick="toggleEmployeeStatus('${e._id}', '${employeeEscape(e.status || 'active')}')" title="${terminateTitle}">
                         <i class="fa-solid ${e.status === 'terminated' ? 'fa-user-check' : 'fa-user-slash'}"></i>
                     </button>
@@ -1458,8 +1462,20 @@ function markEmployeeAttendance(staffKey) {
    ================================================================== */
 
 async function loadHrmEmployeesSection() {
-    await Promise.all([loadEmployeeStats(), loadDesignationsDropdown()]);
-    await loadEmployees();
+    const loads = [loadEmployees()];
+
+    if (typeof window.hasAdminPermission === 'function'
+        && (window.hasAdminPermission('manage_staff')
+            || window.hasAdminPermission('view_employees'))) {
+        loads.unshift(loadEmployeeStats());
+    }
+
+    if (typeof window.hasAdminPermission === 'function'
+        && window.hasAdminPermission('manage_staff')) {
+        loads.unshift(loadDesignationsDropdown());
+    }
+
+    await Promise.all(loads);
 }
 
 function setupHrmEmployeesSection() {

@@ -30,7 +30,10 @@ async function fetchLiveOrders() {
     tableBody.innerHTML = `<tr><td colspan="${LIVE_ORDERS_TABLE_COLS}" class="loading-cell">Syncing live orders...</td></tr>`; 
     
     try {
-        const rosterPromise = typeof ensureOrderStaffRosterLoaded === 'function'
+        const canLoadRoster = typeof window.hasAdminPermission === 'function'
+            && (window.hasAdminPermission('manage_orders')
+                || window.hasAdminPermission('update_order_status'));
+        const rosterPromise = canLoadRoster && typeof ensureOrderStaffRosterLoaded === 'function'
             ? ensureOrderStaffRosterLoaded()
             : Promise.resolve();
 
@@ -69,7 +72,11 @@ async function fetchLiveOrders() {
             console.warn('Could not load refund undo window from master settings:', settingsErr);
         }
 
-        await refreshAdminCourierStatus();
+        if (typeof window.hasAdminPermission === 'function'
+            && (window.hasAdminPermission('manage_orders')
+                || window.hasAdminPermission('manage_couriers'))) {
+            await refreshAdminCourierStatus();
+        }
         
         // ব্যাকএন্ড ডাটা ফরম্যাট যাচাই ও রিভার্স (সর্বশেষ অর্ডার আগে দেখানোর জন্য) করা
         if (data && data.success && Array.isArray(data.data)) {
