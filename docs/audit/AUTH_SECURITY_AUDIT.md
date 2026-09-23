@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (P4 rate limiting + input sanitization)  
+**Last updated:** 2026-09-23 (Super Admin 2FA staff banner fix)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -106,6 +106,14 @@
 
 ## Change Log
 
+### Super Admin 2FA staff banner fix — 2026-09-23
+
+- **Bug:** `#twoFaWarning` on Admin Access & Roles counted staff accounts with `twoFactorEnabled === false`, not the logged-in Super Admin — banner stayed visible after Super Admin enabled 2FA when any staff lacked 2FA
+- **Fix:** Banner now checks `currentAdmin.twoFactorEnabled !== false` via `/api/admin/me` (`toSafeObject()`); staff security metric still counts staff without 2FA separately
+- **Sync:** `settings-2fa.js` calls `syncCurrentAdminTwoFactorEnabled()` after TOTP/SMS activation and status load
+- Mongo `Admin.twoFactorEnabled` + Prisma `Admin.twoFactorEnabled @default(true)` unchanged; login/me use Mongo via `attachAdminAccount`
+- Tests: Jest **231/231** passing
+
 ### P4 rate limiting + input sanitization — 2026-09-23
 
 - **Rate limiting:** `express-rate-limit` ^8.6 via `rateLimiter.js` + `securityMiddleware.js`; 2FA setup/verify routes now auth-limited
@@ -116,7 +124,7 @@
 ### Superadmin 2FA enforcement — 2026-09-23
 
 - **`verifyAdmin`:** Blocks superadmin accounts with `twoFactorEnabled === false` on all routes except `/2fa/*` (skipped in `NODE_ENV=test`)
-- **Staff UI:** `#twoFaWarning` banner on Admin Access & Roles when any account lacks 2FA
+- **Staff UI:** `#twoFaWarning` banner on Admin Access & Roles when Super Admin has 2FA disabled (see 2026-09-23 fix above)
 - Staff accounts remain optional for 2FA
 - Tests: Jest **231/231** passing
 

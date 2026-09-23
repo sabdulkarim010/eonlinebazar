@@ -86,11 +86,21 @@ const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
         return { ok: res.ok, status: res.status, data };
     }
 
+    function syncStaffTwoFaBanner() {
+        if (typeof window.syncCurrentAdminTwoFactorEnabled === 'function') {
+            window.syncCurrentAdminTwoFactorEnabled(state.twoFactorEnabled !== false);
+        }
+    }
+
     async function loadStatus() {
         if (!$('twofaMethods')) return; // settings section not mounted yet
         try {
             const { data } = await api('/api/admin/2fa/status');
-            if (data && data.success) { state = { ...state, ...data.data }; render(); }
+            if (data && data.success) {
+                state = { ...state, ...data.data };
+                render();
+                syncStaffTwoFaBanner();
+            }
         } catch (err) {
             console.error('2FA status load failed:', err);
         }
@@ -155,8 +165,12 @@ const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
             state.phone = data.data.phone || state.phone;
             state.maskedPhone = data.data.maskedPhone || state.maskedPhone;
             if (state.phone) state.smsConfigured = true;
+            if (data.data && typeof data.data.twoFactorEnabled === 'boolean') {
+                state.twoFactorEnabled = data.data.twoFactorEnabled;
+            }
             toast(data.message, 'success');
             render();
+            syncStaffTwoFaBanner();
             return true;
         } catch (err) {
             console.error('2FA method update failed:', err);
@@ -289,11 +303,13 @@ const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
             const { data } = await api('/api/admin/2fa/sms/verify', 'POST', { token: code });
             if (!data.success) { toast(data.message || 'Invalid code, please try again.', 'error'); return; }
             state.method = 'sms';
+            state.twoFactorEnabled = true;
             state.smsConfigured = true;
             if (data.maskedPhone) state.maskedPhone = data.maskedPhone;
             toast('SMS OTP Activated Successfully', 'success');
             if ($('twofaSmsVerifyRow')) $('twofaSmsVerifyRow').style.display = 'none';
             render();
+            syncStaffTwoFaBanner();
         } catch (err) {
             console.error('Verify SMS code failed:', err);
             toast('Server error verifying code.', 'error');
@@ -324,11 +340,13 @@ const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
             const { data } = await api('/api/admin/2fa/totp/verify', 'POST', { token: code });
             if (!data.success) { toast(data.message || 'Invalid Code, please try again.', 'error'); return; }
             state.totpConfigured = true;
+            state.twoFactorEnabled = true;
             state.method = 'totp';
             state.totpPending = false;
             toast('Google Authenticator Activated Successfully', 'success');
             if ($('twofaQrWrap')) $('twofaQrWrap').style.display = 'none';
             render();
+            syncStaffTwoFaBanner();
         } catch (err) {
             console.error('TOTP verify failed:', err);
             toast('Server error during verification.', 'error');

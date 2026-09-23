@@ -6,7 +6,7 @@
  * Description: Singleton Prisma client using the Neon HTTP driver adapter.
  *   - Uses DATABASE_URL_POOLED (the Neon pooler endpoint) for runtime queries.
  *   - DATABASE_URL (direct endpoint) is reserved for the Prisma CLI only.
- *   - Do NOT connect this into server.js until Stage 2 dual-write is wired.
+ *   - neonRetry.js applies fetch timeout + exponential retries on transient HTTP errors.
  *   - Parallel to db.js (Mongoose/MongoDB) — do NOT modify db.js.
  *
  * Stage 2 Step 2, Part 1 — created 2026-09-13.
@@ -25,7 +25,7 @@ require('dotenv').config({
 const { PrismaNeonHttp } = require('@prisma/adapter-neon');
 const {
   buildNeonHttpAdapterOptions,
-  withRepositoryTestRetries
+  withNeonQueryRetries
 } = require('./neonRetry');
 
 // The generated client emits .mts files — Node 22.18+ loads them directly via
@@ -58,7 +58,7 @@ function createPrismaClient() {
   const adapter = new PrismaNeonHttp(connectionString, buildNeonHttpAdapterOptions());
   const client = new PrismaClient({ adapter });
 
-  return withRepositoryTestRetries(client);
+  return withNeonQueryRetries(client);
 }
 
 const prisma = _globalRef.__eonlinebazarPrisma ?? createPrismaClient();

@@ -1,6 +1,6 @@
 /********************************************************************
  * Transient Neon HTTP error detection + retry helper.
- * Used by prismaClient during repository integration tests (REPOSITORY_TEST=1).
+ * Used by prismaClient for repository tests and main server runtime.
  ********************************************************************/
 
 'use strict';
@@ -18,6 +18,7 @@ function isTransientNeonError(err) {
     msg.includes('performio') ||
     msg.includes('timeout') ||
     msg.includes('timed out') ||
+    msg.includes('aborted due to timeout') ||
     msg.includes('econnreset') ||
     msg.includes('etimedout') ||
     msg.includes('econnrefused') ||
@@ -36,9 +37,26 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isNeonQueryRetryEnabled() {
+  if (process.env.REPOSITORY_TEST === '1') return true;
+  return String(process.env.NEON_QUERY_RETRY || '1') !== '0';
+}
+
+function resolveRetryAttempts(options = {}) {
+  if (options.attempts != null) return Number(options.attempts);
+  if (process.env.REPOSITORY_TEST === '1') {
+    return Number(process.env.NEON_RETRY_ATTEMPTS || 4);
+  }
+  return Number(process.env.NEON_RETRY_ATTEMPTS || 3);
+}
+
+function resolveRetryBaseDelayMs(options = {}) {
+  return Number(options.baseDelayMs || process.env.NEON_RETRY_BASE_DELAY_MS || 300);
+}
+
 async function withNeonRetry(fn, options = {}) {
-  const attempts = Number(options.attempts || process.env.NEON_RETRY_ATTEMPTS || 4);
-  const baseDelayMs = Number(options.baseDelayMs || process.env.NEON_RETRY_BASE_DELAY_MS || 300);
+  const attempts = resolveRetryAttempts(options);
+  const baseDelayMs = resolveRetryBaseDelayMs(options);
   let lastErr;
 
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -50,7 +68,8 @@ async function withNeonRetry(fn, options = {}) {
       if (isLastAttempt || !isTransientNeonError(err)) {
         throw err;
       }
-      await sleep(baseDelayMs * (attempt + 1));
+      const delayMs = baseDelayMs * (2 ** attempt);
+      await sleep(delayMs);
     }
   }
 
@@ -59,9 +78,8 @@ async function withNeonRetry(fn, options = {}) {
 
 function buildNeonHttpAdapterOptions() {
   const isRepoTest = process.env.REPOSITORY_TEST === '1';
-  const timeoutMs = Number(
-    process.env.NEON_FETCH_TIMEOUT_MS || (isRepoTest ? 90000 : 20000)
-  );
+  const defaultTimeout = isRepoTest ? 90000 : 60000;
+  const timeoutMs = Number(process.env.NEON_FETCH_TIMEOUT_MS || defaultTimeout);
 
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     return {};
@@ -78,8 +96,8 @@ function buildNeonHttpAdapterOptions() {
   return {};
 }
 
-function withRepositoryTestRetries(client) {
-  if (process.env.REPOSITORY_TEST !== '1' || typeof client.$extends !== 'function') {
+function withNeonQueryRetries(client) {
+  if (!isNeonQueryRetryEnabled() || typeof client.$extends !== 'function') {
     return client;
   }
 
@@ -100,9 +118,16 @@ function withRepositoryTestRetries(client) {
   });
 }
 
+/** @deprecated alias — use withNeonQueryRetries */
+function withRepositoryTestRetries(client) {
+  return withNeonQueryRetries(client);
+}
+
 module.exports = {
   isTransientNeonError,
+  isNeonQueryRetryEnabled,
   withNeonRetry,
   buildNeonHttpAdapterOptions,
+  withNeonQueryRetries,
   withRepositoryTestRetries
 };

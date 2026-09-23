@@ -3240,6 +3240,29 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | `abandonedCart.test.js` notify 422 flake | ✅ | Mock `sendAbandonedCartEmail` — no dependency on Resend env in CI |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## Neon HTTP Runtime Resilience — 2026-09-23
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Runtime Prisma query retries | ✅ | `withNeonQueryRetries()` — default ON; exponential backoff |
+| Neon HTTP fetch timeout | ✅ | 60s runtime / 90s repository tests via `NEON_FETCH_TIMEOUT_MS` |
+| Dual-write event loop | ✅ | `recordFailedSync` fire-and-forget after PG mirror failure |
+| Read-cutover fallbacks | ✅ | Reduced via client-level retries before Mongo fallback |
+| Jest regression suite | ✅ | **231/231** passing |
+
+## Super Admin 2FA Staff Banner Fix — 2026-09-23
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `#twoFaWarning` false positive | ✅ | Was driven by staff list 2FA gaps, not Super Admin session |
+| Banner condition | ✅ | `currentAdmin.twoFactorEnabled !== false` from `/api/admin/me` |
+| Settings sync | ✅ | `syncCurrentAdminTwoFactorEnabled()` after 2FA setup in Security Settings |
+| Jest regression suite | ✅ | **231/231** passing |
+
 ## Neon HTTP Repository Test Resilience — 2026-09-23
 
 **Status:** ✅ Fixed

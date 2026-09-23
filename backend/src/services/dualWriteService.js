@@ -45,12 +45,15 @@ async function dualWrite(mongoWriteFn, postgresWriteFn, context = {}) {
 
     console.error('[DUAL-WRITE-FAILURE]', reconciliationEntry);
 
-    await recordFailedSync({
+    // Non-blocking — Mongo tracking must not stall the request/event loop after PG mirror fails.
+    void recordFailedSync({
       entity: reconciliationEntry.model,
       mongoId: reconciliationEntry.mongoId,
       operation: reconciliationEntry.operation,
       error: reconciliationEntry.error,
       payload: buildFailurePayload(context, result)
+    }).catch((trackErr) => {
+      console.error('[DUAL-WRITE] Could not track failure:', trackErr.message || trackErr);
     });
   }
 

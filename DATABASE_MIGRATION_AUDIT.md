@@ -3790,3 +3790,23 @@ Full **HTTP-level** verification via supertest against `tests/app`, toggling `RE
 
 **Flag remains OFF** — enable only after ops sign-off (HTTP verification PASS achieved).
 
+---
+
+## Neon HTTP Runtime Resilience — 2026-09-23
+
+**Problem:** Local/server runtime logged repeated `[READ-CUTOVER-FALLBACK]` and
+`[DUAL-WRITE-FAILURE]` from `PrismaNeonHttpAdapter.performIO` `TimeoutError`
+(aborted fetch) under concurrent dual-writes and read-cutover.
+
+**Fix:**
+
+| Component | Change |
+|-----------|--------|
+| `backend/src/config/neonRetry.js` | Runtime query retries enabled by default (`NEON_QUERY_RETRY` ≠ `0`); exponential backoff; 60s HTTP fetch timeout (90s in repository tests) |
+| `backend/src/config/prismaClient.js` | All app queries use `withNeonQueryRetries()` via Prisma `$extends` |
+| `backend/src/services/dualWriteService.js` | `recordFailedSync()` fire-and-forget so PG mirror failures never block the event loop |
+
+**Env tuning:** `NEON_FETCH_TIMEOUT_MS`, `NEON_RETRY_ATTEMPTS` (default 3 runtime / 4 tests), `NEON_RETRY_BASE_DELAY_MS`, `NEON_QUERY_RETRY=0` to disable runtime retries.
+
+**Tests:** Jest **231/231**; repository integration tests unchanged.
+

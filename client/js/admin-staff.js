@@ -257,6 +257,19 @@ function resolvePresetKeys(presetKey) {
     return ROLE_PRESETS[presetKey] || [];
 }
 
+/** Matches backend convention: 2FA is on unless explicitly disabled. */
+function isTwoFactorActive(account) {
+    if (!account) return true;
+    return account.twoFactorEnabled !== false;
+}
+
+function updateSuperAdminTwoFaWarning() {
+    const twoFaWarning = document.getElementById('twoFaWarning');
+    if (!twoFaWarning) return;
+    const showWarning = isSuperAdmin() && !isTwoFactorActive(currentAdmin);
+    twoFaWarning.style.display = showWarning ? '' : 'none';
+}
+
 /* ==========================================================================
    IDENTITY & SIDEBAR GATING
    ========================================================================== */
@@ -763,21 +776,14 @@ function renderStaffSummary(summary) {
         if (el) el.textContent = value;
     };
     const active = summary?.active ?? summary?.activeCount ?? staffAccounts.filter(s => s.status === 'active').length;
-    const without2fa = staffAccounts.filter(s => s.twoFactorEnabled === false).length;
+    const without2fa = staffAccounts.filter(s => !isTwoFactorActive(s)).length;
 
     set('staffActiveCount', active);
     set('staffRoleTemplatesCount', countDistinctPermissionSets(staffAccounts));
 
     const securityEl = document.getElementById('staffSecurityStatus');
     const hintEl = document.getElementById('staffSecurityHint');
-    const twoFaWarning = document.getElementById('twoFaWarning');
-    if (twoFaWarning) {
-        if (without2fa > 0) {
-            twoFaWarning.style.removeProperty('display');
-        } else {
-            twoFaWarning.style.display = 'none';
-        }
-    }
+    updateSuperAdminTwoFaWarning();
 
     if (securityEl) {
         if (without2fa > 0) {
@@ -911,13 +917,11 @@ function setupStaffRefreshButton() {
  * Refresh button.
  */
 async function loadStaffSection() {
-    if (!currentAdmin) {
-        try {
-            await loadCurrentAdmin();
-        } catch (error) {
-            console.error('Staff section bootstrap failed:', error);
-            return;
-        }
+    try {
+        await loadCurrentAdmin();
+    } catch (error) {
+        console.error('Staff section bootstrap failed:', error);
+        return;
     }
 
     if (!isSuperAdmin()) return;
@@ -937,6 +941,14 @@ function canFetchLiveOrders() {
 window.canFetchLiveOrders = canFetchLiveOrders;
 window.waitForAdminPermissions = waitForAdminPermissions;
 window.getCurrentAdminProfile = () => currentAdmin;
+
+/** Keep staff-page Super Admin 2FA banner in sync after Security Settings changes. */
+window.syncCurrentAdminTwoFactorEnabled = function syncCurrentAdminTwoFactorEnabled(enabled) {
+    if (currentAdmin) {
+        currentAdmin.twoFactorEnabled = enabled !== false;
+    }
+    updateSuperAdminTwoFaWarning();
+};
 
 function normalizeAssignEmployee(row) {
     if (!row || typeof row !== 'object') return null;

@@ -2607,3 +2607,20 @@ docs/audit/DEVOPS_AUDIT.md [MOD] Neon HTTP resilience change log
 docs/audit/HRM_AUDIT.md [MOD] getDailySheet exclude fix
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] repository test resilience section
 README.md [MOD] last updated
+
+# Neon HTTP runtime resilience — 2026-09-23
+backend/src/config/neonRetry.js [MOD] runtime query retries; exponential backoff; 60s fetch timeout default
+backend/src/config/prismaClient.js [MOD] withNeonQueryRetries for all runtime queries
+backend/src/services/dualWriteService.js [MOD] non-blocking recordFailedSync after PG mirror failure
+ARCHITECTURE.md [MOD] Neon env tuning docs
+DATABASE_MIGRATION_AUDIT.md [MOD] runtime resilience section
+docs/audit/DEVOPS_AUDIT.md [MOD] change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Neon runtime resilience section
+README.md [MOD] last updated
+
+# Super Admin 2FA staff banner fix — 2026-09-23
+client/js/admin-staff.js [MOD] twoFaWarning uses currentAdmin 2FA status; isTwoFactorActive helper; syncCurrentAdminTwoFactorEnabled
+client/js/admin/modules/settings-2fa.js [MOD] sync staff banner after 2FA status/method changes
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] banner fix change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Super Admin 2FA banner section
+README.md [MOD] last updated

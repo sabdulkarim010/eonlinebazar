@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (Neon HTTP repository test resilience)  
+**Last updated:** 2026-09-23 (Neon HTTP runtime + repository resilience)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -109,6 +109,13 @@
 - Tests: Jest **228/228** passing
 
 ## Change Log
+
+### Neon HTTP runtime resilience — 2026-09-23
+
+- `neonRetry.js`: runtime Prisma `$extends` retries (default ON; `NEON_QUERY_RETRY=0` to disable); exponential backoff; 60s fetch timeout
+- `prismaClient.js`: all server runtime queries use resilient client (not repository-test-only)
+- `dualWriteService.js`: `recordFailedSync` non-blocking after PostgreSQL mirror failure
+- Result: fewer `[READ-CUTOVER-FALLBACK]` / `[DUAL-WRITE-FAILURE]` timeout aborts under concurrent load
 
 ### Neon HTTP repository test resilience — 2026-09-23
 
