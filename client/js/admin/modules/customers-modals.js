@@ -9,6 +9,11 @@
 import '../admin-core.js';
 
 const CUSTOMER_AVATAR_PALETTE = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#059669', '#0891b2', '#4f46e5', '#0f766e'];
+
+const parseCustomerApiResponse = (res, fallbackMessage) =>
+    window.parseCustomerApiResponse(res, fallbackMessage);
+
+const refreshCustomerListAfterChange = () => window.refreshCustomerListAfterChange();
 const CUSTOMER_AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
 let viewedCustomer = null;
@@ -303,9 +308,9 @@ window.viewCustomerDetails = async function(userId) {
         const res = await fetch(`/api/admin/customers/${userId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        const result = await res.json();
-        if (!result.success || !result.data) {
-            return showToast(result.message || 'Failed to load customer.', 'error');
+        const { ok, result, message } = await parseCustomerApiResponse(res, 'Failed to load customer.');
+        if (!ok || !result.success || !result.data) {
+            return showToast(message || result.message || 'Failed to load customer.', 'error');
         }
 
         const u = result.data;
@@ -429,9 +434,9 @@ window.editCustomer = async function(userId) {
         const res = await fetch(`/api/admin/customers/${userId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        const result = await res.json();
-        if (!result.success || !result.data) {
-            return showToast(result.message || 'Failed to load customer.', 'error');
+        const { ok, result, message } = await parseCustomerApiResponse(res, 'Failed to load customer.');
+        if (!ok || !result.success || !result.data) {
+            return showToast(message || result.message || 'Failed to load customer.', 'error');
         }
 
         const u = result.data;
@@ -530,13 +535,13 @@ window.saveCustomerEdits = async function() {
                 isVerified: document.getElementById('editCustomerVerified').value === 'true'
             })
         });
-        const result = await res.json();
-        if (result.success) {
+        const { ok, result, message } = await parseCustomerApiResponse(res, 'Update failed.');
+        if (ok && result.success) {
             showToast('Customer updated successfully!', 'success');
             closeCustomerEditModal();
-            fetchDashboardData();
+            await refreshCustomerListAfterChange();
         } else {
-            showToast(result.message || 'Update failed.', 'error');
+            showToast(message || result.message || 'Update failed.', 'error');
         }
     } catch (e) {
         showToast('Server error while saving customer.', 'error');
@@ -558,13 +563,16 @@ function deleteCustomer(userId) {
                     method: 'DELETE',
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                const result = await res.json();
-                if (result.success) {
+                const { ok, result, message } = await parseCustomerApiResponse(res, 'Failed to delete customer.');
+                if (ok && result.success) {
                     selectedCustomerIds.delete(String(userId));
+                    if (typeof window.closeCustomerViewModal === 'function') {
+                        window.closeCustomerViewModal();
+                    }
                     showToast(result.message || 'Customer deleted.', 'success');
-                    fetchDashboardData();
+                    await refreshCustomerListAfterChange();
                 } else {
-                    showToast(result.message || 'Failed to delete customer.', 'error');
+                    showToast(message || result.message || 'Failed to delete customer.', 'error');
                 }
             } catch (e) {
                 showToast('Server error deleting customer.', 'error');
@@ -596,12 +604,12 @@ window.setCustomerStatus = function(userId, status) {
                 },
                 body: JSON.stringify({ status })
             });
-            const result = await res.json();
-            if (result.success) {
+            const { ok, result, message } = await parseCustomerApiResponse(res, 'Failed to update status.');
+            if (ok && result.success) {
                 showToast(result.message || 'Status updated.', 'success');
-                fetchDashboardData();
+                await refreshCustomerListAfterChange();
             } else {
-                showToast(result.message || 'Failed to update status.', 'error');
+                showToast(message || result.message || 'Failed to update status.', 'error');
             }
         } catch (e) {
             showToast('Server error updating account status.', 'error');
@@ -624,10 +632,12 @@ window.viewCustomerOrders = async function(userId) {
         const res = await fetch(`/api/admin/customers/${userId}/orders`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        const result = await res.json();
+        const { ok, result, message } = await parseCustomerApiResponse(res, 'Failed to load orders.');
 
-        if (!result.success) {
-            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="loading-cell">${result.message || 'Failed to load orders.'}</td></tr>`;
+        if (!ok || !result.success) {
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="5" class="loading-cell">${message || result.message || 'Failed to load orders.'}</td></tr>`;
+            }
             return;
         }
 
@@ -709,9 +719,9 @@ window.adjustWalletBalance = async function adjustWalletBalance(userId) {
             },
             body: JSON.stringify({ amount: Number(amount), type, description: note.trim() })
         });
-        const data = await res.json();
+        const { ok, result: data, message } = await parseCustomerApiResponse(res, 'Wallet adjustment failed.');
 
-        if (res.ok && data.success) {
+        if (ok && data.success) {
             showToast(`Wallet ${type === 'credit' ? 'credited' : 'debited'} by ৳${Number(amount).toLocaleString()}. New balance: ৳${Number(data.newBalance || 0).toLocaleString()}`, 'success');
             if (viewedCustomer && String(viewedCustomer._id) === String(userId)) {
                 viewedCustomer.walletBalance = data.newBalance;
@@ -719,10 +729,9 @@ window.adjustWalletBalance = async function adjustWalletBalance(userId) {
                 if (walletEl) walletEl.textContent = formatAdminPrice(data.newBalance || 0);
                 renderCustomerWalletAdjust(viewedCustomer);
             }
-            if (typeof fetchCustomers === 'function') fetchCustomers();
-            else if (typeof fetchDashboardData === 'function') fetchDashboardData();
+            await refreshCustomerListAfterChange();
         } else {
-            showToast(data.message || 'Wallet adjustment failed.', 'error');
+            showToast(message || data.message || 'Wallet adjustment failed.', 'error');
         }
     } catch (err) {
         console.error('adjustWalletBalance error:', err);

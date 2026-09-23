@@ -15,17 +15,132 @@ const crypto = require('crypto');
 const User = require('../../models/user');
 const { normalizeMobile, BD_MOBILE_RE } = require('../auth/authHelpers');
 const Order = require('../../models/order');
+const Cart = require('../../models/cart');
+const Note = require('../../models/note');
 const UserSession = require('../../models/userSession');
 const Settings = require('../../models/Settings');
 const cloudinary = require('cloudinary').v2;
 const sharp = require('sharp');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { dualWrite } = require('../../services/dualWriteService');
 const {
     fetchAdminCustomersPage,
     fetchAdminCustomersOffsetPage,
     countAdminCustomers,
     fetchCustomerById
 } = require('../../services/userReadService');
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MONGO_OID_PATTERN = /^[0-9a-fA-F]{24}$/;
+
+/** Order statuses that block permanent admin deletion until resolved. */
+const BLOCKING_ORDER_STATUSES = [
+    'Pending',
+    'pending',
+    'Processing',
+    'processing',
+    'Shipped',
+    'shipped',
+    'Out for Delivery',
+    'out for delivery',
+    'Return Requested',
+    'return requested',
+    'Refund Pending',
+    'refund pending'
+];
+
+function getUserRepository() {
+    return require('../../repositories/userRepository');
+}
+
+/**
+ * Resolve a customer from admin input (Mongo ObjectId, PG legacyId, or PG UUID).
+ * @returns {Promise<{ customer: object, mongoId: string|null, pgUserId: string|null }|null>}
+ */
+async function resolveAdminCustomer(rawId) {
+    const id = String(rawId || '').trim();
+    if (!id) return null;
+
+    const userRepo = getUserRepository();
+
+    let customer = await fetchCustomerById(id);
+    if (customer) {
+        const mongoId = MONGO_OID_PATTERN.test(String(customer._id))
+            ? String(customer._id)
+            : (customer.legacyId ? String(customer.legacyId) : (MONGO_OID_PATTERN.test(id) ? id : null));
+        const pgUserId = UUID_PATTERN.test(String(customer._id))
+            ? String(customer._id)
+            : (mongoId ? await userRepo.resolvePostgresUserId(mongoId) : null);
+        return {
+            customer,
+            mongoId: mongoId || (MONGO_OID_PATTERN.test(id) ? id : null),
+            pgUserId: pgUserId || null
+        };
+    }
+
+    let pgUser = null;
+    if (UUID_PATTERN.test(id)) {
+        pgUser = await userRepo.findById(id);
+    }
+    if (!pgUser) {
+        pgUser = await userRepo.findByLegacyId(id);
+    }
+
+    if (pgUser) {
+        const legacyId = pgUser.legacyId ? String(pgUser.legacyId) : null;
+        const pgUserId = String(pgUser.id || pgUser._id || id);
+
+        if (legacyId) {
+            customer = await fetchCustomerById(legacyId);
+            if (customer) {
+                return { customer, mongoId: legacyId, pgUserId };
+            }
+        }
+
+        return {
+            customer: pgUser,
+            mongoId: legacyId,
+            pgUserId
+        };
+    }
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+        const mongoUser = await User.findById(id).select('-password').lean();
+        if (mongoUser) {
+            const pgUserId = await userRepo.resolvePostgresUserId(id);
+            return {
+                customer: mongoUser,
+                mongoId: String(mongoUser._id),
+                pgUserId: pgUserId || null
+            };
+        }
+    }
+
+    return null;
+}
+
+async function assessCustomerDeleteSafety(mongoId, customer = {}) {
+    const blockers = [];
+    const walletBalance = Number(customer.walletBalance) || 0;
+
+    if (walletBalance > 0) {
+        blockers.push(`Wallet balance ৳${walletBalance.toLocaleString()} must be zeroed before deletion.`);
+    }
+
+    if (mongoId) {
+        const activeOrderCount = await Order.countDocuments({
+            user: mongoId,
+            status: { $in: BLOCKING_ORDER_STATUSES }
+        });
+        if (activeOrderCount > 0) {
+            blockers.push(
+                `${activeOrderCount} active or pending order(s) must be completed or cancelled first.`
+            );
+        }
+    }
+
+    return blockers;
+}
 
 const VIP_DEFAULTS = {
     vipMinTotalSpent: 10000,
@@ -360,7 +475,20 @@ const updateCustomer = async (req, res) => {
         }
         if (fullAddress !== undefined) updateFields.fullAddress = String(fullAddress).trim();
 
-        const existingUser = await User.findById(req.params.id).select('district upazila thana fullAddress address').lean();
+        const resolved = await resolveAdminCustomer(req.params.id);
+        if (!resolved) {
+            return res.status(404).json({ success: false, message: 'Customer not found.' });
+        }
+
+        const { mongoId } = resolved;
+        if (!mongoId) {
+            return res.status(409).json({
+                success: false,
+                message: 'This customer has no linked MongoDB account and cannot be updated from admin.'
+            });
+        }
+
+        const existingUser = await User.findById(mongoId).select('district upazila thana fullAddress address').lean();
         if (!existingUser) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
         }
@@ -378,11 +506,17 @@ const updateCustomer = async (req, res) => {
 
         if (isVerified !== undefined) updateFields.isVerified = !!isVerified;
 
-        const updated = await User.findByIdAndUpdate(
-            req.params.id,
-            { $set: updateFields },
-            { new: true, runValidators: true }
-        ).select('-password');
+        const updated = await dualWrite(
+            () => User.findByIdAndUpdate(
+                mongoId,
+                { $set: updateFields },
+                { new: true, runValidators: true }
+            ).select('-password'),
+            async (saved) => {
+                if (saved) await getUserRepository().upsertFromMongo(saved);
+            },
+            { model: 'User', operation: 'admin-update', mongoId }
+        );
 
         if (!updated) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
@@ -518,11 +652,30 @@ const updateCustomerStatus = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid status. Use active, suspended, or blocked.' });
         }
 
-        const updated = await User.findByIdAndUpdate(
-            req.params.id,
-            { $set: { accountStatus: status } },
-            { new: true }
-        ).select('-password');
+        const resolved = await resolveAdminCustomer(req.params.id);
+        if (!resolved) {
+            return res.status(404).json({ success: false, message: 'Customer not found.' });
+        }
+
+        const { mongoId } = resolved;
+        if (!mongoId) {
+            return res.status(409).json({
+                success: false,
+                message: 'This customer has no linked MongoDB account and cannot be updated from admin.'
+            });
+        }
+
+        const updated = await dualWrite(
+            () => User.findByIdAndUpdate(
+                mongoId,
+                { $set: { accountStatus: status } },
+                { new: true }
+            ).select('-password'),
+            async (saved) => {
+                if (saved) await getUserRepository().upsertFromMongo(saved);
+            },
+            { model: 'User', operation: 'admin-update-status', mongoId }
+        );
 
         if (!updated) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
@@ -554,32 +707,81 @@ const updateCustomerStatus = async (req, res) => {
 // ==============================================================
 const deleteCustomer = async (req, res) => {
     try {
-        const customer = await User.findById(req.params.id).select('firstName lastName email mobile');
-        if (!customer) {
+        const resolved = await resolveAdminCustomer(req.params.id);
+        if (!resolved) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
+        }
+
+        const { customer, mongoId, pgUserId } = resolved;
+        const blockers = await assessCustomerDeleteSafety(mongoId, customer);
+        if (blockers.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: 'Cannot delete this customer.',
+                blockers
+            });
         }
 
         const displayName = hydrateCustomerName(customer);
         const email = customer.email || '';
         const mobile = customer.mobile || '';
+        const resourceId = mongoId || pgUserId || req.params.id;
 
-        await UserSession.deleteMany({ userId: customer._id });
-        try {
-            const userSessionRepo = require('../../repositories/userSessionRepository');
-            await userSessionRepo.deleteUserSessionsByUserIdInPG(customer._id);
-        } catch (pgErr) {
-            console.error('[DUAL-WRITE-USERSESSION-FAIL] adminDeleteCustomer:', pgErr);
-        }
-        await User.deleteOne({ _id: customer._id });
+        await dualWrite(
+            async () => {
+                await destroyStoredCustomerAvatar(customer);
+
+                if (mongoId) {
+                    await Promise.all([
+                        Cart.deleteMany({ userId: mongoId }),
+                        Note.deleteMany({ user: mongoId }),
+                        UserSession.deleteMany({ userId: mongoId })
+                    ]);
+
+                    const mongoUser = await User.findById(mongoId);
+                    if (mongoUser) {
+                        await User.deleteOne({ _id: mongoId });
+                    }
+                }
+
+                return { mongoId, pgUserId };
+            },
+            async () => {
+                const userRepo = getUserRepository();
+                const userSessionRepo = require('../../repositories/userSessionRepository');
+
+                if (mongoId) {
+                    try {
+                        await userSessionRepo.deleteUserSessionsByUserIdInPG(mongoId);
+                    } catch (pgErr) {
+                        console.error('[DUAL-WRITE-USERSESSION-FAIL] adminDeleteCustomer:', pgErr);
+                    }
+                }
+
+                let resolvedPgId = pgUserId;
+                if (!resolvedPgId && mongoId) {
+                    resolvedPgId = await userRepo.resolvePostgresUserId(mongoId);
+                }
+
+                if (resolvedPgId) {
+                    await userRepo.remove(resolvedPgId);
+                }
+            },
+            {
+                model: 'User',
+                operation: 'admin-delete',
+                mongoId: mongoId || String(req.params.id)
+            }
+        );
 
         await logSecurityEvent({
             action: 'Customer Account Deleted',
             actor: req.admin?.username || 'admin',
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `Permanently deleted customer ${email || customer._id} (${displayName})${mobile ? `, mobile ${mobile}` : ''}`,
+            details: `Permanently deleted customer ${email || resourceId} (${displayName})${mobile ? `, mobile ${mobile}` : ''}`,
             resourceType: 'customer',
-            resourceId: String(customer._id)
+            resourceId: String(resourceId)
         });
 
         res.status(200).json({
@@ -690,17 +892,20 @@ const createQuickCustomer = async (req, res) => {
 
 const getCustomerOrders = async (req, res) => {
     try {
-        const customer = await User.findById(req.params.id).select('firstName lastName email mobile');
-        if (!customer) {
+        const resolved = await resolveAdminCustomer(req.params.id);
+        if (!resolved) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
         }
 
-        const orders = await Order.find({ user: req.params.id }).sort({ createdAt: -1 }).lean();
+        const { customer, mongoId } = resolved;
+        const orders = mongoId
+            ? await Order.find({ user: mongoId }).sort({ createdAt: -1 }).lean()
+            : [];
 
         res.status(200).json({
             success: true,
             customer: {
-                id: customer._id,
+                id: mongoId || customer._id,
                 name: hydrateCustomerName(customer),
                 email: customer.email,
                 mobile: customer.mobile

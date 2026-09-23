@@ -405,8 +405,42 @@ function showCustomerError(msg) {
 /**
  * ৬.৩: কাস্টমার প্রোফাইল দেখার মোডাল
 
+/**
+ * Parse admin customer API responses with HTTP status validation.
+ * @returns {Promise<{ ok: boolean, result: object, message: string }>}
+ */
+async function parseCustomerApiResponse(res, fallbackMessage = 'Request failed.') {
+    let result = {};
+    try {
+        result = await res.json();
+    } catch {
+        result = {};
+    }
+
+    if (!res.ok) {
+        const base = result.message || fallbackMessage || `Request failed (${res.status})`;
+        const blockers = Array.isArray(result.blockers) ? result.blockers.filter(Boolean) : [];
+        const message = blockers.length ? `${base} ${blockers.join(' ')}` : base;
+        return { ok: false, result, message };
+    }
+
+    return { ok: true, result, message: result.message || '' };
+}
+
+async function refreshCustomerListAfterChange() {
+    if (typeof window.fetchCustomers === 'function') {
+        await window.fetchCustomers(true);
+        return;
+    }
+    if (typeof window.fetchDashboardData === 'function') {
+        await window.fetchDashboardData();
+    }
+}
+
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
+    parseCustomerApiResponse,
+    refreshCustomerListAfterChange,
     buildCustomerCopyCell,
     buildOrderAddressCopyField,
     buildOrderCopyField,

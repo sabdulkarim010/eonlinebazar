@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-21 (AdminPagination.ensure rollout — newsletter, messages, security logs, stock alerts)  
+**Last updated:** 2026-09-23 (Admin customer delete PG/Mongo parity + safety guards)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -56,6 +56,7 @@
 - [x] Product CRUD + variants + bulk import — `view-products.html`, `products-*.js`
 - [x] Catalog management (categories, brands, attributes, coupons, navbar) — `catalog-*.js`
 - [x] Customer management + cursor pagination — `view-customers.html`, `customers-table.js`
+- [x] Admin customer delete with PG dual-write + safety guards — `customerAdminController.js`, `customers-modals.js`
 - [x] Unified AdminPagination (Showing X–Y of Z) — newsletter subscribers, contact inbox, security logs, dashboard stock alerts
 - [x] HRM views (employees, attendance, payroll, leave) — `view-hrm-*.html`, `hrm-*.js`
 - [x] ERP (suppliers, warehouses, POs, expenses) — `erp-*.js`, `view-suppliers.html`, etc.
@@ -91,6 +92,15 @@
 ---
 
 ## Change Log
+
+### Admin customer delete PG/Mongo parity — 2026-09-23
+
+- `resolveAdminCustomer()` resolves Mongo ObjectId, PG legacyId, or PG UUID for all admin customer mutations
+- `deleteCustomer` dual-writes to PostgreSQL via `userRepository.remove()`; cleans Mongo Cart, Note, sessions, Cloudinary avatar
+- Deletion blocked (409) when wallet balance &gt; 0 or active/pending orders exist; blockers surfaced in admin toast
+- Frontend: `parseCustomerApiResponse()` validates `res.ok`; table refresh via `refreshCustomerListAfterChange()`
+- Files: `customerAdminController.js`, `customers-modals.js`, `customers-table.js`
+- Tests: `npm test` 231/231 pass
 
 ### Admin-Employee Profile Link — 2026-09-20
 

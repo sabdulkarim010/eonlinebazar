@@ -3276,5 +3276,19 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Repository integration tests | ✅ | **177/177** (21 files) |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## Admin Customer Delete PG/Mongo Parity — 2026-09-23
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Unified customer lookup (ObjectId / legacyId / PG UUID) | ✅ | `resolveAdminCustomer()` in `customerAdminController.js` |
+| Admin delete dual-write to PostgreSQL | ✅ | `dualWrite()` + `userRepository.remove()` |
+| Mongo cascade cleanup (Cart, Note, sessions, avatar) | ✅ | On admin hard delete |
+| Safety guards (wallet balance, active orders) | ✅ | Returns 409 + `blockers[]` |
+| Admin update/status PG mirror | ✅ | `upsertFromMongo` via `dualWrite()` |
+| Frontend HTTP error handling | ✅ | `parseCustomerApiResponse()` in customers modules |
+| Jest regression suite | ✅ | **231/231** passing |
+
 
 

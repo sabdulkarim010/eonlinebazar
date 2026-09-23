@@ -2624,3 +2624,11 @@ client/js/admin/modules/settings-2fa.js [MOD] sync staff banner after 2FA status
 docs/audit/AUTH_SECURITY_AUDIT.md [MOD] banner fix change log
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Super Admin 2FA banner section
 README.md [MOD] last updated
+
+# Admin customer delete PG/Mongo parity — 2026-09-23
+backend/src/controllers/admin/customerAdminController.js [MOD] resolveAdminCustomer unified lookup; dualWrite admin delete + update/status; Cart/Note/session/avatar cleanup; wallet/order safety guards
+client/js/admin/modules/customers-modals.js [MOD] res.ok validation; blocker toasts; refreshCustomerListAfterChange on success
+client/js/admin/modules/customers-table.js [MOD] parseCustomerApiResponse + refreshCustomerListAfterChange helpers
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] customer delete fix change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Admin customer delete parity section
+README.md [MOD] last updated
