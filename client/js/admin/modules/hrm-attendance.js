@@ -566,6 +566,8 @@ function renderDailySheetEditRow(row) {
 }
 
 function renderDailySheetRows(employees) {
+    closeAllDailySheetMenus();
+
     const tbody = document.getElementById('dailySheetTableBody');
     if (!tbody) return;
 
@@ -721,13 +723,60 @@ function setDailySheetTimeNow(inputId) {
     }
 }
 
-function toggleDailySheetMenu(btn) {
-    const menu = btn.parentElement?.querySelector('.att-split-menu');
-    if (!menu) return;
-    document.querySelectorAll('.att-split-menu').forEach((el) => {
-        if (el !== menu) el.hidden = true;
+function closeAllDailySheetMenus() {
+    document.querySelectorAll('.att-split-menu[data-floating="true"]').forEach((menu) => {
+        menu.hidden = true;
+        const host = menu.__attSplitHost;
+        if (host && host.isConnected) {
+            host.appendChild(menu);
+        }
+        delete menu.dataset.floating;
+        menu.style.position = '';
+        menu.style.top = '';
+        menu.style.left = '';
+        menu.__attSplitHost = null;
     });
-    menu.hidden = !menu.hidden;
+}
+
+function positionDailySheetMenu(btn, menu) {
+    const host = btn.parentElement;
+    if (!host) return;
+
+    menu.__attSplitHost = host;
+    menu.hidden = false;
+    document.body.appendChild(menu);
+    menu.dataset.floating = 'true';
+
+    const btnRect = btn.getBoundingClientRect();
+    const menuHeight = menu.offsetHeight || 220;
+    const menuWidth = menu.offsetWidth || 160;
+    const spaceBelow = window.innerHeight - btnRect.bottom;
+    const spaceAbove = btnRect.top;
+
+    if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
+        menu.style.top = `${btnRect.top + window.scrollY - menuHeight - 4}px`;
+    } else {
+        menu.style.top = `${btnRect.bottom + window.scrollY + 4}px`;
+    }
+
+    menu.style.left = `${btnRect.right + window.scrollX - menuWidth}px`;
+    menu.style.position = 'absolute';
+}
+
+function toggleDailySheetMenu(btn) {
+    const host = btn.parentElement;
+    if (!host) return;
+
+    const floatingMenu = document.querySelector('.att-split-menu[data-floating="true"]');
+    const wasOpen = floatingMenu && floatingMenu.__attSplitHost === host && !floatingMenu.hidden;
+
+    closeAllDailySheetMenus();
+    if (wasOpen) return;
+
+    const menu = host.querySelector('.att-split-menu');
+    if (!menu) return;
+
+    positionDailySheetMenu(btn, menu);
 }
 
 function toggleDailySheetEdit(employeeId) {
@@ -862,8 +911,7 @@ async function markDailySheetStatus(employeeId, status, triggerEl) {
     }
 
     const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
-    const menu = triggerEl?.closest('.att-split-btn')?.querySelector('.att-split-menu');
-    if (menu) menu.hidden = true;
+    closeAllDailySheetMenus();
 
     setDailySheetRowFeedback(employeeId, 'loading');
 
@@ -1208,10 +1256,13 @@ function setupDailySheetSection() {
     }
 
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.att-split-btn')) {
-            document.querySelectorAll('.att-split-menu').forEach((menu) => { menu.hidden = true; });
+        if (!e.target.closest('.att-split-btn') && !e.target.closest('.att-split-menu')) {
+            closeAllDailySheetMenus();
         }
     });
+
+    window.addEventListener('scroll', closeAllDailySheetMenus, true);
+    window.addEventListener('resize', closeAllDailySheetMenus);
 }
 
 /* ==================================================================

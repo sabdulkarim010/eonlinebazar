@@ -256,20 +256,25 @@ async function loadCurrentAdmin() {
     permissionImplications = catalogResult.permissionImplications || {};
 }
 
-/**
- * Hide the sidebar entries (and collapse empty groups) that the signed-in
- * account has no permission for, then make sure the visible section is one
- * they are allowed to see.
- */
-function hideEmptyMenuGroups(nav = document.querySelector('.sidebar-menu')) {
+/** True when a sidebar nav row should occupy space in the menu. */
+function isSidebarNavItemVisible(item) {
+    if (!item) return false;
+    if (item.style.display === 'none') return false;
+    if (item.hidden) return false;
+    if (item.dataset.superadminOnly === 'true' && !isSuperAdmin()) return false;
+    return true;
+}
+
+function hideEmptySidebarMenuGroups(nav = document.querySelector('.sidebar-menu')) {
     if (!nav) return;
 
+    // sidebar.html uses li.menu-group.nav-accordion for collapsible sections
     nav.querySelectorAll('li.menu-group').forEach((group) => {
-        const visibleTargets = [...group.querySelectorAll('li[data-target]')]
-            .filter((child) => child.style.display !== 'none');
-        const visibleSubItems = [...group.querySelectorAll('.submenu > li')]
-            .filter((child) => child.style.display !== 'none');
-        group.style.display = (visibleTargets.length || visibleSubItems.length) ? '' : 'none';
+        const children = group.querySelectorAll('li[data-target]');
+        if (!children.length) return;
+
+        const anyVisible = [...children].some(isSidebarNavItemVisible);
+        group.style.display = anyVisible ? '' : 'none';
     });
 }
 
@@ -279,37 +284,26 @@ function applyRoleToSidebar() {
 
     applySuperAdminOnlyVisibility();
 
-    nav.querySelectorAll('li[data-target]').forEach(item => {
-        if (item.dataset.superadminOnly === 'true') return;
+    // Step 1 — hide/show each navigable section by permission map + data-permission
+    nav.querySelectorAll('li[data-target]').forEach((item) => {
+        if (item.dataset.superadminOnly === 'true') {
+            item.style.display = isSuperAdmin() ? '' : 'none';
+            return;
+        }
 
         const required = item.dataset.permission
             || sectionPermissionMap[item.getAttribute('data-target')];
         item.style.display = hasPermission(required) ? '' : 'none';
     });
 
-    // Any element can opt into permission gating with data-permission="key"
-    // (settings cards, the finance shortcut, action buttons, …).
-    nav.querySelectorAll('[data-permission]').forEach(el => {
-        const host = el.closest('li[data-target]') || el;
+    // Step 2 — permission-gated links (external submenu links, settings cards, …)
+    nav.querySelectorAll('[data-permission]').forEach((el) => {
+        const host = el.closest('li[data-target]') || el.closest('li') || el;
         host.style.display = hasPermission(el.dataset.permission) ? '' : 'none';
     });
 
-    // Hide group headers when all children hidden
-    document.querySelectorAll('.sidebar-menu .menu-group').forEach((group) => {
-        const visible = [...group.querySelectorAll('li[data-target]')]
-            .filter((li) => li.style.display !== 'none');
-        group.style.display = visible.length === 0 ? 'none' : '';
-    });
-
-    document.querySelectorAll('.sidebar-menu .has-submenu').forEach((parent) => {
-        const visibleChildren = [...parent.querySelectorAll('li[data-target]')]
-            .filter((li) => li.style.display !== 'none');
-        if (visibleChildren.length === 0) {
-            parent.style.display = 'none';
-        }
-    });
-
-    hideEmptyMenuGroups(nav);
+    // Step 3 — collapse empty menu groups (Sales, Marketing, Finance, Settings, …)
+    hideEmptySidebarMenuGroups(nav);
 
     // Show the role on the sidebar profile card instead of a hardcoded label.
     const profileInfo = document.querySelector('.admin-profile .info');

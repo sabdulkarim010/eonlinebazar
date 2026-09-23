@@ -1,6 +1,6 @@
 <section id="view-hrm-attendance" class="admin-section hrm-section" style="display: none;">
     <div class="section-header-box">
-        <div>
+        <div class="section-page-header">
             <h3 class="section-page-title"><i class="fa-solid fa-user-clock"></i> Attendance &amp; Shifts</h3>
             <p class="section-subtitle section-page-subtitle">Daily attendance register, shift roster, and late arrival reporting.</p>
         </div>
@@ -14,34 +14,34 @@
         </div>
     </div>
 
-    <div class="metrics-grid hrm-stats-grid">
-        <div class="metric-card success">
-            <div class="icon"><i class="fa-solid fa-user-check"></i></div>
-            <div class="data">
-                <p>TODAY PRESENT</p>
-                <h3 id="hrmAttendancePresent">0</h3>
-            </div>
+    <div class="att-stats-strip">
+        <div class="att-stat-card att-stat-card--success">
+            <span class="att-stat-card__icon" aria-hidden="true"><i class="fa-solid fa-user-check"></i></span>
+            <span class="att-stat-card__body">
+                <span class="att-stat-card__value" id="hrmAttendancePresent">0</span>
+                <span class="att-stat-card__label">Today Present</span>
+            </span>
         </div>
-        <div class="metric-card danger">
-            <div class="icon"><i class="fa-solid fa-user-xmark"></i></div>
-            <div class="data">
-                <p>TODAY ABSENT</p>
-                <h3 id="hrmAttendanceAbsent">0</h3>
-            </div>
+        <div class="att-stat-card att-stat-card--danger">
+            <span class="att-stat-card__icon" aria-hidden="true"><i class="fa-solid fa-user-xmark"></i></span>
+            <span class="att-stat-card__body">
+                <span class="att-stat-card__value" id="hrmAttendanceAbsent">0</span>
+                <span class="att-stat-card__label">Today Absent</span>
+            </span>
         </div>
-        <div class="metric-card warning">
-            <div class="icon"><i class="fa-solid fa-clock"></i></div>
-            <div class="data">
-                <p>TODAY LATE</p>
-                <h3 id="hrmAttendanceLate">0</h3>
-            </div>
+        <div class="att-stat-card att-stat-card--warning">
+            <span class="att-stat-card__icon" aria-hidden="true"><i class="fa-solid fa-clock"></i></span>
+            <span class="att-stat-card__body">
+                <span class="att-stat-card__value" id="hrmAttendanceLate">0</span>
+                <span class="att-stat-card__label">Today Late</span>
+            </span>
         </div>
-        <div class="metric-card">
-            <div class="icon"><i class="fa-solid fa-business-time"></i></div>
-            <div class="data">
-                <p>ACTIVE SHIFTS</p>
-                <h3 id="hrmAttendanceShiftCount">0</h3>
-            </div>
+        <div class="att-stat-card att-stat-card--neutral">
+            <span class="att-stat-card__icon" aria-hidden="true"><i class="fa-solid fa-business-time"></i></span>
+            <span class="att-stat-card__body">
+                <span class="att-stat-card__value" id="hrmAttendanceShiftCount">0</span>
+                <span class="att-stat-card__label">Active Shifts</span>
+            </span>
         </div>
     </div>
 
@@ -66,15 +66,17 @@
     <!-- TAB: Daily Sheet -->
     <div id="hrm-tab-daily-sheet" class="hrm-panel">
         <div class="hrm-filter-bar hrm-daily-sheet-toolbar">
-            <div class="form-group">
-                <label for="dailySheetDate">Date</label>
-                <input type="date" id="dailySheetDate">
-            </div>
-            <div class="form-group">
-                <label for="dailySheetDept">Department</label>
-                <select id="dailySheetDept">
-                    <option value="">All departments</option>
-                </select>
+            <div class="att-filter-row">
+                <div class="att-filter-item">
+                    <label for="dailySheetDate">Date</label>
+                    <input type="date" id="dailySheetDate">
+                </div>
+                <div class="att-filter-item">
+                    <label for="dailySheetDept">Department</label>
+                    <select id="dailySheetDept">
+                        <option value="">All departments</option>
+                    </select>
+                </div>
             </div>
             <div id="dailySheetPastDateBanner" class="att-lock-status att-lock-status--open hrm-past-date-banner" hidden>
                 ⚠️ Past date — view only. Contact HR to make changes.
@@ -101,7 +103,7 @@
             </div>
         </div>
 
-        <div class="table-container">
+        <div class="table-container daily-sheet-table-wrap">
             <table class="data-table hrm-daily-sheet-table">
                 <thead>
                     <tr>
