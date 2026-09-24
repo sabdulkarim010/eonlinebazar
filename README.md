@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-23 (Admin customer delete PG/Mongo parity + safety guards)
+**Last updated:** 2026-09-24 (Customer delete Neon timeout resilience)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 

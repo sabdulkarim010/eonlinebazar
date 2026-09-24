@@ -23,6 +23,7 @@ const cloudinary = require('cloudinary').v2;
 const sharp = require('sharp');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { dualWrite } = require('../../services/dualWriteService');
+const { isTransientNeonError } = require('../../config/neonRetry');
 const {
     fetchAdminCustomersPage,
     fetchAdminCustomersOffsetPage,
@@ -53,6 +54,28 @@ function getUserRepository() {
     return require('../../repositories/userRepository');
 }
 
+/** Best-effort PG lookup — never throws; returns null on Neon/Prisma failure. */
+async function safePgLookup(label, fn) {
+    try {
+        return await fn();
+    } catch (err) {
+        console.error(
+            `[resolveAdminCustomer] PG ${label} failed, degrading:`,
+            err?.message || err
+        );
+        return null;
+    }
+}
+
+function isDatabaseUnavailableError(error) {
+    const msg = String(error?.message || error || '');
+    return (
+        isTransientNeonError(error) ||
+        msg.includes('TimeoutError') ||
+        msg.includes('NeonDbError')
+    );
+}
+
 /**
  * Resolve a customer from admin input (Mongo ObjectId, PG legacyId, or PG UUID).
  * @returns {Promise<{ customer: object, mongoId: string|null, pgUserId: string|null }|null>}
@@ -70,7 +93,9 @@ async function resolveAdminCustomer(rawId) {
             : (customer.legacyId ? String(customer.legacyId) : (MONGO_OID_PATTERN.test(id) ? id : null));
         const pgUserId = UUID_PATTERN.test(String(customer._id))
             ? String(customer._id)
-            : (mongoId ? await userRepo.resolvePostgresUserId(mongoId) : null);
+            : (mongoId
+                ? await safePgLookup('resolvePostgresUserId', () => userRepo.resolvePostgresUserId(mongoId))
+                : null);
         return {
             customer,
             mongoId: mongoId || (MONGO_OID_PATTERN.test(id) ? id : null),
@@ -80,10 +105,10 @@ async function resolveAdminCustomer(rawId) {
 
     let pgUser = null;
     if (UUID_PATTERN.test(id)) {
-        pgUser = await userRepo.findById(id);
+        pgUser = await safePgLookup('findById', () => userRepo.findById(id));
     }
     if (!pgUser) {
-        pgUser = await userRepo.findByLegacyId(id);
+        pgUser = await safePgLookup('findByLegacyId', () => userRepo.findByLegacyId(id));
     }
 
     if (pgUser) {
@@ -107,7 +132,10 @@ async function resolveAdminCustomer(rawId) {
     if (mongoose.Types.ObjectId.isValid(id)) {
         const mongoUser = await User.findById(id).select('-password').lean();
         if (mongoUser) {
-            const pgUserId = await userRepo.resolvePostgresUserId(id);
+            const pgUserId = await safePgLookup(
+                'resolvePostgresUserId',
+                () => userRepo.resolvePostgresUserId(id)
+            );
             return {
                 customer: mongoUser,
                 mongoId: String(mongoUser._id),
@@ -790,6 +818,12 @@ const deleteCustomer = async (req, res) => {
         });
     } catch (error) {
         console.error('Delete Customer Error:', error);
+        if (isDatabaseUnavailableError(error)) {
+            return res.status(503).json({
+                success: false,
+                message: 'Database temporarily unavailable, please retry'
+            });
+        }
         res.status(500).json({ success: false, message: 'Failed to delete customer.' });
     }
 };

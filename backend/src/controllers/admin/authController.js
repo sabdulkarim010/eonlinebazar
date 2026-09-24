@@ -247,11 +247,7 @@ async function issueAdminSession(admin, fp) {
         lastActive: new Date()
     });
 
-    try {
-        await adminSessionRepo.upsertAdminSessionInPG(adminSession);
-    } catch (pgErr) {
-        console.error('[DUAL-WRITE-ADMINSESSION-FAIL] create:', pgErr);
-    }
+    adminSessionRepo.mirrorAdminSessionBestEffort(adminSession, 'create');
 
     const loginAt = new Date();
     await adminDualWrite(

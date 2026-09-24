@@ -2,27 +2,33 @@
                 <div class="table-container customers-table-container">
                     <div class="table-header customers-table-header">
                         <h3 id="table-title">All Registered Customers</h3>
-                        <div class="customers-toolbar">
-                            <div class="search-box customers-search-box">
-                                <span class="search-icon" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
-                                <input type="search" id="customerSearchInput" placeholder="Search by name, email, phone, or ID..." autocomplete="off" aria-label="Search customers">
+                        <div class="customers-toolbar" role="toolbar" aria-label="Customer table filters">
+                            <div class="customers-toolbar__search">
+                                <div class="customers-search-box">
+                                    <span class="customers-search-box__icon" aria-hidden="true">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                    </span>
+                                    <input type="search" id="customerSearchInput" class="customers-search-box__input" placeholder="Search by name, email, phone, or ID..." autocomplete="off" aria-label="Search customers">
+                                </div>
                             </div>
-                            <select id="customerTierFilter" class="customers-tier-filter" aria-label="Filter by loyalty tier">
-                                <option value="">All tiers</option>
-                                <option value="silver">Silver</option>
-                                <option value="gold">Gold</option>
-                                <option value="platinum">Platinum</option>
-                                <option value="none">None</option>
-                            </select>
-                            <button type="button" class="action-btn-secondary" id="customersExportCsvBtn" data-permission="manage_customers" onclick="exportCustomersCsvReport()" title="Export customers as CSV">
-                                <i class="fa-solid fa-file-csv"></i> Export CSV
-                            </button>
-                        </div>
-                        <div class="customer-segment-tabs" id="customerSegmentTabs">
-                            <button type="button" class="segment-tab active" data-segment="all">All Customers</button>
-                            <button type="button" class="segment-tab" data-segment="vip">👑 VIP / Top Buyers</button>
-                            <button type="button" class="segment-tab" data-segment="frequent">Frequent Buyers</button>
-                            <button type="button" class="segment-tab" data-segment="inactive">Inactive / No Orders</button>
+                            <div class="customers-toolbar__actions">
+                                <select id="customerTierFilter" class="customers-tier-filter" aria-label="Filter by loyalty tier">
+                                    <option value="">All tiers</option>
+                                    <option value="silver">Silver</option>
+                                    <option value="gold">Gold</option>
+                                    <option value="platinum">Platinum</option>
+                                    <option value="none">None</option>
+                                </select>
+                                <div class="customer-segment-tabs" id="customerSegmentTabs">
+                                    <button type="button" class="segment-tab active" data-segment="all">All Customers</button>
+                                    <button type="button" class="segment-tab" data-segment="vip">👑 VIP / Top Buyers</button>
+                                    <button type="button" class="segment-tab" data-segment="frequent">Frequent Buyers</button>
+                                    <button type="button" class="segment-tab" data-segment="inactive">Inactive / No Orders</button>
+                                </div>
+                                <button type="button" class="customers-export-btn" id="customersExportCsvBtn" data-permission="manage_customers" onclick="exportCustomersCsvReport()" title="Export customers as CSV">
+                                    <i class="fa-solid fa-file-csv"></i> Export CSV
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="customers-table-scroll">

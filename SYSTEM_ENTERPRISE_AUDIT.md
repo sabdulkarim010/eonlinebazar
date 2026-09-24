@@ -3276,6 +3276,38 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Repository integration tests | ✅ | **177/177** (21 files) |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## Customer Delete Neon Timeout Resilience — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `resolveAdminCustomer` PG lookup degradation | ✅ | `safePgLookup()` — null `pgUserId` on Neon failure |
+| Delete returns 503 on DB timeout | ✅ | `isDatabaseUnavailableError()` in `deleteCustomer` catch |
+| Mongo delete + dualWrite unchanged | ✅ | PG mirror failures still swallowed by `dualWrite()` |
+
+## Chat Proxy Route Guard + Admin Session PG Mirror — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Store admin `/api/admin/customers/*` not proxied to chat | ✅ | `isStoreAdminJwt()` + referer detection in `chatApiProxy.js` |
+| Store admin `/api/admin/orders/*` stays on main backend | ✅ | Same chat-admin-only proxy rule |
+| Admin session PG dual-write non-blocking | ✅ | `mirrorAdminSessionBestEffort()` in auth heartbeat + login |
+| Neon timeout no longer blocks admin API | ✅ | Throttled heartbeats; errors logged only |
+
+## Customer Table ID Mapping Fix — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Primary key resolution in table actions | ✅ | `getCustomerPrimaryKey()` — never binds email |
+| URL-safe API paths | ✅ | `encodeURIComponent(id)` on all customer fetches |
+| Data-attribute action delegation | ✅ | Replaces fragile inline onclick ID strings |
+| Chat toast noise on non-chat pages | ✅ | `chatToast()` in `chat-admin.js` |
+
 ## Admin Customer Delete PG/Mongo Parity — 2026-09-23
 
 **Status:** ✅ Fixed

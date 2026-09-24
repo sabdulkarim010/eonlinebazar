@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (Admin customer delete PG/Mongo parity + safety guards)  
+**Last updated:** 2026-09-24 (Customer table toolbar compact layout)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -92,6 +92,29 @@
 ---
 
 ## Change Log
+
+### Customer table toolbar premium single-row layout — 2026-09-24
+
+- Full-width toolbar: search (350px / left) + tier + segment pills + Export CSV (right group)
+- All controls 40px height, gray-300 borders, blue focus rings, shadow-sm
+- Segment pills moved into `customers-toolbar__actions` — same IDs/handlers unchanged
+- Files: `view-customers.html`, `_customers.css`, `_responsive.css`
+
+### Customer delete Neon timeout resilience — 2026-09-24
+
+- `safePgLookup()` wraps direct Prisma calls in `resolveAdminCustomer()` — PG timeout degrades to `pgUserId: null` instead of 500
+- `deleteCustomer` returns **503** with retry message when Neon/timeout errors escape the delete body
+- Mongo fallback via `fetchCustomerById` / `dualWrite` unchanged
+- Tests: Jest **231/231** passing
+
+### Customer table ID mapping fix — 2026-09-24
+
+- `getCustomerPrimaryKey()` resolves `legacyId` / `_id` / `id` and rejects email-shaped values
+- Table actions use `data-customer-id` + event delegation (no inline email/ID in onclick strings)
+- All customer API fetches use `encodeURIComponent(id)` to prevent `@` URL breakage
+- `parseCustomerApiResponse()` normalizes `_id` on list/detail payloads
+- Chat microservice error toasts suppressed off chat sections via `chatToast()`
+- Files: `customers-table.js`, `customers-modals.js`, `core-nav.js`, `chat-admin.js`
 
 ### Admin customer delete PG/Mongo parity — 2026-09-23
 

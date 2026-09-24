@@ -67,11 +67,7 @@ const verifyAdmin = async (req, res, next) => {
                 });
             }
 
-            try {
-                await adminSessionRepo.upsertAdminSessionInPG(session);
-            } catch (pgErr) {
-                console.error('[DUAL-WRITE-ADMINSESSION-FAIL] heartbeat:', pgErr);
-            }
+            adminSessionRepo.mirrorAdminSessionBestEffort(session, 'heartbeat');
         }
 
         // 🛡️ RBAC: টোকেনের পেলোডে ভরসা না করে প্রতিটি রিকোয়েস্টে ডাটাবেজ থেকে

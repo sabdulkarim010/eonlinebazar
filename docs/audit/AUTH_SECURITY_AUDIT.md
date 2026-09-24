@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (Super Admin 2FA staff banner fix)  
+**Last updated:** 2026-09-24 (Admin session PG mirror non-blocking)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -47,7 +47,7 @@
 | `backend/src/models/blacklistedIp.js` | IP blacklist |
 | `backend/src/utils/securityLogger.js` | `logSecurityEvent()` helper |
 | `backend/src/repositories/userSessionRepository.js` | PG session reads |
-| `backend/src/repositories/adminSessionRepository.js` | PG admin session reads |
+| `backend/src/repositories/adminSessionRepository.js` | PG admin session reads + best-effort dual-write mirror |
 | `backend/src/repositories/securityLogRepository.js` | PG security log reads |
 | `backend/src/repositories/loginAttemptRepository.js` | PG login attempt reads |
 | `backend/src/repositories/blacklistedIpRepository.js` | PG IP blacklist reads |
@@ -72,6 +72,7 @@
 - [x] RBAC with 9 permissions — `permissions.js`, `rbac.js`
 - [x] Customer session tracking — `userSession.js`, logout-other-devices
 - [x] Admin session management — `sessionController.js`, `view-sessions.html`
+- [x] Admin session PG mirror (best-effort) — `mirrorAdminSessionBestEffort()`; throttled heartbeats; never blocks `verifyAdmin`
 - [x] Security event logging — `securityLog.js`, `securityLogger.js`
 - [x] Login attempt tracking — `loginAttempt.js`
 - [x] IP blacklist + geo-fence — `blacklistController.js`
@@ -91,6 +92,7 @@
 
 | Issue | Severity | Status | Notes |
 |-------|----------|--------|-------|
+| Admin session PG dual-write blocked requests on Neon timeout | High | Fixed | 2026-09-24 — fire-and-forget mirror + 60s heartbeat throttle |
 | Some legacy routes weakly protected | Low | Open | See `SYSTEM_ENTERPRISE_AUDIT.md` Section 7 |
 | Chat agent SSO partial | Low | Open | Agent auto-provision; not full SSO — see `CHAT_AUDIT.md` |
 
@@ -105,6 +107,13 @@
 ---
 
 ## Change Log
+
+### Admin session PG mirror non-blocking — 2026-09-24
+
+- **`mirrorAdminSessionBestEffort()`** in `adminSessionRepository.js` — fire-and-forget PG upsert; errors logged, never thrown
+- **`verifyAdmin`** heartbeat and login session create no longer `await` PG mirror (prevents Neon TimeoutError blocking requests)
+- Heartbeats throttled via `ADMIN_SESSION_PG_HEARTBEAT_MS` (default 60s) per sessionId
+- Tests: Jest **231/231** passing
 
 ### Super Admin 2FA staff banner fix — 2026-09-23
 

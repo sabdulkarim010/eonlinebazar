@@ -227,7 +227,12 @@ async function loadAllCustomersForSegmentCache() {
         }
 
         const data = await response.json();
-        const batch = data.customers || data.data || [];
+        const rawBatch = data.customers || data.data || [];
+        const batch = rawBatch.map((row) => (
+            typeof window.normalizeCustomerRecord === 'function'
+                ? window.normalizeCustomerRecord({ ...row })
+                : row
+        ));
         customerSegmentThresholds = data.segmentThresholds || customerSegmentThresholds;
         customerNextCursor = data.nextCursor || null;
         customerHasMore = data.hasMore === true;
@@ -308,7 +313,12 @@ window.fetchCustomers = async function fetchCustomers(pageOrReset = 1, limitArg)
         const data = await response.json();
         resetAdminPollErrors('customers');
 
-        const batch = data.customers || data.data || [];
+        const rawBatch = data.customers || data.data || [];
+        const batch = rawBatch.map((row) => (
+            typeof window.normalizeCustomerRecord === 'function'
+                ? window.normalizeCustomerRecord({ ...row })
+                : row
+        ));
         customerSegmentThresholds = data.segmentThresholds || customerSegmentThresholds;
         allCustomers = batch;
 

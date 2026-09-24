@@ -1,6 +1,6 @@
 # CHAT AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (Legacy in-panel socket teardown)  
+**Last updated:** 2026-09-24 (Store admin CRM proxy interception fix)  
 **Scope:** Live chat microservice (`ecommerce-chat/`), React chat admin (`admin-dashboard/`), storefront widget, mobile support, socket teardown  
 **Status:** ⚠️ PARTIAL
 
@@ -28,6 +28,7 @@
 | `ecommerce-chat/public/js/chat-widget.js` | Storefront embeddable widget |
 | `admin-dashboard/src/` | React chat admin SPA → `/chat-admin` |
 | `backend/src/controllers/internalChatController.js` | Store ↔ chat internal API |
+| `backend/src/middlewares/chatApiProxy.js` | Store gateway reverse proxy — chat-only path routing |
 | `client/js/orderChat.js` | Storefront chat launcher (profile, order details) |
 | `client/js/chat-widget.js` | Widget loader on storefront |
 | `client/admin/partials/view-chat.html` | Legacy chat (deprecated) |
@@ -60,6 +61,7 @@
 
 | Issue | Severity | Status | Notes |
 |-------|----------|--------|-------|
+| `chatApiProxy` intercepted store `/api/admin/customers/*` | High | Fixed | 2026-09-24 — store admin JWT/referer keeps CRM on main backend |
 | Close/end uses native `confirm()` not SweetAlert2 | Medium | Open | Customer widget + React admin Resolve button |
 | Session teardown incomplete on customer close | High | Open | Widget re-bootstraps room after close (`startNewChat` → `bootstrap`) |
 | Dual staff systems (Agent vs Admin) | Low | Open | Agent auto-provision exists; not full SSO |
@@ -77,6 +79,13 @@
 ---
 
 ## Change Log
+
+### Store admin CRM proxy interception fix — 2026-09-24
+
+- **`chatApiProxy.js`:** `/api/admin/customers/*` and `/api/admin/orders/*` no longer default-proxy to `:5001` when Referer is missing
+- **`isStoreAdminJwt()`** detects store admin Bearer JWT (`role: admin` + `sid`) so fetch() calls from `/admin` stay on main backend
+- Customer/order CRM paths proxy to chat **only** when `isChatAdminRequest()` (X-Chat-Admin header or `/chat-admin` referer)
+- Tests: Jest **231/231** passing
 
 ### Legacy in-panel chat socket teardown — 2026-09-23
 

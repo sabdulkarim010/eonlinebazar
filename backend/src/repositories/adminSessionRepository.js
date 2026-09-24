@@ -33,6 +33,19 @@ function toShape(record) {
   };
 }
 
+const HEARTBEAT_MIN_INTERVAL_MS = Number(process.env.ADMIN_SESSION_PG_HEARTBEAT_MS || 60_000);
+const lastHeartbeatBySessionId = new Map();
+
+function shouldSkipHeartbeat(sessionId) {
+  const key = String(sessionId || '').trim();
+  if (!key) return false;
+  const now = Date.now();
+  const last = lastHeartbeatBySessionId.get(key) || 0;
+  if (now - last < HEARTBEAT_MIN_INTERVAL_MS) return true;
+  lastHeartbeatBySessionId.set(key, now);
+  return false;
+}
+
 async function upsertAdminSessionInPG(mongoDoc) {
   try {
     if (!mongoDoc || !mongoDoc._id) {
@@ -72,9 +85,28 @@ async function upsertAdminSessionInPG(mongoDoc) {
 
     return toShape(record);
   } catch (err) {
-    console.error('[DUAL-WRITE-ADMINSESSION-FAIL]', err.message, mongoDoc?._id);
+    const msg = err?.message || String(err);
+    console.error('[DUAL-WRITE-ADMINSESSION-FAIL]', msg, mongoDoc?._id);
     return null;
   }
+}
+
+/**
+ * Non-blocking PG mirror — never delays auth or request handlers.
+ * Heartbeats are throttled (default 60s) to avoid Neon HTTP timeout storms.
+ */
+function mirrorAdminSessionBestEffort(mongoDoc, context = 'sync') {
+  if (!mongoDoc) return;
+
+  const isHeartbeat = context === 'heartbeat';
+  if (isHeartbeat && shouldSkipHeartbeat(mongoDoc.sessionId)) {
+    return;
+  }
+
+  void upsertAdminSessionInPG(mongoDoc).catch((err) => {
+    const msg = err?.message || String(err);
+    console.error(`[DUAL-WRITE-ADMINSESSION-FAIL] ${context}:`, msg, mongoDoc?._id);
+  });
 }
 
 async function getAdminSessionByToken(token) {
@@ -164,6 +196,7 @@ async function deleteExpiredAdminSessionsFromPG(beforeDate = new Date()) {
 
 module.exports = {
   upsertAdminSessionInPG,
+  mirrorAdminSessionBestEffort,
   getAdminSessionByToken,
   deleteAdminSessionInPG,
   deleteAdminSessionBySessionIdInPG,

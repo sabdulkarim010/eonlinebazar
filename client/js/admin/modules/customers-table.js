@@ -8,6 +8,83 @@
 
 import '../admin-core.js';
 
+const CUSTOMER_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CUSTOMER_MONGO_OID_PATTERN = /^[0-9a-fA-F]{24}$/;
+const CUSTOMER_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolve the canonical customer primary key for API calls and action handlers.
+ * Never returns email — prefers legacyId, then valid ObjectId/UUID _id/id.
+ */
+function getCustomerPrimaryKey(user = {}) {
+    const candidates = [user.legacyId, user._id, user.id]
+        .map((value) => (value != null ? String(value).trim() : ''))
+        .filter(Boolean);
+
+    for (const candidate of candidates) {
+        if (CUSTOMER_EMAIL_PATTERN.test(candidate)) continue;
+        if (
+            CUSTOMER_MONGO_OID_PATTERN.test(candidate)
+            || CUSTOMER_UUID_PATTERN.test(candidate)
+            || candidate.startsWith('__test_')
+            || /^[0-9a-fA-F-]{8,}$/i.test(candidate)
+        ) {
+            return candidate;
+        }
+    }
+
+    return candidates.find((candidate) => !CUSTOMER_EMAIL_PATTERN.test(candidate)) || '';
+}
+
+/** Normalize API customer records so `_id` is always the primary key, never email. */
+function normalizeCustomerRecord(record) {
+    if (!record || typeof record !== 'object') return record;
+    const primaryKey = getCustomerPrimaryKey(record);
+    if (primaryKey) {
+        record._id = primaryKey;
+        if (!record.legacyId && !CUSTOMER_UUID_PATTERN.test(primaryKey)) {
+            record.legacyId = primaryKey;
+        }
+    }
+    return record;
+}
+
+function ensureCustomerTableActionDelegation() {
+    if (window._customerTableDelegationBound) return;
+    window._customerTableDelegationBound = true;
+
+    document.addEventListener('click', (event) => {
+        const btn = event.target.closest('#customerTableBody [data-customer-action]');
+        if (!btn) return;
+
+        const id = String(btn.dataset.customerId || '').trim();
+        if (!id) return;
+
+        const action = btn.dataset.customerAction;
+        switch (action) {
+            case 'view':
+                if (typeof window.viewCustomerDetails === 'function') window.viewCustomerDetails(id);
+                break;
+            case 'edit':
+                if (typeof window.editCustomer === 'function') window.editCustomer(id);
+                break;
+            case 'orders':
+                if (typeof window.viewCustomerOrders === 'function') window.viewCustomerOrders(id);
+                break;
+            case 'delete':
+                if (typeof window.deleteCustomer === 'function') window.deleteCustomer(id);
+                break;
+            case 'status':
+                if (typeof window.setCustomerStatus === 'function') {
+                    window.setCustomerStatus(id, btn.dataset.customerStatus || 'active');
+                }
+                break;
+            default:
+                break;
+        }
+    });
+}
+
 /* ==========================================================================
    SECTION 6: CUSTOMER MANAGEMENT (সকল কাস্টমারদের তালিকা ও পরিচালনা)
    ========================================================================== */
@@ -300,6 +377,8 @@ function renderCustomerTable(customers, totalFiltered) {
     const tbody = document.getElementById('customerTableBody');
     if (!tbody) return;
 
+    ensureCustomerTableActionDelegation();
+
     if (customers.length === 0) {
         tbody.innerHTML = `<tr><td colspan="11" class="table-status-empty">👥 No customers found</td></tr>`;
         updateCustomersBulkToolbar();
@@ -308,26 +387,30 @@ function renderCustomerTable(customers, totalFiltered) {
 
     let tableHTML = '';
     customers.forEach((user, index) => {
-        const displayId = user._id ? user._id.toString().slice(-6).toUpperCase() : `USR-${index + 1}`;
+        normalizeCustomerRecord(user);
+        const customerKey = getCustomerPrimaryKey(user);
+        const displayId = customerKey
+            ? customerKey.toString().slice(-6).toUpperCase()
+            : `USR-${index + 1}`;
         const accountStatus = user.accountStatus || 'active';
-        const uid = user._id;
+        const uid = escapeHtml(customerKey);
         const totalSpent = Number(user.totalSpent) || 0;
-        const isChecked = selectedCustomerIds.has(String(uid)) ? 'checked' : '';
+        const isChecked = customerKey && selectedCustomerIds.has(String(customerKey)) ? 'checked' : '';
 
         let statusActionBtn = '';
         if (accountStatus === 'blocked') {
-            statusActionBtn = `<button class="action-btn activate" onclick="setCustomerStatus('${uid}', 'active')" title="Unblock / Activate"><i class="fa-solid fa-unlock"></i></button>`;
+            statusActionBtn = `<button type="button" class="action-btn activate" data-customer-action="status" data-customer-id="${uid}" data-customer-status="active" title="Unblock / Activate"><i class="fa-solid fa-unlock"></i></button>`;
         } else if (accountStatus === 'suspended') {
             statusActionBtn = `
-                <button class="action-btn activate" onclick="setCustomerStatus('${uid}', 'active')" title="Reactivate"><i class="fa-solid fa-play"></i></button>
-                <button class="action-btn block" onclick="setCustomerStatus('${uid}', 'blocked')" title="Block User"><i class="fa-solid fa-ban"></i></button>`;
+                <button type="button" class="action-btn activate" data-customer-action="status" data-customer-id="${uid}" data-customer-status="active" title="Reactivate"><i class="fa-solid fa-play"></i></button>
+                <button type="button" class="action-btn block" data-customer-action="status" data-customer-id="${uid}" data-customer-status="blocked" title="Block User"><i class="fa-solid fa-ban"></i></button>`;
         } else {
             statusActionBtn = `
-                <button class="action-btn suspend" onclick="setCustomerStatus('${uid}', 'suspended')" title="Suspend User"><i class="fa-solid fa-pause"></i></button>
-                <button class="action-btn block" onclick="setCustomerStatus('${uid}', 'blocked')" title="Block User"><i class="fa-solid fa-ban"></i></button>`;
+                <button type="button" class="action-btn suspend" data-customer-action="status" data-customer-id="${uid}" data-customer-status="suspended" title="Suspend User"><i class="fa-solid fa-pause"></i></button>
+                <button type="button" class="action-btn block" data-customer-action="status" data-customer-id="${uid}" data-customer-status="blocked" title="Block User"><i class="fa-solid fa-ban"></i></button>`;
         }
 
-        const userIdCopy = user._id ? user._id.toString() : displayId;
+        const userIdCopy = customerKey || displayId;
         const emailDisplay = user.email || 'N/A';
         const mobileDisplay = user.mobile || 'N/A';
 
@@ -347,10 +430,10 @@ function renderCustomerTable(customers, totalFiltered) {
                 <td class="customers-td customers-td--status">${getCustomerStatusHtml(user)}</td>
                 <td class="col-actions customers-td customers-td--actions">
                     <div class="customer-actions-row">
-                        <button type="button" class="action-btn view" onclick="viewCustomerDetails('${uid}')" title="View Profile"><i class="fa-solid fa-eye"></i></button>
-                        <button type="button" class="action-btn edit" onclick="editCustomer('${uid}')" title="Edit Profile"><i class="fa-solid fa-pen-to-square"></i></button>
-                        <button type="button" class="action-btn orders" onclick="viewCustomerOrders('${uid}')" title="Order History"><i class="fa-solid fa-clock-rotate-left"></i></button>
-                        <button type="button" class="action-btn delete" onclick="deleteCustomer('${uid}')" title="Delete Customer Permanently"><i class="fa-solid fa-trash"></i></button>
+                        <button type="button" class="action-btn view" data-customer-action="view" data-customer-id="${uid}" title="View Profile"><i class="fa-solid fa-eye"></i></button>
+                        <button type="button" class="action-btn edit" data-customer-action="edit" data-customer-id="${uid}" title="Edit Profile"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button type="button" class="action-btn orders" data-customer-action="orders" data-customer-id="${uid}" title="Order History"><i class="fa-solid fa-clock-rotate-left"></i></button>
+                        <button type="button" class="action-btn delete" data-customer-action="delete" data-customer-id="${uid}" title="Delete Customer Permanently"><i class="fa-solid fa-trash"></i></button>
                         ${statusActionBtn}
                     </div>
                 </td>
@@ -403,9 +486,6 @@ function showCustomerError(msg) {
 }
 
 /**
- * ৬.৩: কাস্টমার প্রোফাইল দেখার মোডাল
-
-/**
  * Parse admin customer API responses with HTTP status validation.
  * @returns {Promise<{ ok: boolean, result: object, message: string }>}
  */
@@ -424,6 +504,13 @@ async function parseCustomerApiResponse(res, fallbackMessage = 'Request failed.'
         return { ok: false, result, message };
     }
 
+    if (result.data) {
+        result.data = normalizeCustomerRecord(result.data);
+    }
+    if (Array.isArray(result.customers)) {
+        result.customers = result.customers.map((row) => normalizeCustomerRecord({ ...row }));
+    }
+
     return { ok: true, result, message: result.message || '' };
 }
 
@@ -439,6 +526,8 @@ async function refreshCustomerListAfterChange() {
 
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
+    getCustomerPrimaryKey,
+    normalizeCustomerRecord,
     parseCustomerApiResponse,
     refreshCustomerListAfterChange,
     buildCustomerCopyCell,

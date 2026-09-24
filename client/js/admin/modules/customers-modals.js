@@ -14,6 +14,25 @@ const parseCustomerApiResponse = (res, fallbackMessage) =>
     window.parseCustomerApiResponse(res, fallbackMessage);
 
 const refreshCustomerListAfterChange = () => window.refreshCustomerListAfterChange();
+
+const CUSTOMER_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function resolveCustomerActionId(rawId, record = null) {
+    if (typeof window.getCustomerPrimaryKey === 'function') {
+        const fromRecord = record ? window.getCustomerPrimaryKey(record) : '';
+        if (fromRecord) return fromRecord;
+    }
+    const id = String(rawId || '').trim();
+    if (!id || CUSTOMER_EMAIL_PATTERN.test(id)) return '';
+    return id;
+}
+
+function customerApiPath(rawId, suffix = '') {
+    const id = resolveCustomerActionId(rawId);
+    if (!id) return '';
+    const tail = suffix ? (suffix.startsWith('/') ? suffix : `/${suffix}`) : '';
+    return `/api/admin/customers/${encodeURIComponent(id)}${tail}`;
+}
 const CUSTOMER_AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
 let viewedCustomer = null;
@@ -220,7 +239,12 @@ async function onCustomerAvatarFileSelected(event) {
     setCustomerAvatarUploadBusy(true);
 
     try {
-        const res = await fetch(`/api/admin/users/${viewedCustomer._id}/avatar`, {
+        const avatarId = resolveCustomerActionId(viewedCustomer._id, viewedCustomer);
+        if (!avatarId) {
+            return showToast('Invalid customer ID — cannot upload photo.', 'error');
+        }
+
+        const res = await fetch(`/api/admin/users/${encodeURIComponent(avatarId)}/avatar`, {
             method: 'PUT',
             headers: { 'Authorization': `Bearer ${token}` },
             body: formData
@@ -283,7 +307,12 @@ window.removeCustomerAvatar = async function() {
     }
 
     try {
-        const res = await fetch(`/api/admin/users/${viewedCustomer._id}/avatar`, {
+        const avatarId = resolveCustomerActionId(viewedCustomer._id, viewedCustomer);
+        if (!avatarId) {
+            return showToast('Invalid customer ID — cannot remove photo.', 'error');
+        }
+
+        const res = await fetch(`/api/admin/users/${encodeURIComponent(avatarId)}/avatar`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -305,7 +334,12 @@ window.removeCustomerAvatar = async function() {
 
 window.viewCustomerDetails = async function(userId) {
     try {
-        const res = await fetch(`/api/admin/customers/${userId}`, {
+        const customerPath = customerApiPath(userId);
+        if (!customerPath) {
+            return showToast('Invalid customer ID — cannot load profile.', 'error');
+        }
+
+        const res = await fetch(customerPath, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const { ok, result, message } = await parseCustomerApiResponse(res, 'Failed to load customer.');
@@ -314,6 +348,7 @@ window.viewCustomerDetails = async function(userId) {
         }
 
         const u = result.data;
+        const resolvedId = resolveCustomerActionId(userId, u);
         viewedCustomer = u;
         bindCustomerAvatarLightboxOnce();
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val ?? '—'; };
@@ -348,7 +383,7 @@ window.viewCustomerDetails = async function(userId) {
         if (editFromView) {
             editFromView.onclick = () => {
                 closeCustomerViewModal();
-                editCustomer(userId);
+                editCustomer(resolvedId || userId);
             };
         }
 
@@ -431,7 +466,12 @@ window.closeCustomerViewModal = function() {
  */
 window.editCustomer = async function(userId) {
     try {
-        const res = await fetch(`/api/admin/customers/${userId}`, {
+        const customerPath = customerApiPath(userId);
+        if (!customerPath) {
+            return showToast('Invalid customer ID — cannot edit profile.', 'error');
+        }
+
+        const res = await fetch(customerPath, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const { ok, result, message } = await parseCustomerApiResponse(res, 'Failed to load customer.');
@@ -440,7 +480,8 @@ window.editCustomer = async function(userId) {
         }
 
         const u = result.data;
-        document.getElementById('editCustomerId').value = u._id;
+        const resolvedId = resolveCustomerActionId(userId, u);
+        document.getElementById('editCustomerId').value = resolvedId || u._id;
         const editName = getCustomerDisplayName(u);
         renderCustomerEditAvatar(u);
         document.getElementById('editCustomerName').value = editName === 'N/A' ? '' : editName;
@@ -516,8 +557,13 @@ window.saveCustomerEdits = async function() {
     const originalText = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...'; }
 
+    const savePath = customerApiPath(userId);
+    if (!savePath) {
+        return showToast('Invalid customer ID — cannot save changes.', 'error');
+    }
+
     try {
-        const res = await fetch(`/api/admin/customers/${userId}`, {
+        const res = await fetch(savePath, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -554,18 +600,30 @@ window.saveCustomerEdits = async function() {
  * ৬.৪ক: কাস্টমার স্থায়ীভাবে ডিলিট
  */
 function deleteCustomer(userId) {
+    const resolvedId = resolveCustomerActionId(userId);
+    if (!resolvedId) {
+        showToast('Invalid customer ID — cannot delete this row.', 'error');
+        return;
+    }
+
     showCustomConfirm(
         'Delete Customer',
         'Are you sure you want to permanently delete this customer? This action cannot be undone.',
         async () => {
             try {
-                const res = await fetch(`/api/admin/customers/${userId}`, {
+                const deletePath = customerApiPath(resolvedId);
+                if (!deletePath) {
+                    showToast('Invalid customer ID — cannot delete this row.', 'error');
+                    return;
+                }
+
+                const res = await fetch(deletePath, {
                     method: 'DELETE',
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const { ok, result, message } = await parseCustomerApiResponse(res, 'Failed to delete customer.');
                 if (ok && result.success) {
-                    selectedCustomerIds.delete(String(userId));
+                    selectedCustomerIds.delete(String(resolvedId));
                     if (typeof window.closeCustomerViewModal === 'function') {
                         window.closeCustomerViewModal();
                     }
@@ -594,9 +652,21 @@ window.setCustomerStatus = function(userId, status) {
     };
     const cfg = labels[status] || labels.active;
 
+    const resolvedId = resolveCustomerActionId(userId);
+    if (!resolvedId) {
+        showToast('Invalid customer ID — cannot update status.', 'error');
+        return;
+    }
+
     showCustomConfirm(cfg.title, cfg.msg, async () => {
         try {
-            const res = await fetch(`/api/admin/customers/${userId}/status`, {
+            const statusPath = customerApiPath(resolvedId, 'status');
+            if (!statusPath) {
+                showToast('Invalid customer ID — cannot update status.', 'error');
+                return;
+            }
+
+            const res = await fetch(statusPath, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -629,7 +699,13 @@ window.viewCustomerOrders = async function(userId) {
     if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="loading-cell">Loading orders...</td></tr>';
 
     try {
-        const res = await fetch(`/api/admin/customers/${userId}/orders`, {
+        const ordersPath = customerApiPath(userId, 'orders');
+        if (!ordersPath) {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="loading-cell">Invalid customer ID.</td></tr>';
+            return;
+        }
+
+        const res = await fetch(ordersPath, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const { ok, result, message } = await parseCustomerApiResponse(res, 'Failed to load orders.');
@@ -679,12 +755,14 @@ window.closeCustomerOrdersModal = function() {
 
 function renderCustomerWalletAdjust(customer) {
     const host = document.getElementById('cvWalletAdjustHost');
-    if (!host || !customer?._id) {
+    const customerKey = resolveCustomerActionId(customer?._id, customer);
+    if (!host || !customerKey) {
         if (host) host.innerHTML = '';
         return;
     }
 
     const balance = Number(customer.walletBalance) || 0;
+    const safeKey = escapeHtml(customerKey);
     host.innerHTML = `
         <div class="wallet-adjust-section">
             <div class="wallet-adjust-title">💰 Wallet Balance: ৳${balance.toLocaleString()}</div>
@@ -695,7 +773,7 @@ function renderCustomerWalletAdjust(customer) {
                 </select>
                 <input type="number" id="walletAdjustAmount" class="wallet-adjust-input" placeholder="Amount (৳)" min="0" step="0.01">
                 <input type="text" id="walletAdjustNote" class="wallet-adjust-note" placeholder="Reason">
-                <button type="button" class="wallet-adjust-btn" onclick="adjustWalletBalance('${customer._id}')">Apply</button>
+                <button type="button" class="wallet-adjust-btn" data-wallet-customer-id="${safeKey}" onclick="adjustWalletBalance(this.dataset.walletCustomerId)">Apply</button>
             </div>
         </div>`;
 }
@@ -710,8 +788,15 @@ window.adjustWalletBalance = async function adjustWalletBalance(userId) {
         return;
     }
 
+    const resolvedId = resolveCustomerActionId(userId);
+    if (!resolvedId) {
+        showToast('Invalid customer ID — cannot adjust wallet.', 'error');
+        return;
+    }
+
     try {
-        const res = await fetch(`/api/admin/customers/${userId}/wallet`, {
+        const walletPath = customerApiPath(resolvedId, 'wallet');
+        const res = await fetch(walletPath, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

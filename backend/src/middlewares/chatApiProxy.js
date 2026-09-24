@@ -4,12 +4,14 @@
  *
  * ALWAYS proxied to http://127.0.0.1:5001 (never main-backend 404):
  *   /api/chat-admin/*                    → /api/*
- *   /api/admin/me/avatar                 → /api/admin/me/avatar (GET/POST/PUT stream)
- *   /api/admin/customers/*               → chat CRM (always → 127.0.0.1:5001, except store /admin referer)
- *   /api/admin/orders/*                  → chat order lookup (always → 127.0.0.1:5001, except store actions)
+ *   /api/admin/me/avatar                 → /api/admin/me/avatar (GET/POST/PUT stream) when chat-admin caller
  *   /chat-api/*                          → /api/*
  *   /chat-admin/admin/*                  → /api/admin/*
  *   /chat-socket/*                       → /chat-socket/* (Socket.io + polling)
+ *
+ * Store admin CRM (main panel at /admin) stays on the main backend:
+ *   /api/admin/customers/*               → main backend ONLY (never chat unless X-Chat-Admin /chat-admin)
+ *   /api/admin/orders/*                  → main backend ONLY (same rule; store action routes always local)
  */
 
 const http = require('http');
@@ -146,6 +148,30 @@ function isChatAdminRequest(req) {
 }
 
 /**
+ * Store admin JWT (role: admin + sid) without chat-admin signals.
+ * fetch() from the store panel often omits Referer — detect via Bearer token.
+ */
+function isStoreAdminJwt(req) {
+  if (!req || isChatAdminRequest(req)) return false;
+
+  const token = extractBearerToken(req.headers);
+  if (!token) return false;
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return false;
+
+  try {
+    const decoded = jwt.verify(token, secret);
+    return (
+      decoded.role === 'admin' ||
+      (decoded.username && !decoded.id && !decoded._id && !decoded.userId)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Positive signal that the caller is the MAIN STORE admin panel (served at
  * /admin, not /chat-admin). Used to keep store customer management on the
  * main backend and NOT hijack it to the chat microservice.
@@ -153,6 +179,7 @@ function isChatAdminRequest(req) {
 function isStoreAdminRequest(req) {
   if (!req) return false;
   if (isChatAdminRequest(req)) return false;
+  if (isStoreAdminJwt(req)) return true;
 
   const p = refererPathname(req);
   // /admin (store) but not /chat-admin (already excluded above)
@@ -284,17 +311,16 @@ function isChatAdminOrderDetailPath(pathname) {
 }
 
 /**
- * CRM paths that must always hit chat :5001 — never main-backend 404 or store handlers.
- * Chat-admin signals always win; store /admin referer keeps customer CRM on main backend.
+ * CRM paths forwarded to chat :5001 ONLY for explicit chat-admin callers.
+ * Store admin panel (/admin) and bare API calls with store JWT stay on main backend.
  */
 function shouldAlwaysProxyToChat(pathname, req) {
   if (!pathname) return false;
   const isCrmPath =
     isChatCustomerDetailPath(pathname) || isChatAdminOrderDetailPath(pathname);
   if (!isCrmPath) return false;
-  if (isChatAdminRequest(req)) return true;
   if (isStoreAdminRequest(req)) return false;
-  return true;
+  return isChatAdminRequest(req);
 }
 
 /**
@@ -315,11 +341,10 @@ function isAbsoluteChatProxyPath(pathname, req) {
     return true;
   }
 
-  // Explicit CRM prefixes — /api/admin/customers/* and /api/admin/orders/* → 127.0.0.1:5001
+  // Store CRM — main backend only unless explicit chat-admin caller
   if (isChatProxyCustomersPath(pathname) || isChatProxyOrdersPath(pathname)) {
-    if (isChatAdminRequest(req)) return true;
     if (isStoreAdminRequest(req)) return false;
-    return true;
+    return isChatAdminRequest(req);
   }
 
   if (pathname.startsWith('/chat-api/') || pathname === '/chat-api') {
@@ -349,7 +374,7 @@ function isChatCustomerPath(pathname, req) {
     return true;
   }
   if (isChatCustomerDetailPath(pathname)) {
-    return !isStoreAdminRequest(req);
+    return isChatAdminRequest(req) && !isStoreAdminRequest(req);
   }
   return false;
 }
@@ -365,8 +390,8 @@ function isChatOrdersPath(pathname, req) {
   if (pathname.startsWith('/api/chat-admin/admin/orders')) {
     return true;
   }
-  if (isChatAdminOrderDetailPath(pathname) && !isStoreAdminRequest(req)) {
-    return true;
+  if (isChatAdminOrderDetailPath(pathname)) {
+    return isChatAdminRequest(req) && !isStoreAdminRequest(req);
   }
   if (!isChatAdminRequest(req)) return false;
   if (matchesPrefix(pathname, '/api/admin/orders')) {
@@ -962,6 +987,7 @@ module.exports = {
   isChatDirectAdminPath,
   isChatAdminRequest,
   isStoreAdminRequest,
+  isStoreAdminJwt,
   isAvatarUpload,
   isAvatarPath,
   isAbsoluteChatProxyPath,

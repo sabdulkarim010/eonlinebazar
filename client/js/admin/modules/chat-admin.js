@@ -13,6 +13,29 @@ console.warn(
 
 const CHAT_API = '/api/chat-admin';
 const CHAT_TOKEN_KEY = 'chat_admin_token';
+const CHAT_SECTION_IDS = ['view-chat', 'view-chat-analytics', 'view-canned-responses'];
+
+function isChatModuleActive() {
+    return CHAT_SECTION_IDS.some((sectionId) => {
+        const section = document.getElementById(sectionId);
+        return section
+            && section.classList.contains('active')
+            && section.style.display !== 'none'
+            && !section.hidden;
+    });
+}
+
+/** Show chat toasts only when a chat section is active; log otherwise. */
+function chatToast(message, type = 'info') {
+    if (!message || typeof showToast !== 'function') return;
+    if (!isChatModuleActive()) {
+        if (type === 'error' || type === 'warning') {
+            console.warn('[chat-admin]', message);
+        }
+        return;
+    }
+    showToast(message, type);
+}
 const FILTER_STATUS = {
     waiting: 'WAITING_FOR_AGENT',
     active: 'ACTIVE',
@@ -276,7 +299,7 @@ async function handleChatAgentLogin(e) {
         if (typeof showToast === 'function') showToast('Connected to live chat', 'success');
         await bootstrapChatSession();
     } catch (err) {
-        if (typeof showToast === 'function') showToast(err.message || 'Login failed', 'error');
+        chatToast(err.message || 'Login failed', 'error');
     }
 }
 
@@ -425,12 +448,12 @@ function bindSocketEvents(sock) {
     });
 
     sock.on('take_chat_failed', (payload) => {
-        if (typeof showToast === 'function') showToast(payload?.message || 'Could not take chat', 'error');
+        chatToast(payload?.message || 'Could not take chat', 'error');
     });
 
     sock.on('error', (payload) => {
-        if (payload?.message && typeof showToast === 'function') {
-            showToast(payload.message, 'error');
+        if (payload?.message) {
+            chatToast(payload.message, 'error');
         }
     });
 }
@@ -590,7 +613,7 @@ async function loadMessages(roomIdParam) {
         renderMessages(data.messages || []);
     } catch (err) {
         console.error('[chat-admin] loadMessages', err);
-        if (typeof showToast === 'function') showToast('Failed to load messages', 'error');
+        chatToast('Failed to load messages', 'error');
     }
 }
 
@@ -714,7 +737,7 @@ async function sendAdminMessage() {
 
     const conv = conversations.find((c) => roomId(c) === activeRoomId);
     if (conv?.status === 'WAITING_FOR_AGENT') {
-        if (typeof showToast === 'function') showToast('Take the chat first', 'warning');
+        chatToast('Take the chat first', 'warning');
         return;
     }
 
@@ -738,7 +761,7 @@ async function sendAdminMessage() {
         }
     } catch (err) {
         console.error('[chat-admin] send', err);
-        if (typeof showToast === 'function') showToast(err.message || 'Send failed', 'error');
+        chatToast(err.message || 'Send failed', 'error');
     }
 }
 
@@ -965,7 +988,7 @@ async function changePriority(roomIdParam, priority) {
         renderConversationList();
         if (typeof showToast === 'function') showToast(`Priority: ${priority}`, 'success');
     } catch (err) {
-        if (typeof showToast === 'function') showToast(err.message || 'Priority update failed', 'error');
+        chatToast(err.message || 'Priority update failed', 'error');
     }
 }
 
@@ -1038,7 +1061,7 @@ async function handleChatFileUpload(input) {
             await loadMessages(activeRoomId);
         }
     } catch (err) {
-        if (typeof showToast === 'function') showToast(err.message || 'Upload failed', 'error');
+        chatToast(err.message || 'Upload failed', 'error');
     }
 }
 
@@ -1145,7 +1168,7 @@ async function loadChatAnalytics(period = '7d') {
             localStorage.removeItem(CHAT_TOKEN_KEY);
             requireChatToken('chatAnalyticsGate', 'chatAnalyticsContent');
         }
-        if (typeof showToast === 'function') showToast('Failed to load analytics', 'error');
+        chatToast('Failed to load analytics', 'error');
     }
 }
 
@@ -1319,7 +1342,7 @@ async function createCannedResponse() {
             if (typeof showToast === 'function') showToast('Quick reply added!', 'success');
         }
     } catch (err) {
-        if (typeof showToast === 'function') showToast(err.message || 'Failed to add quick reply', 'error');
+        chatToast(err.message || 'Failed to add quick reply', 'error');
     }
 }
 
@@ -1331,7 +1354,7 @@ async function deleteCannedResponseUI(id) {
         renderCannedResponsesList();
         if (typeof showToast === 'function') showToast('Deleted', 'success');
     } catch (err) {
-        if (typeof showToast === 'function') showToast(err.message || 'Failed to delete', 'error');
+        chatToast(err.message || 'Failed to delete', 'error');
     }
 }
 

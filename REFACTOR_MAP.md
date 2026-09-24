@@ -2625,6 +2625,14 @@ docs/audit/AUTH_SECURITY_AUDIT.md [MOD] banner fix change log
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Super Admin 2FA banner section
 README.md [MOD] last updated
 
+# Customer table ID mapping + chat toast guard — 2026-09-24
+client/js/admin/modules/customers-table.js [MOD] getCustomerPrimaryKey, normalizeCustomerRecord, data-customer-id delegation
+client/js/admin/modules/customers-modals.js [MOD] customerApiPath encodeURIComponent, resolveCustomerActionId
+client/js/admin/modules/core-nav.js [MOD] normalize customer batch on fetch
+client/js/admin/modules/chat-admin.js [MOD] chatToast suppresses errors off chat sections
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] change log
+README.md [MOD] last updated
+
 # Admin customer delete PG/Mongo parity — 2026-09-23
 backend/src/controllers/admin/customerAdminController.js [MOD] resolveAdminCustomer unified lookup; dualWrite admin delete + update/status; Cart/Note/session/avatar cleanup; wallet/order safety guards
 client/js/admin/modules/customers-modals.js [MOD] res.ok validation; blocker toasts; refreshCustomerListAfterChange on success
@@ -2632,3 +2640,25 @@ client/js/admin/modules/customers-table.js [MOD] parseCustomerApiResponse + refr
 docs/audit/ADMIN_PANEL_AUDIT.md [MOD] customer delete fix change log
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Admin customer delete parity section
 README.md [MOD] last updated
+
+# Chat proxy route guard + admin session PG mirror — 2026-09-24
+backend/src/middlewares/chatApiProxy.js [MOD] store admin JWT/referer detection; /api/admin/customers|orders stay on main backend unless chat-admin caller
+backend/src/repositories/adminSessionRepository.js [MOD] mirrorAdminSessionBestEffort fire-and-forget; heartbeat throttle via ADMIN_SESSION_PG_HEARTBEAT_MS
+backend/src/middlewares/authMiddleware.js [MOD] verifyAdmin heartbeat uses non-blocking PG mirror
+backend/src/controllers/admin/authController.js [MOD] login session create uses mirrorAdminSessionBestEffort
+docs/audit/CHAT_AUDIT.md [MOD] proxy interception fix change log
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] admin session dual-write timeout fix
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] chat proxy + admin session sections
+README.md [MOD] last updated
+
+# Customer delete Neon timeout resilience — 2026-09-24
+backend/src/controllers/admin/customerAdminController.js [MOD] safePgLookup in resolveAdminCustomer; deleteCustomer 503 on Neon timeout
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] customer delete timeout section
+README.md [MOD] last updated
+
+# Customer table toolbar premium single-row layout — 2026-09-24
+client/admin/partials/view-customers.html [MOD] search left, tier+pills+export right in one toolbar row
+client/css/admin/_customers.css [MOD] full rewrite of customers-toolbar layout and control styling
+client/css/admin/_responsive.css [MOD] horizontal scroll fallback on narrow viewports
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] change log
