@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (Neon HTTP runtime + repository resilience)  
+**Last updated:** 2026-09-24 (Neon cold-start warm ping + Redis log dedup)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -34,7 +34,11 @@
 | `backend/src/controllers/admin/backupController.js` | Superadmin DB backup export |
 | `tests/mocks/prismaGeneratedClient.js` | Jest CJS substitute for `generated/prisma/client.mts` (ESM) |
 | `tests/setup.js` | Jest global setup — pins all `READ_PG_*` to `'false'` for in-memory Mongo |
-| `backend/src/config/neonRetry.js` | Neon HTTP fetch timeout + transient query retry (repository tests) |
+| `backend/src/config/neonRetry.js` | Neon HTTP fetch timeout + transient query retry (runtime + repository tests) |
+| `backend/src/config/postgresBootstrap.js` | `warmNeonConnection()` — boot ping with retries for Neon cold start |
+| `backend/src/services/readRouter.js` | PG reads wrapped in `withNeonRetry`; Mongo CastError suppression on fallback |
+| `backend/src/utils/redisClient.js` | Debounced `Redis unavailable` logging when Redis offline |
+| `backend/src/utils/orderMongoLookup.js` | Safe Mongo order lookup by `_id` or business `orderId` (PG cutover fallback) |
 | `scripts/run-repository-tests.js` | Per-file runner with delay, backoff retries, `REPOSITORY_TEST=1` |
 | `tests/app.js` | Test Express app — re-pins `READ_PG_*` after `dotenv.config()` |
 | `package.json` | Jest `moduleNameMapper` for Prisma generated client |
@@ -109,6 +113,15 @@
 - Tests: Jest **228/228** passing
 
 ## Change Log
+
+### Neon cold start + Redis log dedup — 2026-09-24
+
+- `neonRetry.js`: default fetch timeout **90s**; **4** retry attempts; **600ms** base delay in production
+- `postgresBootstrap.warmNeonConnection()`: `SELECT 1` with retries on server boot (`NEON_WARMUP_*` env vars)
+- `readRouter.js`: PG path uses `withNeonRetry`; Mongo fallback suppresses CastError noise
+- `redisClient.js`: `REDIS_ERROR_DEBOUNCE_MS` (default 30s) deduplicates boot-time Redis warnings
+- `server.js`: Neon warm ping after Redis connect; removed duplicate Redis `error` handler
+- Tests: Jest **255/255** passing
 
 ### Neon HTTP runtime resilience — 2026-09-23
 

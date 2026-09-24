@@ -230,8 +230,8 @@ async function resolvePaymentMethodLegacyId(methodId, code, orderLegacyId = null
   }
 
   if (orderLegacyId) {
-    const Order = require('../models/order');
-    const mongoOrder = await Order.findById(orderLegacyId).select('payment.methodId').lean();
+    const { findOrderByRef } = require('../utils/orderMongoLookup');
+    const mongoOrder = await findOrderByRef(orderLegacyId, { lean: true, select: 'payment.methodId' });
     if (mongoOrder?.payment?.methodId) {
       return String(mongoOrder.payment.methodId);
     }
@@ -246,8 +246,8 @@ async function mapItemsForMongoRead(items, orderLegacyId = null) {
   let mongoItemsById = null;
   let mongoItemsOrdered = null;
   if (orderLegacyId) {
-    const Order = require('../models/order');
-    const mongoOrder = await Order.findById(orderLegacyId).select('items').lean();
+    const { findOrderByRef } = require('../utils/orderMongoLookup');
+    const mongoOrder = await findOrderByRef(orderLegacyId, { lean: true, select: 'items' });
     if (mongoOrder?.items?.length) {
       mongoItemsOrdered = mongoOrder.items;
       mongoItemsById = new Map(mongoOrder.items.map((item) => [String(item.id || ''), item]));

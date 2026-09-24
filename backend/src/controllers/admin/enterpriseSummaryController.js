@@ -25,7 +25,7 @@ const payrollRepository = require('../../repositories/payrollRepository');
 const leaveRepository = require('../../repositories/leaveRepository');
 const employeeRepository = require('../../repositories/employeeRepository');
 const securityLogRepository = require('../../repositories/securityLogRepository');
-const { normalizeAttendanceDate } = require('../../utils/attendanceDate');
+const { normalizeAttendanceDate, getPlatformDayBounds } = require('../../utils/attendanceDate');
 
 const OPEN_PO_STATUSES = ['draft', 'sent', 'partial'];
 const OPEN_TICKET_STATUSES = ['open', 'in_progress', 'pending'];
@@ -39,8 +39,53 @@ async function safeMetric(label, fn, fallback = 0) {
         return { value: await fn(), error: null };
     } catch (err) {
         console.error(`[enterprise-summary] ${label} failed:`, err.message);
+        if (err.stack) console.error(err.stack);
+        if (err.code) console.error(`[enterprise-summary] ${label} code:`, err.code);
         return { value: fallback, error: err.message };
     }
+}
+
+async function countTodayStatsMongo() {
+    const { start, end } = getPlatformDayBounds(new Date());
+    const dayFilter = { date: { $gte: start, $lt: end } };
+    const [present, absent, late] = await Promise.all([
+        Attendance.countDocuments({ ...dayFilter, status: { $in: ['present', 'half-day'] } }),
+        Attendance.countDocuments({ ...dayFilter, status: 'absent' }),
+        Attendance.countDocuments({ ...dayFilter, isLate: true })
+    ]);
+    return { present, absent, late };
+}
+
+/**
+ * Try Postgres first when enabled; on query failure fall back to Mongo so
+ * dashboard widgets stay accurate during PG cold starts or sync gaps.
+ */
+async function collectMetric(label, pgFn, mongoFn, fallback = 0, errors = [], { preferPg = true } = {}) {
+    if (preferPg && pgFn) {
+        const pgResult = await safeMetric(`${label}(pg)`, pgFn, fallback);
+        if (!pgResult.error) return pgResult.value;
+
+        console.warn(`[enterprise-summary] ${label} PG failed — trying Mongo fallback`);
+        if (mongoFn) {
+            const mongoResult = await safeMetric(`${label}(mongo-fallback)`, mongoFn, fallback);
+            if (mongoResult.error) {
+                errors.push({
+                    section: label,
+                    message: `PG: ${pgResult.error}; Mongo: ${mongoResult.error}`
+                });
+            } else {
+                errors.push({ section: label, message: `PG fallback: ${pgResult.error}` });
+            }
+            return mongoResult.value;
+        }
+
+        errors.push({ section: label, message: pgResult.error });
+        return pgResult.value;
+    }
+
+    const mongoResult = await safeMetric(`${label}(mongo)`, mongoFn, fallback);
+    if (mongoResult.error) errors.push({ section: label, message: mongoResult.error });
+    return mongoResult.value;
 }
 
 async function countLowStockProductsFromPG() {
@@ -60,14 +105,97 @@ async function countLowStockProductsFromPG() {
     return zeroOrLess + thresholdLow;
 }
 
-async function loadEnterpriseSummaryFromPG(todayStart, abandonCutoff, securitySince, currentMonth, currentYear) {
+async function loadEnterpriseSummaryMetrics(todayStart, abandonCutoff, securitySince, currentMonth, currentYear, preferPg) {
+    const { countSecurityLogs } = require('../../services/securityAuditReadService');
     const errors = [];
 
-    const collect = async (label, fn, fallback = 0) => {
-        const result = await safeMetric(label, fn, fallback);
-        if (result.error) errors.push({ section: label, message: result.error });
-        return result.value;
-    };
+    const pgOrdersToday = () => prisma.order.count({ where: { createdAt: { gte: todayStart } } });
+    const mongoOrdersToday = () => Order.countDocuments({ createdAt: { $gte: todayStart } });
+
+    const pgLowStock = () => countLowStockProductsFromPG();
+    const mongoLowStock = () => Product.countDocuments({
+        $or: [
+            { stockQuantity: { $lte: 0 } },
+            {
+                $expr: {
+                    $and: [
+                        { $gt: ['$lowStockThreshold', 0] },
+                        { $lte: ['$stockQuantity', '$lowStockThreshold'] }
+                    ]
+                }
+            }
+        ]
+    });
+
+    const pgPendingPo = () => countOpenPurchaseOrdersFromPG(OPEN_PO_STATUSES);
+    const mongoPendingPo = () => PurchaseOrder.countDocuments({ status: { $in: OPEN_PO_STATUSES } });
+
+    const pgAbandonedCarts = () => prisma.cart.count({
+        where: { lastActivityAt: { lt: abandonCutoff }, items: { some: {} } }
+    });
+    const mongoAbandonedCarts = () => Cart.countDocuments({
+        lastActivityAt: { $lt: abandonCutoff },
+        'items.0': { $exists: true }
+    });
+
+    const pgOpenTickets = () => prisma.contactMessage.count({
+        where: { status: { in: ['OPEN', 'IN_PROGRESS'] } }
+    });
+    const mongoOpenTickets = () => ContactMessage.countDocuments({ status: { $in: OPEN_TICKET_STATUSES } });
+
+    const pgNewCustomers = () => prisma.user.count({
+        where: { createdAt: { gte: todayStart }, isDeleted: false }
+    });
+    const mongoNewCustomers = () => User.countDocuments({ createdAt: { $gte: todayStart } });
+
+    const pgStaffCount = () => prisma.admin.count({
+        where: { role: { in: ['STAFF', 'SUPERADMIN'] }, status: { not: 'BLOCKED' } }
+    });
+    const mongoStaffCount = () => Admin.countDocuments({
+        role: { $in: ['staff', 'superadmin'] },
+        status: { $ne: 'blocked' }
+    });
+
+    const pgEmployeeCount = () => employeeRepository.count({ status: 'active' });
+    const mongoEmployeeCount = () => Employee.countDocuments({ status: 'active' });
+
+    const pgSecurityEvents = () => securityLogRepository.count({ dateFrom: securitySince });
+    const mongoSecurityEvents = () => countSecurityLogs({ dateFrom: securitySince });
+
+    const pgAttendanceToday = () => attendanceRepository.countTodayStats();
+    const mongoAttendanceToday = () => countTodayStatsMongo();
+
+    const pgPendingLeave = () => leaveRepository.countPending();
+    const mongoPendingLeave = () => Leave.countDocuments({ status: 'pending' });
+
+    const pgPayrollPaid = () => payrollRepository.count({
+        month: currentMonth,
+        year: currentYear,
+        status: 'paid'
+    });
+    const mongoPayrollPaid = () => Payroll.countDocuments({
+        month: currentMonth,
+        year: currentYear,
+        status: 'paid'
+    });
+
+    const pgPayrollPending = () => prisma.payroll.count({
+        where: { month: currentMonth, year: currentYear, status: { not: 'PAID' } }
+    });
+    const mongoPayrollPending = () => Payroll.countDocuments({
+        month: currentMonth,
+        year: currentYear,
+        status: { $ne: 'paid' }
+    });
+
+    const pgSilver = () => prisma.user.count({ where: { loyaltyTier: 'SILVER', isDeleted: false } });
+    const mongoSilver = () => User.countDocuments({ loyaltyTier: 'silver', isDeleted: { $ne: true } });
+
+    const pgGold = () => prisma.user.count({ where: { loyaltyTier: 'GOLD', isDeleted: false } });
+    const mongoGold = () => User.countDocuments({ loyaltyTier: 'gold', isDeleted: { $ne: true } });
+
+    const pgPlatinum = () => prisma.user.count({ where: { loyaltyTier: 'PLATINUM', isDeleted: false } });
+    const mongoPlatinum = () => User.countDocuments({ loyaltyTier: 'platinum', isDeleted: { $ne: true } });
 
     const [
         ordersToday,
@@ -87,141 +215,27 @@ async function loadEnterpriseSummaryFromPG(todayStart, abandonCutoff, securitySi
         goldCount,
         platinumCount
     ] = await Promise.all([
-        collect('ordersToday', () => prisma.order.count({ where: { createdAt: { gte: todayStart } } })),
-        collect('lowStockCount', () => countLowStockProductsFromPG()),
-        collect('pendingPoCount', () => countOpenPurchaseOrdersFromPG(OPEN_PO_STATUSES)),
-        collect('abandonedCartCount', () => prisma.cart.count({
-            where: {
-                lastActivityAt: { lt: abandonCutoff },
-                items: { some: {} }
-            }
-        })),
-        collect('openTicketCount', () => prisma.contactMessage.count({
-            where: { status: { in: ['OPEN', 'IN_PROGRESS'] } }
-        })),
-        collect('newCustomersToday', () => prisma.user.count({
-            where: { createdAt: { gte: todayStart }, isDeleted: false }
-        })),
-        collect('staffCount', () => prisma.admin.count({
-            where: {
-                role: { in: ['STAFF', 'SUPERADMIN'] },
-                status: { not: 'BLOCKED' }
-            }
-        })),
-        collect('employeeCount', () => employeeRepository.count({ status: 'active' })),
-        collect('recentSecurityEvents', () => securityLogRepository.count({ dateFrom: securitySince })),
-        collect('attendanceToday', () => attendanceRepository.countTodayStats(), { present: 0, absent: 0, late: 0 }),
-        collect('pendingLeaveCount', () => leaveRepository.countPending()),
-        collect('payrollPaidThisMonth', () => payrollRepository.count({
-            month: currentMonth,
-            year: currentYear,
-            status: 'paid'
-        })),
-        collect('payrollPendingThisMonth', () => prisma.payroll.count({
-            where: {
-                month: currentMonth,
-                year: currentYear,
-                status: { not: 'PAID' }
-            }
-        })),
-        collect('silverCount', () => prisma.user.count({ where: { loyaltyTier: 'SILVER', isDeleted: false } })),
-        collect('goldCount', () => prisma.user.count({ where: { loyaltyTier: 'GOLD', isDeleted: false } })),
-        collect('platinumCount', () => prisma.user.count({ where: { loyaltyTier: 'PLATINUM', isDeleted: false } }))
+        collectMetric('ordersToday', pgOrdersToday, mongoOrdersToday, 0, errors, { preferPg }),
+        collectMetric('lowStockCount', pgLowStock, mongoLowStock, 0, errors, { preferPg }),
+        collectMetric('pendingPoCount', pgPendingPo, mongoPendingPo, 0, errors, { preferPg }),
+        collectMetric('abandonedCartCount', pgAbandonedCarts, mongoAbandonedCarts, 0, errors, { preferPg }),
+        collectMetric('openTicketCount', pgOpenTickets, mongoOpenTickets, 0, errors, { preferPg }),
+        collectMetric('newCustomersToday', pgNewCustomers, mongoNewCustomers, 0, errors, { preferPg }),
+        collectMetric('staffCount', pgStaffCount, mongoStaffCount, 0, errors, { preferPg }),
+        collectMetric('employeeCount', pgEmployeeCount, mongoEmployeeCount, 0, errors, { preferPg }),
+        collectMetric('recentSecurityEvents', pgSecurityEvents, mongoSecurityEvents, 0, errors, { preferPg }),
+        collectMetric('attendanceToday', pgAttendanceToday, mongoAttendanceToday, { present: 0, absent: 0, late: 0 }, errors, { preferPg }),
+        collectMetric('pendingLeaveCount', pgPendingLeave, mongoPendingLeave, 0, errors, { preferPg }),
+        collectMetric('payrollPaidThisMonth', pgPayrollPaid, mongoPayrollPaid, 0, errors, { preferPg }),
+        collectMetric('payrollPendingThisMonth', pgPayrollPending, mongoPayrollPending, 0, errors, { preferPg }),
+        collectMetric('silverCount', pgSilver, mongoSilver, 0, errors, { preferPg }),
+        collectMetric('goldCount', pgGold, mongoGold, 0, errors, { preferPg }),
+        collectMetric('platinumCount', pgPlatinum, mongoPlatinum, 0, errors, { preferPg })
     ]);
 
     const presentToday = Number(attendanceToday?.present) || 0;
     const absentToday = Number(attendanceToday?.absent) || 0;
     const lateToday = Number(attendanceToday?.late) || 0;
-
-    return {
-        stats: {
-            ordersToday,
-            lowStockCount,
-            pendingPoCount,
-            abandonedCartCount,
-            openTicketCount,
-            newCustomersToday,
-            staffCount,
-            employeeCount,
-            recentSecurityEvents,
-            presentToday,
-            absentToday,
-            lateToday,
-            pendingLeaveCount,
-            payrollPaidThisMonth,
-            payrollPendingThisMonth,
-            silverCount,
-            goldCount,
-            platinumCount
-        },
-        errors
-    };
-}
-
-async function loadEnterpriseSummaryFromMongo(todayStart, abandonCutoff, securitySince, currentMonth, currentYear) {
-    const { countSecurityLogs } = require('../../services/securityAuditReadService');
-    const errors = [];
-
-    const collect = async (label, fn, fallback = 0) => {
-        const result = await safeMetric(label, fn, fallback);
-        if (result.error) errors.push({ section: label, message: result.error });
-        return result.value;
-    };
-
-    const [
-        ordersToday,
-        lowStockCount,
-        pendingPoCount,
-        abandonedCartCount,
-        openTicketCount,
-        newCustomersToday,
-        staffCount,
-        employeeCount,
-        recentSecurityEvents,
-        presentToday,
-        absentToday,
-        lateToday,
-        pendingLeaveCount,
-        payrollPaidThisMonth,
-        payrollPendingThisMonth,
-        silverCount,
-        goldCount,
-        platinumCount
-    ] = await Promise.all([
-        collect('ordersToday', () => Order.countDocuments({ createdAt: { $gte: todayStart } })),
-        collect('lowStockCount', () => Product.countDocuments({
-            $or: [
-                { stockQuantity: { $lte: 0 } },
-                {
-                    $expr: {
-                        $and: [
-                            { $gt: ['$lowStockThreshold', 0] },
-                            { $lte: ['$stockQuantity', '$lowStockThreshold'] }
-                        ]
-                    }
-                }
-            ]
-        })),
-        collect('pendingPoCount', () => PurchaseOrder.countDocuments({ status: { $in: OPEN_PO_STATUSES } })),
-        collect('abandonedCartCount', () => Cart.countDocuments({
-            lastActivityAt: { $lt: abandonCutoff },
-            'items.0': { $exists: true }
-        })),
-        collect('openTicketCount', () => ContactMessage.countDocuments({ status: { $in: OPEN_TICKET_STATUSES } })),
-        collect('newCustomersToday', () => User.countDocuments({ createdAt: { $gte: todayStart } })),
-        collect('staffCount', () => Admin.countDocuments({ role: { $in: ['staff', 'superadmin'] }, status: { $ne: 'blocked' } })),
-        collect('employeeCount', () => Employee.countDocuments({ status: 'active' })),
-        collect('recentSecurityEvents', () => countSecurityLogs({ dateFrom: securitySince })),
-        collect('presentToday', () => Attendance.countDocuments({ date: todayStart, status: { $in: ['present', 'half-day'] } })),
-        collect('absentToday', () => Attendance.countDocuments({ date: todayStart, status: 'absent' })),
-        collect('lateToday', () => Attendance.countDocuments({ date: todayStart, isLate: true })),
-        collect('pendingLeaveCount', () => Leave.countDocuments({ status: 'pending' })),
-        collect('payrollPaidThisMonth', () => Payroll.countDocuments({ month: currentMonth, year: currentYear, status: 'paid' })),
-        collect('payrollPendingThisMonth', () => Payroll.countDocuments({ month: currentMonth, year: currentYear, status: { $ne: 'paid' } })),
-        collect('silverCount', () => User.countDocuments({ loyaltyTier: 'silver', isDeleted: { $ne: true } })),
-        collect('goldCount', () => User.countDocuments({ loyaltyTier: 'gold', isDeleted: { $ne: true } })),
-        collect('platinumCount', () => User.countDocuments({ loyaltyTier: 'platinum', isDeleted: { $ne: true } }))
-    ]);
 
     return {
         stats: {
@@ -266,25 +280,23 @@ exports.getEnterpriseSummary = async (req, res) => {
         let partialErrors = [];
 
         try {
-            const loaded = isPgReadEnabled('enterprisesummary')
-                ? await loadEnterpriseSummaryFromPG(
-                    todayStart,
-                    abandonCutoff,
-                    securitySince,
-                    currentMonth,
-                    currentYear
-                )
-                : await loadEnterpriseSummaryFromMongo(
-                    todayStart,
-                    abandonCutoff,
-                    securitySince,
-                    currentMonth,
-                    currentYear
-                );
+            const preferPg = isPgReadEnabled('enterprisesummary');
+            const loaded = await loadEnterpriseSummaryMetrics(
+                todayStart,
+                abandonCutoff,
+                securitySince,
+                currentMonth,
+                currentYear,
+                preferPg
+            );
             stats = loaded.stats;
             partialErrors = loaded.errors || [];
+            if (partialErrors.length) {
+                console.warn('[enterprise-summary] partial errors:', partialErrors);
+            }
         } catch (err) {
             console.error('getEnterpriseSummary load failed:', err);
+            if (err.stack) console.error(err.stack);
             stats = {
                 ordersToday: 0,
                 lowStockCount: 0,

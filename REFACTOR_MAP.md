@@ -1953,14 +1953,14 @@ client/admin/partials/view-hrm-attendance.html [MOD] dailySheetPastDateBanner
 tests/repositories/admin.repository.test.js [MOD] displayName expects linked employee fullName
 docs/audit/HRM_AUDIT.md [MOD] BUG 1 + BUG 2 → FIXED; 26/26 features; status COMPLETE
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## HRM Bug Fix — 2026-09-20"
-README.md [MOD] last updated date
+README.md [MOD] last updated
 
 # Production Bug Fix — 2026-09-20
 backend/src/controllers/admin/enterpriseSummaryController.js [MOD] countLowStockProductsFromPG — "stockQuantity"/"lowStockThreshold" quoted column names
 backend/src/routes/adminRoutes.js [MOD] adminProfileController direct import; /profile/me/full before /profile; daily-sheet before /hrm/attendance list
 docs/audit/DEVOPS_AUDIT.md [MOD] production bug fix change log
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Production Bug Fix — 2026-09-20"
-README.md [MOD] last updated date
+README.md [MOD] last updated
 
 # HRM Attendance Edit Controls + Save Feedback — 2026-09-20
 backend/src/middlewares/rbac.js [MOD] requireHrOrSuperAdmin, isHrOrSuperAdmin
@@ -1974,7 +1974,7 @@ client/admin/partials/view-hrm-attendance.html [MOD] hrmManualEntryTab id
 client/css/admin/_hrm.css [MOD] inline edit, row feedback, save error, toast styles
 docs/audit/HRM_AUDIT.md [MOD] change log + feature checklist
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## HRM Attendance Edit Controls + Save Feedback — 2026-09-20"
-README.md [MOD] last updated date
+README.md [MOD] last updated
 
 # Master Enterprise Audit — 2026-09-20 (audit-only, no code fixes)
 docs/audit/MASTER_ENTERPRISE_AUDIT.md [NEW] full-stack deep scan — routes vs frontend, HRM Register bug, enterprise gap A–H, priority queue
@@ -2004,7 +2004,7 @@ docs/audit/HRM_AUDIT.md [MOD] register/pagination/clock UI fixes
 docs/audit/MARKETING_AUDIT.md [MOD] WhatsApp gateway hardening
 docs/audit/DEVOPS_AUDIT.md [MOD] PG backup + gateway status
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Critical Bug Fix Group 1 — 2026-09-20"
-README.md [MOD] last updated date
+README.md [MOD] last updated
 
 # High Priority Features Group 2 — 2026-09-20
 backend/src/services/attendanceSettingsService.js [NEW] office hours, grace, weekend settings
@@ -2041,47 +2041,7 @@ docs/audit/PRODUCTS_AUDIT.md [MOD] SEO persistence
 docs/audit/ORDERS_AUDIT.md [MOD] bulk status
 docs/audit/MARKETING_AUDIT.md [MOD] wishlist job
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## High Priority Features Group 2 — 2026-09-20"
-README.md [MOD] last updated date
-
-## Medium Priority Group 3 — 2026-09-20
-
-backend/src/services/invoiceService.js [NEW] branded PDF invoice generation
-backend/src/services/exportService.js [NEW] Excel + PDF export helpers
-backend/src/services/healthService.js [NEW] public health probe payload
-backend/src/controllers/admin/financeExportController.js [NEW] GET /finance/export
-backend/src/middlewares/errorLogger.js [NEW] daily error logs + admin notify on 500
-backend/src/utils/orderStatusHistory.js [NEW] statusHistory append + PG mirror
-backend/src/utils/invoicePdf.js [MOD] Settings branding parameter
-backend/src/models/order.js [MOD] statusHistory[] embedded schema
-backend/src/models/payroll.js [MOD] attendanceRecordIds, earnedSalary, attendanceDeductions
-backend/src/utils/orderDualWriteHelpers.js [MOD] mirrorOrderStatusHistory
-backend/src/repositories/orderRepository.js [MOD] syncStatusHistoryByLegacyId
-backend/src/controllers/orderAdminController.js [MOD] status history on updates, downloadAdminOrderInvoice
-backend/src/controllers/orderCustomerController.js [MOD] invoiceService wrapper
-backend/src/controllers/orderCheckoutController.js [MOD] seed initial statusHistory
-backend/src/controllers/admin/payrollController.js [MOD] calculatePayrollFromAttendance, preview endpoint
-backend/src/routes/adminRoutes.js [MOD] orders/:id/invoice, finance/export, payroll/calculate
-backend/src/routes/orderRoutes.js [MOD] my-orders/:id/invoice
-backend/src/server.js [MOD] GET /health, errorLogger middleware
-backend/logs/.gitkeep [NEW] error log directory
-prisma/schema.prisma [MOD] OrderStatusHistory model
-client/js/orderStatusTimeline.js [MOD] renderVerticalStatusHistory
-client/js/admin/modules/customers-table.js [MOD] vertical timeline + download invoice btn
-client/js/admin/modules/orders-table.js [MOD] pass full order to timeline hydrator
-client/js/admin/modules/orders-invoice.js [MOD] downloadAdminOrderInvoice
-client/js/admin/modules/erp-profit-loss.js [MOD] Export Excel via /finance/export
-client/js/admin/modules/hrm-payroll.js [MOD] calculate from attendance + breakdown modal
-client/admin/partials/modals-invoice.html [MOD] Download Invoice PDF button
-client/admin/partials/view-finance.html [MOD] Export Excel toolbar button
-client/admin/partials/view-hrm-payroll.html [MOD] calculate button + breakdown modal
-client/css/admin/_orders.css [MOD] vertical status timeline styles
-docs/audit/MASTER_ENTERPRISE_AUDIT.md [MOD] 95% ready, Group 3 done
-docs/audit/ORDERS_AUDIT.md [MOD] invoice + status timeline
-docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD] unified finance export
-docs/audit/HRM_AUDIT.md [MOD] payroll calculate preview
-docs/audit/DEVOPS_AUDIT.md [MOD] /health + error logger
-SYSTEM_ENTERPRISE_AUDIT.md [MOD] "## Medium Priority Group 3 — 2026-09-20"
-README.md [MOD] Group 3 last updated
+README.md [MOD] last updated
 
 # Final Polish Group 4 — 2026-09-20
 backend/src/middlewares/rateLimiter.js [MOD] authLimiter, otpLimiter, apiLimiter fixed windows
@@ -2446,7 +2406,7 @@ backend/src/routes/adminRoutes.js [MOD] HRM attendance/payroll/leave route guard
 .cursorrules [MOD] Permission System Rules section
 docs/audit/HRM_AUDIT.md [MOD] granular RBAC changelog
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] granular RBAC section
-README.md [MOD] last updated; 47 permission keys
+README.md [MOD] last updated
 
 # Frontend tab + action permission gating — 2026-09-23
 client/admin/partials/sidebar.html [MOD] data-permission on 31 nav items
@@ -2802,7 +2762,6 @@ tests/hrm.test.js [MOD] localCalendarDate uses getPlatformDateKey
 docs/audit/HRM_AUDIT.md [MOD] Phase 1 change log + inventory
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Phase 1 section
 README.md [MOD] last updated
-ARCHITECTURE.md [MOD] attendance date TZ note
 
 # HRM Phase 2 — API Resilience & Error Toast Deduplication — 2026-09-24
 client/js/admin/modules/hrm-api.js [NEW] shared HRM fetch — 25s timeout, debounced toasts, silent option, blob helper
@@ -2815,7 +2774,6 @@ client/js/admin-staff.js [MOD] staffApi + assign/grant/cleanup use window.hrmFet
 docs/audit/HRM_AUDIT.md [MOD] Phase 2 change log + BUG-HRM-02 fixed
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Phase 2 section
 README.md [MOD] last updated
-ARCHITECTURE.md [MOD] hrm-api.js note
 
 # HRM Phase 3 — Compact Single-Row Toolbar & UI Polish — 2026-09-24
 client/admin/partials/view-hrm-attendance.html [MOD] unified .hrm-daily-sheet-toolbar — filters left, actions right
@@ -2824,3 +2782,32 @@ client/js/admin/modules/hrm-attendance.js [MOD] renderAttendanceStatusBadge, wit
 docs/audit/HRM_AUDIT.md [MOD] Phase 3 change log
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Phase 3 section
 README.md [MOD] last updated
+
+# Enterprise Summary Dashboard Fix — 2026-09-24
+backend/src/utils/attendanceDate.js [MOD] getPlatformDayBounds, addDaysToDateKey
+backend/src/repositories/attendanceRepository.js [MOD] countTodayStats uses platform day range
+backend/src/controllers/admin/enterpriseSummaryController.js [MOD] safeMetric logging, collectMetric PG→Mongo fallback
+client/js/admin/admin-dashboard.js [MOD] fetchEnterpriseSummary auth + error logging
+client/js/admin/modules/core-boot.js [MOD] Sync Data calls fetchEnterpriseSummary
+tests/enterpriseSummary.test.js [NEW] platform day bounds + present/absent API test
+tests/hrm.test.js [MOD] enterprise summary 1 present + 1 absent
+docs/audit/HRM_AUDIT.md [MOD] enterprise summary fix changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] enterprise summary fix section
+README.md [MOD] test count 250/250
+
+# Neon Cold Start + Order Mongo Lookup + Redis Log Dedup — 2026-09-24
+backend/src/config/neonRetry.js [MOD] 90s fetch timeout, 4 retry attempts, 600ms base delay
+backend/src/config/postgresBootstrap.js [MOD] warmNeonConnection() with retries on boot
+backend/src/services/readRouter.js [MOD] withNeonRetry on PG reads; safeMongoRead CastError suppression
+backend/src/utils/orderMongoLookup.js [NEW] isStrictMongoObjectId, findOrderByRef (no CastError on __test_ord_*)
+backend/src/utils/redisClient.js [MOD] debounced Redis unavailable logging (REDIS_ERROR_DEBOUNCE_MS)
+backend/src/server.js [MOD] Neon warm ping on boot; removed duplicate Redis error handler
+backend/src/controllers/orderCustomerController.js [MOD] routedRead + direct lookups use findOrderByRef
+backend/src/controllers/paymentReconciliationController.js [MOD] findOrderByParam uses findOrderByRef
+backend/src/repositories/orderRepository.js [MOD] Mongo fallback lookups use findOrderByRef
+tests/utils/orderMongoLookup.test.js [NEW] strict ObjectId + orderId lookup tests
+tests/services/readRouter.test.js [MOD] fallback test tolerates stack log + single retry attempt
+docs/audit/DEVOPS_AUDIT.md [MOD] Neon cold start + Redis debounce changelog
+docs/audit/ORDERS_AUDIT.md [MOD] orderMongoLookup for PG cutover fallbacks
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] infra resilience section
+README.md [MOD] test count 255/255

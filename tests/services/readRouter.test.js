@@ -66,6 +66,7 @@ describe('routedRead', () => {
 
   test('flag ON + Postgres throws → falls back to Mongo and logs [READ-CUTOVER-FALLBACK]', async () => {
     process.env.READ_PG_CATEGORY = 'true';
+    process.env.NEON_READ_ROUTER_ATTEMPTS = '1';
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     const mongoResult = [{ _id: 'mongo-id', name: 'Fashion' }];
@@ -76,9 +77,8 @@ describe('routedRead', () => {
 
     expect(result).toBe(mongoResult);
     expect(mongoFn).toHaveBeenCalledTimes(1);
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-    expect(consoleErrorSpy.mock.calls[0][0]).toContain('[READ-CUTOVER-FALLBACK]');
-    expect(consoleErrorSpy.mock.calls[0][0]).toContain('category');
+    expect(consoleErrorSpy.mock.calls.some((call) => String(call[0]).includes('[READ-CUTOVER-FALLBACK]'))).toBe(true);
+    expect(consoleErrorSpy.mock.calls.some((call) => String(call[0]).includes('category'))).toBe(true);
 
     consoleErrorSpy.mockRestore();
   });

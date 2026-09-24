@@ -5,8 +5,8 @@
  * manual proof queue, COD orders, and manual mark-paid override.
  ********************************************************************/
 
-const mongoose = require('mongoose');
 const Order = require('../models/order');
+const { findOrderByRef } = require('../utils/orderMongoLookup');
 
 const VALID_TYPES = new Set(['all', 'gateway', 'manual', 'cod']);
 const VALID_STATUSES = new Set(['paid', 'unpaid', 'pending']);
@@ -208,11 +208,7 @@ async function computeSummary(baseQuery) {
 }
 
 async function findOrderByParam(orderId) {
-    if (mongoose.Types.ObjectId.isValid(orderId)) {
-        const byId = await Order.findById(orderId);
-        if (byId) return byId;
-    }
-    return Order.findOne({ orderId: String(orderId).trim() });
+    return findOrderByRef(orderId);
 }
 
 /**

@@ -10,6 +10,26 @@
 'use strict';
 
 const { isPgReadEnabled } = require('../config/readCutoverFlags');
+const { withNeonRetry } = require('../config/neonRetry');
+
+function isMongoCastError(err) {
+  return err && (err.name === 'CastError' || err.name === 'BSONError');
+}
+
+async function safeMongoRead(group, mongoReadFn) {
+  try {
+    return await mongoReadFn();
+  } catch (err) {
+    if (isMongoCastError(err)) {
+      console.warn(
+        `[READ-CUTOVER-FALLBACK] ${group} Mongo CastError suppressed:`,
+        err.message
+      );
+      return null;
+    }
+    throw err;
+  }
+}
 
 /**
  * Execute a read from Postgres when the group flag is ON, otherwise Mongo.
@@ -23,16 +43,19 @@ const { isPgReadEnabled } = require('../config/readCutoverFlags');
 async function routedRead(group, mongoReadFn, postgresReadFn) {
   if (isPgReadEnabled(group)) {
     try {
-      return await postgresReadFn();
+      const attempts = Number(process.env.NEON_READ_ROUTER_ATTEMPTS || 4);
+      const baseDelayMs = Number(process.env.NEON_READ_ROUTER_BASE_DELAY_MS || 600);
+      return await withNeonRetry(() => postgresReadFn(), { attempts, baseDelayMs });
     } catch (err) {
       console.error(
         `[READ-CUTOVER-FALLBACK] ${group} Postgres read failed, falling back to Mongo:`,
         err.message
       );
-      return mongoReadFn();
+      if (err.stack) console.error(err.stack);
+      return safeMongoRead(group, mongoReadFn);
     }
   }
-  return mongoReadFn();
+  return safeMongoRead(group, mongoReadFn);
 }
 
 module.exports = { routedRead };

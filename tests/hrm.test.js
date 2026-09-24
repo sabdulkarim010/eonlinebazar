@@ -1110,19 +1110,25 @@ describe('HRM — Attendance, Payroll, Leave', () => {
         // local calendar day; ISO UTC date strings can miss that window.
         test('reports HRM attendance, leave, and payroll stats', async () => {
             const token = await adminToken();
-            const staff = await createStaffMember();
+            const presentStaff = await createStaffMember({ name: 'Present Staff' });
+            const absentStaff = await createStaffMember({ name: 'Absent Staff' });
             const today = localCalendarDate();
 
             await request(app)
                 .post('/api/admin/hrm/attendance/mark')
                 .set(auth(token))
-                .send({ staffUsername: staff.username, date: today, status: 'present' });
+                .send({ staffUsername: presentStaff.username, date: today, status: 'present' });
+
+            await request(app)
+                .post('/api/admin/hrm/attendance/mark')
+                .set(auth(token))
+                .send({ staffUsername: absentStaff.username, date: today, status: 'absent' });
 
             await request(app)
                 .post('/api/admin/hrm/leaves/apply')
                 .set(auth(token))
                 .send({
-                    staffUsername: staff.username,
+                    staffUsername: presentStaff.username,
                     leaveType: 'annual',
                     startDate: '2026-12-01',
                     endDate: '2026-12-02'
@@ -1133,12 +1139,16 @@ describe('HRM — Attendance, Payroll, Leave', () => {
                 .set(auth(token));
 
             expect(res.status).toBe(200);
+            expect(res.body.success).toBe(true);
             expect(res.body.data.hrm).toMatchObject({
                 presentToday: 1,
-                absentToday: 0,
+                absentToday: 1,
                 pendingLeaveCount: 1
             });
+            expect(res.body.data.erp).toBeDefined();
+            expect(res.body.data.crm).toBeDefined();
             expect(typeof res.body.data.hrm.employeeCount).toBe('number');
+            expect(res.body.data.hrm.staffCount).toBeGreaterThanOrEqual(2);
         });
     });
 });

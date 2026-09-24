@@ -47,11 +47,16 @@ function resolveRetryAttempts(options = {}) {
   if (process.env.REPOSITORY_TEST === '1') {
     return Number(process.env.NEON_RETRY_ATTEMPTS || 4);
   }
-  return Number(process.env.NEON_RETRY_ATTEMPTS || 3);
+  // Extra attempt helps Neon cold starts (compute wake + HTTP pool).
+  return Number(process.env.NEON_RETRY_ATTEMPTS || 4);
 }
 
 function resolveRetryBaseDelayMs(options = {}) {
-  return Number(options.baseDelayMs || process.env.NEON_RETRY_BASE_DELAY_MS || 300);
+  if (options.baseDelayMs != null) return Number(options.baseDelayMs);
+  if (process.env.REPOSITORY_TEST === '1') {
+    return Number(process.env.NEON_RETRY_BASE_DELAY_MS || 300);
+  }
+  return Number(process.env.NEON_RETRY_BASE_DELAY_MS || 600);
 }
 
 async function withNeonRetry(fn, options = {}) {
@@ -78,7 +83,8 @@ async function withNeonRetry(fn, options = {}) {
 
 function buildNeonHttpAdapterOptions() {
   const isRepoTest = process.env.REPOSITORY_TEST === '1';
-  const defaultTimeout = isRepoTest ? 90000 : 60000;
+  // Neon HTTP driver: allow cold-start wake + first query (settings, adminSession).
+  const defaultTimeout = isRepoTest ? 90000 : 90000;
   const timeoutMs = Number(process.env.NEON_FETCH_TIMEOUT_MS || defaultTimeout);
 
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {

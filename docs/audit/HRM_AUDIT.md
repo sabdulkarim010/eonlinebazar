@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (Phase 3 compact single-row Daily Sheet toolbar + unified status badges)  
+**Last updated:** 2026-09-24 (Enterprise summary dashboard fix — platform day bounds + Mongo PG fallback)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -267,6 +267,13 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Enterprise summary dashboard metrics fix — 2026-09-24
+
+- **`countTodayStats()`:** Platform TZ day range `[start, end)` via `getPlatformDayBounds()` — fixes exact-match date misses in PG
+- **`enterpriseSummaryController`:** `safeMetric()` logs stack + error codes; `collectMetric()` PG→Mongo fallback per KPI
+- **Frontend:** `fetchEnterpriseSummary()` uses `window.token`, logs HTTP/partial errors; Sync Data calls enterprise summary directly
+- Tests: `tests/enterpriseSummary.test.js` + updated HRM enterprise summary case — **250/250** passing
 
 ### HRM Phase 3 — Compact single-row toolbar & UI polish — 2026-09-24
 

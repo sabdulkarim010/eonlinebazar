@@ -62,6 +62,30 @@ function formatAttendanceDateKey(input, timeZone = getPlatformTimezone()) {
     return getPlatformDateKey(d, timeZone);
 }
 
+/** Add calendar days to a YYYY-MM-DD key (UTC date math). */
+function addDaysToDateKey(dateKey, days = 1) {
+    const [y, m, d] = String(dateKey).split('-').map(Number);
+    const next = new Date(Date.UTC(y, m - 1, d + Number(days)));
+    return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Platform-day window [start, end) as UTC Date objects for DB range queries.
+ * end is exclusive midnight of the next platform calendar day.
+ */
+function getPlatformDayBounds(input, timeZone = getPlatformTimezone()) {
+    const startKey = input
+        ? formatAttendanceDateKey(input, timeZone)
+        : getPlatformDateKey(new Date(), timeZone);
+    if (!startKey) {
+        const fallback = normalizeAttendanceDate(new Date(), timeZone);
+        return { start: fallback, end: fallback, startKey: getPlatformDateKey(new Date(), timeZone) };
+    }
+    const start = normalizeAttendanceDate(startKey, timeZone);
+    const end = normalizeAttendanceDate(addDaysToDateKey(startKey, 1), timeZone);
+    return { start, end, startKey };
+}
+
 /** Inclusive list of YYYY-MM-DD keys from start through end in platform TZ. */
 function iteratePlatformDateKeys(startInput, endInput, timeZone = getPlatformTimezone()) {
     const startKey = formatAttendanceDateKey(startInput, timeZone);
@@ -89,5 +113,7 @@ module.exports = {
     getPlatformDateKey,
     normalizeAttendanceDate,
     formatAttendanceDateKey,
+    addDaysToDateKey,
+    getPlatformDayBounds,
     iteratePlatformDateKeys
 };

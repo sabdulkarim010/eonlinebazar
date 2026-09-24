@@ -34,14 +34,28 @@ function assertPooledDatabaseUrl() {
 async function ensurePostgresReady() {
   reloadRootEnv();
   assertPooledDatabaseUrl();
+  return warmNeonConnection();
+}
+
+/**
+ * Ping Postgres with retries — warms Neon compute after idle/cold start.
+ */
+async function warmNeonConnection(options = {}) {
+  reloadRootEnv();
+  assertPooledDatabaseUrl();
 
   const prisma = require('./prismaClient');
-  await prisma.$queryRawUnsafe('SELECT 1');
+  const { withNeonRetry } = require('./neonRetry');
+  const attempts = Number(options.attempts ?? process.env.NEON_WARMUP_ATTEMPTS ?? 5);
+  const baseDelayMs = Number(options.baseDelayMs ?? process.env.NEON_WARMUP_BASE_DELAY_MS ?? 800);
+
+  await withNeonRetry(() => prisma.$queryRawUnsafe('SELECT 1'), { attempts, baseDelayMs });
   return prisma;
 }
 
 module.exports = {
   ensurePostgresReady,
+  warmNeonConnection,
   reloadRootEnv,
   assertPooledDatabaseUrl,
   ROOT_ENV_PATH

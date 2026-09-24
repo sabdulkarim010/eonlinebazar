@@ -32,6 +32,7 @@ function setupSyncButton() {
             await runAdminDataSync();
 
             await Promise.all([
+                typeof fetchEnterpriseSummary === 'function' ? fetchEnterpriseSummary() : Promise.resolve(),
                 typeof fetchDashboardData === 'function' ? fetchDashboardData() : Promise.resolve(),
                 typeof fetchLiveOrders === 'function'
                     && typeof window.canFetchLiveOrders === 'function'

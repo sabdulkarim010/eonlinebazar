@@ -1,6 +1,6 @@
 # ORDERS & CHECKOUT AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (Staff order RBAC — delete gate, assign API, silent 403 fetches)  
+**Last updated:** 2026-09-24 (Safe Mongo order lookup for PG read cutover fallbacks)  
 **Scope:** Order lifecycle, checkout, tracking, returns, refunds, POS, couriers, invoices  
 **Status:** ✅ COMPLETE
 
@@ -25,6 +25,7 @@
 | `backend/src/services/courierSyncService.js` | Book & Sync + status polling |
 | `backend/src/jobs/courierSyncJob.js` | 3-hour cron status poll |
 | `backend/src/services/readRouter.js` | PG read cutover with Mongo fallback |
+| `backend/src/utils/orderMongoLookup.js` | `findOrderByRef()` — `_id` or business `orderId` without CastError |
 | `backend/src/config/readCutoverFlags.js` | `READ_PG_ORDER` flag |
 | `tests/repositories/order.repository.test.js` | Order repo tests |
 | `tests/repositories/order.readcutover.test.js` | Mongo vs PG shape comparison |
@@ -91,6 +92,12 @@
 ---
 
 ## Change Log
+
+### Safe Mongo order lookup for PG cutover fallbacks — 2026-09-24
+
+- `orderMongoLookup.js`: `isStrictMongoObjectId()` + `findOrderByRef()` — queries by `_id` or business `orderId` (e.g. `__test_ord_*`) without Mongoose CastError
+- Wired into `orderCustomerController`, `paymentReconciliationController`, `orderRepository` Mongo fallbacks
+- Tests: `tests/utils/orderMongoLookup.test.js`; Jest **255/255** passing
 
 ### Staff order RBAC (Dalia fix) — 2026-09-23
 

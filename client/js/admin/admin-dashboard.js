@@ -139,16 +139,41 @@ function setupHeaderDatePicker() {
  * ৫.২: সার্ভার থেকে ড্যাশবোর্ডের প্রাথমিক ডাটা (কাস্টমার ও স্ট্যাটস) নিয়ে আসা
  * Overview পেজ এবং All Customers পেজ উভয়ের জন্যই এই ফাংশনটি কাজ করবে
  */
+function adminDashboardAuthHeaders() {
+    const authToken = window.token || localStorage.getItem('adminToken') || '';
+    return { Authorization: `Bearer ${authToken}` };
+}
+
 async function fetchEnterpriseSummary() {
     try {
         const response = await fetch('/api/admin/enterprise-summary', {
             method: 'GET',
-            headers: { Authorization: `Bearer ${token}` }
+            headers: adminDashboardAuthHeaders()
         });
 
-        if (!response.ok) return;
+        if (response.status === 401 || response.status === 403) {
+            if (typeof handleAdminApiAuthResponse === 'function') {
+                handleAdminApiAuthResponse(response, {});
+            }
+            console.warn('[enterprise-summary] request denied:', response.status);
+            return;
+        }
+
+        if (!response.ok) {
+            const errBody = await response.json().catch(() => ({}));
+            console.error('[enterprise-summary] HTTP', response.status, errBody.message || response.statusText);
+            return;
+        }
+
         const payload = await response.json();
-        if (!payload.success || !payload.data) return;
+        if (!payload.success || !payload.data) {
+            console.warn('[enterprise-summary] invalid payload:', payload);
+            return;
+        }
+
+        if (payload.partial && Array.isArray(payload.errors)) {
+            console.warn('[enterprise-summary] partial metrics — some values may have used Mongo fallback:', payload.errors);
+        }
 
         const { erp, crm, hrm } = payload.data;
         const set = (id, value) => {

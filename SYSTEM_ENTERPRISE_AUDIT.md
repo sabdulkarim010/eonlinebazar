@@ -3470,5 +3470,31 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Button hover / sizing polish | ✅ | `.hrm-toolbar-btn` consistent 32px min-height |
 | Jest regression suite | ✅ | **248/248** passing |
 
+## Enterprise Summary Dashboard Metrics Fix — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| PG attendance today counts | ✅ | `countTodayStats()` uses `getPlatformDayBounds()` range query |
+| PG query failure visibility | ✅ | `safeMetric()` logs message, stack, Prisma error codes |
+| Mongo fallback per KPI | ✅ | `collectMetric()` when `READ_PG_ENTERPRISE_SUMMARY` PG fails |
+| Frontend widget binding | ✅ | IDs match `view-overview.html`; auth via `window.token` |
+| Sync Data refresh | ✅ | `#refreshDataBtn` triggers `fetchEnterpriseSummary()` |
+| Jest regression suite | ✅ | **250/250** passing (`tests/enterpriseSummary.test.js`) |
+
+## Neon Cold Start + Order Fallback + Redis Log Hygiene — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Neon HTTP fetch timeout | ✅ | Default 90s via `NEON_FETCH_TIMEOUT_MS` |
+| PG read retries | ✅ | `readRouter` + Prisma `$extends` — 4 attempts, exponential backoff |
+| Boot warm ping | ✅ | `warmNeonConnection()` in `server.js` before cron jobs |
+| Order Mongo CastError suppression | ✅ | `orderMongoLookup.findOrderByRef()` — `_id` or `orderId` without CastError |
+| Redis unavailable log dedup | ✅ | 30s debounce (`REDIS_ERROR_DEBOUNCE_MS`) when Redis intentionally offline |
+| Jest regression suite | ✅ | **255/255** passing (`tests/utils/orderMongoLookup.test.js`) |
+
 
 

@@ -181,7 +181,16 @@ connectDB().then(async () => {
 
     const redisClient = require('./utils/redisClient');
     redisClient.on('connect', () => console.log('Redis Connected ✅'));
-    redisClient.on('error', (err) => console.warn('Redis unavailable:', err.message));
+
+    try {
+        const { warmNeonConnection } = require('./config/postgresBootstrap');
+        if (process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL) {
+            await warmNeonConnection();
+            console.log('PostgreSQL (Neon) warm ping OK ✅');
+        }
+    } catch (err) {
+        console.warn('[postgresBootstrap] Neon warm ping failed (reads will retry / fall back to Mongo):', err.message);
+    }
 
     // Daily abandoned-cart recovery (idle 24h+ carts → email + SMS)
     try {

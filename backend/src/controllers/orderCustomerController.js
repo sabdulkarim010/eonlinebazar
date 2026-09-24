@@ -21,6 +21,7 @@ function getOrderRepository() {
 
 const { generateInvoicePDF } = require('../services/invoiceService');
 const { enrichOrderItemsWithImages, enrichOrdersWithImages } = require('../utils/orderItemImages');
+const { findOrderByRef } = require('../utils/orderMongoLookup');
 const { normalizeOrderStatus } = require('./orderControllerHelpers');
 const { sendAdminNotification } = require('../services/notificationService');
 
@@ -116,7 +117,7 @@ const getOrderById = async (req, res) => {
     try {
         const order = await routedRead(
             'order',
-            async () => Order.findById(req.params.id),
+            async () => findOrderByRef(req.params.id),
             async () => {
                 const repo = getOrderRepository();
                 return repo.findOrderDetailedByLegacyId(req.params.id);
@@ -148,15 +149,13 @@ const downloadOrderInvoice = async (req, res) => {
     try {
         const order = await routedRead(
             'order',
-            // Mongo
-            async () => Order.findById(req.params.id),
-            // Postgres
+            async () => findOrderByRef(req.params.id),
             async () => {
                 const repo = getOrderRepository();
                 return repo.findOrderDetailedByLegacyId(req.params.id);
             }
         );
-        
+
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found.' });
         }
@@ -267,7 +266,7 @@ const cancelUserOrder = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Please provide a reason for cancellation.' });
         }
 
-        const order = await Order.findById(req.params.id);
+        const order = await findOrderByRef(req.params.id);
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found.' });
         }
@@ -315,12 +314,7 @@ const cancelUserOrder = async (req, res) => {
 };
 
 async function findOrderForCustomer(id) {
-    const value = String(id || '');
-    if (/^[a-fA-F0-9]{24}$/.test(value)) {
-        const byId = await Order.findById(value);
-        if (byId) return byId;
-    }
-    return Order.findOne({ orderId: value });
+    return findOrderByRef(id);
 }
 
 // PUT /api/orders/:id/cancel — Pending orders only (mobile + API clients)
@@ -382,7 +376,7 @@ const returnUserOrder = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Please provide a reason for the return request.' });
         }
 
-        const order = await Order.findById(req.params.id);
+        const order = await findOrderByRef(req.params.id);
         if (!order) {
             return res.status(404).json({ success: false, message: 'Order not found.' });
         }

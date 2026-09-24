@@ -193,7 +193,7 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 
 |------|-----------|-------|
 
-| Attendance | `GET /attendance`, `POST /attendance/mark`, `POST /attendance/clock-in`, `POST /attendance/clock-out`, `GET /attendance/summary`, `GET /attendance/late-report` | `date` normalized to platform TZ midnight via `backend/src/utils/attendanceDate.js` (default `Asia/Dhaka`); one row per staff per day |
+| Attendance | `GET /attendance`, `POST /attendance/mark`, `POST /attendance/clock-in`, `POST /attendance/clock-out`, `GET /attendance/summary`, `GET /attendance/late-report` | `date` normalized to platform TZ midnight via `backend/src/utils/attendanceDate.js` (default `Asia/Dhaka`); `getPlatformDayBounds()` drives today KPI range queries (enterprise summary + PG attendance counts) |
 
 **Frontend HRM API layer:** All admin HRM + Staff modules call through `client/js/admin/modules/hrm-api.js` (`hrmFetchJson` / `hrmApi`) — 25s timeout, debounced error toasts, optional `silent: true` for background loads. Imported via `admin-settings.js` before `hrm-*.js` modules; exposed on `window` for classic `admin-staff.js`.
 
@@ -368,9 +368,12 @@ Both live in the repo-root `.env`. Neither is read by the running application ye
 | `DATABASE_URL_POOLED` | Neon `-pooler` endpoint | reserved for the runtime client via a driver adapter (Stage 2, next step). **Never use for migrations** |
 
 Runtime and repository tests use `backend/src/config/neonRetry.js` for Neon HTTP resilience:
-60s fetch timeout (90s in `REPOSITORY_TEST=1`), up to 3 runtime query retries with exponential
-backoff (4 in repository tests). Optional tuning: `NEON_FETCH_TIMEOUT_MS`, `NEON_RETRY_ATTEMPTS`,
-`NEON_RETRY_BASE_DELAY_MS`, `NEON_QUERY_RETRY` (`0` disables runtime retries), `REPO_TEST_FILE_DELAY_MS`.
+90s fetch timeout, up to 4 runtime query retries with exponential backoff (600ms base in production).
+`readRouter.js` wraps PG reads in `withNeonRetry`; `postgresBootstrap.warmNeonConnection()` pings Neon on server boot.
+Optional tuning: `NEON_FETCH_TIMEOUT_MS`, `NEON_RETRY_ATTEMPTS`, `NEON_RETRY_BASE_DELAY_MS`,
+`NEON_QUERY_RETRY` (`0` disables runtime retries), `NEON_WARMUP_ATTEMPTS`, `NEON_WARMUP_BASE_DELAY_MS`,
+`NEON_READ_ROUTER_ATTEMPTS`, `NEON_READ_ROUTER_BASE_DELAY_MS`, `REPO_TEST_FILE_DELAY_MS`.
+Redis boot noise: `REDIS_ERROR_DEBOUNCE_MS` (default 30s) deduplicates `Redis unavailable` warnings when Redis is offline.
 
 After `npm install`, run `npx prisma generate` to recreate the gitignored
 `generated/prisma/` client. The MongoDB variables (`MONGODB_URI` and the rest)

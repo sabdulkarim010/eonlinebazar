@@ -15,7 +15,8 @@
 const prisma = require('../config/prismaClient');
 const {
   normalizeAttendanceDate,
-  formatAttendanceDateKey
+  formatAttendanceDateKey,
+  getPlatformDayBounds
 } = require('../utils/attendanceDate');
 const {
   resolveStaffSubject,
@@ -183,19 +184,20 @@ async function count(filters = {}) {
 }
 
 async function countTodayStats() {
-  const today = normalizeDate(new Date());
+  const { start, end, startKey } = getPlatformDayBounds(new Date());
+  const dayWhere = { date: { gte: start, lt: end } };
   const [present, absent, late] = await Promise.all([
     prisma.attendance.count({
-      where: { date: today, status: { in: ['PRESENT', 'HALF_DAY'] } }
+      where: { ...dayWhere, status: { in: ['PRESENT', 'HALF_DAY'] } }
     }),
     prisma.attendance.count({
-      where: { date: today, status: 'ABSENT' }
+      where: { ...dayWhere, status: 'ABSENT' }
     }),
     prisma.attendance.count({
-      where: { date: today, isLate: true }
+      where: { ...dayWhere, isLate: true }
     })
   ]);
-  return { present, absent, late };
+  return { present, absent, late, dateKey: startKey };
 }
 
 async function aggregateMonthlySummary(month, year, staffOr = null) {
