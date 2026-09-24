@@ -45,11 +45,16 @@ async function warmNeonConnection(options = {}) {
   assertPooledDatabaseUrl();
 
   const prisma = require('./prismaClient');
-  const { withNeonRetry } = require('./neonRetry');
-  const attempts = Number(options.attempts ?? process.env.NEON_WARMUP_ATTEMPTS ?? 5);
-  const baseDelayMs = Number(options.baseDelayMs ?? process.env.NEON_WARMUP_BASE_DELAY_MS ?? 800);
+  const { withNeonRetry, logPgFallback } = require('./neonRetry');
+  const attempts = Number(options.attempts ?? process.env.NEON_WARMUP_ATTEMPTS ?? 2);
+  const baseDelayMs = Number(options.baseDelayMs ?? process.env.NEON_WARMUP_BASE_DELAY_MS ?? 500);
 
-  await withNeonRetry(() => prisma.$queryRawUnsafe('SELECT 1'), { attempts, baseDelayMs });
+  try {
+    await withNeonRetry(() => prisma.$queryRawUnsafe('SELECT 1'), { attempts, baseDelayMs });
+  } catch (err) {
+    logPgFallback('postgresBootstrap', err, 'warm ping skipped');
+    throw err;
+  }
   return prisma;
 }
 

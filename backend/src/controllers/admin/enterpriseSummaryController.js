@@ -26,6 +26,16 @@ const leaveRepository = require('../../repositories/leaveRepository');
 const employeeRepository = require('../../repositories/employeeRepository');
 const securityLogRepository = require('../../repositories/securityLogRepository');
 const { normalizeAttendanceDate, getPlatformDayBounds } = require('../../utils/attendanceDate');
+const {
+    isNeonTimeoutError,
+    logPgFallback
+} = require('../../config/neonRetry');
+const {
+    shouldBypassPg,
+    recordPgSuccess,
+    recordPgTimeout,
+    recordPgNonTimeoutFailure
+} = require('../../config/pgCircuitBreaker');
 
 const OPEN_PO_STATUSES = ['draft', 'sent', 'partial'];
 const OPEN_TICKET_STATUSES = ['open', 'in_progress', 'pending'];
@@ -36,11 +46,17 @@ function startOfToday() {
 
 async function safeMetric(label, fn, fallback = 0) {
     try {
-        return { value: await fn(), error: null };
+        const value = await fn();
+        if (String(label).includes('(pg)')) recordPgSuccess();
+        return { value, error: null };
     } catch (err) {
-        console.error(`[enterprise-summary] ${label} failed:`, err.message);
-        if (err.stack) console.error(err.stack);
-        if (err.code) console.error(`[enterprise-summary] ${label} code:`, err.code);
+        if (String(label).includes('(pg)')) {
+            if (isNeonTimeoutError(err)) recordPgTimeout();
+            else recordPgNonTimeoutFailure();
+            logPgFallback(label.replace('(pg)', ''), err);
+        } else {
+            console.warn(`[PG-FALLBACK] enterprise-summary ${label} failed -> using default`);
+        }
         return { value: fallback, error: err.message };
     }
 }
@@ -62,10 +78,21 @@ async function countTodayStatsMongo() {
  */
 async function collectMetric(label, pgFn, mongoFn, fallback = 0, errors = [], { preferPg = true } = {}) {
     if (preferPg && pgFn) {
+        if (shouldBypassPg()) {
+            console.warn(`[PG-FALLBACK] ${label} circuit open -> served via Mongo`);
+            if (mongoFn) {
+                const mongoResult = await safeMetric(`${label}(mongo-fallback)`, mongoFn, fallback);
+                if (mongoResult.error) {
+                    errors.push({ section: label, message: mongoResult.error });
+                }
+                return mongoResult.value;
+            }
+            return fallback;
+        }
+
         const pgResult = await safeMetric(`${label}(pg)`, pgFn, fallback);
         if (!pgResult.error) return pgResult.value;
 
-        console.warn(`[enterprise-summary] ${label} PG failed — trying Mongo fallback`);
         if (mongoFn) {
             const mongoResult = await safeMetric(`${label}(mongo-fallback)`, mongoFn, fallback);
             if (mongoResult.error) {
@@ -295,8 +322,7 @@ exports.getEnterpriseSummary = async (req, res) => {
                 console.warn('[enterprise-summary] partial errors:', partialErrors);
             }
         } catch (err) {
-            console.error('getEnterpriseSummary load failed:', err);
-            if (err.stack) console.error(err.stack);
+            logPgFallback('enterprise-summary', err);
             stats = {
                 ordersToday: 0,
                 lowStockCount: 0,

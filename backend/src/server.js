@@ -188,8 +188,8 @@ connectDB().then(async () => {
             await warmNeonConnection();
             console.log('PostgreSQL (Neon) warm ping OK ✅');
         }
-    } catch (err) {
-        console.warn('[postgresBootstrap] Neon warm ping failed (reads will retry / fall back to Mongo):', err.message);
+    } catch (_err) {
+        // postgresBootstrap already logs a compact [PG-FALLBACK] line.
     }
 
     // Daily abandoned-cart recovery (idle 24h+ carts → email + SMS)

@@ -367,12 +367,13 @@ Both live in the repo-root `.env`. Neither is read by the running application ye
 | `DATABASE_URL` | **direct** (non-pooled) Neon endpoint | Prisma CLI: `validate`, `migrate`, `diff`, `generate`. Migrate needs a direct TCP connection |
 | `DATABASE_URL_POOLED` | Neon `-pooler` endpoint | reserved for the runtime client via a driver adapter (Stage 2, next step). **Never use for migrations** |
 
-Runtime and repository tests use `backend/src/config/neonRetry.js` for Neon HTTP resilience:
-90s fetch timeout, up to 4 runtime query retries with exponential backoff (600ms base in production).
-`readRouter.js` wraps PG reads in `withNeonRetry`; `postgresBootstrap.warmNeonConnection()` pings Neon on server boot.
-Optional tuning: `NEON_FETCH_TIMEOUT_MS`, `NEON_RETRY_ATTEMPTS`, `NEON_RETRY_BASE_DELAY_MS`,
-`NEON_QUERY_RETRY` (`0` disables runtime retries), `NEON_WARMUP_ATTEMPTS`, `NEON_WARMUP_BASE_DELAY_MS`,
-`NEON_READ_ROUTER_ATTEMPTS`, `NEON_READ_ROUTER_BASE_DELAY_MS`, `REPO_TEST_FILE_DELAY_MS`.
+Runtime uses `backend/src/config/neonRetry.js` for Neon HTTP resilience:
+**3s fetch timeout** (`NEON_FETCH_TIMEOUT_MS`, default 3000) with **1 attempt** (fail-fast to Mongo).
+Repository tests keep 90s timeout and 4 retries when `REPOSITORY_TEST=1`.
+`readRouter.js` wraps PG reads in `withNeonRetry` and consults `pgCircuitBreaker.js` (3 timeouts / 60s → bypass PG 30s).
+Compact fallback logs: `[PG-FALLBACK] <model> timed out -> served via Mongo` (no stack traces).
+Optional tuning: `NEON_FETCH_TIMEOUT_MS`, `NEON_RETRY_ATTEMPTS`, `NEON_READ_ROUTER_ATTEMPTS`,
+`PG_CB_FAILURE_THRESHOLD`, `PG_CB_FAILURE_WINDOW_MS`, `PG_CB_OPEN_DURATION_MS`, `REPO_TEST_FILE_DELAY_MS`.
 Redis boot noise: `REDIS_ERROR_DEBOUNCE_MS` (default 30s) deduplicates `Redis unavailable` warnings when Redis is offline.
 
 After `npm install`, run `npx prisma generate` to recreate the gitignored

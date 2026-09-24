@@ -10,7 +10,17 @@
 'use strict';
 
 const { isPgReadEnabled } = require('../config/readCutoverFlags');
-const { withNeonRetry } = require('../config/neonRetry');
+const {
+  withNeonRetry,
+  isNeonTimeoutError,
+  logPgFallback
+} = require('../config/neonRetry');
+const {
+  shouldBypassPg,
+  recordPgSuccess,
+  recordPgTimeout,
+  recordPgNonTimeoutFailure
+} = require('../config/pgCircuitBreaker');
 
 function isMongoCastError(err) {
   return err && (err.name === 'CastError' || err.name === 'BSONError');
@@ -21,10 +31,7 @@ async function safeMongoRead(group, mongoReadFn) {
     return await mongoReadFn();
   } catch (err) {
     if (isMongoCastError(err)) {
-      console.warn(
-        `[READ-CUTOVER-FALLBACK] ${group} Mongo CastError suppressed:`,
-        err.message
-      );
+      console.warn(`[PG-FALLBACK] ${group} mongo cast suppressed -> served via Mongo`);
       return null;
     }
     throw err;
@@ -42,16 +49,24 @@ async function safeMongoRead(group, mongoReadFn) {
  */
 async function routedRead(group, mongoReadFn, postgresReadFn) {
   if (isPgReadEnabled(group)) {
+    if (shouldBypassPg()) {
+      console.warn(`[PG-FALLBACK] ${group} circuit open -> served via Mongo`);
+      return safeMongoRead(group, mongoReadFn);
+    }
+
     try {
-      const attempts = Number(process.env.NEON_READ_ROUTER_ATTEMPTS || 4);
-      const baseDelayMs = Number(process.env.NEON_READ_ROUTER_BASE_DELAY_MS || 600);
-      return await withNeonRetry(() => postgresReadFn(), { attempts, baseDelayMs });
+      const attempts = Number(process.env.NEON_READ_ROUTER_ATTEMPTS || 1);
+      const baseDelayMs = Number(process.env.NEON_READ_ROUTER_BASE_DELAY_MS || 0);
+      const result = await withNeonRetry(() => postgresReadFn(), { attempts, baseDelayMs });
+      recordPgSuccess();
+      return result;
     } catch (err) {
-      console.error(
-        `[READ-CUTOVER-FALLBACK] ${group} Postgres read failed, falling back to Mongo:`,
-        err.message
-      );
-      if (err.stack) console.error(err.stack);
+      if (isNeonTimeoutError(err)) {
+        recordPgTimeout();
+      } else {
+        recordPgNonTimeoutFailure();
+      }
+      logPgFallback(group, err);
       return safeMongoRead(group, mongoReadFn);
     }
   }

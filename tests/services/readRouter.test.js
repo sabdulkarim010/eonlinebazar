@@ -5,6 +5,7 @@
 
 const { routedRead } = require('../../backend/src/services/readRouter');
 const { isPgReadEnabled, GROUP_ENV } = require('../../backend/src/config/readCutoverFlags');
+const { resetPgCircuitBreaker, recordPgTimeout } = require('../../backend/src/config/pgCircuitBreaker');
 
 describe('readCutoverFlags', () => {
   const originalEnv = { ...process.env };
@@ -36,8 +37,13 @@ describe('readCutoverFlags', () => {
 describe('routedRead', () => {
   const originalEnv = { ...process.env };
 
+  beforeEach(() => {
+    resetPgCircuitBreaker();
+  });
+
   afterEach(() => {
     process.env = { ...originalEnv };
+    resetPgCircuitBreaker();
   });
 
   test('flag OFF → uses Mongo read function', async () => {
@@ -64,10 +70,10 @@ describe('routedRead', () => {
     expect(mongoFn).not.toHaveBeenCalled();
   });
 
-  test('flag ON + Postgres throws → falls back to Mongo and logs [READ-CUTOVER-FALLBACK]', async () => {
+  test('flag ON + Postgres throws → falls back to Mongo with compact [PG-FALLBACK] log', async () => {
     process.env.READ_PG_CATEGORY = 'true';
     process.env.NEON_READ_ROUTER_ATTEMPTS = '1';
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     const mongoResult = [{ _id: 'mongo-id', name: 'Fashion' }];
     const mongoFn = jest.fn().mockResolvedValue(mongoResult);
@@ -77,9 +83,31 @@ describe('routedRead', () => {
 
     expect(result).toBe(mongoResult);
     expect(mongoFn).toHaveBeenCalledTimes(1);
-    expect(consoleErrorSpy.mock.calls.some((call) => String(call[0]).includes('[READ-CUTOVER-FALLBACK]'))).toBe(true);
-    expect(consoleErrorSpy.mock.calls.some((call) => String(call[0]).includes('category'))).toBe(true);
+    expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('[PG-FALLBACK]'))).toBe(true);
+    expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('category'))).toBe(true);
+    expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('served via Mongo'))).toBe(true);
 
-    consoleErrorSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+  });
+
+  test('circuit open → skips Postgres and reads Mongo directly', async () => {
+    process.env.READ_PG_CATEGORY = 'true';
+    const now = Date.now();
+    recordPgTimeout(now);
+    recordPgTimeout(now);
+    recordPgTimeout(now);
+
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const mongoFn = jest.fn().mockResolvedValue([{ _id: 'mongo-only' }]);
+    const pgFn = jest.fn();
+
+    const result = await routedRead('category', mongoFn, pgFn);
+
+    expect(result).toEqual([{ _id: 'mongo-only' }]);
+    expect(pgFn).not.toHaveBeenCalled();
+    expect(mongoFn).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('circuit open'))).toBe(true);
+
+    consoleWarnSpy.mockRestore();
   });
 });

@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (Neon cold-start warm ping + Redis log dedup)  
+**Last updated:** 2026-09-24 (PG fail-fast 3s timeout + circuit breaker + clean fallback logs)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -39,6 +39,7 @@
 | `backend/src/services/readRouter.js` | PG reads wrapped in `withNeonRetry`; Mongo CastError suppression on fallback |
 | `backend/src/utils/redisClient.js` | Debounced `Redis unavailable` logging when Redis offline |
 | `backend/src/utils/orderMongoLookup.js` | Safe Mongo order lookup by `_id` or business `orderId` (PG cutover fallback) |
+| `backend/src/config/pgCircuitBreaker.js` | In-memory PG read circuit breaker (3 timeouts / 60s → bypass 30s) |
 | `scripts/run-repository-tests.js` | Per-file runner with delay, backoff retries, `REPOSITORY_TEST=1` |
 | `tests/app.js` | Test Express app — re-pins `READ_PG_*` after `dotenv.config()` |
 | `package.json` | Jest `moduleNameMapper` for Prisma generated client |
@@ -113,6 +114,14 @@
 - Tests: Jest **228/228** passing
 
 ## Change Log
+
+### PG fail-fast timeout + circuit breaker — 2026-09-24
+
+- `neonRetry.js`: runtime default **3s** fetch timeout (`NEON_FETCH_TIMEOUT_MS=3000`); **1** retry attempt; `logPgFallback()` compact warn lines
+- `pgCircuitBreaker.js`: 3 consecutive PG timeouts within 60s → bypass Postgres reads for 30s; auto-reset
+- `readRouter.js` + `enterpriseSummaryController.js`: circuit breaker integration; no stack trace dumps on Neon timeout
+- `postgresBootstrap.js`: warm ping failures log single `[PG-FALLBACK]` line
+- Tests: Jest **261/261** passing
 
 ### Neon cold start + Redis log dedup — 2026-09-24
 

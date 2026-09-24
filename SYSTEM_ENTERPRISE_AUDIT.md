@@ -3496,5 +3496,18 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Redis unavailable log dedup | ✅ | 30s debounce (`REDIS_ERROR_DEBOUNCE_MS`) when Redis intentionally offline |
 | Jest regression suite | ✅ | **255/255** passing (`tests/utils/orderMongoLookup.test.js`) |
 
+## PG Fail-Fast Timeout + Circuit Breaker — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Neon fetch timeout | ✅ | Default **3s** (`NEON_FETCH_TIMEOUT_MS=3000`) — runtime fail-fast to Mongo |
+| Compact fallback logs | ✅ | `[PG-FALLBACK] <model> timed out -> served via Mongo` — no stack traces |
+| PG read circuit breaker | ✅ | 3 consecutive timeouts / 60s → bypass PG 30s (`pgCircuitBreaker.js`) |
+| readRouter integration | ✅ | Circuit check before PG; `recordPgSuccess` on PG hit |
+| Enterprise summary | ✅ | Same circuit + compact logs in `collectMetric` / `safeMetric` |
+| Jest regression suite | ✅ | **261/261** passing (`tests/config/pgCircuitBreaker.test.js`) |
+
 
 

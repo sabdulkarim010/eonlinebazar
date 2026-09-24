@@ -5,6 +5,32 @@
 
 'use strict';
 
+function isNeonTimeoutError(err) {
+  if (!err) return false;
+  const name = String(err.name || '').toLowerCase();
+  const msg = String(err.message || err || '').toLowerCase();
+  return (
+    name === 'timeouterror'
+    || name === 'aborterror'
+    || msg.includes('timeout')
+    || msg.includes('timed out')
+    || msg.includes('aborted due to timeout')
+  );
+}
+
+function isNeonDbError(err) {
+  if (!err) return false;
+  const name = String(err.name || '');
+  const code = String(err.code || '').toLowerCase();
+  return (
+    name === 'NeonDbError'
+    || code === 'p1001'
+    || code === 'p1002'
+    || code === 'p1008'
+    || code === 'p1017'
+  );
+}
+
 function isTransientNeonError(err) {
   const msg = String(err?.message || err || '').toLowerCase();
   const code = String(err?.code || '').toLowerCase();
@@ -14,23 +40,30 @@ function isTransientNeonError(err) {
   }
 
   return (
-    msg.includes('fetch failed') ||
-    msg.includes('performio') ||
-    msg.includes('timeout') ||
-    msg.includes('timed out') ||
-    msg.includes('aborted due to timeout') ||
-    msg.includes('econnreset') ||
-    msg.includes('etimedout') ||
-    msg.includes('econnrefused') ||
-    msg.includes('network') ||
-    msg.includes('socket hang up') ||
-    msg.includes('503') ||
-    msg.includes('429') ||
-    code === 'p1001' ||
-    code === 'p1002' ||
-    code === 'p1008' ||
-    code === 'p1017'
+    isNeonTimeoutError(err)
+    || isNeonDbError(err)
+    || msg.includes('fetch failed')
+    || msg.includes('performio')
+    || msg.includes('econnreset')
+    || msg.includes('etimedout')
+    || msg.includes('econnrefused')
+    || msg.includes('network')
+    || msg.includes('socket hang up')
+    || msg.includes('503')
+    || msg.includes('429')
   );
+}
+
+function getPgFallbackReason(err) {
+  if (isNeonTimeoutError(err)) return 'timed out';
+  if (isNeonDbError(err)) return 'neon error';
+  const msg = String(err?.message || err || '').trim();
+  return msg || 'failed';
+}
+
+function logPgFallback(model, err, extra) {
+  const suffix = extra ? ` (${extra})` : '';
+  console.warn(`[PG-FALLBACK] ${model} ${getPgFallbackReason(err)} -> served via Mongo${suffix}`);
 }
 
 function sleep(ms) {
@@ -47,8 +80,8 @@ function resolveRetryAttempts(options = {}) {
   if (process.env.REPOSITORY_TEST === '1') {
     return Number(process.env.NEON_RETRY_ATTEMPTS || 4);
   }
-  // Extra attempt helps Neon cold starts (compute wake + HTTP pool).
-  return Number(process.env.NEON_RETRY_ATTEMPTS || 4);
+  // Runtime fail-fast: single attempt unless overridden.
+  return Number(process.env.NEON_RETRY_ATTEMPTS || 1);
 }
 
 function resolveRetryBaseDelayMs(options = {}) {
@@ -56,7 +89,7 @@ function resolveRetryBaseDelayMs(options = {}) {
   if (process.env.REPOSITORY_TEST === '1') {
     return Number(process.env.NEON_RETRY_BASE_DELAY_MS || 300);
   }
-  return Number(process.env.NEON_RETRY_BASE_DELAY_MS || 600);
+  return Number(process.env.NEON_RETRY_BASE_DELAY_MS || 0);
 }
 
 async function withNeonRetry(fn, options = {}) {
@@ -74,7 +107,7 @@ async function withNeonRetry(fn, options = {}) {
         throw err;
       }
       const delayMs = baseDelayMs * (2 ** attempt);
-      await sleep(delayMs);
+      if (delayMs > 0) await sleep(delayMs);
     }
   }
 
@@ -83,8 +116,7 @@ async function withNeonRetry(fn, options = {}) {
 
 function buildNeonHttpAdapterOptions() {
   const isRepoTest = process.env.REPOSITORY_TEST === '1';
-  // Neon HTTP driver: allow cold-start wake + first query (settings, adminSession).
-  const defaultTimeout = isRepoTest ? 90000 : 90000;
+  const defaultTimeout = isRepoTest ? 90000 : 3000;
   const timeoutMs = Number(process.env.NEON_FETCH_TIMEOUT_MS || defaultTimeout);
 
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
@@ -130,7 +162,11 @@ function withRepositoryTestRetries(client) {
 }
 
 module.exports = {
+  isNeonTimeoutError,
+  isNeonDbError,
   isTransientNeonError,
+  getPgFallbackReason,
+  logPgFallback,
   isNeonQueryRetryEnabled,
   withNeonRetry,
   buildNeonHttpAdapterOptions,

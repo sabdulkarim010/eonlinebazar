@@ -2811,3 +2811,16 @@ docs/audit/DEVOPS_AUDIT.md [MOD] Neon cold start + Redis debounce changelog
 docs/audit/ORDERS_AUDIT.md [MOD] orderMongoLookup for PG cutover fallbacks
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] infra resilience section
 README.md [MOD] test count 255/255
+
+# PG Fail-Fast Timeout + Circuit Breaker + Clean Fallback Logs — 2026-09-24
+backend/src/config/neonRetry.js [MOD] 3s runtime timeout, isNeonTimeoutError, logPgFallback, 1 retry default
+backend/src/config/pgCircuitBreaker.js [NEW] 3 timeouts / 60s opens circuit for 30s
+backend/src/services/readRouter.js [MOD] circuit breaker + compact [PG-FALLBACK] warn logs
+backend/src/config/postgresBootstrap.js [MOD] compact warm-ping failure log
+backend/src/controllers/admin/enterpriseSummaryController.js [MOD] circuit breaker + compact PG fallback logs
+backend/src/server.js [MOD] dedupe warm-ping warn (postgresBootstrap owns log)
+tests/config/pgCircuitBreaker.test.js [NEW] circuit open/close + reset tests
+tests/services/readRouter.test.js [MOD] PG-FALLBACK + circuit-open tests
+docs/audit/DEVOPS_AUDIT.md [MOD] fail-fast + circuit breaker changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] PG resilience section
+README.md [MOD] test count 261/261
