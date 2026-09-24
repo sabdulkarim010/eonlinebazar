@@ -193,7 +193,9 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 
 |------|-----------|-------|
 
-| Attendance | `GET /attendance`, `POST /attendance/mark`, `POST /attendance/clock-in`, `POST /attendance/clock-out`, `GET /attendance/summary`, `GET /attendance/late-report` | `date` is normalized to local midnight, so one staff member has at most one row per day |
+| Attendance | `GET /attendance`, `POST /attendance/mark`, `POST /attendance/clock-in`, `POST /attendance/clock-out`, `GET /attendance/summary`, `GET /attendance/late-report` | `date` normalized to platform TZ midnight via `backend/src/utils/attendanceDate.js` (default `Asia/Dhaka`); one row per staff per day |
+
+**Frontend HRM API layer:** All admin HRM + Staff modules call through `client/js/admin/modules/hrm-api.js` (`hrmFetchJson` / `hrmApi`) — 25s timeout, debounced error toasts, optional `silent: true` for background loads. Imported via `admin-settings.js` before `hrm-*.js` modules; exposed on `window` for classic `admin-staff.js`.
 
 | Shifts | `GET /shifts`, `POST /shifts`, `PATCH /shifts/:id`, `DELETE /shifts/:id` | Exactly one `isDefault` shift; it cannot be deleted |
 

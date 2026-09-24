@@ -11,6 +11,7 @@
 const mongoose = require('mongoose');
 const Leave = require('../../models/leave');
 const Attendance = require('../../models/attendance');
+const { iteratePlatformDateKeys, normalizeAttendanceDate } = require('../../utils/attendanceDate');
 const Admin = require('../../models/admin');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { dualWrite } = require('../../services/dualWriteService');
@@ -66,14 +67,13 @@ async function findStaff(identifier) {
  * pro-rating treats it as time off rather than an unexplained absence.
  */
 async function stampLeaveOnAttendance(leave) {
-    const cursor = Attendance.normalizeDate(leave.startDate);
-    const last = Attendance.normalizeDate(leave.endDate);
-    if (!cursor || !last) return 0;
+    const dateKeys = iteratePlatformDateKeys(leave.startDate, leave.endDate);
+    if (!dateKeys.length) return 0;
 
     let stamped = 0;
 
-    for (let day = new Date(cursor); day <= last; day.setDate(day.getDate() + 1)) {
-        const date = new Date(day);
+    for (const dateKey of dateKeys) {
+        const date = normalizeAttendanceDate(dateKey);
         // eslint-disable-next-line no-await-in-loop
         const existing = await Attendance.findOne({ staffId: leave.staffId, date });
         const record = existing || new Attendance({ staffId: leave.staffId, date });

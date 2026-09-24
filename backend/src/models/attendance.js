@@ -9,6 +9,7 @@
  ********************************************************************/
 
 const mongoose = require('mongoose');
+const { normalizeAttendanceDate } = require('../utils/attendanceDate');
 
 const ATTENDANCE_STATUSES = ['present', 'absent', 'late', 'half-day', 'holiday', 'leave'];
 const SHIFT_TYPES = ['morning', 'evening', 'night', 'custom'];
@@ -49,12 +50,9 @@ attendanceSchema.index({ date: 1, staffId: 1 });
 attendanceSchema.index({ date: -1, status: 1 });
 attendanceSchema.index({ status: 1 });
 
-/** Midnight of the given day — the canonical key for one attendance row. */
+/** Midnight of the given day in platform TZ — canonical key for one attendance row. */
 attendanceSchema.statics.normalizeDate = function normalizeDate(input) {
-    const d = input ? new Date(input) : new Date();
-    if (Number.isNaN(d.getTime())) return null;
-    d.setHours(0, 0, 0, 0);
-    return d;
+    return normalizeAttendanceDate(input);
 };
 
 /** Minutes since midnight for a "HH:MM" string, or null when unparseable. */

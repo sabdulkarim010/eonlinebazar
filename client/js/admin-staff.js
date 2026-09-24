@@ -61,16 +61,20 @@ function escapeHtml(value) {
     }[ch]));
 }
 
-/** Every staff API call shares the same auth header + error surfacing. */
+/** Every staff API call shares the same auth header + resilient fetch layer. */
 async function staffApi(url, options = {}) {
     const useJson = options.body !== undefined && !(options.headers || {})['Content-Type'];
-    const response = await fetch(url, {
-        ...options,
-        headers: {
-            ...authHeaders(useJson),
-            ...(options.headers || {})
-        }
-    });
+    const headers = {
+        ...authHeaders(useJson),
+        ...(options.headers || {})
+    };
+
+    if (typeof window.hrmFetchJson === 'function') {
+        const { result } = await window.hrmFetchJson(url, { ...options, headers });
+        return result;
+    }
+
+    const response = await fetch(url, { ...options, headers });
 
     let data = {};
     try {
@@ -982,16 +986,34 @@ async function loadAssignEmployees() {
     const headers = { Authorization: `Bearer ${token || ''}` };
 
     try {
-        let res = await fetch('/api/admin/hrm/employees?hasAccess=false&all=true&assignable=true', { headers });
-        let data = await res.json().catch(() => ({}));
+        const hrmFetch = window.hrmFetchJson;
+        let data = {};
+
+        if (typeof hrmFetch === 'function') {
+            ({ result: data } = await hrmFetch('/api/admin/hrm/employees?hasAccess=false&all=true&assignable=true', {
+                headers,
+                silent: true,
+                throwOnHttpError: false
+            }));
+        } else {
+            const res = await fetch('/api/admin/hrm/employees?hasAccess=false&all=true&assignable=true', { headers });
+            data = await res.json().catch(() => ({}));
+        }
 
         let list = Array.isArray(data.data)
             ? data.data
             : (Array.isArray(data.employees) ? data.employees : []);
 
-        if ((!list.length || !res.ok) && token) {
-            res = await fetch('/api/admin/hrm/employees?all=true', { headers });
-            data = await res.json().catch(() => ({}));
+        if (!list.length && token) {
+            if (typeof hrmFetch === 'function') {
+                ({ result: data } = await hrmFetch('/api/admin/hrm/employees?all=true', {
+                    headers,
+                    silent: true
+                }));
+            } else {
+                const res = await fetch('/api/admin/hrm/employees?all=true', { headers });
+                data = await res.json().catch(() => ({}));
+            }
             const all = Array.isArray(data.data) ? data.data : (Array.isArray(data.employees) ? data.employees : []);
             list = all.filter((row) => !row.linkedAdminId);
         }
@@ -1023,11 +1045,19 @@ async function loadAssignPermissions(force = false) {
     if (!force && permissionCatalog.length) return permissionCatalog;
 
     try {
-        const res = await fetch('/api/admin/permissions', {
-            headers: { Authorization: `Bearer ${staffToken() || ''}` }
-        });
-        const data = await res.json().catch(() => ({}));
-        console.log('[DEBUG permissions raw]', JSON.stringify(data));
+        let data = {};
+        const headers = { Authorization: `Bearer ${staffToken() || ''}` };
+
+        if (typeof window.hrmFetchJson === 'function') {
+            ({ result: data } = await window.hrmFetchJson('/api/admin/permissions', {
+                headers,
+                silent: true
+            }));
+        } else {
+            const res = await fetch('/api/admin/permissions', { headers });
+            data = await res.json().catch(() => ({}));
+        }
+
         permissionCatalog = normalizePermissionsList(data).filter(isValidPermissionEntry);
         if (!sectionPermissionMap || !Object.keys(sectionPermissionMap).length) {
             sectionPermissionMap = data.sectionPermissions || sectionPermissionMap;
@@ -1496,12 +1526,27 @@ async function submitStaffAssignAccess(event) {
     }
 
     try {
-        const response = await fetch(`/api/admin/hrm/employees/${employeeId}/grant-access`, {
-            method: 'POST',
-            headers: authHeaders(true),
-            body: JSON.stringify({ username, password, permissions })
-        });
-        const data = await response.json().catch(() => ({}));
+        let response;
+        let data = {};
+
+        if (typeof window.hrmFetchJson === 'function') {
+            ({ res: response, result: data } = await window.hrmFetchJson(
+                `/api/admin/hrm/employees/${employeeId}/grant-access`,
+                {
+                    method: 'POST',
+                    headers: authHeaders(true),
+                    body: JSON.stringify({ username, password, permissions }),
+                    throwOnHttpError: false
+                }
+            ));
+        } else {
+            response = await fetch(`/api/admin/hrm/employees/${employeeId}/grant-access`, {
+                method: 'POST',
+                headers: authHeaders(true),
+                body: JSON.stringify({ username, password, permissions })
+            });
+            data = await response.json().catch(() => ({}));
+        }
 
         if (response.status === 409 || (data.error && /already granted/i.test(String(data.error)))) {
             notify('ℹ️ Already has access', 'info');
@@ -1608,14 +1653,23 @@ function setupStaffAssignModal() {
 
 async function cleanupOrphanStaffRecords() {
     try {
-        const res = await fetch('/api/admin/staff/cleanup-orphans', {
-            method: 'POST',
-            headers: authHeaders(false)
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || data.success === false) {
-            throw new Error(data.message || 'Cleanup failed.');
-        }
+        const data = typeof window.hrmApi === 'function'
+            ? await window.hrmApi('/api/admin/staff/cleanup-orphans', {
+                method: 'POST',
+                headers: authHeaders(false)
+            })
+            : await (async () => {
+                const res = await fetch('/api/admin/staff/cleanup-orphans', {
+                    method: 'POST',
+                    headers: authHeaders(false)
+                });
+                const body = await res.json().catch(() => ({}));
+                if (!res.ok || body.success === false) {
+                    throw new Error(body.message || 'Cleanup failed.');
+                }
+                return body;
+            })();
+
         notify(data.message || 'Orphan records fixed.', 'success');
         await fetchStaffAccounts({ showTableLoading: false });
         await refreshStaffAssignCandidates();

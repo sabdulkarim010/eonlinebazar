@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (getDailySheet super-admin exclude + repository test PG fallback)  
+**Last updated:** 2026-09-24 (Phase 3 compact single-row Daily Sheet toolbar + unified status badges)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -58,7 +58,7 @@
 | `client/js/admin/modules/sidebarLabels.js` | Super Admin sidebar label apply (read-only in sidebar) | ✅ |
 | `client/js/admin/modules/settings-menu-labels.js` | Settings → Customize Menu Labels editor (Super Admin) | ✅ |
 | `client/js/admin/modules/hrm-employees.js` | Employee UI — 6 profile tabs (Overview…Leave + More); two-stage delete; Swal z-index helper | ✅ |
-| `client/js/admin-staff.js` | Staff Directory — stepped Assign modal, perm toggles, presets, row actions | ✅ |
+| `client/js/admin-staff.js` | Staff Directory — stepped Assign modal, perm toggles, presets, row actions; `staffApi()` delegates to `hrmFetchJson` | ✅ |
 | `client/css/admin/_staff.css` | Assign modal steps, `.perm-toggle`, validation, password show/hide | ✅ |
 | `client/admin/partials/view-staff.html` | System Staff Directory — Assign New Access, Active Admins stat card | ✅ |
 | `backend/src/controllers/staffController.js` | `listStaff` returns `{ staff, total, activeCount }` | ✅ |
@@ -70,7 +70,9 @@
 | `backend/src/controllers/admin/sidebarLabelController.js` | GET/PUT `/api/admin/sidebar-labels` | ✅ |
 | `prisma/schema.prisma` | `SidebarLabel` model | ✅ |
 | `tests/repositories/sidebarLabel.repository.test.js` | SidebarLabel repo tests | ✅ |
-| `client/js/admin/modules/hrm-attendance.js` | Daily sheet auto-save, inline edit, per-row save feedback, lock UI, manual entry tab guard, toasts | ✅ |
+| `client/js/admin/modules/hrm-api.js` | Shared HRM fetch layer — 25s timeout, debounced error toasts, `silent` option, inline table error helpers | ✅ |
+| `client/js/admin/modules/hrm-attendance.js` | Daily sheet, tab-aware refresh, stat/dashboard sync, platform TZ date helpers, uses `hrm-api.js` | ✅ |
+| `backend/src/utils/attendanceDate.js` | Platform TZ (Asia/Dhaka) attendance calendar dates; normalize/format/iterate | ✅ |
 | `client/js/admin/modules/hrm-payroll.js` | Payroll UI | ✅ |
 | `client/js/admin/modules/hrm-leaves.js` | Leave UI | ✅ |
 | `client/js/admin/modules/adminSidebar.js` | `loadAdminSidebarProfile`, merged profile fetch | ✅ |
@@ -119,7 +121,15 @@
 - [x] Staff past-date attendance restriction — HTTP 403 on mark/clock/bulk for non-today dates; Daily Sheet view-only UI for staff
 - [x] HRM save feedback — per-row spinner/saved/failed on Daily Sheet; employee modal Saving/Saved; toasts for bulk/manual/lock
 - [x] Attendance Register tab loads on tab click — `hrm-tab-register` → `loadAttendanceList()` with pagination (50/page)
-- [x] HRM fetch error handling — `hrmFetchJson()` with 10s timeout + `res.ok` guard on read paths
+- [x] HRM fetch error handling — shared `hrm-api.js`: 25s timeout, 300ms debounced error toasts, `silent: true` for background syncs
+- [x] HRM modules on shared fetch — attendance, employees, payroll, leaves, admin-staff migrated off raw `fetch()`
+- [x] Graceful table load errors — generic inline message via `hrmTableErrorRow()`; toast separate from table UI
+- [x] Daily Sheet compact single-row toolbar — filters left, actions right (`.hrm-daily-sheet-toolbar`)
+- [x] Unified attendance status badges — `renderAttendanceStatusBadge()` shared by Daily Sheet + Register
+- [x] Refresh button loading spinners — header `#attendanceRefreshBtn` + `#dailySheetRefreshBtn` via `withButtonLoading()`
+- [x] Tab-aware header Refresh — `refreshActiveHrmAttendanceTab()` dispatches by active tab + spinner
+- [x] Stat strip + dashboard sync — `refreshTodayAttendanceStats()` on boot; `invalidateHrmAttendanceMetrics()` after writes
+- [x] Platform timezone attendance dates — `attendanceDate.js` shared by Mongo, PG, client `hrmTodayInputValue()`
 - [x] Daily Sheet "Set Now" clock buttons — inline check-in/out time helpers
 - [x] Register "Clock Out Now" — `POST /hrm/attendance/clock-out` with `resolveClockStaff` (Admin + Employee)
 - [x] Attendance Settings panel — `GET/PUT /settings/attendance` via PG-safe read + Mongo fallback
@@ -240,6 +250,8 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 | Employee/leave/payroll lists lack Orders-style pagination | Medium | Open | Fixed `limit=100` client fetch |
 | Manual Entry tab lacks super-admin-only route guard | Low | Open | `manual-entry` uses same `manage_staff` as daily sheet; past-date writes allowed via manual entry flag |
 | `hr` admin role not in schema yet | Low | Open | Past-date bypass checks `role === 'hr'` for future use; only `superadmin` exists today |
+| Parallel HRM fetch failures spam error toasts (BUG-HRM-02) | Medium | Fixed | `hrm-api.js` debounces identical toasts within 300ms; all HRM modules use shared layer |
+| Raw `fetch()` in HRM modules — no timeout, hung requests (BUG-HRM-02) | Medium | Fixed | 25s AbortController timeout; payroll/leaves/employees/attendance/staff migrated |
 
 ---
 
@@ -255,6 +267,34 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### HRM Phase 3 — Compact single-row toolbar & UI polish — 2026-09-24
+
+- **Daily Sheet toolbar:** Merged filters + actions into `.hrm-daily-sheet-toolbar` single-row flex layout (`view-hrm-attendance.html`, `_hrm.css`)
+- **Layout:** LEFT — date + department; RIGHT — Refresh, All Present/Absent, lock controls
+- **Past-date banner:** Renders below main toolbar row (`.hrm-daily-sheet-toolbar__banner`) without breaking flex flow
+- **Status badges:** `renderAttendanceStatusBadge()` — shared `att-pill` styling on Daily Sheet + Register tabs
+- **Refresh UX:** `withButtonLoading()` — spinner + disabled state on header and Daily Sheet refresh buttons
+- Tests: Jest **248/248** passing
+
+### HRM Phase 2 — API resilience & error toast deduplication (BUG-HRM-02) — 2026-09-24
+
+- **Shared fetch layer:** New `client/js/admin/modules/hrm-api.js` — `hrmFetchJson`, `hrmApi`, `hrmFetchBlob`, `hrmNotifyError`, `hrmHandleLoadError`, `hrmTableErrorRow`
+- **25s timeout:** Handles Neon cold starts without premature failure (was 10s in attendance-only helper)
+- **Toast deduplication:** Identical error messages within 300ms show one toast (parallel boot/load failures)
+- **`silent: true`:** Background syncs (`loadAttendanceSettings`, `refreshTodayAttendanceStats`, staff assign candidate load) suppress error toasts
+- **Module migration:** `hrm-attendance.js`, `hrm-employees.js`, `hrm-payroll.js`, `hrm-leaves.js`, `admin-staff.js` — all API calls via shared layer
+- **Inline load errors:** Tables/grids show generic "Failed to load data. Please refresh." — no duplicate raw error in toast + table
+- **Boot serialization:** `loadHrmAttendanceSection()` — settings → staff options → stats → daily sheet (sequential await)
+- Tests: Jest **248/248** passing
+
+### HRM Phase 1 — Data sync, tab-aware refresh, platform TZ — 2026-09-24
+
+- **Tab-aware Refresh:** `#attendanceRefreshBtn` → `refreshActiveHrmAttendanceTab()` with loading spinner; Daily Sheet toolbar → `refreshDailySheetWithStats()`
+- **Stat + dashboard sync:** `refreshTodayAttendanceStats()` on section boot; `invalidateHrmAttendanceMetrics()` after mark/bulk/manual/clock-out/modal mark
+- **Platform TZ dates:** New `backend/src/utils/attendanceDate.js`; Mongo `Attendance.normalizeDate`, PG `attendanceRepository`, enterprise summary `startOfToday()`, client `hrmTodayInputValue()` aligned to `Asia/Dhaka`
+- **Leave calendar:** `iteratePlatformDateKeys()` fixes calendar key drift on UTC servers
+- Tests: Jest **248/248** passing
 
 ### getDailySheet super-admin exclude fix — 2026-09-23
 

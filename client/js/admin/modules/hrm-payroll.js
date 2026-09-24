@@ -8,6 +8,7 @@
 // STANDARD: Use Swal.fire() for ALL confirmations.
 // Never use confirm(), alert(), or window.confirm().
 import '../admin-core.js';
+import { hrmFetchJson, hrmFetchBlob, hrmHandleLoadError, hrmTableErrorRow } from './hrm-api.js';
 
 const PAYROLL_STATUS_CLASSES = {
     draft: 'status-pending',
@@ -112,10 +113,9 @@ async function loadPayrollList() {
     const payrollBase = selfOnly ? '/api/admin/hrm/payroll/my-payslips' : '/api/admin/hrm/payroll';
 
     try {
-        const res = await fetch(`${payrollBase}?${params.toString()}`, {
+        const { result } = await hrmFetchJson(`${payrollBase}?${params.toString()}`, {
             headers: window.hrmAuthHeaders()
         });
-        const result = await res.json();
 
         renderPayrollSummary(result.summary);
 
@@ -145,8 +145,8 @@ async function loadPayrollList() {
         `).join('');
         initPayrollPg()?.setTotal(result.pagination?.total ?? 0);
     } catch (err) {
-        console.error('loadPayrollList:', err);
-        tbody.innerHTML = '<tr><td colspan="10" class="table-status-error">Failed to load payroll.</td></tr>';
+        hrmHandleLoadError(err, { context: 'loadPayrollList' });
+        tbody.innerHTML = hrmTableErrorRow(10);
     }
 }
 
@@ -229,23 +229,16 @@ async function calculatePayrollFromAttendance() {
             deductions: String(payload.deductions)
         });
 
-        const res = await fetch(`/api/admin/hrm/payroll/calculate?${params.toString()}`, {
+        const { result } = await hrmFetchJson(`/api/admin/hrm/payroll/calculate?${params.toString()}`, {
             headers: window.hrmAuthHeaders()
         });
-        const result = await res.json();
-
-        if (!result.success) {
-            showToast(result.message || 'Failed to calculate payroll.', 'error');
-            return;
-        }
 
         window.__payrollPreviewPayload = payload;
         renderPayrollBreakdown(result.data);
         const modal = document.getElementById('payrollBreakdownModal');
         if (modal) modal.style.display = 'flex';
     } catch (err) {
-        console.error('calculatePayrollFromAttendance:', err);
-        showToast('Server error while calculating payroll.', 'error');
+        showToast(err.message || 'Server error while calculating payroll.', 'error');
     } finally {
         if (btn) btn.disabled = false;
     }
@@ -268,26 +261,20 @@ async function submitGeneratePayroll() {
     if (saveBtn) saveBtn.disabled = true;
 
     try {
-        const res = await fetch('/api/admin/hrm/payroll/generate', {
+        const { result } = await hrmFetchJson('/api/admin/hrm/payroll/generate', {
             method: 'POST',
             headers: window.hrmAuthHeaders(true),
             body: JSON.stringify(payload)
         });
-        const result = await res.json();
 
-        if (result.success) {
-            showAdminSuccess(
-                'Payroll Generated',
-                `Net payable ${window.hrmFormatMoney(result.data?.totalSalary)} from ${result.attendanceRecords || 0} attendance record(s).`
-            );
-            closeGeneratePayrollModal();
-            await loadPayrollList();
-        } else {
-            showToast(result.message || 'Failed to generate payroll.', 'error');
-        }
+        showAdminSuccess(
+            'Payroll Generated',
+            `Net payable ${window.hrmFormatMoney(result.data?.totalSalary)} from ${result.attendanceRecords || 0} attendance record(s).`
+        );
+        closeGeneratePayrollModal();
+        await loadPayrollList();
     } catch (err) {
-        console.error('submitGeneratePayroll:', err);
-        showToast('Server error while generating payroll.', 'error');
+        showToast(err.message || 'Server error while generating payroll.', 'error');
     } finally {
         if (saveBtn) saveBtn.disabled = false;
     }
@@ -300,22 +287,16 @@ async function submitGeneratePayroll() {
 function approvePayroll(id) {
     showCustomConfirm('Approve Payroll', 'Approve this salary run? It can no longer be regenerated afterwards.', async () => {
         try {
-            const res = await fetch(`/api/admin/hrm/payroll/${id}/approve`, {
+            const { result } = await hrmFetchJson(`/api/admin/hrm/payroll/${id}/approve`, {
                 method: 'PATCH',
                 headers: window.hrmAuthHeaders(true),
                 body: JSON.stringify({})
             });
-            const result = await res.json();
 
-            if (result.success) {
-                showAdminSuccess('Payroll Approved', result.message || 'Approved.');
-                await loadPayrollList();
-            } else {
-                showToast(result.message || 'Failed to approve payroll.', 'error');
-            }
+            showAdminSuccess('Payroll Approved', result.message || 'Approved.');
+            await loadPayrollList();
         } catch (err) {
-            console.error('approvePayroll:', err);
-            showToast('Failed to approve payroll.', 'error');
+            showToast(err.message || 'Failed to approve payroll.', 'error');
         }
     });
 }
@@ -323,22 +304,16 @@ function approvePayroll(id) {
 function markPayrollPaid(id) {
     showCustomConfirm('Mark as Paid', 'Confirm that this salary has been paid out?', async () => {
         try {
-            const res = await fetch(`/api/admin/hrm/payroll/${id}/paid`, {
+            const { result } = await hrmFetchJson(`/api/admin/hrm/payroll/${id}/paid`, {
                 method: 'PATCH',
                 headers: window.hrmAuthHeaders(true),
                 body: JSON.stringify({})
             });
-            const result = await res.json();
 
-            if (result.success) {
-                showAdminSuccess('Payroll Paid', result.message || 'Marked paid.');
-                await loadPayrollList();
-            } else {
-                showToast(result.message || 'Failed to mark payroll paid.', 'error');
-            }
+            showAdminSuccess('Payroll Paid', result.message || 'Marked paid.');
+            await loadPayrollList();
         } catch (err) {
-            console.error('markPayrollPaid:', err);
-            showToast('Failed to mark payroll paid.', 'error');
+            showToast(err.message || 'Failed to mark payroll paid.', 'error');
         }
     });
 }
@@ -349,17 +324,9 @@ function markPayrollPaid(id) {
  */
 async function downloadPaySlip(id) {
     try {
-        const res = await fetch(`/api/admin/hrm/payroll/${id}/payslip`, {
+        const blob = await hrmFetchBlob(`/api/admin/hrm/payroll/${id}/payslip`, {
             headers: window.hrmAuthHeaders()
         });
-
-        if (!res.ok) {
-            const result = await res.json().catch(() => ({}));
-            showToast(result.message || 'Failed to generate pay slip.', 'error');
-            return;
-        }
-
-        const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -369,8 +336,7 @@ async function downloadPaySlip(id) {
         link.remove();
         URL.revokeObjectURL(url);
     } catch (err) {
-        console.error('downloadPaySlip:', err);
-        showToast('Failed to download pay slip.', 'error');
+        showToast(err.message || 'Failed to download pay slip.', 'error');
     }
 }
 
@@ -435,27 +401,20 @@ async function saveSalaryConfig() {
     if (saveBtn) saveBtn.disabled = true;
 
     try {
-        const res = await fetch('/api/admin/hrm/payroll/salary-config', {
+        const { result } = await hrmFetchJson('/api/admin/hrm/payroll/salary-config', {
             method: 'POST',
             headers: window.hrmAuthHeaders(true),
             body: JSON.stringify(payload)
         });
-        const result = await res.json();
 
-        if (result.success) {
-            showAdminSuccess('Salary Saved', result.message || 'Salary configuration saved.');
+        showAdminSuccess('Salary Saved', result.message || 'Salary configuration saved.');
 
-            // Keep the cached roster in step so reopening the modal shows the new value.
-            const cached = window.hrmFindStaff(payload.staffUsername);
-            if (cached) Object.assign(cached, result.data || {});
+        const cached = window.hrmFindStaff(payload.staffUsername);
+        if (cached) Object.assign(cached, result.data || {});
 
-            closeSalaryConfigModal();
-        } else {
-            showToast(result.message || 'Failed to save salary configuration.', 'error');
-        }
+        closeSalaryConfigModal();
     } catch (err) {
-        console.error('saveSalaryConfig:', err);
-        showToast('Server error while saving salary configuration.', 'error');
+        showToast(err.message || 'Server error while saving salary configuration.', 'error');
     } finally {
         if (saveBtn) saveBtn.disabled = false;
     }

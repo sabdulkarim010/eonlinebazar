@@ -15,6 +15,7 @@ const Leave = require('../backend/src/models/leave');
 const Employee = require('../backend/src/models/employee');
 const Designation = require('../backend/src/models/designation');
 const { countWorkingDays } = require('../backend/src/controllers/admin/payrollController');
+const { getPlatformDateKey } = require('../backend/src/utils/attendanceDate');
 const { getApp, createTestAdmin } = require('./setup');
 
 describe('HRM — Attendance, Payroll, Leave', () => {
@@ -33,12 +34,9 @@ describe('HRM — Attendance, Payroll, Leave', () => {
         return { Authorization: `Bearer ${token}` };
     }
 
-    /** Local YYYY-MM-DD — aligns with Attendance.normalizeDate(new Date()) / buildTodayStats(). */
+    /** Platform TZ YYYY-MM-DD — aligns with Attendance.normalizeDate / countTodayStats. */
     function localCalendarDate(d = new Date()) {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
+        return getPlatformDateKey(d);
     }
 
     /** A second admin account standing in for a payroll-eligible staff member. */
@@ -109,7 +107,7 @@ describe('HRM — Attendance, Payroll, Leave', () => {
         test('re-marking the same day updates the row instead of duplicating it', async () => {
             const token = await adminToken();
             const staff = await createStaffMember();
-            const today = new Date().toISOString().slice(0, 10);
+            const today = localCalendarDate();
 
             await request(app)
                 .post('/api/admin/hrm/attendance/mark')
@@ -129,7 +127,7 @@ describe('HRM — Attendance, Payroll, Leave', () => {
         test('rejects an unknown status and an unknown staff member', async () => {
             const token = await adminToken();
             const staff = await createStaffMember();
-            const today = new Date().toISOString().slice(0, 10);
+            const today = localCalendarDate();
 
             const badStatus = await request(app)
                 .post('/api/admin/hrm/attendance/mark')
@@ -260,7 +258,7 @@ describe('HRM — Attendance, Payroll, Leave', () => {
         test('an unknown staff filter returns nothing rather than every record', async () => {
             const token = await adminToken();
             const staff = await createStaffMember();
-            const today = new Date().toISOString().slice(0, 10);
+            const today = localCalendarDate();
 
             await request(app)
                 .post('/api/admin/hrm/attendance/mark')
@@ -782,7 +780,7 @@ describe('HRM — Attendance, Payroll, Leave', () => {
     describe('Employees (non-login staff)', () => {
         test('creates employee with auto-generated EMP id and marks attendance', async () => {
             const token = await adminToken();
-            const today = new Date().toISOString().slice(0, 10);
+            const today = localCalendarDate();
 
             const created = await request(app)
                 .post('/api/admin/hrm/employees')

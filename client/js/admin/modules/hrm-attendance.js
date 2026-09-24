@@ -8,29 +8,37 @@
 // STANDARD: Use Swal.fire() for ALL confirmations.
 // Never use confirm(), alert(), or window.confirm().
 import '../admin-core.js';
+import {
+    hrmFetchJson,
+    hrmFetchBlob,
+    hrmHandleLoadError,
+    hrmTableErrorRow,
+    HRM_INLINE_LOAD_ERROR
+} from './hrm-api.js';
 
 const HRM_MONTHS = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-const ATTENDANCE_STATUS_CLASSES = {
-    present: 'status-verified',
-    late: 'status-pending',
-    absent: 'status-blocked',
-    'half-day': 'status-pending',
-    holiday: 'status-verified',
-    leave: 'status-verified'
+const ATTENDANCE_STATUS_LABELS = {
+    present: 'Present',
+    absent: 'Absent',
+    late: 'Late',
+    'half-day': 'Half-Day',
+    leave: 'Leave',
+    holiday: 'Holiday',
+    none: 'Not Marked'
 };
 
-const DAILY_SHEET_STATUS_META = {
-    present: { label: '✓ Present', className: 'att-pill att-pill--present' },
-    absent: { label: '✗ Absent', className: 'att-pill att-pill--absent' },
-    late: { label: '⏰ Late', className: 'att-pill att-pill--late' },
-    'half-day': { label: '◑ Half-Day', className: 'att-pill att-pill--halfday' },
-    leave: { label: '🏖 Leave', className: 'att-pill att-pill--leave' },
-    holiday: { label: '📅 Holiday', className: 'att-pill att-pill--holiday' },
-    none: { label: '— Not Marked', className: 'att-pill att-pill--none' }
+const ATTENDANCE_STATUS_PILL_CLASS = {
+    present: 'att-pill att-pill--present',
+    absent: 'att-pill att-pill--absent',
+    late: 'att-pill att-pill--late',
+    'half-day': 'att-pill att-pill--halfday',
+    leave: 'att-pill att-pill--leave',
+    holiday: 'att-pill att-pill--holiday',
+    none: 'att-pill att-pill--none'
 };
 
 let dailySheetCache = [];
@@ -59,7 +67,6 @@ function initDailySheetPg() {
 let hrmStaffCache = [];
 let hrmEmployeeCache = [];
 
-const HRM_FETCH_TIMEOUT_MS = 10000;
 let attendancePg = null;
 const attendancePgState = { page: 1, limit: 10 };
 
@@ -77,45 +84,14 @@ function initAttendancePg() {
     return attendancePg;
 }
 
-/**
- * Fetch JSON with timeout + res.ok guard. Never leaves callers guessing on HTTP errors.
- */
-async function hrmFetchJson(url, options = {}, { timeoutMs = HRM_FETCH_TIMEOUT_MS } = {}) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-        const res = await fetch(url, { ...options, signal: controller.signal });
-        let result = {};
-        try {
-            result = await res.json();
-        } catch {
-            result = {};
-        }
-
-        if (!res.ok) {
-            throw new Error(result.message || `Server error: ${res.status}`);
-        }
-
-        return { res, result };
-    } catch (err) {
-        if (err.name === 'AbortError') {
-            throw new Error('Request timed out. Click Refresh to retry.');
-        }
-        throw err;
-    } finally {
-        clearTimeout(timer);
-    }
-}
-
 function hrmNowTimeInputValue() {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function hrmRegisterErrorRow(message) {
-    return `<tr><td colspan="8" class="table-status-error">${hrmEscape(message)}</td></tr>`;
+function hrmRegisterErrorRow(message = HRM_INLINE_LOAD_ERROR) {
+    return hrmTableErrorRow(8, message);
 }
 
 function hrmEscape(value) {
@@ -171,11 +147,18 @@ function hrmFormatMoney(amount) {
     return `${symbol} ${(Number(amount) || 0).toLocaleString('en-BD', { maximumFractionDigits: 2 })}`;
 }
 
-/** Today's date as the yyyy-mm-dd string an <input type="date"> expects. */
+function hrmPlatformTimezone() {
+    return window.adminPlatformTimezone || 'Asia/Dhaka';
+}
+
+/** Today's calendar date (YYYY-MM-DD) in the platform timezone — matches server attendance "today". */
 function hrmTodayInputValue() {
-    const d = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: hrmPlatformTimezone(),
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(new Date());
 }
 
 function hrmFillMonthSelect(selectId, selectedMonth) {
@@ -217,8 +200,7 @@ async function hrmLoadStaffOptions(selectIds = [], { placeholder = 'All staff', 
             const { result } = await hrmFetchJson('/api/admin/hrm/staff', { headers: hrmAuthHeaders() });
             hrmStaffCache = Array.isArray(result.data) ? result.data : [];
         } catch (err) {
-            console.error('hrmLoadStaffOptions (staff):', err);
-            showHrmToast(err.message || 'Failed to load staff roster.', 'error');
+            hrmHandleLoadError(err, { context: 'hrmLoadStaffOptions (staff)' });
             hrmStaffCache = [];
         }
     }
@@ -228,8 +210,7 @@ async function hrmLoadStaffOptions(selectIds = [], { placeholder = 'All staff', 
             const { result } = await hrmFetchJson('/api/admin/hrm/employees?all=true', { headers: hrmAuthHeaders() });
             hrmEmployeeCache = Array.isArray(result.data) ? result.data : [];
         } catch (err) {
-            console.error('hrmLoadStaffOptions (employees):', err);
-            showHrmToast(err.message || 'Failed to load employees.', 'error');
+            hrmHandleLoadError(err, { context: 'hrmLoadStaffOptions (employees)' });
             hrmEmployeeCache = [];
         }
     }
@@ -460,9 +441,16 @@ function updateDailySheetPastDateUI() {
     });
 }
 
+/** Shared attendance status badge — Daily Sheet + Register tabs. */
+function renderAttendanceStatusBadge(status) {
+    const key = status || 'none';
+    const className = ATTENDANCE_STATUS_PILL_CLASS[key] || ATTENDANCE_STATUS_PILL_CLASS.none;
+    const label = ATTENDANCE_STATUS_LABELS[key] || hrmEscape(key);
+    return `<span class="${className}">${label}</span>`;
+}
+
 function renderDailySheetStatusPill(status) {
-    const meta = DAILY_SHEET_STATUS_META[status] || DAILY_SHEET_STATUS_META.none;
-    return `<span class="${meta.className}">${meta.label}</span>`;
+    return renderAttendanceStatusBadge(status);
 }
 
 function updateDailySheetLockUI() {
@@ -730,9 +718,8 @@ async function loadDailySheet() {
             });
         }
     } catch (err) {
-        console.error('loadDailySheet:', err);
-        showHrmToast(err.message || 'Failed to load daily sheet.', 'error');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="table-status-error">Failed to load. Click Refresh to retry.</td></tr>';
+        hrmHandleLoadError(err, { context: 'loadDailySheet' });
+        if (tbody) tbody.innerHTML = hrmTableErrorRow(9);
     }
 }
 
@@ -827,12 +814,12 @@ async function saveDailySheetEdit(employeeId) {
     setDailySheetRowFeedback(employeeId, 'loading');
 
     try {
-        const res = await fetch('/api/admin/hrm/attendance/update', {
+        const { res, result } = await hrmFetchJson('/api/admin/hrm/attendance/update', {
             method: 'PUT',
             headers: hrmAuthHeaders(true),
-            body: JSON.stringify({ employeeId, date, checkIn, checkOut, note })
+            body: JSON.stringify({ employeeId, date, checkIn, checkOut, note }),
+            throwOnHttpError: false
         });
-        const result = await res.json();
 
         if (res.status === 423) {
             setDailySheetRowFeedback(employeeId, 'failed');
@@ -844,7 +831,7 @@ async function saveDailySheetEdit(employeeId) {
             showHrmToast(result.message || 'Not allowed to edit this date.', 'warning');
             return;
         }
-        if (!result.success) {
+        if (!res.ok || result.success === false) {
             setDailySheetRowFeedback(employeeId, 'failed');
             showHrmToast(result.message || 'Failed to update attendance.', 'error');
             return;
@@ -865,9 +852,8 @@ async function saveDailySheetEdit(employeeId) {
         renderDailySheetRows(dailySheetCache);
         setDailySheetRowFeedback(employeeId, 'saved');
     } catch (err) {
-        console.error('saveDailySheetEdit:', err);
         setDailySheetRowFeedback(employeeId, 'failed');
-        showHrmToast('Server error while updating attendance.', 'error');
+        showHrmToast(err.message || 'Server error while updating attendance.', 'error');
     }
 }
 
@@ -887,12 +873,12 @@ async function performRemoveDailySheetAttendance(employeeId) {
     setDailySheetRowFeedback(employeeId, 'loading');
 
     try {
-        const res = await fetch('/api/admin/hrm/attendance/remove', {
+        const { res, result } = await hrmFetchJson('/api/admin/hrm/attendance/remove', {
             method: 'DELETE',
             headers: hrmAuthHeaders(true),
-            body: JSON.stringify({ employeeId, date })
+            body: JSON.stringify({ employeeId, date }),
+            throwOnHttpError: false
         });
-        const result = await res.json();
 
         if (res.status === 423) {
             setDailySheetRowFeedback(employeeId, 'failed');
@@ -904,7 +890,7 @@ async function performRemoveDailySheetAttendance(employeeId) {
             showHrmToast(result.message || 'Removing attendance requires HR or Super Admin access.', 'error');
             return;
         }
-        if (!result.success) {
+        if (!res.ok || result.success === false) {
             setDailySheetRowFeedback(employeeId, 'failed');
             showHrmToast(result.message || 'Failed to remove attendance.', 'error');
             return;
@@ -918,9 +904,8 @@ async function performRemoveDailySheetAttendance(employeeId) {
         setDailySheetRowFeedback(employeeId, 'saved');
         showHrmToast('Attendance record removed.', 'success');
     } catch (err) {
-        console.error('performRemoveDailySheetAttendance:', err);
         setDailySheetRowFeedback(employeeId, 'failed');
-        showHrmToast('Server error while removing attendance.', 'error');
+        showHrmToast(err.message || 'Server error while removing attendance.', 'error');
     }
 }
 
@@ -946,12 +931,12 @@ async function markDailySheetStatus(employeeId, status, triggerEl) {
             markBody.checkOut = hrmAttendanceSettings.officeEnd || '18:00';
         }
 
-        const res = await fetch('/api/admin/hrm/attendance/mark', {
+        const { res, result } = await hrmFetchJson('/api/admin/hrm/attendance/mark', {
             method: 'POST',
             headers: hrmAuthHeaders(true),
-            body: JSON.stringify(markBody)
+            body: JSON.stringify(markBody),
+            throwOnHttpError: false
         });
-        const result = await res.json();
 
         if (res.status === 423) {
             setDailySheetRowFeedback(employeeId, 'failed');
@@ -963,7 +948,7 @@ async function markDailySheetStatus(employeeId, status, triggerEl) {
             showHrmToast(result.message || 'Past dates are view-only.', 'warning');
             return;
         }
-        if (!result.success) {
+        if (!res.ok || result.success === false) {
             setDailySheetRowFeedback(employeeId, 'failed');
             showHrmToast(result.message || 'Failed to mark attendance.', 'error');
             return;
@@ -981,6 +966,7 @@ async function markDailySheetStatus(employeeId, status, triggerEl) {
 
         refreshDailySheetRowCells(employeeId);
         setDailySheetRowFeedback(employeeId, 'saved');
+        await invalidateHrmAttendanceMetrics();
     } catch (err) {
         console.error('markDailySheetStatus:', err);
         setDailySheetRowFeedback(employeeId, 'failed');
@@ -1034,12 +1020,12 @@ async function bulkMarkDailySheet(status) {
     }
 
     try {
-        const res = await fetch('/api/admin/hrm/attendance/bulk-mark', {
+        const { res, result } = await hrmFetchJson('/api/admin/hrm/attendance/bulk-mark', {
             method: 'POST',
             headers: hrmAuthHeaders(true),
-            body: JSON.stringify({ date, employeeIds: ids, status })
+            body: JSON.stringify({ date, employeeIds: ids, status }),
+            throwOnHttpError: false
         });
-        const result = await res.json();
 
         if (res.status === 423) {
             showHrmToast(result.message || 'Date is locked.', 'warning');
@@ -1049,13 +1035,14 @@ async function bulkMarkDailySheet(status) {
             showHrmToast(result.message || 'Past dates are view-only.', 'warning');
             return;
         }
-        if (!result.success) {
+        if (!res.ok || result.success === false) {
             showHrmToast(result.message || 'Bulk mark failed.', 'error');
             return;
         }
 
         showHrmToast(`Marked ${result.data?.success || 0} employee(s) as ${status}.`, 'success');
         await loadDailySheet();
+        await invalidateHrmAttendanceMetrics();
     } catch (err) {
         console.error('bulkMarkDailySheet:', err);
         showToast('Server error during bulk mark.', 'error');
@@ -1079,13 +1066,12 @@ async function lockDailySheetDate() {
 
     const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
     try {
-        const res = await fetch('/api/admin/hrm/attendance/lock', {
+        const { result } = await hrmFetchJson('/api/admin/hrm/attendance/lock', {
             method: 'POST',
             headers: hrmAuthHeaders(true),
             body: JSON.stringify({ date })
         });
-        const result = await res.json();
-        if (!result.success) {
+        if (result.success === false) {
             showHrmToast(result.message || 'Failed to lock date.', 'error');
             return;
         }
@@ -1114,13 +1100,12 @@ async function unlockDailySheetDate() {
 
     const date = document.getElementById('dailySheetDate')?.value || hrmTodayInputValue();
     try {
-        const res = await fetch('/api/admin/hrm/attendance/lock', {
+        const { result } = await hrmFetchJson('/api/admin/hrm/attendance/lock', {
             method: 'DELETE',
             headers: hrmAuthHeaders(true),
             body: JSON.stringify({ date })
         });
-        const result = await res.json();
-        if (!result.success) {
+        if (result.success === false) {
             showHrmToast(result.message || 'Failed to unlock date.', 'error');
             return;
         }
@@ -1162,9 +1147,8 @@ async function loadManualEntries() {
             </tr>
         `).join('');
     } catch (err) {
-        console.error('loadManualEntries:', err);
-        showHrmToast(err.message || 'Failed to load manual entries.', 'error');
-        tbody.innerHTML = '<tr><td colspan="8" class="table-status-error">Failed to load. Click Refresh to retry.</td></tr>';
+        hrmHandleLoadError(err, { context: 'loadManualEntries' });
+        tbody.innerHTML = hrmTableErrorRow(8);
     }
 }
 
@@ -1174,11 +1158,13 @@ async function loadManualEntryEmployees() {
 
     if (!hrmEmployeeCache.length) {
         try {
-            const res = await fetch('/api/admin/hrm/employees?all=true', { headers: hrmAuthHeaders() });
-            const result = await res.json();
+            const { result } = await hrmFetchJson('/api/admin/hrm/employees?all=true', {
+                headers: hrmAuthHeaders(),
+                silent: true
+            });
             hrmEmployeeCache = Array.isArray(result.data) ? result.data : [];
         } catch (err) {
-            console.error('loadManualEntryEmployees:', err);
+            console.warn('loadManualEntryEmployees:', err.message);
         }
     }
 
@@ -1211,12 +1197,12 @@ async function saveManualEntry() {
     if (saveBtn) saveBtn.disabled = true;
 
     try {
-        const res = await fetch('/api/admin/hrm/attendance/manual-entry', {
+        const { res, result } = await hrmFetchJson('/api/admin/hrm/attendance/manual-entry', {
             method: 'POST',
             headers: hrmAuthHeaders(true),
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            throwOnHttpError: false
         });
-        const result = await res.json();
 
         if (res.status === 403) {
             showHrmToast(result.message || 'Manual entry requires HR or Super Admin access.', 'error');
@@ -1226,7 +1212,7 @@ async function saveManualEntry() {
             showHrmToast(result.message || 'Date is locked. Enable override if you are Super Admin.', 'warning');
             return;
         }
-        if (!result.success) {
+        if (!res.ok || result.success === false) {
             showHrmToast(result.message || 'Failed to save manual entry.', 'error');
             return;
         }
@@ -1234,6 +1220,7 @@ async function saveManualEntry() {
         showHrmToast(result.message || 'Manual entry saved.', 'success');
         await loadManualEntries();
         await loadDailySheet();
+        await invalidateHrmAttendanceMetrics();
     } catch (err) {
         console.error('saveManualEntry:', err);
         showToast('Server error while saving entry.', 'error');
@@ -1265,7 +1252,7 @@ function setupDailySheetSection() {
         }
     };
 
-    bindClick('dailySheetRefreshBtn', loadDailySheet);
+    bindClick('dailySheetRefreshBtn', refreshDailySheetWithStats);
     bindClick('dailySheetMarkAllPresentBtn', () => confirmBulkMarkDailySheet('present'));
     bindClick('dailySheetMarkAllAbsentBtn', () => confirmBulkMarkDailySheet('absent'));
     bindClick('dailySheetLockBtn', lockDailySheetDate);
@@ -1318,6 +1305,102 @@ function renderAttendanceStats(stats) {
     set('hrmAttendanceShiftCount', stats?.activeShifts);
 }
 
+/** Fetch today's KPI row without reloading the register table. */
+async function refreshTodayAttendanceStats() {
+    try {
+        const { result } = await hrmFetchJson('/api/admin/hrm/attendance?limit=1&todayStats=true', {
+            headers: hrmAuthHeaders(),
+            silent: true
+        });
+        if (result.todayStats) renderAttendanceStats(result.todayStats);
+    } catch (err) {
+        console.warn('refreshTodayAttendanceStats:', err.message);
+    }
+}
+
+/** Sync HRM stat strip + Super Admin dashboard enterprise summary after writes. */
+async function invalidateHrmAttendanceMetrics() {
+    await refreshTodayAttendanceStats();
+    if (typeof window.fetchEnterpriseSummary === 'function') {
+        window.fetchEnterpriseSummary();
+    }
+}
+
+function getActiveHrmAttendanceTabId() {
+    const active = document.querySelector('#hrmAttendanceTabs .hrm-tab.active');
+    return active?.getAttribute('data-hrm-tab') || 'hrm-tab-daily-sheet';
+}
+
+async function withButtonLoading(btnId, fn, { loadingHtml = '<i class="fa-solid fa-spinner fa-spin"></i> Loading…' } = {}) {
+    const btn = document.getElementById(btnId);
+    if (!btn) {
+        await fn();
+        return;
+    }
+    if (btn.dataset.loading === '1') return;
+
+    const originalHtml = btn.innerHTML;
+    btn.dataset.loading = '1';
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+    btn.innerHTML = loadingHtml;
+
+    try {
+        await fn();
+    } finally {
+        btn.disabled = false;
+        btn.dataset.loading = '0';
+        btn.classList.remove('is-loading');
+        btn.innerHTML = originalHtml;
+    }
+}
+
+async function withAttendanceRefreshButtonLoading(fn) {
+    await withButtonLoading('attendanceRefreshBtn', fn, {
+        loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i> Refreshing…'
+    });
+}
+
+/** Header Refresh — dispatches to the active attendance tab's loader. */
+async function refreshActiveHrmAttendanceTab() {
+    await withAttendanceRefreshButtonLoading(async () => {
+        const panelId = getActiveHrmAttendanceTabId();
+
+        switch (panelId) {
+            case 'hrm-tab-daily-sheet':
+                await loadDailySheet();
+                await refreshTodayAttendanceStats();
+                break;
+            case 'hrm-tab-register':
+                await loadAttendanceList();
+                break;
+            case 'hrm-tab-shifts':
+                await loadShifts();
+                await loadAttendanceSettings();
+                break;
+            case 'hrm-tab-late':
+                await loadLateReport();
+                break;
+            case 'hrm-tab-manual':
+                await loadManualEntryEmployees();
+                await loadManualEntries();
+                break;
+            default:
+                await loadDailySheet();
+                await refreshTodayAttendanceStats();
+        }
+    });
+}
+
+async function refreshDailySheetWithStats() {
+    await withButtonLoading('dailySheetRefreshBtn', async () => {
+        await loadDailySheet();
+        await refreshTodayAttendanceStats();
+    }, {
+        loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i> Refreshing…'
+    });
+}
+
 function applyAttendanceFilters() {
     attendancePgState.page = 1;
     attendancePg?.resetPage();
@@ -1363,7 +1446,7 @@ async function loadAttendanceList() {
                 <td>${hrmFormatTime(row.clockIn)}</td>
                 <td>${hrmFormatTime(row.clockOut)}</td>
                 <td>${Number(row.hoursWorked) || 0}</td>
-                <td><span class="status-badge ${ATTENDANCE_STATUS_CLASSES[row.status] || 'status-pending'}">${hrmEscape(row.status)}</span></td>
+                <td>${renderAttendanceStatusBadge(row.status)}</td>
                 <td>${row.isLate
                     ? `<span class="status-badge status-blocked">${Number(row.lateMinutes) || 0} min</span>`
                     : '—'}</td>
@@ -1373,9 +1456,8 @@ async function loadAttendanceList() {
 
         initAttendancePg()?.setTotal(result.pagination?.total ?? 0);
     } catch (err) {
-        console.error('loadAttendanceList:', err);
-        showHrmToast(err.message || 'Failed to load attendance.', 'error');
-        tbody.innerHTML = hrmRegisterErrorRow('Failed to load. Click Refresh to retry.');
+        hrmHandleLoadError(err, { context: 'loadAttendanceList' });
+        tbody.innerHTML = hrmRegisterErrorRow();
     }
 }
 
@@ -1396,6 +1478,7 @@ async function clockOutFromRegister(staffId, staffUsername, date, staffType = 'a
         if (result.success) {
             showHrmToast(result.message || 'Clocked out successfully.', 'success');
             await loadAttendanceList();
+            await invalidateHrmAttendanceMetrics();
         } else {
             showHrmToast(result.message || 'Failed to clock out.', 'error');
         }
@@ -1453,23 +1536,18 @@ async function saveAttendance() {
     if (saveBtn) saveBtn.disabled = true;
 
     try {
-        const res = await fetch('/api/admin/hrm/attendance/mark', {
+        const { result } = await hrmFetchJson('/api/admin/hrm/attendance/mark', {
             method: 'POST',
             headers: hrmAuthHeaders(true),
             body: JSON.stringify(payload)
         });
-        const result = await res.json();
 
-        if (result.success) {
-            showAdminSuccess('Attendance Saved', result.message || 'Attendance recorded.');
-            closeMarkAttendanceModal();
-            await loadAttendanceList();
-        } else {
-            showToast(result.message || 'Failed to save attendance.', 'error');
-        }
+        showAdminSuccess('Attendance Saved', result.message || 'Attendance recorded.');
+        closeMarkAttendanceModal();
+        await loadAttendanceList();
+        await invalidateHrmAttendanceMetrics();
     } catch (err) {
-        console.error('saveAttendance:', err);
-        showToast('Server error while saving attendance.', 'error');
+        showToast(err.message || 'Server error while saving attendance.', 'error');
     } finally {
         if (saveBtn) saveBtn.disabled = false;
     }
@@ -1540,7 +1618,10 @@ function applyAttendanceSettingsToForm(data = {}) {
 
 async function loadAttendanceSettings() {
     try {
-        const { result } = await hrmFetchJson('/api/admin/settings/attendance', { headers: hrmAuthHeaders() });
+        const { result } = await hrmFetchJson('/api/admin/settings/attendance', {
+            headers: hrmAuthHeaders(),
+            silent: true
+        });
         if (result.data) applyAttendanceSettingsToForm(result.data);
     } catch (err) {
         console.warn('loadAttendanceSettings:', err.message);
@@ -1567,15 +1648,11 @@ async function saveAttendanceSettings() {
     }
 
     try {
-        const res = await fetch('/api/admin/settings/attendance', {
+        const { result } = await hrmFetchJson('/api/admin/settings/attendance', {
             method: 'PUT',
             headers: hrmAuthHeaders(true),
             body: JSON.stringify(payload)
         });
-        const result = await res.json();
-        if (!res.ok || !result.success) {
-            throw new Error(result.message || `Server error: ${res.status}`);
-        }
         applyAttendanceSettingsToForm(result.data || payload);
         showHrmToast('Attendance settings saved.', 'success');
     } catch (err) {
@@ -1626,9 +1703,8 @@ async function loadShifts() {
             </tr>
         `).join('');
     } catch (err) {
-        console.error('loadShifts:', err);
-        showHrmToast(err.message || 'Failed to load shifts.', 'error');
-        tbody.innerHTML = '<tr><td colspan="7" class="table-status-error">Failed to load. Click Refresh to retry.</td></tr>';
+        hrmHandleLoadError(err, { context: 'loadShifts' });
+        tbody.innerHTML = hrmTableErrorRow(7);
     }
 }
 
@@ -1712,23 +1788,17 @@ async function saveShift() {
     if (saveBtn) saveBtn.disabled = true;
 
     try {
-        const res = await fetch(id ? `/api/admin/hrm/shifts/${id}` : '/api/admin/hrm/shifts', {
+        const { result } = await hrmFetchJson(id ? `/api/admin/hrm/shifts/${id}` : '/api/admin/hrm/shifts', {
             method: id ? 'PATCH' : 'POST',
             headers: hrmAuthHeaders(true),
             body: JSON.stringify(payload)
         });
-        const result = await res.json();
 
-        if (result.success) {
-            showAdminSuccess(id ? 'Shift Updated' : 'Shift Created', result.message || 'Saved.');
-            closeShiftModal();
-            await loadShifts();
-        } else {
-            showToast(result.message || 'Failed to save shift.', 'error');
-        }
+        showAdminSuccess(id ? 'Shift Updated' : 'Shift Created', result.message || 'Saved.');
+        closeShiftModal();
+        await loadShifts();
     } catch (err) {
-        console.error('saveShift:', err);
-        showToast('Server error while saving shift.', 'error');
+        showToast(err.message || 'Server error while saving shift.', 'error');
     } finally {
         if (saveBtn) saveBtn.disabled = false;
     }
@@ -1737,21 +1807,15 @@ async function saveShift() {
 function deleteShift(id) {
     showCustomConfirm('Delete Shift', 'Are you sure you want to delete this shift?', async () => {
         try {
-            const res = await fetch(`/api/admin/hrm/shifts/${id}`, {
+            const { result } = await hrmFetchJson(`/api/admin/hrm/shifts/${id}`, {
                 method: 'DELETE',
                 headers: hrmAuthHeaders()
             });
-            const result = await res.json();
 
-            if (result.success) {
-                showAdminSuccess('Shift Deleted', result.message || 'Shift removed.');
-                await loadShifts();
-            } else {
-                showToast(result.message || 'Failed to delete shift.', 'error');
-            }
+            showAdminSuccess('Shift Deleted', result.message || 'Shift removed.');
+            await loadShifts();
         } catch (err) {
-            console.error('deleteShift:', err);
-            showToast('Failed to delete shift.', 'error');
+            showToast(err.message || 'Failed to delete shift.', 'error');
         }
     }, 'danger');
 }
@@ -1790,9 +1854,8 @@ async function loadLateReport() {
             </tr>
         `).join('');
     } catch (err) {
-        console.error('loadLateReport:', err);
-        showHrmToast(err.message || 'Failed to load late report.', 'error');
-        tbody.innerHTML = '<tr><td colspan="5" class="table-status-error">Failed to load. Click Refresh to retry.</td></tr>';
+        hrmHandleLoadError(err, { context: 'loadLateReport' });
+        tbody.innerHTML = hrmTableErrorRow(5);
     }
 }
 
@@ -1813,15 +1876,11 @@ async function loadHrmAttendanceSection() {
     applyAttendanceTabPermissions();
     applyPermissionGating(document.getElementById('view-hrm-attendance'));
 
-    const staffOptionLoads = [];
     if (typeof window.hasAdminPermission === 'function' && window.hasAdminPermission('view_shifts')) {
-        staffOptionLoads.push(loadAttendanceSettings());
+        await loadAttendanceSettings();
     }
     if (typeof window.hasAdminPermission === 'function' && window.hasAdminPermission('manage_staff')) {
-        staffOptionLoads.push(hrmLoadStaffOptions(['hrmAttendanceStaffFilter']));
-    }
-    if (staffOptionLoads.length) {
-        await Promise.all(staffOptionLoads);
+        await hrmLoadStaffOptions(['hrmAttendanceStaffFilter']);
     }
 
     const pendingStaff = window.hrmPendingAttendanceStaff;
@@ -1838,6 +1897,8 @@ async function loadHrmAttendanceSection() {
 
     const dailyDate = document.getElementById('dailySheetDate');
     if (dailyDate && !dailyDate.value) dailyDate.value = hrmTodayInputValue();
+
+    await refreshTodayAttendanceStats();
 
     if (typeof window.hasAdminPermission === 'function' && window.hasAdminPermission('view_daily_sheet')) {
         await loadDailySheet();
@@ -1867,7 +1928,11 @@ function setupHrmAttendanceSection() {
     const refreshBtn = document.getElementById('attendanceRefreshBtn');
     if (refreshBtn && !refreshBtn.dataset.bound) {
         refreshBtn.dataset.bound = '1';
-        refreshBtn.addEventListener('click', loadAttendanceList);
+        refreshBtn.addEventListener('click', () => {
+            refreshActiveHrmAttendanceTab().catch((err) => {
+                console.error('refreshActiveHrmAttendanceTab:', err);
+            });
+        });
     }
 }
 
@@ -1883,6 +1948,7 @@ Object.assign(window, {
     hrmFormatTime,
     hrmFormatMoney,
     hrmTodayInputValue,
+    hrmPlatformTimezone,
     hrmFillMonthSelect,
     hrmFillYearInput,
     hrmLoadStaffOptions,
@@ -1923,3 +1989,6 @@ window.saveManualEntry = saveManualEntry;
 window.setDailySheetTimeNow = setDailySheetTimeNow;
 window.saveAttendanceSettings = saveAttendanceSettings;
 window.clockOutFromRegister = clockOutFromRegister;
+window.refreshActiveHrmAttendanceTab = refreshActiveHrmAttendanceTab;
+window.refreshTodayAttendanceStats = refreshTodayAttendanceStats;
+window.invalidateHrmAttendanceMetrics = invalidateHrmAttendanceMetrics;

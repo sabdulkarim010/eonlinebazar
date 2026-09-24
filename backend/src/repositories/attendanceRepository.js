@@ -14,6 +14,10 @@
 
 const prisma = require('../config/prismaClient');
 const {
+  normalizeAttendanceDate,
+  formatAttendanceDateKey
+} = require('../utils/attendanceDate');
+const {
   resolveStaffSubject,
   staffFields,
   parseStaffSelector
@@ -32,10 +36,7 @@ function computeHoursWorked(clockIn, clockOut, existingHoursWorked = 0) {
 }
 
 function normalizeDate(input) {
-  const d = input ? new Date(input) : new Date();
-  if (Number.isNaN(d.getTime())) return null;
-  d.setHours(0, 0, 0, 0);
-  return d;
+  return normalizeAttendanceDate(input);
 }
 
 function parseShiftMinutes(value) {
@@ -70,13 +71,7 @@ function toStatusEnum(value) {
 }
 
 function formatDateKey(input) {
-  const raw = String(input || '').trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-
-  const d = normalizeDate(input);
-  if (!d) return null;
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return formatAttendanceDateKey(input);
 }
 
 function combineDateAndTime(dateNormalized, timeStr) {

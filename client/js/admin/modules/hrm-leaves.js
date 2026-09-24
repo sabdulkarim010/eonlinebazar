@@ -8,6 +8,13 @@
 // STANDARD: Use Swal.fire() for ALL confirmations.
 // Never use confirm(), alert(), or window.confirm().
 import '../admin-core.js';
+import {
+    hrmFetchJson,
+    hrmHandleLoadError,
+    hrmTableErrorRow,
+    HRM_INLINE_LOAD_ERROR,
+    hrmEscapeInline
+} from './hrm-api.js';
 
 const LEAVE_STATUS_CLASSES = {
     pending: 'status-pending',
@@ -95,10 +102,9 @@ async function loadPendingLeaves() {
     tbody.innerHTML = '<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading pending leaves…</p></td></tr>';
 
     try {
-        const res = await fetch('/api/admin/hrm/leaves?status=pending&limit=100', {
+        const { result } = await hrmFetchJson('/api/admin/hrm/leaves?status=pending&limit=100', {
             headers: window.hrmAuthHeaders()
         });
-        const result = await res.json();
         const rows = result.data || [];
 
         updatePendingBadge(result.pendingCount);
@@ -135,31 +141,25 @@ async function loadPendingLeaves() {
             window.applyPermissionGating(document.getElementById('view-hrm-leaves'));
         }
     } catch (err) {
-        console.error('loadPendingLeaves:', err);
-        tbody.innerHTML = '<tr><td colspan="6" class="table-status-error">Failed to load pending leaves.</td></tr>';
+        hrmHandleLoadError(err, { context: 'loadPendingLeaves' });
+        tbody.innerHTML = hrmTableErrorRow(6);
     }
 }
 
 function approveLeave(id) {
     showCustomConfirm('Approve Leave', 'Approve this leave? The days will be marked as holiday on the attendance register.', async () => {
         try {
-            const res = await fetch(`/api/admin/hrm/leaves/${id}/approve`, {
+            const { result } = await hrmFetchJson(`/api/admin/hrm/leaves/${id}/approve`, {
                 method: 'PATCH',
                 headers: window.hrmAuthHeaders(true),
                 body: JSON.stringify({})
             });
-            const result = await res.json();
 
-            if (result.success) {
-                showAdminSuccess('Leave Approved', result.message || 'Leave approved.');
-                await loadPendingLeaves();
-                await loadLeaveBalances();
-            } else {
-                showToast(result.message || 'Failed to approve leave.', 'error');
-            }
+            showAdminSuccess('Leave Approved', result.message || 'Leave approved.');
+            await loadPendingLeaves();
+            await loadLeaveBalances();
         } catch (err) {
-            console.error('approveLeave:', err);
-            showToast('Failed to approve leave.', 'error');
+            showToast(err.message || 'Failed to approve leave.', 'error');
         }
     });
 }
@@ -182,22 +182,16 @@ async function rejectLeave(id) {
     const reason = String(result.value || '').trim();
 
     try {
-        const res = await fetch(`/api/admin/hrm/leaves/${id}/reject`, {
+        const { result } = await hrmFetchJson(`/api/admin/hrm/leaves/${id}/reject`, {
             method: 'PATCH',
             headers: window.hrmAuthHeaders(true),
             body: JSON.stringify({ rejectionReason: reason })
         });
-        const result = await res.json();
 
-        if (result.success) {
-            showAdminSuccess('Leave Rejected', result.message || 'Leave rejected.');
-            await loadPendingLeaves();
-        } else {
-            showToast(result.message || 'Failed to reject leave.', 'error');
-        }
+        showAdminSuccess('Leave Rejected', result.message || 'Leave rejected.');
+        await loadPendingLeaves();
     } catch (err) {
-        console.error('rejectLeave:', err);
-        showToast('Failed to reject leave.', 'error');
+        showToast(err.message || 'Failed to reject leave.', 'error');
     }
 }
 
@@ -226,10 +220,9 @@ async function loadAllLeaves() {
     if (leaveType) params.set('leaveType', leaveType);
 
     try {
-        const res = await fetch(`/api/admin/hrm/leaves?${params.toString()}`, {
+        const { result } = await hrmFetchJson(`/api/admin/hrm/leaves?${params.toString()}`, {
             headers: window.hrmAuthHeaders()
         });
-        const result = await res.json();
         const rows = result.data || [];
 
         if (!rows.length) {
@@ -259,8 +252,8 @@ async function loadAllLeaves() {
         `).join('');
         initLeavePg()?.setTotal(result.pagination?.total ?? 0);
     } catch (err) {
-        console.error('loadAllLeaves:', err);
-        tbody.innerHTML = '<tr><td colspan="7" class="table-status-error">Failed to load leave applications.</td></tr>';
+        hrmHandleLoadError(err, { context: 'loadAllLeaves' });
+        tbody.innerHTML = hrmTableErrorRow(7);
     }
 }
 
@@ -275,10 +268,9 @@ async function loadLeaveBalances() {
     grid.innerHTML = '<p class="table-status-empty">Loading leave balances…</p>';
 
     try {
-        const res = await fetch(leaveBalanceApiPath(), {
+        const { result } = await hrmFetchJson(leaveBalanceApiPath(), {
             headers: window.hrmAuthHeaders()
         });
-        const result = await res.json();
         const rows = result.data || [];
 
         if (!rows.length) {
@@ -301,8 +293,8 @@ async function loadLeaveBalances() {
             </div>
         `).join('');
     } catch (err) {
-        console.error('loadLeaveBalances:', err);
-        grid.innerHTML = '<p class="table-status-error">Failed to load leave balances.</p>';
+        hrmHandleLoadError(err, { context: 'loadLeaveBalances' });
+        grid.innerHTML = `<p class="table-status-error">${hrmEscapeInline(HRM_INLINE_LOAD_ERROR)}</p>`;
     }
 }
 
@@ -320,10 +312,9 @@ async function loadLeaveCalendar() {
     const year = Number(document.getElementById('hrmLeaveCalendarYear')?.value) || new Date().getFullYear();
 
     try {
-        const res = await fetch(`/api/admin/hrm/leaves/calendar?month=${month}&year=${year}`, {
+        const { result } = await hrmFetchJson(`/api/admin/hrm/leaves/calendar?month=${month}&year=${year}`, {
             headers: window.hrmAuthHeaders()
         });
-        const result = await res.json();
         const days = result.data || {};
         const daysInMonth = result.period?.daysInMonth || new Date(year, month, 0).getDate();
 
@@ -357,8 +348,8 @@ async function loadLeaveCalendar() {
             <div class="hrm-calendar-grid">${header}${blanks}${cells}</div>
         `;
     } catch (err) {
-        console.error('loadLeaveCalendar:', err);
-        grid.innerHTML = '<p class="table-status-error">Failed to load the leave calendar.</p>';
+        hrmHandleLoadError(err, { context: 'loadLeaveCalendar' });
+        grid.innerHTML = `<p class="table-status-error">${hrmEscapeInline(HRM_INLINE_LOAD_ERROR)}</p>`;
     }
 }
 
@@ -436,26 +427,20 @@ async function submitLeaveApplication() {
         const endpoint = applyLeaveSelfMode
             ? '/api/admin/hrm/leaves/apply-own'
             : '/api/admin/hrm/leaves/apply';
-        const res = await fetch(endpoint, {
+        const { result } = await hrmFetchJson(endpoint, {
             method: 'POST',
             headers: window.hrmAuthHeaders(true),
             body: JSON.stringify(payload)
         });
-        const result = await res.json();
 
-        if (result.success) {
-            showAdminSuccess('Leave Submitted', result.message || 'Leave application submitted.');
-            closeApplyLeaveModal();
-            if (!applyLeaveSelfMode) {
-                await loadPendingLeaves();
-            }
-            await loadLeaveBalances();
-        } else {
-            showToast(result.message || 'Failed to submit leave application.', 'error');
+        showAdminSuccess('Leave Submitted', result.message || 'Leave application submitted.');
+        closeApplyLeaveModal();
+        if (!applyLeaveSelfMode) {
+            await loadPendingLeaves();
         }
+        await loadLeaveBalances();
     } catch (err) {
-        console.error('submitLeaveApplication:', err);
-        showToast('Server error while submitting the leave application.', 'error');
+        showToast(err.message || 'Server error while submitting the leave application.', 'error');
     } finally {
         if (saveBtn) saveBtn.disabled = false;
     }

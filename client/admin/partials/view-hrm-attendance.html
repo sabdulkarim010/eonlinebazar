@@ -65,41 +65,46 @@
 
     <!-- TAB: Daily Sheet -->
     <div id="hrm-tab-daily-sheet" class="hrm-panel">
-        <div class="hrm-filter-bar hrm-daily-sheet-toolbar">
-            <div class="att-filter-row">
-                <div class="att-filter-item">
-                    <label for="dailySheetDate">Date</label>
-                    <input type="date" id="dailySheetDate">
+        <div class="hrm-daily-sheet-toolbar">
+            <div class="hrm-daily-sheet-toolbar__main">
+                <div class="hrm-daily-sheet-toolbar__filters">
+                    <div class="att-filter-item">
+                        <label for="dailySheetDate">Date</label>
+                        <input type="date" id="dailySheetDate">
+                    </div>
+                    <div class="att-filter-item">
+                        <label for="dailySheetDept">Department</label>
+                        <select id="dailySheetDept">
+                            <option value="">All departments</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="att-filter-item">
-                    <label for="dailySheetDept">Department</label>
-                    <select id="dailySheetDept">
-                        <option value="">All departments</option>
-                    </select>
+                <div class="hrm-daily-sheet-toolbar__actions">
+                    <div class="hrm-daily-sheet-toolbar__bulk">
+                        <button type="button" id="dailySheetRefreshBtn" class="btn-outline-sm hrm-toolbar-btn">
+                            <i class="fa-solid fa-rotate"></i> Refresh
+                        </button>
+                        <button type="button" id="dailySheetMarkAllPresentBtn" class="btn-success-sm hrm-toolbar-btn" data-permission="mark_attendance_today">
+                            <i class="fa-solid fa-check"></i> All Present
+                        </button>
+                        <button type="button" id="dailySheetMarkAllAbsentBtn" class="btn-danger-sm hrm-toolbar-btn" data-permission="mark_attendance_today">
+                            <i class="fa-solid fa-xmark"></i> All Absent
+                        </button>
+                    </div>
+                    <div class="date-lock-controls" id="dailySheetLockBar">
+                        <span id="dailySheetLockStatus" class="att-lock-status att-lock-status--open">🔓 Unlocked</span>
+                        <button type="button" id="dailySheetLockBtn" class="btn-outline-sm hrm-toolbar-btn" data-permission="lock_attendance_dates" hidden>
+                            <i class="fa-solid fa-lock"></i> Lock Date
+                        </button>
+                        <button type="button" id="dailySheetUnlockBtn" class="btn-outline-sm hrm-toolbar-btn" data-permission="lock_attendance_dates" hidden>
+                            <i class="fa-solid fa-lock-open"></i> Unlock
+                        </button>
+                    </div>
                 </div>
             </div>
-            <div id="dailySheetPastDateBanner" class="att-lock-status att-lock-status--open hrm-past-date-banner" hidden>
-                ⚠️ Past date — view only. Contact HR to make changes.
-            </div>
-        </div>
-        <div class="daily-sheet-actions">
-            <button type="button" id="dailySheetRefreshBtn" class="btn-outline-sm">
-                ↻ Refresh
-            </button>
-            <button type="button" id="dailySheetMarkAllPresentBtn" class="btn-success-sm" data-permission="mark_attendance_today">
-                ✓ All Present
-            </button>
-            <button type="button" id="dailySheetMarkAllAbsentBtn" class="btn-danger-sm" data-permission="mark_attendance_today">
-                ✗ All Absent
-            </button>
-            <div class="date-lock-controls" id="dailySheetLockBar">
-                <span id="dailySheetLockStatus" class="att-lock-status att-lock-status--open">🔓 Unlocked</span>
-                <button type="button" id="dailySheetLockBtn" class="btn-outline-sm" data-permission="lock_attendance_dates" hidden>
-                    🔒 Lock Date
-                </button>
-                <button type="button" id="dailySheetUnlockBtn" class="btn-outline-sm" data-permission="lock_attendance_dates" hidden>
-                    🔓 Unlock
-                </button>
+            <div id="dailySheetPastDateBanner" class="hrm-daily-sheet-toolbar__banner att-lock-status att-lock-status--open" hidden>
+                <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                Past date — view only. Contact HR to make changes.
             </div>
         </div>
 

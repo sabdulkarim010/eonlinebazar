@@ -18,6 +18,7 @@ import './modules/settings-2fa.js';
 import './modules/settings-reviews.js';
 import './modules/settings-staff-audit.js';
 import './modules/activity-feed.js';
+import './modules/hrm-api.js';
 import './modules/hrm-attendance.js';
 import './modules/hrm-employees.js';
 import './modules/hrm-payroll.js';

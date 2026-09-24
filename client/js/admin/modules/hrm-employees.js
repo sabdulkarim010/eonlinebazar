@@ -5,6 +5,7 @@
 // STANDARD: Use Swal.fire() for ALL confirmations.
 // Never use confirm(), alert(), or window.confirm().
 import '../admin-core.js';
+import { hrmFetchJson, hrmFetchBlob, hrmHandleLoadError, hrmTableErrorRow } from './hrm-api.js';
 
 const EMPLOYEE_STATUS_CLASSES = {
     active: 'status-verified',
@@ -142,11 +143,13 @@ function renderEmployeeStats(stats) {
 
 async function loadEmployeeStats() {
     try {
-        const res = await fetch('/api/admin/hrm/employees/stats', { headers: employeeAuthHeaders() });
-        const result = await res.json();
+        const { result } = await hrmFetchJson('/api/admin/hrm/employees/stats', {
+            headers: employeeAuthHeaders(),
+            silent: true
+        });
         if (result.success) renderEmployeeStats(result.data);
     } catch (err) {
-        console.error('loadEmployeeStats:', err);
+        console.warn('loadEmployeeStats:', err.message);
     }
 }
 
@@ -211,11 +214,13 @@ function renderEmployeeTable(rows) {
 async function fetchEmployeeAccessInfo(employeeId) {
     if (!employeeId) return { isSuperAdmin: false };
     try {
-        const res = await fetch(`/api/admin/hrm/employees/${employeeId}/access-info`, {
-            headers: employeeAuthHeaders()
+        const { result } = await hrmFetchJson(`/api/admin/hrm/employees/${employeeId}/access-info`, {
+            headers: employeeAuthHeaders(),
+            silent: true,
+            throwOnHttpError: false
         });
-        if (!res.ok) return { isSuperAdmin: false };
-        return await res.json();
+        if (!result || result.success === false) return { isSuperAdmin: false };
+        return result;
     } catch (err) {
         console.warn('fetchEmployeeAccessInfo:', err.message);
         return { isSuperAdmin: false };
@@ -309,13 +314,12 @@ async function wireProfileMoreTab(employee) {
             if (!result.isConfirmed) return;
 
             try {
-                const res = await fetch(`/api/admin/hrm/employees/${currentId}/deactivate`, {
+                const { result: data } = await hrmFetchJson(`/api/admin/hrm/employees/${currentId}/deactivate`, {
                     method: 'PATCH',
                     headers: employeeAuthHeaders()
                 });
-                const data = await res.json();
 
-                if (res.ok) {
+                if (data.success !== false) {
                     await swalOnTop({ title: 'Deactivated', text: data.message, icon: 'success' });
                     closeEmployeeProfileModal();
                     if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
@@ -374,14 +378,13 @@ async function wireProfileMoreTab(employee) {
             });
 
             try {
-                const res = await fetch(`/api/admin/hrm/employees/${currentId}/permanent`, {
+                const { result: data } = await hrmFetchJson(`/api/admin/hrm/employees/${currentId}/permanent`, {
                     method: 'DELETE',
                     headers: employeeAuthHeaders(true),
                     body: JSON.stringify({ adminPassword: pwResult.value })
                 });
-                const data = await res.json();
 
-                if (res.ok) {
+                if (data.success !== false) {
                     await swalOnTop({
                         title: 'Deleted!',
                         text: data.message,
@@ -418,15 +421,9 @@ async function exportEmployeesCsvReport() {
         if (status) params.set('status', status);
 
         const qs = params.toString() ? `?${params.toString()}` : '';
-        const res = await fetch(`/api/admin/hrm/employees/export${qs}`, {
+        const blob = await hrmFetchBlob(`/api/admin/hrm/employees/export${qs}`, {
             headers: employeeAuthHeaders()
         });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            showToast(err.message || 'Could not export employees.', 'error');
-            return;
-        }
-        const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -437,8 +434,7 @@ async function exportEmployeesCsvReport() {
         URL.revokeObjectURL(url);
         showToast('Employees CSV downloaded.', 'success');
     } catch (err) {
-        console.error('exportEmployeesCsvReport:', err);
-        showToast('Could not reach the server.', 'error');
+        hrmHandleLoadError(err, { context: 'exportEmployeesCsvReport' });
     }
 }
 
@@ -470,13 +466,12 @@ async function loadEmployees() {
     if (search) params.set('search', search);
 
     try {
-        const res = await fetch(`/api/admin/hrm/employees?${params}`, { headers: employeeAuthHeaders() });
-        const result = await res.json();
+        const { result } = await hrmFetchJson(`/api/admin/hrm/employees?${params}`, { headers: employeeAuthHeaders() });
         renderEmployeeTable(result.data || []);
         initEmployeePg()?.setTotal(result.pagination?.total ?? 0);
     } catch (err) {
-        console.error('loadEmployees:', err);
-        tbody.innerHTML = '<tr><td colspan="10" class="table-status-error">Failed to load employees.</td></tr>';
+        hrmHandleLoadError(err, { context: 'loadEmployees' });
+        tbody.innerHTML = hrmTableErrorRow(10);
     }
 }
 
@@ -486,8 +481,10 @@ async function loadEmployees() {
 
 async function loadDesignationsDropdown() {
     try {
-        const res = await fetch('/api/admin/hrm/designations?activeOnly=true', { headers: employeeAuthHeaders() });
-        const result = await res.json();
+        const { result } = await hrmFetchJson('/api/admin/hrm/designations?activeOnly=true', {
+            headers: employeeAuthHeaders(),
+            silent: true
+        });
         designationCache = result.data || [];
 
         const select = document.getElementById('employeeDesignation');
@@ -508,8 +505,10 @@ async function loadDesignationsDropdown() {
 
 async function loadShiftsDropdown() {
     try {
-        const res = await fetch('/api/admin/hrm/shifts', { headers: employeeAuthHeaders() });
-        const result = await res.json();
+        const { result } = await hrmFetchJson('/api/admin/hrm/shifts', {
+            headers: employeeAuthHeaders(),
+            silent: true
+        });
         shiftCache = result.data || [];
 
         const select = document.getElementById('employeeShift');
@@ -543,8 +542,7 @@ async function renderDesignationTable() {
     tbody.innerHTML = '<tr><td colspan="4" class="loading-container"><div class="spinner"></div></td></tr>';
 
     try {
-        const res = await fetch('/api/admin/hrm/designations', { headers: employeeAuthHeaders() });
-        const result = await res.json();
+        const { result } = await hrmFetchJson('/api/admin/hrm/designations', { headers: employeeAuthHeaders() });
         const rows = result.data || [];
         designationCache = rows;
 
@@ -571,8 +569,8 @@ async function renderDesignationTable() {
             </tr>
         `).join('');
     } catch (err) {
-        console.error('renderDesignationTable:', err);
-        tbody.innerHTML = '<tr><td colspan="4" class="table-status-error">Failed to load designations.</td></tr>';
+        hrmHandleLoadError(err, { context: 'renderDesignationTable' });
+        tbody.innerHTML = hrmTableErrorRow(4);
     }
 }
 
@@ -586,14 +584,13 @@ async function addDesignation() {
     }
 
     try {
-        const res = await fetch('/api/admin/hrm/designations', {
+        const { result } = await hrmFetchJson('/api/admin/hrm/designations', {
             method: 'POST',
             headers: employeeAuthHeaders(true),
             body: JSON.stringify({ name, department })
         });
-        const result = await res.json();
 
-        if (result.success) {
+        if (result.success !== false) {
             showAdminSuccess('Designation Added', result.message || 'Saved.');
             document.getElementById('newDesignationName').value = '';
             await renderDesignationTable();
@@ -602,8 +599,7 @@ async function addDesignation() {
             showToast(result.message || 'Failed to add designation.', 'error');
         }
     } catch (err) {
-        console.error('addDesignation:', err);
-        showToast('Failed to add designation.', 'error');
+        hrmHandleLoadError(err, { context: 'addDesignation' });
     }
 }
 
@@ -620,14 +616,13 @@ async function saveDesignationEdit(id) {
     }
 
     try {
-        const res = await fetch(`/api/admin/hrm/designations/${id}`, {
+        const { result } = await hrmFetchJson(`/api/admin/hrm/designations/${id}`, {
             method: 'PATCH',
             headers: employeeAuthHeaders(true),
             body: JSON.stringify({ name, department })
         });
-        const result = await res.json();
 
-        if (result.success) {
+        if (result.success !== false) {
             showToast('Designation updated.', 'success');
             await renderDesignationTable();
             await loadDesignationsDropdown();
@@ -643,13 +638,12 @@ async function saveDesignationEdit(id) {
 
 async function deleteDesignation(id) {
     try {
-        const res = await fetch(`/api/admin/hrm/designations/${id}`, {
+        const { result } = await hrmFetchJson(`/api/admin/hrm/designations/${id}`, {
             method: 'DELETE',
             headers: employeeAuthHeaders()
         });
-        const result = await res.json();
 
-        if (result.success) {
+        if (result.success !== false) {
             showAdminSuccess('Designation Deleted', result.message || 'Removed.');
             await renderDesignationTable();
             await loadDesignationsDropdown();
@@ -678,14 +672,13 @@ async function submitQuickDesignation() {
     if (!name) return;
 
     try {
-        const res = await fetch('/api/admin/hrm/designations', {
+        const { result } = await hrmFetchJson('/api/admin/hrm/designations', {
             method: 'POST',
             headers: employeeAuthHeaders(true),
             body: JSON.stringify({ name, department })
         });
-        const result = await res.json();
 
-        if (result.success) {
+        if (result.success !== false) {
             closeQuickAddDesignation();
             await loadDesignationsDropdown();
             const select = document.getElementById('employeeDesignation');
@@ -892,9 +885,8 @@ async function openAddEmployeeModal() {
 async function openEditEmployeeModal(id) {
     closeEmployeeProfileModal();
     try {
-        const res = await fetch(`/api/admin/hrm/employees/${id}`, { headers: employeeAuthHeaders() });
-        const result = await res.json();
-        if (!result.success || !result.data) {
+        const { result } = await hrmFetchJson(`/api/admin/hrm/employees/${id}`, { headers: employeeAuthHeaders() });
+        if (!result.data) {
             showToast(result.message || 'Employee not found.', 'error');
             return;
         }
@@ -935,12 +927,12 @@ async function uploadEmployeePhoto(id, file) {
     const formData = new FormData();
     formData.append('photo', file);
 
-    const res = await fetch(`/api/admin/hrm/employees/${id}/photo`, {
+    const { result } = await hrmFetchJson(`/api/admin/hrm/employees/${id}/photo`, {
         method: 'POST',
         headers: { Authorization: employeeAuthHeaders().Authorization },
         body: formData
     });
-    return res.json();
+    return result;
 }
 
 function ensureEmployeeSaveErrorEl(saveBtn) {
@@ -986,21 +978,11 @@ async function saveEmployee() {
     }
 
     try {
-        const res = await fetch(id ? `/api/admin/hrm/employees/${id}` : '/api/admin/hrm/employees', {
+        const { result } = await hrmFetchJson(id ? `/api/admin/hrm/employees/${id}` : '/api/admin/hrm/employees', {
             method: id ? 'PATCH' : 'POST',
             headers: employeeAuthHeaders(true),
             body: JSON.stringify(payload)
         });
-        const result = await res.json();
-
-        if (!result.success) {
-            if (saveBtn) {
-                saveBtn.disabled = false;
-                saveBtn.textContent = defaultLabel;
-            }
-            setEmployeeSaveError(result.message || 'Failed to save employee.');
-            return;
-        }
 
         const savedId = id || result.data?._id;
 
@@ -1035,12 +1017,12 @@ async function saveEmployee() {
             }
         }, 1000);
     } catch (err) {
-        console.error('saveEmployee:', err);
+        hrmHandleLoadError(err, { context: 'saveEmployee' });
         if (saveBtn) {
             saveBtn.disabled = false;
             saveBtn.textContent = defaultLabel;
         }
-        setEmployeeSaveError('Server error while saving employee.');
+        setEmployeeSaveError(err.message || 'Server error while saving employee.');
     }
 }
 
@@ -1242,10 +1224,9 @@ async function openEmployeeProfile(id) {
     window._activeProfileEmployeeId = id;
 
     try {
-        const res = await fetch(`/api/admin/hrm/employees/${id}/profile`, { headers: employeeAuthHeaders() });
-        const result = await res.json();
+        const { result } = await hrmFetchJson(`/api/admin/hrm/employees/${id}/profile`, { headers: employeeAuthHeaders() });
 
-        if (!result.success || !result.data) {
+        if (!result.data) {
             showToast(result.message || 'Profile not found.', 'error');
             return;
         }
@@ -1341,14 +1322,13 @@ async function submitEmployeeDocument() {
     if (btn) btn.disabled = true;
 
     try {
-        const res = await fetch(`/api/admin/hrm/employees/${employeeId}/documents`, {
+        const { result } = await hrmFetchJson(`/api/admin/hrm/employees/${employeeId}/documents`, {
             method: 'POST',
             headers: { Authorization: employeeAuthHeaders().Authorization },
             body: formData
         });
-        const result = await res.json();
 
-        if (result.success) {
+        if (result.success !== false) {
             showAdminSuccess('Document Uploaded', result.message || 'Saved.');
             closeDocumentUploadModal();
             renderProfileDocuments(result.data);
@@ -1367,13 +1347,12 @@ async function submitEmployeeDocument() {
 async function deleteDocument(employeeId, docId) {
     confirmAdminAction('Remove this document?', async () => {
         try {
-            const res = await fetch(`/api/admin/hrm/employees/${employeeId}/documents/${docId}`, {
+            const { result } = await hrmFetchJson(`/api/admin/hrm/employees/${employeeId}/documents/${docId}`, {
                 method: 'DELETE',
                 headers: employeeAuthHeaders()
             });
-            const result = await res.json();
 
-            if (result.success) {
+            if (result.success !== false) {
                 showToast('Document removed.', 'success');
                 renderProfileDocuments(result.data);
                 if (activeProfileData) activeProfileData.documents = result.data;
@@ -1412,14 +1391,13 @@ async function toggleEmployeeStatus(id, currentStatus) {
     if (!proceed) return;
 
     try {
-        const res = await fetch(`/api/admin/hrm/employees/${id}`, {
+        const { result } = await hrmFetchJson(`/api/admin/hrm/employees/${id}`, {
             method: 'PATCH',
             headers: employeeAuthHeaders(true),
             body: JSON.stringify({ status: reactivating ? 'active' : 'terminated' })
         });
-        const result = await res.json();
 
-        if (result.success) {
+        if (result.success !== false) {
             if (typeof Swal !== 'undefined') {
                 swalOnTop({
                     icon: 'success',
@@ -1447,13 +1425,12 @@ async function toggleEmployeeStatus(id, currentStatus) {
 async function terminateEmployee(id) {
     confirmAdminAction('Terminate this employee? Their status will be set to terminated.', async () => {
         try {
-            const res = await fetch(`/api/admin/hrm/employees/${id}`, {
+            const { result } = await hrmFetchJson(`/api/admin/hrm/employees/${id}`, {
                 method: 'DELETE',
                 headers: employeeAuthHeaders()
             });
-            const result = await res.json();
 
-            if (result.success) {
+            if (result.success !== false) {
                 showAdminSuccess('Employee Terminated', result.message || 'Employee terminated.');
                 closeEmployeeProfileModal();
                 if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();

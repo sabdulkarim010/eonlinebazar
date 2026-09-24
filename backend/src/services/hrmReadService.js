@@ -11,6 +11,7 @@ const mongoose = require('mongoose');
 const Admin = require('../models/admin');
 const Employee = require('../models/employee');
 const Attendance = require('../models/attendance');
+const { iteratePlatformDateKeys } = require('../utils/attendanceDate');
 const Payroll = require('../models/payroll');
 const Leave = require('../models/leave');
 const Shift = require('../models/shift');
@@ -825,15 +826,12 @@ async function fetchLeaveCalendar({ month, year, statusQuery }) {
         endDate: { $gte: monthStart }
       }).lean();
 
+      const monthStartKey = `${y}-${String(m).padStart(2, '0')}-01`;
+      const monthEndKey = `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
       const days = {};
       leaves.forEach((leave) => {
-        const cursor = Attendance.normalizeDate(leave.startDate);
-        const last = Attendance.normalizeDate(leave.endDate);
-        if (!cursor || !last) return;
-
-        for (let day = new Date(cursor); day <= last; day.setDate(day.getDate() + 1)) {
-          if (day < monthStart || day > monthEnd) continue;
-          const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+        iteratePlatformDateKeys(leave.startDate, leave.endDate).forEach((key) => {
+          if (key < monthStartKey || key > monthEndKey) return;
           if (!days[key]) days[key] = [];
           days[key].push({
             leaveId: String(leave._id),
@@ -842,7 +840,7 @@ async function fetchLeaveCalendar({ month, year, statusQuery }) {
             leaveType: leave.leaveType,
             status: leave.status
           });
-        }
+        });
       });
       return days;
     },
@@ -852,15 +850,12 @@ async function fetchLeaveCalendar({ month, year, statusQuery }) {
       const maps = await loadStaffLegacyMaps(leaves);
       const shaped = mapLeavesToMongo(leaves, maps);
 
+      const monthStartKey = `${y}-${String(m).padStart(2, '0')}-01`;
+      const monthEndKey = `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
       const days = {};
       shaped.forEach((leave) => {
-        const cursor = Attendance.normalizeDate(leave.startDate);
-        const last = Attendance.normalizeDate(leave.endDate);
-        if (!cursor || !last) return;
-
-        for (let day = new Date(cursor); day <= last; day.setDate(day.getDate() + 1)) {
-          if (day < monthStart || day > monthEnd) continue;
-          const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+        iteratePlatformDateKeys(leave.startDate, leave.endDate).forEach((key) => {
+          if (key < monthStartKey || key > monthEndKey) return;
           if (!days[key]) days[key] = [];
           days[key].push({
             leaveId: String(leave._id),
@@ -869,7 +864,7 @@ async function fetchLeaveCalendar({ month, year, statusQuery }) {
             leaveType: leave.leaveType,
             status: leave.status
           });
-        }
+        });
       });
       return days;
     }

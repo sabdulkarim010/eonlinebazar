@@ -536,11 +536,61 @@
     word-break: break-word;
 }
 
-/* ── Daily attendance sheet ───────────────────────────────────────── */
+/* ── Daily attendance sheet — compact single-row toolbar ──────────── */
 .hrm-daily-sheet-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.hrm-daily-sheet-toolbar__main {
+    display: flex;
     align-items: flex-end;
-    flex-wrap: wrap;
+    justify-content: space-between;
     gap: 12px;
+    flex-wrap: nowrap;
+    min-height: 36px;
+}
+
+.hrm-daily-sheet-toolbar__filters {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.hrm-daily-sheet-toolbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.hrm-daily-sheet-toolbar__bulk {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hrm-daily-sheet-toolbar__banner {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    max-width: 100%;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706;
+    margin: 0;
+}
+
+.hrm-daily-sheet-toolbar__banner[hidden] {
+    display: none !important;
 }
 
 .hrm-daily-sheet-lock {
@@ -1208,13 +1258,19 @@
     color: white;
 }
 
-/* Daily Sheet toolbar — inline action row */
-.daily-sheet-actions {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    flex-wrap: wrap !important;
-    margin-bottom: 1rem !important;
+.hrm-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 32px;
+    line-height: 1;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.hrm-toolbar-btn.is-loading,
+.hrm-toolbar-btn:disabled {
+    opacity: 0.72;
+    cursor: wait;
 }
 
 .btn-outline-sm {
@@ -1228,6 +1284,11 @@
     white-space: nowrap !important;
 }
 
+.btn-outline-sm:hover:not(:disabled) {
+    background: #f9fafb !important;
+    border-color: #9ca3af !important;
+}
+
 .btn-success-sm {
     padding: 5px 12px !important;
     font-size: 12px !important;
@@ -1237,6 +1298,11 @@
     color: #059669 !important;
     cursor: pointer !important;
     white-space: nowrap !important;
+}
+
+.btn-success-sm:hover:not(:disabled) {
+    background: #d1fae5 !important;
+    border-color: #059669 !important;
 }
 
 .btn-danger-sm {
@@ -1250,12 +1316,18 @@
     white-space: nowrap !important;
 }
 
+.btn-danger-sm:hover:not(:disabled) {
+    background: #fee2e2 !important;
+    border-color: #dc2626 !important;
+}
+
 .date-lock-controls {
     display: flex !important;
     align-items: center !important;
     gap: 6px !important;
-    margin-left: auto !important;
-    flex-wrap: wrap !important;
+    flex-wrap: nowrap !important;
+    padding-left: 8px;
+    border-left: 1px solid #e5e7eb;
 }
 
 /* ── Global HRM section spacing (compact premium) ─────────────────── */
@@ -1359,17 +1431,11 @@
     font-size: 13px;
 }
 
-.att-filter-row {
-    display: flex;
-    align-items: flex-end;
-    gap: 16px;
-    margin-bottom: 8px;
-}
-
 .att-filter-item {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
+    margin: 0;
 }
 
 .att-filter-item label {
@@ -1400,16 +1466,24 @@
 }
 
 #view-hrm-attendance .hrm-daily-sheet-toolbar {
-    display: block;
     padding: 0;
-    margin-bottom: 6px;
     background: transparent;
     border: none;
 }
 
-#view-hrm-attendance .daily-sheet-actions {
-    margin: 0 0 4px !important;
-    gap: 6px !important;
+#view-hrm-attendance .hrm-daily-sheet-toolbar__main {
+    flex-wrap: wrap;
+    row-gap: 8px;
+}
+
+#view-hrm-attendance .hrm-daily-sheet-toolbar__filters .att-filter-item label {
+    font-size: 11px;
+    margin-bottom: 0;
+}
+
+#view-hrm-attendance .hrm-daily-sheet-toolbar__filters .att-filter-item input,
+#view-hrm-attendance .hrm-daily-sheet-toolbar__filters .att-filter-item select {
+    height: 32px;
     min-height: 32px;
 }
 
@@ -1422,10 +1496,34 @@
     min-height: 32px;
 }
 
+#view-hrm-attendance #attendanceRefreshBtn.is-loading,
+#view-hrm-attendance #attendanceRefreshBtn:disabled {
+    opacity: 0.72;
+    cursor: wait;
+}
+
 #view-hrm-attendance .daily-sheet-table-wrap {
-    height: calc(100vh - 280px);
+    height: calc(100vh - 268px);
     overflow-y: auto;
     min-height: 400px;
+}
+
+@media (max-width: 1100px) {
+    #view-hrm-attendance .hrm-daily-sheet-toolbar__main {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #view-hrm-attendance .hrm-daily-sheet-toolbar__actions {
+        margin-left: 0;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+
+    #view-hrm-attendance .date-lock-controls {
+        border-left: none;
+        padding-left: 0;
+    }
 }
 
 #view-hrm-attendance .hrm-daily-sheet-table tbody tr {

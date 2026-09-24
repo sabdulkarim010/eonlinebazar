@@ -2789,3 +2789,38 @@ docs/audit/SETTINGS_AUDIT.md [MOD] mark sidebar label fixes complete
 docs/audit/AUTH_SECURITY_AUDIT.md [MOD] batch API + Mongo fallback
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] sidebar label status ✅
 README.md [MOD] last updated
+
+# HRM Phase 1 — Data Sync & Tab-Aware Refresh — 2026-09-24
+backend/src/utils/attendanceDate.js [NEW] platform TZ attendance date normalize/format/iterate
+backend/src/models/attendance.js [MOD] normalizeDate delegates to attendanceDate.js
+backend/src/repositories/attendanceRepository.js [MOD] normalizeDate/formatDateKey use attendanceDate.js
+backend/src/controllers/admin/enterpriseSummaryController.js [MOD] startOfToday uses normalizeAttendanceDate
+backend/src/services/hrmReadService.js [MOD] leave calendar uses iteratePlatformDateKeys
+backend/src/controllers/admin/leaveController.js [MOD] stampLeaveOnAttendance uses iteratePlatformDateKeys
+client/js/admin/modules/hrm-attendance.js [MOD] tab-aware refresh, stat/dashboard sync, platform TZ hrmTodayInputValue
+tests/hrm.test.js [MOD] localCalendarDate uses getPlatformDateKey
+docs/audit/HRM_AUDIT.md [MOD] Phase 1 change log + inventory
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Phase 1 section
+README.md [MOD] last updated
+ARCHITECTURE.md [MOD] attendance date TZ note
+
+# HRM Phase 2 — API Resilience & Error Toast Deduplication — 2026-09-24
+client/js/admin/modules/hrm-api.js [NEW] shared HRM fetch — 25s timeout, debounced toasts, silent option, blob helper
+client/js/admin/admin-settings.js [MOD] import hrm-api before HRM modules
+client/js/admin/modules/hrm-attendance.js [MOD] migrate writes + manual entry employees to hrmFetchJson; inline table errors
+client/js/admin/modules/hrm-employees.js [MOD] all fetch migrated to hrm-api
+client/js/admin/modules/hrm-payroll.js [MOD] all fetch migrated; payslip via hrmFetchBlob
+client/js/admin/modules/hrm-leaves.js [MOD] all fetch migrated; graceful grid/table load errors
+client/js/admin-staff.js [MOD] staffApi + assign/grant/cleanup use window.hrmFetchJson
+docs/audit/HRM_AUDIT.md [MOD] Phase 2 change log + BUG-HRM-02 fixed
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Phase 2 section
+README.md [MOD] last updated
+ARCHITECTURE.md [MOD] hrm-api.js note
+
+# HRM Phase 3 — Compact Single-Row Toolbar & UI Polish — 2026-09-24
+client/admin/partials/view-hrm-attendance.html [MOD] unified .hrm-daily-sheet-toolbar — filters left, actions right
+client/css/admin/_hrm.css [MOD] compact toolbar flex, hover states, banner row, responsive wrap
+client/js/admin/modules/hrm-attendance.js [MOD] renderAttendanceStatusBadge, withButtonLoading, refresh spinners
+docs/audit/HRM_AUDIT.md [MOD] Phase 3 change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM Phase 3 section
+README.md [MOD] last updated

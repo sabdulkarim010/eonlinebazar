@@ -25,14 +25,13 @@ const payrollRepository = require('../../repositories/payrollRepository');
 const leaveRepository = require('../../repositories/leaveRepository');
 const employeeRepository = require('../../repositories/employeeRepository');
 const securityLogRepository = require('../../repositories/securityLogRepository');
+const { normalizeAttendanceDate } = require('../../utils/attendanceDate');
 
 const OPEN_PO_STATUSES = ['draft', 'sent', 'partial'];
 const OPEN_TICKET_STATUSES = ['open', 'in_progress', 'pending'];
 
 function startOfToday() {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
+    return normalizeAttendanceDate();
 }
 
 async function safeMetric(label, fn, fallback = 0) {

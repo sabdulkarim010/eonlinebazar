@@ -3430,5 +3430,45 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Unit tests | ✅ | `settingsExportImportService.test.js` — 6 tests |
 | Jest regression suite | ✅ | **248/248** passing |
 
+## HRM Phase 1 — Data Sync & Tab-Aware Refresh — 2026-09-24
+
+**Status:** ✅ Fixed (audit BUG-HRM-01, BUG-HRM-03)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Tab-aware header Refresh | ✅ | `refreshActiveHrmAttendanceTab()` — Daily Sheet, Register, Shifts, Late, Manual |
+| Stat strip boot sync | ✅ | `refreshTodayAttendanceStats()` on `loadHrmAttendanceSection()` |
+| Dashboard invalidation after writes | ✅ | `invalidateHrmAttendanceMetrics()` → stat strip + `fetchEnterpriseSummary()` |
+| Platform TZ attendance dates | ✅ | `attendanceDate.js` — Mongo, PG, enterprise summary, client date pickers |
+| Leave calendar TZ fix | ✅ | `iteratePlatformDateKeys()` in calendar + leave stamp |
+| Jest regression suite | ✅ | **248/248** passing |
+
+## HRM Phase 2 — API Resilience & Error Toast Deduplication — 2026-09-24
+
+**Status:** ✅ Fixed (audit BUG-HRM-02)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Shared `hrm-api.js` fetch layer | ✅ | 25s timeout, AbortController, JSON + blob helpers |
+| Error toast deduplication | ✅ | 300ms debounce window for identical messages |
+| `silent: true` background syncs | ✅ | Settings load, today stats, staff assign candidate fetch |
+| HRM module migration | ✅ | attendance, employees, payroll, leaves, admin-staff |
+| Inline table load fallback | ✅ | Generic message in table; toast shows API/timeout detail |
+| Sequential attendance boot | ✅ | settings → staff → stats → daily sheet |
+| Jest regression suite | ✅ | **248/248** passing |
+
+## HRM Phase 3 — Compact Single-Row Toolbar & UI Polish — 2026-09-24
+
+**Status:** ✅ Complete
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Single-row Daily Sheet toolbar | ✅ | Filters left, actions right — `.hrm-daily-sheet-toolbar` |
+| Past-date banner placement | ✅ | Secondary row below main toolbar flex |
+| Unified status badges | ✅ | `renderAttendanceStatusBadge()` — Daily Sheet + Register |
+| Refresh loading spinners | ✅ | Header + Daily Sheet refresh via `withButtonLoading()` |
+| Button hover / sizing polish | ✅ | `.hrm-toolbar-btn` consistent 32px min-height |
+| Jest regression suite | ✅ | **248/248** passing |
+
 
 
