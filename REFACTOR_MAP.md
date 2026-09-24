@@ -2662,3 +2662,121 @@ client/admin/partials/view-customers.html [MOD] search left, tier+pills+export r
 client/css/admin/_customers.css [MOD] full rewrite of customers-toolbar layout and control styling
 client/css/admin/_responsive.css [MOD] horizontal scroll fallback on narrow viewports
 docs/audit/ADMIN_PANEL_AUDIT.md [MOD] change log
+
+# Settings Module A-Z Audit — 2026-09-24
+docs/audit/SETTINGS_AUDIT.md [NEW] comprehensive settings hub/API/UI/resilience audit report
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Settings Module A-Z Audit section
+README.md [MOD] SETTINGS_AUDIT index + last updated
+
+# Settings Fetch Timeout Helper (Phase 1 Step 2) — 2026-09-24
+client/js/admin/modules/settings-utils.js [NEW] settingsFetchJson — 15s AbortController + error toasts
+client/js/admin/admin-settings.js [MOD] import settings-utils barrel
+client/js/admin/modules/settings-platform.js [MOD] use settingsFetchJson
+client/js/admin/modules/settings-notifications.js [MOD] use settingsFetchJson
+client/js/admin/modules/settings-security.js [MOD] use settingsFetchJson
+client/js/admin/modules/settings-payments.js [MOD] use settingsFetchJson
+client/js/admin/modules/settings-expense-categories.js [MOD] use settingsFetchJson
+client/js/admin/modules/settings-menu-labels.js [MOD] use settingsFetchJson
+docs/audit/SETTINGS_AUDIT.md [MOD] fetch timeout marked complete
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] settings fetch timeout ✅
+README.md [MOD] last updated
+
+# Settings Export/Import & Ctrl+S Quick Save (Phase 3 Step 2) — 2026-09-24
+backend/src/utils/settingsExportSanitizer.js [NEW] secret stripping + import allowlists
+backend/src/services/settingsExportImportService.js [NEW] build export + validated import apply
+backend/src/controllers/admin/settingsExportImportController.js [NEW] GET/POST settings-export|import
+backend/src/controllers/adminController.js [MOD] export settingsExportImportController
+backend/src/routes/adminRoutes.js [MOD] settings-export + settings-import routes
+backend/src/utils/settingsHistoryFilter.js [MOD] settings backup action pattern
+client/js/admin/modules/settings-backup-restore.js [NEW] Utilities tab export/import UI
+client/js/admin/modules/settings-dirty-tracker.js [MOD] triggerSettingsQuickSave helpers
+client/js/admin/modules/settings-hub.js [MOD] Ctrl+S / Cmd+S keyboard shortcut
+client/js/admin/admin-settings.js [MOD] import settings-backup-restore
+client/admin/partials/view-settings.html [MOD] Settings Backup & Restore utilities card
+client/css/admin/_settings-system.css [MOD] backup card + accent-teal styles
+tests/services/settingsExportImportService.test.js [NEW] 6 unit tests
+docs/audit/SETTINGS_AUDIT.md [MOD] Phase 3 complete ✅
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] export/import + quick save ✅
+README.md [MOD] test count 248/248 + Phase 3 complete
+ARCHITECTURE.md [MOD] settingsExportImportService reference
+
+# Settings Change History UI (Phase 3 Step 1) — 2026-09-24
+backend/src/utils/settingsHistoryFilter.js [NEW] shared Mongo/PG filter for settings audit events
+backend/src/services/settingsHistoryReadService.js [NEW] routed read for settings SecurityLog rows
+backend/src/controllers/admin/settingsHistoryController.js [NEW] GET /api/admin/settings-history
+backend/src/repositories/securityLogRepository.js [MOD] findSettingsHistory, countSettingsHistory
+backend/src/controllers/adminController.js [MOD] export settingsHistoryController
+backend/src/routes/adminRoutes.js [MOD] GET /settings-history route (manage_settings)
+client/js/admin/modules/settings-history.js [NEW] Security tab history table + refresh
+client/js/admin/admin-settings.js [MOD] import settings-history module
+client/js/admin/modules/settings-hub.js [MOD] loadSettingsHistory on security tab
+client/admin/partials/view-settings.html [MOD] Settings Change History saas-settings-card
+client/css/admin/_settings-security.css [MOD] settings history table styles
+tests/services/settingsHistoryReadService.test.js [NEW] 5 unit tests — filter + read routing
+docs/audit/SETTINGS_AUDIT.md [MOD] Phase 3 Step 1 complete
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] settings history UI ✅
+README.md [MOD] test count 242/242 + last updated
+ARCHITECTURE.md [MOD] settingsHistoryReadService reference
+
+# Settings Deep-Links & Discard Buttons (Phase 2 Step 3) — 2026-09-24
+client/js/admin/modules/settings-hub.js [MOD] #settings-{tab} hash routing, hashchange, replaceState
+client/js/admin/modules/settings-dirty-tracker.js [MOD] revertSettingsScopeToBaseline, installSettingsDiscardButtons
+client/js/admin/modules/core-nav.js [MOD] hash tab priority on view-settings open
+client/admin/partials/view-settings.html [MOD] adminEmployeeLinkCard dirty scope
+client/css/admin/_settings-system.css [MOD] settings-discard-btn styles
+docs/audit/SETTINGS_AUDIT.md [MOD] Phase 2 Step 3 complete
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] deep-links + discard ✅
+README.md [MOD] last updated
+
+# Settings Unsaved Changes Guard (Phase 2 Step 2) — 2026-09-24
+client/js/admin/modules/settings-dirty-tracker.js [NEW] dirty tracking, tab guard, beforeunload, save chips
+client/js/admin/admin-settings.js [MOD] import settings-dirty-tracker
+client/js/admin/modules/settings-hub.js [MOD] requestSettingsTabSwitch, dirty tracker init
+client/js/admin/modules/settings-platform.js [MOD] baseline refresh after apply*ToUI
+client/js/admin/modules/settings-cms.js [MOD] markSettingsFormSaved on save success
+client/js/admin/modules/settings-notifications.js [MOD] markSettingsFormSaved + baseline refresh
+client/js/admin/modules/settings-menu-labels.js [MOD] markSettingsFormSaved on load/save
+client/js/admin/modules/core-nav.js [MOD] requestSettingsTabSwitch for settings tabs
+client/admin/partials/view-settings.html [MOD] data-settings-dirty-scope, immediate-save toggles
+client/css/admin/_settings-system.css [MOD] settings-save-state-chip styles
+docs/audit/SETTINGS_AUDIT.md [MOD] Phase 2 Step 2 complete
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] unsaved changes guard ✅
+README.md [MOD] last updated
+
+# Settings Design System Standardization (Phase 2 Step 1) — 2026-09-24
+client/admin/partials/view-settings.html [MOD] Utilities tab → saas-settings-card; notifications toggle CSS classes
+client/css/admin/_settings-branding.css [MOD] admin-settings-shell max-width 1360px
+client/css/admin/_settings-system.css [MOD] utilities grid, GA badge, sandbox saas card styles
+client/css/admin/_settings-footer.css [MOD] sandbox-card dedupe (saas shell owns layout)
+client/css/admin/_settings-notifications.css [MOD] WA toggle classes + 2-col grid on wide screens
+client/js/admin/modules/settings-hub.js [MOD] remove tab-switch SweetAlert toasts
+client/js/admin/modules/settings-platform.js [MOD] GA badge CSS classes
+client/js/admin/modules/core-nav.js [MOD] drop silent tab param
+docs/audit/SETTINGS_AUDIT.md [MOD] Phase 2 Step 1 complete
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] change log
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] settings UI standardization ✅
+README.md [MOD] last updated
+
+# Platform Settings Read Resilience (Phase 1 Step 3) — 2026-09-24
+backend/src/services/platformSettingsReadService.js [NEW] PG-first platform admin read + safe defaults
+backend/src/controllers/admin/adminSettingsController.js [MOD] getAdminSettings uses platformSettingsReadService
+tests/services/platformSettingsReadService.test.js [NEW] 6 unit tests — PG/Mongo routing + DB failure defaults
+docs/audit/SETTINGS_AUDIT.md [MOD] platform settings read marked complete
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] platform settings read ✅
+README.md [MOD] test count 237/237 + last updated
+ARCHITECTURE.md [MOD] platformSettingsReadService reference
+
+# Sidebar Labels PG+Mongo Fix (Phase 1 Step 1) — 2026-09-24
+backend/src/models/SidebarLabel.js [NEW] Mongoose model for menu label fallback
+backend/src/repositories/sidebarLabelRepository.js [MOD] PG primary + Mongo fallback/mirror; bulkUpsertLabels
+backend/src/controllers/admin/sidebarLabelController.js [MOD] batchUpsertSidebarLabels handler
+backend/src/routes/adminRoutes.js [MOD] PUT /sidebar-labels batch route (before :key)
+client/js/admin/modules/settings-menu-labels.js [MOD] single batch PUT save
+tests/repositories/sidebarLabel.repository.test.js [MOD] bulkUpsertLabels test + Mongo cleanup
+docs/audit/SETTINGS_AUDIT.md [MOD] mark sidebar label fixes complete
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD] batch API + Mongo fallback
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] sidebar label status ✅
+README.md [MOD] last updated

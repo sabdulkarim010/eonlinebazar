@@ -4,21 +4,87 @@
  * Description: Unified System Settings hub — tab navigation, embedded sections, SweetAlert2 feedback.
  */
 import '../admin-core.js';
-
-const SETTINGS_TAB_LABELS = {
-    branding: 'Store Branding & Info',
-    general: 'General Configuration',
-    shipping: 'Shipping & Payments',
-    finance: 'Finance Settings',
-    security: 'Security & Access',
-    utilities: 'System Utilities'
-};
+import {
+    setupSettingsDirtyTracker,
+    notifySettingsTabActivated,
+    requestSettingsTabSwitch,
+    markSettingsFormSaved,
+    triggerSettingsQuickSave
+} from './settings-dirty-tracker.js';
 
 /** Maps hub tabs to full-page partials mounted inside tab panels. */
 const SETTINGS_EMBED_MAP = {
     general: 'view-store-config',
     shipping: 'view-shipping-payments'
 };
+
+const SETTINGS_HASH_PREFIX = 'settings-';
+const VALID_SETTINGS_TABS = Object.freeze([
+    'branding',
+    'general',
+    'shipping',
+    'finance',
+    'notifications',
+    'security',
+    'utilities'
+]);
+
+function getSettingsTabFromHash(hash = window.location.hash) {
+    const raw = String(hash || '').replace(/^#/, '').trim().toLowerCase();
+    if (!raw.startsWith(SETTINGS_HASH_PREFIX)) return null;
+    const tabId = raw.slice(SETTINGS_HASH_PREFIX.length);
+    return VALID_SETTINGS_TABS.includes(tabId) ? tabId : null;
+}
+
+function hashForSettingsTab(tabId) {
+    return `#${SETTINGS_HASH_PREFIX}${tabId}`;
+}
+
+function updateSettingsTabHash(tabId, { replace = true } = {}) {
+    if (!tabId || !VALID_SETTINGS_TABS.includes(tabId)) return;
+
+    const nextHash = hashForSettingsTab(tabId);
+    if (window.location.hash === nextHash) return;
+
+    const url = `${window.location.pathname}${window.location.search}${nextHash}`;
+    if (replace) {
+        history.replaceState(null, '', url);
+    } else {
+        history.pushState(null, '', url);
+    }
+}
+
+function applySettingsHashOnInit() {
+    const tabId = getSettingsTabFromHash();
+    if (!tabId) return;
+
+    const viewSettings = document.getElementById('view-settings');
+    if (!viewSettings?.classList.contains('active')) {
+        window.__pendingSettingsTabFromHash = tabId;
+        const settingsNav = document.querySelector('.sidebar-menu li[data-target="view-settings"]');
+        if (settingsNav && typeof navigateAdminSection === 'function') {
+            navigateAdminSection('view-settings', settingsNav);
+        }
+        return;
+    }
+
+    requestSettingsTabSwitch(tabId, { skipDirtyCheck: true, updateHash: false });
+}
+
+function bindSettingsHashNavigation() {
+    if (window.__settingsHashNavBound) return;
+    window.__settingsHashNavBound = true;
+
+    window.addEventListener('hashchange', () => {
+        const tabId = getSettingsTabFromHash();
+        if (!tabId) return;
+
+        const viewSettings = document.getElementById('view-settings');
+        if (!viewSettings?.classList.contains('active')) return;
+
+        requestSettingsTabSwitch(tabId, { updateHash: false });
+    });
+}
 
 const embeddedSectionState = new Map();
 
@@ -85,9 +151,13 @@ function mountEmbeddedSettingsSection(tabId) {
 
     const header = section.querySelector('.section-header-box');
     if (header) header.style.display = 'none';
+
+    if (typeof window.installSettingsDiscardButtons === 'function') {
+        window.installSettingsDiscardButtons(section);
+    }
 }
 
-function activateUnifiedSettingsTab(tabId, { silent = false } = {}) {
+function activateUnifiedSettingsTab(tabId, options = {}) {
     if (!tabId) return;
 
     const tabs = document.querySelectorAll('.admin-settings-tab');
@@ -134,15 +204,22 @@ function activateUnifiedSettingsTab(tabId, { silent = false } = {}) {
     if (target === 'finance' && typeof window.loadExpenseCategorySettings === 'function') {
         window.loadExpenseCategorySettings();
     }
-    if (target === 'security' && typeof window.refreshTwoFactorSettings === 'function') {
-        window.refreshTwoFactorSettings();
+    if (target === 'security') {
+        if (typeof window.refreshTwoFactorSettings === 'function') {
+            window.refreshTwoFactorSettings();
+        }
+        if (typeof window.loadSettingsHistory === 'function') {
+            window.loadSettingsHistory();
+        }
     }
     if (target === 'branding' && typeof fetchAdminSettings === 'function') {
         fetchAdminSettings();
     }
 
-    if (!silent) {
-        settingsHubToast(SETTINGS_TAB_LABELS[target] || 'Settings', 'info');
+    notifySettingsTabActivated(target);
+
+    if (options.updateHash !== false) {
+        updateSettingsTabHash(target);
     }
 }
 
@@ -153,15 +230,45 @@ function openSettingsHubSection(sectionId) {
     }
 }
 
+function isSettingsViewActive() {
+    const view = document.getElementById('view-settings');
+    if (!view) return false;
+    return view.classList.contains('active') && view.style.display !== 'none';
+}
+
+function bindSettingsQuickSaveShortcut() {
+    if (window.__settingsQuickSaveBound) return;
+    window.__settingsQuickSaveBound = true;
+
+    document.addEventListener('keydown', (event) => {
+        if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return;
+        if (!isSettingsViewActive()) return;
+
+        event.preventDefault();
+
+        const result = triggerSettingsQuickSave();
+        if (result.saved) {
+            settingsHubToast(result.dirty ? 'Saving changes…' : 'Save triggered', 'info');
+        } else if (result.reason === 'no-save-target') {
+            settingsHubToast('No save action on this tab', 'info');
+        }
+    });
+}
+
 function setupUnifiedSettingsHub() {
     const shell = document.querySelector('.admin-settings-shell');
     if (!shell || shell.dataset.hubBound) return;
     shell.dataset.hubBound = '1';
 
+    setupSettingsDirtyTracker(shell);
+    bindSettingsHashNavigation();
+    bindSettingsQuickSaveShortcut();
+    applySettingsHashOnInit();
+
     shell.querySelectorAll('.admin-settings-tab').forEach((tab) => {
-        tab.addEventListener('click', () => {
+        tab.addEventListener('click', async () => {
             const tabId = tab.dataset.tab;
-            activateUnifiedSettingsTab(tabId);
+            await requestSettingsTabSwitch(tabId);
         });
     });
 
@@ -206,6 +313,7 @@ function setupUnifiedSettingsHub() {
                     if (result.data && typeof applyMasterSettingsToUI === 'function') {
                         applyMasterSettingsToUI(result.data);
                     }
+                    markSettingsFormSaved(generalForm);
                     settingsHubToast('General configuration saved.', 'success');
                 } else if (typeof Swal !== 'undefined') {
                     Swal.fire({ icon: 'error', title: 'Save failed', text: result.message || 'Could not save settings.' });
@@ -225,6 +333,9 @@ function setupUnifiedSettingsHub() {
 }
 
 window.activateUnifiedSettingsTab = activateUnifiedSettingsTab;
+window.requestSettingsTabSwitch = requestSettingsTabSwitch;
+window.getSettingsTabFromHash = getSettingsTabFromHash;
+window.updateSettingsTabHash = updateSettingsTabHash;
 window.setupUnifiedSettingsHub = setupUnifiedSettingsHub;
 window.restoreAllEmbeddedSettingsSections = restoreAllEmbeddedSections;
 window.openSettingsHubSection = openSettingsHubSection;
@@ -234,6 +345,9 @@ document.addEventListener('DOMContentLoaded', setupUnifiedSettingsHub);
 
 Object.assign(window, {
     activateUnifiedSettingsTab,
+    requestSettingsTabSwitch,
+    getSettingsTabFromHash,
+    updateSettingsTabHash,
     setupUnifiedSettingsHub,
     restoreAllEmbeddedSettingsSections: restoreAllEmbeddedSections,
     openSettingsHubSection,

@@ -3322,5 +3322,113 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Frontend HTTP error handling | ✅ | `parseCustomerApiResponse()` in customers modules |
 | Jest regression suite | ✅ | **231/231** passing |
 
+## Settings Module A-Z Audit — 2026-09-24
+
+**Status:** ⚠️ PARTIAL — Phase 1 resilience complete; UX/enterprise features pending
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Unified Settings Hub (7 tabs) | ✅ | `view-settings.html`, `settings-hub.js` |
+| Sidebar label save (batch + single-key) | ✅ | PG primary + Mongo fallback; `PUT /api/admin/sidebar-labels` batch API |
+| Sidebar label read (`GET /sidebar-labels`) | ✅ | PG primary; Mongo fallback; degrades to `{}` |
+| Settings singleton dual-write | ✅ | Mongo-first via `dualWriteService` |
+| Settings PG read + Mongo fallback | ✅ | `settingsReadService` + `readRouter` |
+| Platform settings read (`GET /platform-settings`) | ✅ | `platformSettingsReadService` — PG-first via `routedRead('admin')`; safe defaults on total DB failure |
+| Frontend fetch timeouts (settings modules) | ✅ | `settingsFetchJson()` — 15s AbortController in `settings-utils.js` |
+| Settings change history UI | ✅ | `GET /api/admin/settings-history`, Security tab card, `settings-history.js` |
+| Unsaved-changes warnings | ❌ | Missing in store admin hub |
+| Full report | ✅ | `docs/audit/SETTINGS_AUDIT.md` |
+
+## Settings Fetch Timeout Helper — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `settingsFetchJson()` shared helper | ✅ | `client/js/admin/modules/settings-utils.js` — 15s AbortController |
+| Settings modules refactored | ✅ | platform, notifications, security, payments, expense-categories, menu-labels |
+| Timeout/network/500 user feedback | ✅ | Toast: "Request timed out. Please check connection and retry." |
+| Structured error return | ✅ | `{ success: false, timeout, error }` — spinners reset in finally blocks |
+| Jest regression suite | ✅ | **231/231** passing |
+
+## Platform Settings Read Resilience — 2026-09-24
+
+**Status:** ✅ Fixed (Phase 1 Step 3)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `platformSettingsReadService.js` | ✅ | PG-first `routedRead('admin')`; Mongo when PG empty/errors |
+| `GET /api/admin/platform-settings` safe defaults | ✅ | `{ success: true, data, settings, fallback: true }` — no 500 on DB outage |
+| Frontend contract preserved | ✅ | `settings-platform.js` reads `platformData.data` unchanged |
+| PUT/write paths | ✅ | Unchanged — Mongo + `adminDualWrite` |
+| Unit tests | ✅ | `platformSettingsReadService.test.js` — 6 tests |
+| Jest regression suite | ✅ | **237/237** passing |
+
+## Settings Design System Standardization — 2026-09-24
+
+**Status:** ✅ Fixed (Phase 2 Step 1)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Utilities tab `.saas-settings-card` migration | ✅ | GA, cache, sandbox cards unified with Branding/Finance |
+| Inline style removal (Utilities) | ✅ | CSS classes in `_settings-system.css` |
+| Tab-switch toast noise | ✅ | Removed from `settings-hub.js` |
+| Wide desktop layout | ✅ | Shell `max-width: 1360px`; utilities + notifications 2-col grids |
+| Input IDs / event listeners | ✅ | Unchanged — all form IDs preserved |
+| Jest regression suite | ✅ | **237/237** passing |
+
+## Settings Unsaved Changes Guard — 2026-09-24
+
+**Status:** ✅ Fixed (Phase 2 Step 2)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `settings-dirty-tracker.js` | ✅ | Per-form baseline + dirty detection |
+| Tab-switch confirm dialog | ✅ | SweetAlert / native — discard or keep editing |
+| `beforeunload` guard | ✅ | Warns on refresh/close when active tab is dirty |
+| Live save-state chip | ✅ | Yellow "Unsaved changes" chip near save buttons |
+| Save reset to pristine | ✅ | `markSettingsFormSaved()` wired on all major forms |
+| Jest regression suite | ✅ | **237/237** passing |
+
+## Settings Deep-Links & Discard Buttons — 2026-09-24
+
+**Status:** ✅ Fixed (Phase 2 Step 3)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Tab deep-link hashes | ✅ | `#settings-{tab}` — branding through utilities |
+| URL sync on tab switch | ✅ | `history.replaceState` without reload |
+| Hash init + hashchange | ✅ | Auto-open Settings + activate tab from URL |
+| Per-section Discard buttons | ✅ | Injected beside save buttons in all primary cards |
+| Discard → dirty tracker integration | ✅ | Reverts baseline; no tab-switch warning after discard |
+| Jest regression suite | ✅ | **237/237** passing |
+
+## Settings Change History UI — 2026-09-24
+
+**Status:** ✅ Fixed (Phase 3 Step 1)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `GET /api/admin/settings-history` | ✅ | Filters SecurityLog by `resourceType: setting` + settings action patterns |
+| Read-only audit query | ✅ | No changes to `logSecurityEvent` write path |
+| PG + Mongo routed read | ✅ | `settingsHistoryReadService.js` + `securityLogRepository.findSettingsHistory` |
+| Security tab UI card | ✅ | Table: date, admin, action, summary; loading + empty states |
+| `settingsFetchJson()` integration | ✅ | 15s timeout; refresh button |
+| Unit tests | ✅ | `settingsHistoryReadService.test.js` — 5 tests |
+| Jest regression suite | ✅ | **242/242** passing |
+
+## Settings Export/Import & Ctrl+S Quick Save — 2026-09-24
+
+**Status:** ✅ Fixed (Phase 3 Step 2 — final settings suite step)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `GET /api/admin/settings-export` | ✅ | Sanitized JSON — platform, settings, sidebar labels, categories |
+| `POST /api/admin/settings-import` | ✅ | Allowlisted fields; `confirm: true`; no secrets restored |
+| Utilities tab UI | ✅ | Export download + import file picker with SweetAlert confirm |
+| Ctrl+S / Cmd+S quick save | ✅ | Active tab dirty scope or default save form |
+| Unit tests | ✅ | `settingsExportImportService.test.js` — 6 tests |
+| Jest regression suite | ✅ | **248/248** passing |
+
 
 

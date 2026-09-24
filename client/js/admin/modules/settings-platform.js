@@ -4,6 +4,7 @@
  * Description: Admin settings init, branding, and sandbox mode.
  */
 import '../admin-core.js';
+import { settingsFetchJson, isSettingsFetchFailure, settingsFailurePayload } from './settings-utils.js';
 const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
 
 /* ==========================================================================
@@ -46,6 +47,11 @@ function applyAdminSettingsToUI(settings) {
 
     applyBrandingPreviewFromSettings(settings);
     startLiveClock();
+
+    if (typeof window.scheduleSettingsTabBaselineCapture === 'function') {
+        window.scheduleSettingsTabBaselineCapture('branding', 50);
+        window.scheduleSettingsTabBaselineCapture('security', 50);
+    }
 }
 
 const brandingPreviewObjectUrls = { logo: null, favicon: null };
@@ -182,11 +188,12 @@ async function loadSandboxStatus() {
     }
 
     try {
-        const res = await fetch('/api/admin/sandbox/status', {
+        const response = await settingsFetchJson('/api/admin/sandbox/status', {
             headers: { 'Authorization': 'Bearer ' + token }
-        });
-        if (res.status === 403) return;
-        const data = await res.json();
+        }, { showToast: false });
+        if (isSettingsFetchFailure(response)) return;
+        if (response.res.status === 403) return;
+        const data = response.data;
         if (!data.success) return;
 
         const toggle = document.getElementById('sandbox-toggle');
@@ -222,7 +229,7 @@ window.loadSandboxStatus = loadSandboxStatus;
 
 window.toggleSandboxMode = async function(enabled) {
     try {
-        const res = await fetch('/api/admin/sandbox/toggle', {
+        const response = await settingsFetchJson('/api/admin/sandbox/toggle', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -230,7 +237,8 @@ window.toggleSandboxMode = async function(enabled) {
             },
             body: JSON.stringify({ enabled })
         });
-        const data = await res.json();
+        if (isSettingsFetchFailure(response)) return;
+        const data = response.data;
         if (data.success) {
             showToast(
                 enabled
@@ -255,11 +263,14 @@ window.resetTestData = async function() {
         confirmText: 'Clear Test Orders',
         cancelText: 'Cancel',
         onConfirm: async () => {
-            const res = await fetch('/api/admin/sandbox/reset-test-data', {
+            const response = await settingsFetchJson('/api/admin/sandbox/reset-test-data', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + token }
             });
-            const data = await res.json();
+            if (isSettingsFetchFailure(response)) {
+                throw new Error(response.error || 'Reset failed');
+            }
+            const data = response.data;
             if (!data.success) {
                 throw new Error(data.message || 'Reset failed');
             }
@@ -286,7 +297,7 @@ window.resetRealData = async function() {
         cancelText: 'Keep Orders',
         requireTypedPhrase: 'DELETE REAL ORDERS',
         onConfirm: async () => {
-            const res = await fetch('/api/admin/sandbox/reset-real-data', {
+            const response = await settingsFetchJson('/api/admin/sandbox/reset-real-data', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -294,7 +305,10 @@ window.resetRealData = async function() {
                 },
                 body: JSON.stringify({ confirmationKey: key })
             });
-            const data = await res.json();
+            if (isSettingsFetchFailure(response)) {
+                throw new Error(response.error || 'Invalid key or reset failed');
+            }
+            const data = response.data;
             if (!data.success) {
                 throw new Error(data.message || 'Invalid key or reset failed');
             }
@@ -313,7 +327,7 @@ async function toggleServiceWorkerSetting(enabled) {
     }
 
     try {
-        await fetch('/api/admin/settings/cache', {
+        const response = await settingsFetchJson('/api/admin/settings/cache', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -321,6 +335,10 @@ async function toggleServiceWorkerSetting(enabled) {
             },
             body: JSON.stringify({ serviceWorkerEnabled: enabled })
         });
+        if (isSettingsFetchFailure(response)) {
+            showToast(response.error || 'Could not save cache setting', 'error');
+            return;
+        }
         showToast(
             enabled ? '✅ Cache enabled' : '⚠️ Cache disabled',
             enabled ? 'success' : 'warning'
@@ -334,8 +352,12 @@ window.toggleServiceWorkerSetting = toggleServiceWorkerSetting;
 async function loadCacheVersionDisplay() {
     const versionEl = document.getElementById('cache-version-display');
     try {
-        const res = await fetch('/api/store/health');
-        const data = await res.json();
+        const response = await settingsFetchJson('/api/store/health', {}, { showToast: false });
+        if (isSettingsFetchFailure(response)) {
+            if (versionEl) versionEl.textContent = 'unknown';
+            return null;
+        }
+        const data = response.data;
         if (versionEl) {
             versionEl.textContent = 'v' + (data.buildTime || Date.now());
         }
@@ -358,8 +380,9 @@ window.restartCacheBuster = restartCacheBuster;
 
 async function loadCacheSettings() {
     try {
-        const res = await fetch('/api/store/cache-settings');
-        const data = await res.json();
+        const response = await settingsFetchJson('/api/store/cache-settings', {}, { showToast: false });
+        if (isSettingsFetchFailure(response)) return;
+        const data = response.data;
         const enabled = data.serviceWorkerEnabled !== false;
         const toggle = document.getElementById('sw-enabled-toggle');
         const text = document.getElementById('sw-setting-text');
@@ -372,20 +395,19 @@ async function loadCacheSettings() {
 
 async function checkGAStatus() {
     try {
-        const res = await fetch('/api/admin/analytics/status', {
+        const response = await settingsFetchJson('/api/admin/analytics/status', {
             headers: { 'Authorization': 'Bearer ' + token }
-        });
-        const data = await res.json();
+        }, { showToast: false });
+        if (isSettingsFetchFailure(response)) return;
+        const data = response.data;
         const badge = document.getElementById('ga-status-badge');
         if (!badge) return;
         if (data.enabled && data.measurementId) {
-            badge.style.background = '#d1fae5';
-            badge.style.color = '#065f46';
-            badge.innerHTML = '✅ Active — ' + data.measurementId;
+            badge.className = 'util-ga-badge util-ga-badge--active';
+            badge.textContent = 'Active — ' + data.measurementId;
         } else {
-            badge.style.background = '#fee2e2';
-            badge.style.color = '#991b1b';
-            badge.innerHTML = '❌ Not configured — add GOOGLE_ANALYTICS_ID to .env';
+            badge.className = 'util-ga-badge util-ga-badge--inactive';
+            badge.textContent = 'Not configured — add GOOGLE_ANALYTICS_ID to .env';
         }
     } catch (e) {
         // ignore
@@ -398,22 +420,28 @@ async function fetchAdminSettings() {
     }
 
     try {
-        const [platformRes, deliveryRes] = await Promise.all([
-            fetch('/api/admin/platform-settings', {
+        const [platformResponse, deliveryResponse] = await Promise.all([
+            settingsFetchJson('/api/admin/platform-settings', {
                 headers: { 'Authorization': `Bearer ${token}` }
-            }),
-            fetch('/api/admin/settings', {
+            }, { showToast: false }),
+            settingsFetchJson('/api/admin/settings', {
                 headers: { 'Authorization': `Bearer ${token}` }
-            })
+            }, { showToast: false })
         ]);
 
-        const platformData = await platformRes.json();
-        if (platformData.success && platformData.data) applyAdminSettingsToUI(platformData.data);
+        if (isSettingsFetchFailure(platformResponse) || isSettingsFetchFailure(deliveryResponse)) {
+            const failed = isSettingsFetchFailure(platformResponse) ? platformResponse : deliveryResponse;
+            showToast(failed.error || 'Failed to load admin settings.', 'error');
+        } else {
+            const platformData = platformResponse.data;
+            if (platformData.success && platformData.data) applyAdminSettingsToUI(platformData.data);
 
-        const deliveryData = await deliveryRes.json();
-        if (deliveryData.success && deliveryData.data) applyDeliverySettingsToUI(deliveryData.data);
+            const deliveryData = deliveryResponse.data;
+            if (deliveryData.success && deliveryData.data) applyDeliverySettingsToUI(deliveryData.data);
+        }
     } catch (err) {
         console.error('Failed to load admin settings:', err);
+        showToast('Failed to load admin settings.', 'error');
     }
     checkGAStatus();
     loadCacheSettings();
@@ -421,10 +449,14 @@ async function fetchAdminSettings() {
     // Load 2FA status/config for the settings panel
     if (typeof window.refreshTwoFactorSettings === 'function') window.refreshTwoFactorSettings();
     if (typeof loadSandboxStatus === 'function') loadSandboxStatus();
+
+    if (typeof window.refreshSettingsTabBaseline === 'function') {
+        window.refreshSettingsTabBaseline('branding');
+    }
 }
 
 async function saveAdminProfile(payload) {
-    const res = await fetch('/api/admin/profile', {
+    const response = await settingsFetchJson('/api/admin/profile', {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -432,11 +464,14 @@ async function saveAdminProfile(payload) {
         },
         body: JSON.stringify(payload)
     });
-    return res.json();
+    if (isSettingsFetchFailure(response)) {
+        return settingsFailurePayload(response, 'Failed to save profile.');
+    }
+    return response.data;
 }
 
 async function saveAdminSettings(payload) {
-    const res = await fetch('/api/admin/platform-settings', {
+    const response = await settingsFetchJson('/api/admin/platform-settings', {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -444,7 +479,10 @@ async function saveAdminSettings(payload) {
         },
         body: JSON.stringify(payload)
     });
-    return res.json();
+    if (isSettingsFetchFailure(response)) {
+        return settingsFailurePayload(response, 'Failed to save settings.');
+    }
+    return response.data;
 }
 
 function populateDistrictSelect(selectEl, selectedValue = '') {
@@ -480,10 +518,14 @@ function applyDeliverySettingsToUI(settings) {
     setVal('settingsDeliveryInsideCity', settings.deliveryInsideCity);
     setVal('settingsDeliveryOutsideCity', settings.deliveryOutsideCity);
     setVal('settingsFreeShippingMinAmount', settings.freeShippingMinAmount);
+
+    if (typeof window.scheduleSettingsTabBaselineCapture === 'function') {
+        window.scheduleSettingsTabBaselineCapture('branding', 50);
+    }
 }
 
 async function saveDeliverySettings(payload) {
-    const res = await fetch('/api/admin/settings', {
+    const response = await settingsFetchJson('/api/admin/settings', {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -491,7 +533,10 @@ async function saveDeliverySettings(payload) {
         },
         body: JSON.stringify(payload)
     });
-    return res.json();
+    if (isSettingsFetchFailure(response)) {
+        return settingsFailurePayload(response, 'Failed to save delivery settings.');
+    }
+    return response.data;
 }
 
 function applyMasterSettingsToUI(settings) {
@@ -558,6 +603,11 @@ function applyMasterSettingsToUI(settings) {
     }
     applyWhatsAppSettingsToUI(settings);
     updateMasterSettingsPreview();
+
+    if (typeof window.scheduleSettingsTabBaselineCapture === 'function') {
+        window.scheduleSettingsTabBaselineCapture('general', 50);
+        window.scheduleSettingsTabBaselineCapture('shipping', 50);
+    }
 }
 
 /* Expose module functions for HTML onclick + cross-module calls */

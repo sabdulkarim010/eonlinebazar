@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-24 (Customer delete Neon timeout resilience)
+**Last updated:** 2026-09-24 (Settings export/import + Ctrl+S — Phase 3 complete)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-231%2F231-brightgreen" alt="231/231 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-248%2F248-brightgreen" alt="248/248 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -141,6 +141,7 @@ Each domain has a dedicated audit file with **File Inventory**, **Feature Checkl
 | [docs/audit/PRODUCTS_AUDIT.md](docs/audit/PRODUCTS_AUDIT.md) | Catalog, inventory, suppliers, POs |
 | [docs/audit/PAYMENTS_FINANCE_AUDIT.md](docs/audit/PAYMENTS_FINANCE_AUDIT.md) | Gateways, wallet, P&amp;L, expenses |
 | [docs/audit/CMS_AUDIT.md](docs/audit/CMS_AUDIT.md) | Banners, pages, navbar, footer, branding |
+| [docs/audit/SETTINGS_AUDIT.md](docs/audit/SETTINGS_AUDIT.md) | System Settings hub — APIs, resilience, UI/UX, enterprise gaps |
 | [docs/audit/MARKETING_AUDIT.md](docs/audit/MARKETING_AUDIT.md) | Newsletter, coupons, loyalty, referrals |
 | [docs/audit/CHAT_AUDIT.md](docs/audit/CHAT_AUDIT.md) | Live chat microservice, widget, agent dashboard |
 | [docs/audit/DEVOPS_AUDIT.md](docs/audit/DEVOPS_AUDIT.md) | Docker, Nginx, PM2, deployment |
@@ -158,12 +159,12 @@ Each domain has a dedicated audit file with **File Inventory**, **Feature Checkl
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 231 / 231 tests** across **26 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, Resend, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 248 / 248 tests** across **29 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, Resend, or Cloudinary calls are required.
 
 PostgreSQL repository integration tests (241 tests, real Neon) run separately:
 
 ```bash
-npm test                  # 26 suites, 231 tests — MongoDB in-memory
+npm test                  # 29 suites, 248 tests — MongoDB in-memory
 npm run test:repositories # 32 files, 241 tests — Neon PostgreSQL (serial concurrency)
 cd backend && npx prisma migrate deploy  # apply PG schema (production)
 

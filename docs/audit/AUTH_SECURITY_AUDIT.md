@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (Admin session PG mirror non-blocking)  
+**Last updated:** 2026-09-24 (Sidebar labels PG+Mongo fallback + batch API)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -33,7 +33,8 @@
 | `backend/src/middlewares/securityMiddleware.js` | Wires limiters to auth/OTP routes + global `/api/*` |
 | `backend/src/middlewares/maintenanceModeMiddleware.js` | Storefront 503 gate with IP allowlist bypass |
 | `backend/src/controllers/admin/sidebarLabelController.js` | Super Admin sidebar menu rename API |
-| `backend/src/repositories/sidebarLabelRepository.js` | PG `SidebarLabel` reads/writes |
+| `backend/src/models/SidebarLabel.js` | Mongoose sidebar label fallback store |
+| `backend/src/repositories/sidebarLabelRepository.js` | PG-primary reads/writes + Mongo fallback/mirror |
 | `client/js/admin/modules/sidebarLabels.js` | Sidebar label apply on load (Super Admin only) |
 | `client/js/admin/modules/settings-menu-labels.js` | Settings page menu label editor |
 | `client/js/admin/modules/hrm-employees.js` | `authHeaders()` — Bearer token on all HRM admin API calls |
@@ -61,7 +62,7 @@
 
 ## Feature Checklist
 
-- [x] Super Admin sidebar menu label customization — `GET/PUT /api/admin/sidebar-labels/:key`, `DELETE /api/admin/sidebar-labels` reset (`requireSuperAdmin`); edit UI in Settings → Security
+- [x] Super Admin sidebar menu label customization — `GET/PUT /api/admin/sidebar-labels` (batch), `PUT /api/admin/sidebar-labels/:key` (single), `DELETE /api/admin/sidebar-labels` reset (`requireSuperAdmin`); edit UI in Settings → Security; PG primary + Mongo fallback
 - [x] HRM employee access-info — `GET /api/admin/hrm/employees/:id/access-info` detects linked Super Admin accounts
 - [x] Admin frontend Bearer auth — `verifyAdmin` reads `Authorization: Bearer`; `hrm-employees.js` + `admin-staff.js` send token from `localStorage.adminToken`
 - [x] 25 granular RBAC permissions — `permissions.js` + dynamic grant/edit modals
@@ -129,6 +130,14 @@
 - **Input validation:** No joi/zod/express-validator in stack; `mongo-sanitize` + HRM string trim/slice on employee update and leave apply
 - **Admin error handlers:** Global `error` + `unhandledrejection` listeners in `admin-staff.js`
 - Tests: Jest **231/231** passing
+
+### Sidebar Labels Resilience + Batch API — 2026-09-24
+
+- **Model:** `backend/src/models/SidebarLabel.js` — Mongo fallback for Super Admin menu renames
+- **Repository:** PG-primary read/write with Mongo fallback; best-effort mirror when peer DB connected
+- **API:** `PUT /api/admin/sidebar-labels` batch `{ labels: { menuKey: "Label" } }`; single-key `PUT /:key` unchanged
+- **Frontend:** `settings-menu-labels.js` — one batch PUT on Save Changes
+- Tests: `sidebarLabel.repository.test.js` **4/4** pass
 
 ### Superadmin 2FA enforcement — 2026-09-23
 

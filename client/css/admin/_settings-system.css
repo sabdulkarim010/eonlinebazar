@@ -539,3 +539,211 @@
     background: rgba(99, 102, 241, 0.12);
     color: #4f46e5;
 }
+
+/* System Utilities tab — SaaS card layout */
+.admin-settings-utilities-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+@media (min-width: 992px) {
+    .admin-settings-utilities-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .saas-settings-card--full {
+        grid-column: 1 / -1;
+    }
+}
+
+.saas-settings-card--accent-orange {
+    border-left: 4px solid #f97316;
+}
+
+.saas-settings-card--accent-indigo {
+    border-left: 4px solid #6366f1;
+}
+
+.saas-settings-card--accent-teal {
+    border-left: 4px solid #0d9488;
+}
+
+.util-backup-hint {
+    margin: 0;
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.55;
+}
+
+.util-backup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.util-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.util-ga-link-btn {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.util-ga-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.35;
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+.util-ga-badge--active {
+    background: #d1fae5;
+    color: #065f46;
+    border-color: #a7f3d0;
+}
+
+.util-ga-badge--inactive {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fecaca;
+}
+
+.util-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.util-toggle-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.util-cache-version-line {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.util-cache-version-line code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.8125rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 2px 8px;
+    color: #0f172a;
+}
+
+.saas-settings-card.sandbox-card {
+    border: 1px solid #fde68a;
+    background: #fffbeb;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.saas-settings-card.sandbox-card.active-mode {
+    border-color: #f59e0b;
+    background: #fef3c7;
+}
+
+.saas-settings-card.sandbox-card .saas-settings-card-header.sandbox-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 0;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.saas-settings-card.sandbox-card .sandbox-header-copy h4 {
+    color: #92400e;
+}
+
+.saas-settings-card.sandbox-card .sandbox-header-copy .settings-card-sub {
+    color: #78350f;
+}
+
+/* Unsaved changes indicator — live save state chip */
+.saas-settings-card-footer,
+.system-settings-card-footer,
+.menu-labels-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.settings-save-state-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: auto;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+.settings-discard-btn {
+    min-width: 118px;
+    justify-content: center;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #475569;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 11px 18px;
+    font-size: 14px;
+    box-shadow: none;
+}
+
+.settings-discard-btn:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #334155;
+}
+
+.settings-discard-btn:focus-visible {
+    outline: none;
+    border-color: #64748b;
+    box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.25);
+}
+
+.settings-save-state-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.22);
+    flex-shrink: 0;
+}
+
+.saas-settings-card.has-unsaved-changes,
+.system-settings-card.has-unsaved-changes {
+    border-color: #fcd34d;
+    box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.25), 0 4px 12px rgba(15, 23, 42, 0.06);
+}

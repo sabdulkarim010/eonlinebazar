@@ -44,7 +44,7 @@ client/
 
 │   │   ├── admin-dashboard.js ← analytics widgets
 
-│   │   └── modules/           ← Actual logic files (incl. adminSidebar.js — merged sidebar profile; sidebarLabels.js — Super Admin menu rename; pagination-util.js — unified AdminPagination)
+│   │   └── modules/           ← Actual logic files (incl. adminSidebar.js — merged sidebar profile; sidebarLabels.js — Super Admin menu rename; settings-utils.js — settingsFetchJson 15s timeout; settings-dirty-tracker.js — unsaved-changes guard + save chips; pagination-util.js — unified AdminPagination)
 
 │   ├── profile.js         ← BARREL → js/profile/*.js
 
@@ -179,6 +179,7 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 | AdminNotification | `backend/src/models/adminNotification.js` | In-app admin notification center (order/stock/leave/payroll/security/system) |
 | ExpenseCategory | `backend/src/models/expenseCategory.js` | Dynamic expense category catalog — seeded defaults + admin custom categories; `allowCustomInput` on "Other" |
 | Expense | `backend/src/models/expense.js` | Operating expense ledger row — `category` slug + optional `customCategoryName` |
+| SidebarLabel | `backend/src/models/SidebarLabel.js` | Super Admin custom sidebar menu labels (Mongo fallback; PG mirror via `sidebarLabelRepository.js`) |
 
 
 
@@ -398,6 +399,10 @@ See also: `docs/SETUP.md`, `ecommerce-chat/docs/SETUP.md`, `devops/first-time-se
 | `ADMIN_DELETE_PASSWORD` | Required for `DELETE /api/admin/hrm/employees/:id/permanent` — permanent employee removal |
 
 Services: `backend/src/services/emailService.js`, `whatsappService.js`, `notificationConfigService.js`. Admin UI: **System Settings → Notifications**. Setup: `docs/NOTIFICATION_SETUP.md`.
+
+Platform branding read path: `backend/src/services/platformSettingsReadService.js` — PG-first admin settings for `GET /api/admin/platform-settings` (`routedRead('admin')` + safe defaults). Settings singleton reads: `settingsReadService.js`. Settings change history (read-only): `settingsHistoryReadService.js` + `settingsHistoryFilter.js` → `GET /api/admin/settings-history`; UI in Security tab (`settings-history.js`). Sanitized JSON backup: `settingsExportImportService.js` + `settingsExportSanitizer.js` → `GET/POST /api/admin/settings-export|import`; Utilities tab (`settings-backup-restore.js`). Quick save: `Ctrl+S`/`Cmd+S` in `settings-hub.js` via `triggerSettingsQuickSave()` in `settings-dirty-tracker.js`.
+
+Settings hub deep links: `/admin#settings-{tab}` (e.g. `#settings-finance`) — tab routing in `settings-hub.js`; unsaved-state tracking in `settings-dirty-tracker.js`.
 
 ## Documentation Index
 

@@ -12,11 +12,15 @@
 const customerAdminController = require('./admin/customerAdminController');
 const adminProfileController = require('./admin/adminProfileController');
 const adminSettingsController = require('./admin/adminSettingsController');
+const settingsHistoryController = require('./admin/settingsHistoryController');
+const settingsExportImportController = require('./admin/settingsExportImportController');
 const { getDashboardAnalytics } = require('./analyticsController');
 
 module.exports = {
     ...customerAdminController,
     ...adminProfileController,
     ...adminSettingsController,
+    ...settingsHistoryController,
+    ...settingsExportImportController,
     getDashboardAnalytics
 };

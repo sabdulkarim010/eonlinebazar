@@ -8,9 +8,11 @@ const { describe, test, expect, afterAll, afterEach } = require('./jestCompat');
 require('dotenv').config();
 
 const prisma = require('../../backend/src/config/prismaClient');
+const SidebarLabel = require('../../backend/src/models/SidebarLabel');
 const {
   findAllMap,
-  upsertLabel
+  upsertLabel,
+  bulkUpsertLabels
 } = require('../../backend/src/repositories/sidebarLabelRepository');
 
 const PREFIX = `__test_sidebar_${Date.now()}_`;
@@ -20,7 +22,10 @@ async function cleanup() {
   if (createdKeys.length) {
     await prisma.sidebarLabel.deleteMany({
       where: { menuKey: { in: [...createdKeys] } }
-    });
+    }).catch(() => {});
+    await SidebarLabel.deleteMany({
+      menuKey: { $in: [...createdKeys] }
+    }).catch(() => {});
     createdKeys.length = 0;
   }
 }
@@ -33,7 +38,7 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe('SidebarLabel repository — real Neon DB', () => {
+describe('SidebarLabel repository — real Neon DB + Mongo', () => {
   test('upsertLabel() creates a new label', async () => {
     const menuKey = `${PREFIX}view-orders`;
     createdKeys.push(menuKey);
@@ -67,4 +72,24 @@ describe('SidebarLabel repository — real Neon DB', () => {
     expect(map[keyA]).toBe('Products Label');
     expect(map[keyB]).toBe('Staff Label');
   });
+
+  test('bulkUpsertLabels() saves multiple labels in one call', async () => {
+    const keyA = `${PREFIX}view-finance`;
+    const keyB = `${PREFIX}view-settings`;
+    createdKeys.push(keyA, keyB);
+
+    const result = await bulkUpsertLabels({
+      [keyA]: 'Finance Hub',
+      [keyB]: 'Config Panel'
+    }, 'admin-batch');
+
+    expect(result.saved).toBe(2);
+    expect(result.labels[keyA]).toBe('Finance Hub');
+    expect(result.labels[keyB]).toBe('Config Panel');
+
+    const map = await findAllMap();
+    expect(map[keyA]).toBe('Finance Hub');
+    expect(map[keyB]).toBe('Config Panel');
+  });
+
 });

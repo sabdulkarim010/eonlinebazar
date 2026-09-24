@@ -4,6 +4,7 @@
  * Description: Dynamic payment methods catalog CRUD.
  */
 import '../admin-core.js';
+import { settingsFetchJson, isSettingsFetchFailure } from './settings-utils.js';
 const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
 
 /* ==========================================================================
@@ -151,10 +152,13 @@ window.fetchPaymentMethodsCatalog = async function fetchPaymentMethodsCatalog() 
     if (!grid) return;
 
     try {
-        const res = await fetch('/api/admin/payment-methods', {
+        const response = await settingsFetchJson('/api/admin/payment-methods', {
             headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
+        }, { showToast: false });
+        if (isSettingsFetchFailure(response)) {
+            throw new Error(response.error || 'Failed to load payment methods.');
+        }
+        const data = response.data;
         if (!data.success) {
             throw new Error(data.message || 'Failed to load payment methods.');
         }
@@ -322,12 +326,15 @@ async function savePaymentMethodForm(event) {
     const restore = setButtonLoading(submitBtn, 'Saving...');
 
     try {
-        const res = await fetch(id ? `/api/admin/payment-methods/${id}` : '/api/admin/payment-methods', {
+        const response = await settingsFetchJson(id ? `/api/admin/payment-methods/${id}` : '/api/admin/payment-methods', {
             method: id ? 'PUT' : 'POST',
             headers: { Authorization: `Bearer ${token}` },
             body: formData
         });
-        const result = await res.json();
+        if (isSettingsFetchFailure(response)) {
+            throw new Error(response.error || 'Failed to save payment method.');
+        }
+        const result = response.data;
         if (!result.success) {
             throw new Error(result.message || 'Failed to save payment method.');
         }
@@ -344,7 +351,7 @@ async function savePaymentMethodForm(event) {
 
 async function togglePaymentMethodActive(id, isActive) {
     try {
-        const res = await fetch(`/api/admin/payment-methods/${id}/toggle`, {
+        const response = await settingsFetchJson(`/api/admin/payment-methods/${id}/toggle`, {
             method: 'PATCH',
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -352,7 +359,10 @@ async function togglePaymentMethodActive(id, isActive) {
             },
             body: JSON.stringify({ isActive })
         });
-        const result = await res.json();
+        if (isSettingsFetchFailure(response)) {
+            throw new Error(response.error || 'Toggle failed.');
+        }
+        const result = response.data;
         if (!result.success) throw new Error(result.message || 'Toggle failed.');
         showToast(result.message || 'Updated.', result.warning ? 'warning' : 'success');
         if (result.warning) showToast(result.warning, 'warning');
@@ -373,11 +383,14 @@ function deletePaymentMethod(id) {
             : 'This method will be removed from checkout. Existing orders keep their payment records.',
         async () => {
             try {
-                const res = await fetch(`/api/admin/payment-methods/${id}`, {
+                const response = await settingsFetchJson(`/api/admin/payment-methods/${id}`, {
                     method: 'DELETE',
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                const result = await res.json();
+                if (isSettingsFetchFailure(response)) {
+                    throw new Error(response.error || 'Delete failed.');
+                }
+                const result = response.data;
                 if (!result.success) throw new Error(result.message || 'Delete failed.');
                 showToast(result.message || 'Deleted.', 'success');
                 await fetchPaymentMethodsCatalog();
@@ -392,7 +405,7 @@ function deletePaymentMethod(id) {
 
 async function persistPaymentMethodOrder(order) {
     try {
-        const res = await fetch('/api/admin/payment-methods/reorder', {
+        const response = await settingsFetchJson('/api/admin/payment-methods/reorder', {
             method: 'PATCH',
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -400,7 +413,10 @@ async function persistPaymentMethodOrder(order) {
             },
             body: JSON.stringify({ order })
         });
-        const result = await res.json();
+        if (isSettingsFetchFailure(response)) {
+            throw new Error(response.error || 'Reorder failed.');
+        }
+        const result = response.data;
         if (!result.success) throw new Error(result.message || 'Reorder failed.');
         renderPaymentMethodsGrid(result.data || []);
         showToast('Display order updated.', 'success');

@@ -4,7 +4,11 @@
  * Description: Settings barrel — security, platform, payments, footer, CMS, 2FA.
  */
 import './admin-core.js';
+import './modules/settings-utils.js';
+import './modules/settings-dirty-tracker.js';
 import './modules/settings-security.js';
+import './modules/settings-history.js';
+import './modules/settings-backup-restore.js';
 import './modules/settings-platform.js';
 import './modules/settings-payments.js';
 import './modules/settings-footer.js';

@@ -360,11 +360,11 @@
                                         <p id="notifWaTestResult" class="notif-test-result" hidden></p>
                                     </div>
 
-                                    <div class="form-group" style="margin-top:1rem">
-                                        <label class="checkbox-label" for="notifWaEnabledToggle">
+                                    <div class="form-group notif-wa-toggle-group">
+                                        <label class="checkbox-label notif-wa-toggle-row" for="notifWaEnabledToggle">
                                             Enable WhatsApp
-                                            <label class="toggle-switch" style="margin-left:0.75rem">
-                                                <input type="checkbox" id="notifWaEnabledToggle">
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="notifWaEnabledToggle" data-settings-immediate-save="true">
                                                 <span class="toggle-slider"></span>
                                             </label>
                                         </label>
@@ -406,6 +406,38 @@
                                 </button>
                             </div>
 
+                            <div class="saas-settings-card" id="settingsHistoryCard" data-permission="manage_settings">
+                                <div class="saas-settings-card-header">
+                                    <h4><i class="fa-solid fa-list-check"></i> Settings Change History</h4>
+                                    <p class="settings-card-sub">Recent platform configuration changes — who changed what and when.</p>
+                                </div>
+                                <div class="saas-settings-card-body">
+                                    <div class="settings-history-meta">
+                                        <span><strong id="settingsHistoryCount">—</strong> recorded change(s)</span>
+                                    </div>
+                                    <div class="table-container settings-history-table-wrap">
+                                        <table class="data-table settings-history-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date &amp; Time</th>
+                                                    <th>Admin</th>
+                                                    <th>Action</th>
+                                                    <th>Summary</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="settingsHistoryBody">
+                                                <tr><td colspan="4" class="loading-container"><div class="spinner"></div></td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="saas-settings-card-footer">
+                                    <button type="button" class="btn-secondary" id="settingsHistoryRefreshBtn">
+                                        <i class="fa-solid fa-rotate"></i> Refresh
+                                    </button>
+                                </div>
+                            </div>
+
                             <div class="saas-settings-card">
                                 <div class="saas-settings-card-header">
                                     <h4><i class="fa-solid fa-id-card"></i> Admin Profile</h4>
@@ -442,7 +474,7 @@
                                 </form>
                             </div>
 
-                            <div id="menuLabelsSettingsCard" class="saas-settings-card" data-superadmin-only="true" hidden>
+                            <div id="menuLabelsSettingsCard" class="saas-settings-card" data-settings-dirty-scope="menuLabelsSettingsCard" data-superadmin-only="true" hidden>
                                 <div class="saas-settings-card-header">
                                     <h4><i class="fa-solid fa-bars-staggered"></i> Customize Menu Labels</h4>
                                     <p class="settings-card-sub">Rename sidebar menu items to match your business. Changes are visible only to Super Admin.</p>
@@ -472,7 +504,7 @@
                                 </div>
                             </div>
 
-                            <div class="saas-settings-card" data-superadmin-only="true">
+                            <div id="adminEmployeeLinkCard" class="saas-settings-card" data-settings-dirty-scope="adminEmployeeLinkCard" data-superadmin-only="true">
                                 <div class="saas-settings-card-header">
                                     <h4><i class="fa-solid fa-link"></i> Link to Employee Record</h4>
                                     <p class="settings-card-sub">Connect your admin sidebar photo and name to an HRM employee profile.</p>
@@ -572,69 +604,112 @@
                     <!-- Tab: System Utilities -->
                     <div class="admin-settings-panel" role="tabpanel" id="adminPanelUtilities" aria-labelledby="adminTabUtilities" data-panel="utilities" hidden>
                         <div class="admin-settings-stack">
-                            <div class="settings-card" style="border-left: 4px solid #f97316">
-                                <h3>📊 Google Analytics</h3>
-                                <p style="color:#6b7280;font-size:0.875rem;margin:8px 0 16px">View your store traffic, conversions, and user behavior.</p>
-                                <div style="display:flex;gap:10px;flex-wrap:wrap">
-                                    <a href="https://analytics.google.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary">📈 Open GA4 Dashboard</a>
-                                    <div id="ga-status-badge" style="padding:8px 14px;border-radius:8px;font-size:0.8rem;font-weight:600;background:#f3f4f6;color:#6b7280;display:flex;align-items:center;gap:6px;">Checking GA status...</div>
+                            <div class="admin-settings-utilities-grid">
+                                <div class="saas-settings-card saas-settings-card--accent-orange">
+                                    <div class="saas-settings-card-header">
+                                        <h4><i class="fa-solid fa-chart-line"></i> Google Analytics</h4>
+                                        <p class="settings-card-sub">View your store traffic, conversions, and user behavior.</p>
+                                    </div>
+                                    <div class="saas-settings-card-body">
+                                        <div class="util-action-row">
+                                            <a href="https://analytics.google.com" target="_blank" rel="noopener noreferrer" class="btn-submit saas-settings-save-btn util-ga-link-btn">
+                                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Open GA4 Dashboard
+                                            </a>
+                                            <div id="ga-status-badge" class="util-ga-badge" role="status">Checking GA status…</div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div class="settings-card">
-                                <h3>⚡ Performance Cache</h3>
-                                <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="sw-enabled-toggle" checked onchange="toggleServiceWorkerSetting(this.checked)">
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                    <span id="sw-setting-text" style="font-size:0.85rem;font-weight:600">Cache Enabled</span>
+                                <div class="saas-settings-card">
+                                    <div class="saas-settings-card-header">
+                                        <h4><i class="fa-solid fa-bolt"></i> Performance Cache</h4>
+                                        <p class="settings-card-sub">Enable or disable the storefront service worker cache for faster repeat visits.</p>
+                                    </div>
+                                    <div class="saas-settings-card-body">
+                                        <div class="util-toggle-row">
+                                            <label class="toggle-switch" for="sw-enabled-toggle">
+                                                <input type="checkbox" id="sw-enabled-toggle" checked data-settings-immediate-save="true" onchange="toggleServiceWorkerSetting(this.checked)">
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                            <span id="sw-setting-text" class="util-toggle-label">Cache Enabled</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div class="settings-card" style="border-left:4px solid #6366f1">
-                                <h3>🔄 Cache Management</h3>
-                                <p style="font-size:0.85rem;color:#6b7280;margin:8px 0 16px">Current cache version: <code id="cache-version-display">loading...</code></p>
-                                <button type="button" class="btn btn-primary" onclick="restartCacheBuster()">🔄 Force Cache Refresh</button>
-                            </div>
+                                <div class="saas-settings-card saas-settings-card--accent-indigo">
+                                    <div class="saas-settings-card-header">
+                                        <h4><i class="fa-solid fa-rotate"></i> Cache Management</h4>
+                                        <p class="settings-card-sub">Inspect the deployed build version and prompt clients to refresh cached assets.</p>
+                                    </div>
+                                    <div class="saas-settings-card-body">
+                                        <p class="util-cache-version-line">Current cache version: <code id="cache-version-display">loading…</code></p>
+                                    </div>
+                                    <div class="saas-settings-card-footer">
+                                        <button type="button" class="btn-submit saas-settings-save-btn" onclick="restartCacheBuster()">
+                                            <i class="fa-solid fa-arrows-rotate"></i> Force Cache Refresh
+                                        </button>
+                                    </div>
+                                </div>
 
-                            <div id="sandboxSettingsCard" class="settings-card sandbox-card" data-superadmin-only="true" hidden aria-label="Sandbox Mode Settings">
-                                <div class="sandbox-header">
-                                    <div>
-                                        <h3>🧪 Sandbox Mode</h3>
-                                        <p>Test your store without affecting real data.</p>
+                                <div class="saas-settings-card saas-settings-card--accent-teal" data-permission="manage_settings">
+                                    <div class="saas-settings-card-header">
+                                        <h4><i class="fa-solid fa-file-export"></i> Settings Backup &amp; Restore</h4>
+                                        <p class="settings-card-sub">Export or import platform configuration as JSON. Secrets (API keys, passwords) are excluded automatically.</p>
                                     </div>
-                                    <div class="sandbox-toggle-wrap">
-                                        <label class="toggle-switch" id="sandbox-toggle-label">
-                                            <input type="checkbox" id="sandbox-toggle" onchange="toggleSandboxMode(this.checked)">
-                                            <span class="toggle-slider"></span>
-                                        </label>
-                                        <span id="sandbox-status-text" class="sandbox-status-off">OFF — Live Mode</span>
+                                    <div class="saas-settings-card-body">
+                                        <p class="util-backup-hint">Use export before major changes or when cloning settings to staging. Import requires confirmation and never restores secret credentials.</p>
                                     </div>
-                                </div>
-                                <div class="sandbox-stats" id="sandbox-stats">
-                                    <div class="sandbox-stat">
-                                        <span class="sandbox-stat-label">🧪 Test Orders</span>
-                                        <span class="sandbox-stat-val" id="sandbox-order-count">—</span>
-                                    </div>
-                                    <div class="sandbox-stat">
-                                        <span class="sandbox-stat-label">📦 Real Orders</span>
-                                        <span class="sandbox-stat-val" id="real-order-count">—</span>
+                                    <div class="saas-settings-card-footer util-backup-actions">
+                                        <button type="button" class="btn-submit saas-settings-save-btn" id="settingsExportBackupBtn">
+                                            <i class="fa-solid fa-download"></i> Export Settings Backup
+                                        </button>
+                                        <button type="button" class="btn-secondary" id="settingsImportBackupBtn">
+                                            <i class="fa-solid fa-upload"></i> Import Settings Backup
+                                        </button>
+                                        <input type="file" id="settingsImportBackupInput" accept="application/json,.json" hidden>
                                     </div>
                                 </div>
-                                <div class="sandbox-actions">
-                                    <div class="sandbox-action-card test">
-                                        <h4>🗑️ Reset Test Data</h4>
-                                        <button type="button" class="btn-reset-test" onclick="resetTestData()">Clear Test Orders</button>
+
+                                <div id="sandboxSettingsCard" class="saas-settings-card sandbox-card saas-settings-card--full" data-superadmin-only="true" hidden aria-label="Sandbox Mode Settings">
+                                    <div class="saas-settings-card-header sandbox-header">
+                                        <div class="sandbox-header-copy">
+                                            <h4><i class="fa-solid fa-flask"></i> Sandbox Mode</h4>
+                                            <p class="settings-card-sub">Test your store without affecting real data.</p>
+                                        </div>
+                                        <div class="sandbox-toggle-wrap">
+                                            <label class="toggle-switch" id="sandbox-toggle-label">
+                                                <input type="checkbox" id="sandbox-toggle" data-settings-immediate-save="true" onchange="toggleSandboxMode(this.checked)">
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                            <span id="sandbox-status-text" class="sandbox-status-off">OFF — Live Mode</span>
+                                        </div>
                                     </div>
-                                    <div class="sandbox-action-card real">
-                                        <h4>⚠️ Reset Real Data</h4>
-                                        <form id="realResetForm" class="reset-real-form" onsubmit="return false;">
-                                            <div class="reset-real-row">
-                                                <input type="password" id="real-reset-key" placeholder="Enter confirmation key..." autocomplete="off">
-                                                <button type="button" class="btn-reset-real" onclick="resetRealData()">Reset Real Orders</button>
+                                    <div class="saas-settings-card-body">
+                                        <div class="sandbox-stats" id="sandbox-stats">
+                                            <div class="sandbox-stat">
+                                                <span class="sandbox-stat-label">Test Orders</span>
+                                                <span class="sandbox-stat-val" id="sandbox-order-count">—</span>
                                             </div>
-                                        </form>
+                                            <div class="sandbox-stat">
+                                                <span class="sandbox-stat-label">Real Orders</span>
+                                                <span class="sandbox-stat-val" id="real-order-count">—</span>
+                                            </div>
+                                        </div>
+                                        <div class="sandbox-actions">
+                                            <div class="sandbox-action-card test">
+                                                <h4>Reset Test Data</h4>
+                                                <button type="button" class="btn-reset-test" onclick="resetTestData()">Clear Test Orders</button>
+                                            </div>
+                                            <div class="sandbox-action-card real">
+                                                <h4>Reset Real Data</h4>
+                                                <form id="realResetForm" class="reset-real-form" onsubmit="return false;">
+                                                    <div class="reset-real-row">
+                                                        <input type="password" id="real-reset-key" placeholder="Enter confirmation key…" autocomplete="off">
+                                                        <button type="button" class="btn-reset-real" onclick="resetRealData()">Reset Real Orders</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

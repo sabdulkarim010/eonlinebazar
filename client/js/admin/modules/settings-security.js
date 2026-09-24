@@ -4,6 +4,7 @@
  * Description: Security logs and fortified sessions/audit/blacklist suite.
  */
 import '../admin-core.js';
+import { settingsFetchJson, isSettingsFetchFailure } from './settings-utils.js';
 const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
 
 let securityPg = null;
@@ -42,12 +43,17 @@ async function fetchSecurityLogs(page, limit) {
             page: String(effectivePage),
             limit: String(effectiveLimit)
         });
-        const response = await fetch(`/api/admin/logs?${params}`, {
+        const fetchResponse = await settingsFetchJson(`/api/admin/logs?${params}`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
-        });
+        }, { showToast: false });
 
-        const data = await response.json();
+        if (isSettingsFetchFailure(fetchResponse)) {
+            logsBody.innerHTML = `<tr><td colspan="6" class="table-status-error">${escapeHtml(fetchResponse.error || 'Server connection failed.')}</td></tr>`;
+            return;
+        }
+
+        const data = fetchResponse.data;
         const logs = data.success ? data.data : [];
         const total = data.pagination?.total ?? logs.length;
 
@@ -111,8 +117,13 @@ async function fetchSecurityMonitorStats() {
     }
 
     try {
-        const res = await fetch('/api/admin/security/rate-limit-stats', { headers: SEC_AUTH_HEADERS() });
-        const data = await res.json();
+        const fetchResponse = await settingsFetchJson('/api/admin/security/rate-limit-stats', {
+            headers: SEC_AUTH_HEADERS()
+        }, { showToast: false });
+        if (isSettingsFetchFailure(fetchResponse)) {
+            throw new Error(fetchResponse.error || 'Failed to load security monitor.');
+        }
+        const data = fetchResponse.data;
         if (!data.success) throw new Error(data.message || 'Failed to load security monitor.');
 
         const payload = data.data || {};
@@ -186,7 +197,7 @@ async function quickBlacklistIp(ip) {
     if (!proceed) return;
 
     try {
-        const res = await fetch('/api/admin/blacklist', {
+        const fetchResponse = await settingsFetchJson('/api/admin/blacklist', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...SEC_AUTH_HEADERS() },
             body: JSON.stringify({
@@ -195,7 +206,11 @@ async function quickBlacklistIp(ip) {
                 hours: 24
             })
         });
-        const data = await res.json();
+        if (isSettingsFetchFailure(fetchResponse)) {
+            if (typeof showToast === 'function') showToast(fetchResponse.error || 'Failed.', 'error');
+            return;
+        }
+        const data = fetchResponse.data;
         if (typeof showToast === 'function') {
             showToast(data.message || (data.success ? 'IP blocked.' : 'Failed.'), data.success ? 'success' : 'error');
         }
@@ -304,8 +319,16 @@ async function fetchAdminSessions() {
     grid.innerHTML = `<div class="loading-container"><div class="spinner"></div><p>Loading active sessions...</p></div>`;
 
     try {
-        const res = await fetch('/api/admin/sessions', { headers: SEC_AUTH_HEADERS() });
-        const data = await res.json();
+        const fetchResponse = await settingsFetchJson('/api/admin/sessions', {
+            headers: SEC_AUTH_HEADERS()
+        }, { showToast: false });
+        if (isSettingsFetchFailure(fetchResponse)) {
+            grid.innerHTML = `<div class="empty-state error">${escapeHtml(fetchResponse.error || 'Failed to load sessions.')}</div>`;
+            const logoutAllBtn = document.getElementById('admin-logout-all-btn');
+            if (logoutAllBtn) logoutAllBtn.style.display = 'none';
+            return;
+        }
+        const data = fetchResponse.data;
         const sessions = data.success ? data.sessions : [];
 
         const countEl = document.getElementById('activeSessionCount');
@@ -348,10 +371,14 @@ async function logoutAdminSession(sessionId, isCurrent) {
     if (!proceed) return;
 
     try {
-        const res = await fetch(`/api/admin/sessions/logout/${encodeURIComponent(sessionId)}`, {
+        const fetchResponse = await settingsFetchJson(`/api/admin/sessions/logout/${encodeURIComponent(sessionId)}`, {
             method: 'POST', headers: SEC_AUTH_HEADERS()
         });
-        const data = await res.json();
+        if (isSettingsFetchFailure(fetchResponse)) {
+            if (typeof showToast === 'function') showToast(fetchResponse.error || 'Server error.', 'error');
+            return;
+        }
+        const data = fetchResponse.data;
         if (!data.success) return showToast(data.message || 'Failed.', 'error');
 
         if (data.loggedOutCurrent) {
@@ -381,8 +408,14 @@ async function logoutOtherAdminSessions() {
     if (!proceed) return;
 
     try {
-        const res = await fetch('/api/admin/sessions/logout-others', { method: 'POST', headers: SEC_AUTH_HEADERS() });
-        const data = await res.json();
+        const fetchResponse = await settingsFetchJson('/api/admin/sessions/logout-others', {
+            method: 'POST', headers: SEC_AUTH_HEADERS()
+        });
+        if (isSettingsFetchFailure(fetchResponse)) {
+            if (typeof showToast === 'function') showToast(fetchResponse.error || 'Server error.', 'error');
+            return;
+        }
+        const data = fetchResponse.data;
         if (typeof showToast === 'function') showToast(data.message || 'Done.', data.success ? 'success' : 'error');
         fetchAdminSessions();
     } catch (err) {
@@ -438,19 +471,23 @@ function applyRateLimitSettingsToUI(data = {}) {
 
 async function fetchRateLimitSettings() {
     try {
-        const res = await fetch('/api/admin/rate-limit-settings', {
+        const fetchResponse = await settingsFetchJson('/api/admin/rate-limit-settings', {
             headers: { Authorization: `Bearer ${token}` }
-        });
+        }, { showToast: false });
 
-        if (res.status === 429) {
-            showToast('Rate limited — could not load rate limit settings. Try again shortly.', 'warning');
+        if (isSettingsFetchFailure(fetchResponse)) {
+            if (fetchResponse.res?.status === 429) {
+                showToast('Rate limited — could not load rate limit settings. Try again shortly.', 'warning');
+            } else {
+                showToast(fetchResponse.error || 'Failed to load rate limit settings.', 'error');
+            }
             return;
         }
 
-        const data = await res.json();
+        const data = fetchResponse.data;
         if (data.success && data.data) {
             applyRateLimitSettingsToUI(data.data);
-        } else if (handleAdminApiAuthResponse(res, data) === 'auth_failed') {
+        } else if (handleAdminApiAuthResponse(fetchResponse.res, data) === 'auth_failed') {
             return;
         }
     } catch (err) {
@@ -489,26 +526,30 @@ function bindRateLimitSettingsForm() {
         };
 
         try {
-            const res = await fetch('/api/admin/rate-limit-settings', {
+            const fetchResponse = await settingsFetchJson('/api/admin/rate-limit-settings', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify(payload)
-            });
+            }, { showToast: false });
 
-            const result = await res.json();
-
-            if (res.status === 429) {
-                showToast('Rate limited — please wait and try again.', 'warning');
+            if (isSettingsFetchFailure(fetchResponse)) {
+                if (fetchResponse.res?.status === 429) {
+                    showToast('Rate limited — please wait and try again.', 'warning');
+                } else {
+                    showToast(fetchResponse.error || 'Could not save rate limit settings.', 'error');
+                }
                 return;
             }
+
+            const result = fetchResponse.data;
 
             if (result.success) {
                 showToast(result.message || 'Rate limiting settings saved.', 'success');
                 if (result.data) applyRateLimitSettingsToUI(result.data);
-            } else if (handleAdminApiAuthResponse(res, result) === 'auth_failed') {
+            } else if (handleAdminApiAuthResponse(fetchResponse.res, result) === 'auth_failed') {
                 return;
             } else {
                 showToast(`Error: ${result.message || 'Failed to save rate limit settings.'}`, 'error');
@@ -560,8 +601,14 @@ async function fetchAuditLogs(page, limit) {
             page: String(effectivePage),
             limit: String(effectiveLimit)
         });
-        const res = await fetch(`/api/admin/login-history?${params}`, { headers: SEC_AUTH_HEADERS() });
-        const data = await res.json();
+        const fetchResponse = await settingsFetchJson(`/api/admin/login-history?${params}`, {
+            headers: SEC_AUTH_HEADERS()
+        }, { showToast: false });
+        if (isSettingsFetchFailure(fetchResponse)) {
+            body.innerHTML = `<tr><td colspan="6" class="table-status-error">${escapeHtml(fetchResponse.error || 'Server connection failed.')}</td></tr>`;
+            return;
+        }
+        const data = fetchResponse.data;
         const rows = data.success ? data.data : [];
         const summary = data.summary || {};
         const total = data.pagination?.total ?? data.total ?? rows.length;
@@ -618,8 +665,14 @@ async function fetchBlacklist() {
     body.innerHTML = `<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading blacklist...</p></td></tr>`;
 
     try {
-        const res = await fetch('/api/admin/blacklist', { headers: SEC_AUTH_HEADERS() });
-        const data = await res.json();
+        const fetchResponse = await settingsFetchJson('/api/admin/blacklist', {
+            headers: SEC_AUTH_HEADERS()
+        }, { showToast: false });
+        if (isSettingsFetchFailure(fetchResponse)) {
+            body.innerHTML = `<tr><td colspan="6" class="table-status-error">${escapeHtml(fetchResponse.error || 'Server connection failed.')}</td></tr>`;
+            return;
+        }
+        const data = fetchResponse.data;
         const rows = data.success ? data.data : [];
 
         if (rows.length === 0) {
@@ -656,12 +709,16 @@ async function submitBlacklist(e) {
     if (!ip) return showToast('Please enter an IP address.', 'error');
 
     try {
-        const res = await fetch('/api/admin/blacklist', {
+        const fetchResponse = await settingsFetchJson('/api/admin/blacklist', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...SEC_AUTH_HEADERS() },
             body: JSON.stringify({ ip, reason, hours })
         });
-        const data = await res.json();
+        if (isSettingsFetchFailure(fetchResponse)) {
+            if (typeof showToast === 'function') showToast(fetchResponse.error || 'Server error.', 'error');
+            return;
+        }
+        const data = fetchResponse.data;
         if (typeof showToast === 'function') showToast(data.message || (data.success ? 'IP blocked.' : 'Failed.'), data.success ? 'success' : 'error');
         if (data.success) {
             document.getElementById('blacklistAddForm').reset();
@@ -687,8 +744,14 @@ async function removeBlacklist(id, ip) {
     if (!proceed) return;
 
     try {
-        const res = await fetch(`/api/admin/blacklist/${encodeURIComponent(id)}`, { method: 'DELETE', headers: SEC_AUTH_HEADERS() });
-        const data = await res.json();
+        const fetchResponse = await settingsFetchJson(`/api/admin/blacklist/${encodeURIComponent(id)}`, {
+            method: 'DELETE', headers: SEC_AUTH_HEADERS()
+        });
+        if (isSettingsFetchFailure(fetchResponse)) {
+            if (typeof showToast === 'function') showToast(fetchResponse.error || 'Server error.', 'error');
+            return;
+        }
+        const data = fetchResponse.data;
         if (typeof showToast === 'function') showToast(data.message || 'Done.', data.success ? 'success' : 'error');
         fetchBlacklist();
         if (document.getElementById('securityMonitorPanel')) fetchSecurityMonitorStats();

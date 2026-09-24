@@ -988,6 +988,9 @@ function bindSystemSettingsSectionForm(formId, { getPayload, successMessage, onS
                     showToast(successMessage || 'Settings updated successfully!', 'success');
                 }
                 if (result.data) applyMasterSettingsToUI(result.data);
+                if (typeof window.markSettingsFormSaved === 'function') {
+                    window.markSettingsFormSaved(form);
+                }
                 if (typeof onSuccess === 'function') onSuccess(result);
             } else if (typeof Swal !== 'undefined') {
                 Swal.fire({ icon: 'error', title: 'Save failed', text: result.message || 'Failed to save settings.' });
@@ -1151,6 +1154,9 @@ async function saveStoreBrandingForm(form) {
             }
             if (typeof window.refreshStoreBranding === 'function') window.refreshStoreBranding();
             form.reset();
+            if (typeof window.markSettingsFormSaved === 'function') {
+                window.markSettingsFormSaved(form);
+            }
         } else {
             showToast(`Error: ${result.message || 'Failed to upload store branding.'}`, 'error');
             fetchAdminSettings();
@@ -1380,6 +1386,9 @@ function setupAdminSettingsForms() {
                     }
                     document.getElementById('settingsCurrentPassword').value = '';
                     document.getElementById('settingsNewPassword').value = '';
+                    if (typeof window.markSettingsFormSaved === 'function') {
+                        window.markSettingsFormSaved(profileForm);
+                    }
                     if (typeof window.refreshTwoFactorSettings === 'function') window.refreshTwoFactorSettings();
 
                     // Changing the username or password invalidates this token —
@@ -1422,6 +1431,9 @@ function setupAdminSettingsForms() {
                     showToast('Success: Platform preferences saved!', 'success');
                     applyAdminSettingsToUI(result.data);
                     document.getElementById('platformCurrentPassword').value = '';
+                    if (typeof window.markSettingsFormSaved === 'function') {
+                        window.markSettingsFormSaved(platformForm);
+                    }
 
                     if (result.requireRelogin) {
                         showToast(result.message || 'Please sign in again with your new credentials.', 'info');
@@ -1462,6 +1474,9 @@ function setupAdminSettingsForms() {
                 if (result.success) {
                     showToast('Success: Delivery settings saved successfully!', 'success');
                     if (result.data) applyDeliverySettingsToUI(result.data);
+                    if (typeof window.markSettingsFormSaved === 'function') {
+                        window.markSettingsFormSaved(deliveryForm);
+                    }
                     // System Settings shares the free-shipping threshold.
                     fetchMasterSettings();
                 } else {

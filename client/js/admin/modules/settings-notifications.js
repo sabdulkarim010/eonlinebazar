@@ -2,6 +2,7 @@
  * Admin — Email (Resend/Brevo) + WhatsApp (Baileys) notification settings.
  */
 import '../admin-core.js';
+import { settingsFetchJson, isSettingsFetchFailure, settingsFailurePayload } from './settings-utils.js';
 
 const API = {
     config: '/api/admin/settings/notification-config',
@@ -67,18 +68,19 @@ function renderWhatsAppStatus(data = {}) {
 }
 
 async function fetchWhatsAppStatus() {
-    try {
-        const res = await fetch(API.waStatus, { headers: authHeaders() });
-        const json = await res.json();
-        if (json.success && json.data) {
-            renderWhatsAppStatus({
-                ...json.data,
-                enabled: document.getElementById('notifWaEnabledToggle')?.checked
-            });
-            return json.data;
-        }
-    } catch (err) {
-        console.warn('[Notifications] WhatsApp status poll failed:', err.message);
+    const response = await settingsFetchJson(API.waStatus, { headers: authHeaders() }, { showToast: false });
+    if (isSettingsFetchFailure(response)) {
+        console.warn('[Notifications] WhatsApp status poll failed:', response.error);
+        return null;
+    }
+
+    const json = response.data;
+    if (json.success && json.data) {
+        renderWhatsAppStatus({
+            ...json.data,
+            enabled: document.getElementById('notifWaEnabledToggle')?.checked
+        });
+        return json.data;
     }
     return null;
 }
@@ -95,32 +97,38 @@ function startWhatsAppPolling() {
 }
 
 async function loadNotificationSettings() {
-    try {
-        const res = await fetch(API.config, { headers: authHeaders() });
-        const json = await res.json();
-        if (!json.success || !json.data) return;
+    const response = await settingsFetchJson(API.config, { headers: authHeaders() }, { showToast: false });
+    if (isSettingsFetchFailure(response)) {
+        console.error('[Notifications] Load failed:', response.error);
+        showToast(response.error || 'Failed to load notification settings.', 'error');
+        return;
+    }
 
-        const d = json.data;
-        document.querySelectorAll('input[name="notifEmailProvider"]').forEach((input) => {
-            input.checked = input.value === (d.emailProvider || 'resend');
-        });
+    const json = response.data;
+    if (!json.success || !json.data) return;
 
-        const resendFrom = document.getElementById('notifResendFrom');
-        const brevoFrom = document.getElementById('notifBrevoFrom');
-        const resendKey = document.getElementById('notifResendKey');
-        const brevoKey = document.getElementById('notifBrevoKey');
-        const waToggle = document.getElementById('notifWaEnabledToggle');
+    const d = json.data;
+    document.querySelectorAll('input[name="notifEmailProvider"]').forEach((input) => {
+        input.checked = input.value === (d.emailProvider || 'resend');
+    });
 
-        if (resendFrom) resendFrom.value = d.resendFrom || '';
-        if (brevoFrom) brevoFrom.value = d.brevoFrom || '';
-        if (resendKey && d.resendKeyMasked) resendKey.value = d.resendKeyMasked;
-        if (brevoKey && d.brevoKeyMasked) brevoKey.value = d.brevoKeyMasked;
-        if (waToggle) waToggle.checked = d.whatsapp?.enabled === true;
+    const resendFrom = document.getElementById('notifResendFrom');
+    const brevoFrom = document.getElementById('notifBrevoFrom');
+    const resendKey = document.getElementById('notifResendKey');
+    const brevoKey = document.getElementById('notifBrevoKey');
+    const waToggle = document.getElementById('notifWaEnabledToggle');
 
-        renderWhatsAppStatus(d.whatsapp || {});
-        if (d.whatsapp?.status === 'qr_pending') startWhatsAppPolling();
-    } catch (err) {
-        console.error('[Notifications] Load failed:', err.message);
+    if (resendFrom) resendFrom.value = d.resendFrom || '';
+    if (brevoFrom) brevoFrom.value = d.brevoFrom || '';
+    if (resendKey && d.resendKeyMasked) resendKey.value = d.resendKeyMasked;
+    if (brevoKey && d.brevoKeyMasked) brevoKey.value = d.brevoKeyMasked;
+    if (waToggle) waToggle.checked = d.whatsapp?.enabled === true;
+
+    renderWhatsAppStatus(d.whatsapp || {});
+    if (d.whatsapp?.status === 'qr_pending') startWhatsAppPolling();
+
+    if (typeof window.scheduleSettingsTabBaselineCapture === 'function') {
+        window.scheduleSettingsTabBaselineCapture('notifications', 50);
     }
 }
 
@@ -134,12 +142,16 @@ async function saveNotificationSettings() {
         waEnabled: document.getElementById('notifWaEnabledToggle')?.checked === true
     };
 
-    const res = await fetch(API.config, {
+    const response = await settingsFetchJson(API.config, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify(payload)
     });
-    return res.json();
+
+    if (isSettingsFetchFailure(response)) {
+        return settingsFailurePayload(response, 'Save failed');
+    }
+    return response.data;
 }
 
 function bindNotificationSettingsUi() {
@@ -161,6 +173,9 @@ function bindNotificationSettingsUi() {
             if (json.success) {
                 window.showToast?.('Email settings saved.', 'success');
                 await loadNotificationSettings();
+                if (typeof window.markSettingsFormSaved === 'function') {
+                    window.markSettingsFormSaved(emailForm);
+                }
             } else {
                 window.showToast?.(json.message || 'Save failed', 'error');
             }
@@ -177,12 +192,16 @@ function bindNotificationSettingsUi() {
                 setTestResult(emailResult, false, json.message || 'Could not save settings first');
                 return;
             }
-            const res = await fetch(API.testEmail, {
+            const response = await settingsFetchJson(API.testEmail, {
                 method: 'POST',
                 headers: authHeaders(),
                 body: JSON.stringify({})
-            });
-            const result = await res.json();
+            }, { showToast: false });
+            if (isSettingsFetchFailure(response)) {
+                setTestResult(emailResult, false, response.error);
+                return;
+            }
+            const result = response.data;
             setTestResult(
                 emailResult,
                 result.success,
@@ -199,8 +218,12 @@ function bindNotificationSettingsUi() {
         const enabled = waToggle.checked;
         const endpoint = enabled ? API.waEnable : API.waDisconnect;
         try {
-            const res = await fetch(endpoint, { method: 'POST', headers: authHeaders() });
-            const json = await res.json();
+            const response = await settingsFetchJson(endpoint, { method: 'POST', headers: authHeaders() });
+            if (isSettingsFetchFailure(response)) {
+                waToggle.checked = !enabled;
+                return;
+            }
+            const json = response.data;
             if (json.success) {
                 window.showToast?.(json.message || (enabled ? 'WhatsApp enabled' : 'WhatsApp disabled'), 'success');
                 renderWhatsAppStatus({ ...json.data, enabled });
@@ -227,8 +250,9 @@ function bindNotificationSettingsUi() {
     });
 
     disconnectBtn?.addEventListener('click', async () => {
-        const res = await fetch(API.waDisconnect, { method: 'POST', headers: authHeaders() });
-        const json = await res.json();
+        const response = await settingsFetchJson(API.waDisconnect, { method: 'POST', headers: authHeaders() });
+        if (isSettingsFetchFailure(response)) return;
+        const json = response.data;
         if (json.success) {
             if (waToggle) waToggle.checked = false;
             renderWhatsAppStatus({ status: 'disconnected', enabled: false });
@@ -239,8 +263,12 @@ function bindNotificationSettingsUi() {
     testWaBtn?.addEventListener('click', async () => {
         testWaBtn.disabled = true;
         try {
-            const res = await fetch(API.testWa, { method: 'POST', headers: authHeaders() });
-            const result = await res.json();
+            const response = await settingsFetchJson(API.testWa, { method: 'POST', headers: authHeaders() }, { showToast: false });
+            if (isSettingsFetchFailure(response)) {
+                setTestResult(waResult, false, response.error);
+                return;
+            }
+            const result = response.data;
             setTestResult(waResult, result.success, result.message || 'Send failed');
         } catch (err) {
             setTestResult(waResult, false, err.message);

@@ -166,6 +166,36 @@
     accent-color: #2563eb;
 }
 
+/* Settings change history (Security tab) */
+.settings-history-meta {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.settings-history-table-wrap {
+    max-height: 420px;
+    overflow: auto;
+}
+
+.settings-history-table th,
+.settings-history-table td {
+    vertical-align: top;
+}
+
+.settings-history-date {
+    white-space: nowrap;
+    font-size: 0.85rem;
+    color: #475569;
+}
+
+.settings-history-summary {
+    font-size: 0.85rem;
+    color: #334155;
+    max-width: 360px;
+    word-break: break-word;
+}
+
 .staff-audit-breakdown-cell {
     display: flex;
     flex-wrap: wrap;

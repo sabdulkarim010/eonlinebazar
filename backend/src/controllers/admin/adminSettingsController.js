@@ -21,24 +21,43 @@ const { clearStoreSettingsCache } = require('../../services/storeSettingsService
 const { invalidate, CACHE_KEYS } = require('../../services/cacheService');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { adminDualWrite, mirrorAdminUpdate } = require('../../utils/adminDualWriteHelpers');
+const {
+    fetchPlatformAdminSettingsSafe,
+    buildDefaultPlatformSettings
+} = require('../../services/platformSettingsReadService');
 
 // ==============================================================
 // ১১. অ্যাডমিন সেটিংস পড়া
 // ==============================================================
 const getAdminSettings = async (req, res) => {
+    const username = req.admin?.username || req.adminAccount?.username || 'admin';
+
     try {
-        const admin = await Admin.findOne({ username: req.admin?.username || 'admin' })
-            .select('-password')
-            .lean();
-        if (!admin) {
+        const { admin, fallback, notFound } = await fetchPlatformAdminSettingsSafe(username);
+
+        if (notFound) {
             return res.status(404).json({ success: false, message: 'Admin not found.' });
         }
-        admin.logoUrl = normalizeBrandingPublicUrl(admin.logoUrl);
-        admin.faviconUrl = normalizeBrandingPublicUrl(admin.faviconUrl);
-        res.status(200).json({ success: true, data: admin });
+
+        const payload = {
+            success: true,
+            data: admin
+        };
+        if (fallback) {
+            payload.settings = admin;
+            payload.fallback = true;
+        }
+
+        return res.status(200).json(payload);
     } catch (error) {
         console.error('Get Admin Settings Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to load settings.' });
+        const defaults = buildDefaultPlatformSettings(username);
+        return res.status(200).json({
+            success: true,
+            data: defaults,
+            settings: defaults,
+            fallback: true
+        });
     }
 };
 

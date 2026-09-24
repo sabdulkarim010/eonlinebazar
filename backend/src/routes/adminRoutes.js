@@ -393,6 +393,13 @@ router.post('/sync-data', verifyAdmin, checkPermission('manage_settings'), admin
 // ৪. সিকিউরিটি লগস (GET)
 router.get('/logs', verifyAdmin, checkPermission('manage_security'), adminController.getSecurityLogs);
 
+// ৪ক. সেটিংস চেঞ্জ হিস্ট্রি (GET) — settings-related audit events only
+router.get('/settings-history', verifyAdmin, checkPermission('manage_settings'), adminController.getSettingsHistory);
+
+// ৪খ. সেটিংস JSON এক্সপোর্ট/ইম্পোর্ট (sanitized backup — no secrets)
+router.get('/settings-export', verifyAdmin, checkPermission('manage_settings'), adminController.exportSettingsBackup);
+router.post('/settings-import', verifyAdmin, checkPermission('manage_settings'), adminController.importSettingsBackup);
+
 // ৫. সিস্টেম ডেলিভারি সেটিংস (GET / PUT / POST)
 // পড়া সবার জন্য খোলা (অর্ডার/চেকআউট ভিউ এই ভ্যালুগুলো দেখায়), লেখা কেবল manage_settings-এ
 router.get('/all-settings', verifyAdmin, settingsController.getAllSettings);
@@ -720,6 +727,7 @@ router.post('/sandbox/reset-real-data', verifyAdmin, requireSuperAdmin, sandboxC
 
 // Super Admin sidebar menu label customization
 router.get('/sidebar-labels', verifyAdmin, requireSuperAdmin, sidebarLabelController.listSidebarLabels);
+router.put('/sidebar-labels', verifyAdmin, requireSuperAdmin, sidebarLabelController.batchUpsertSidebarLabels);
 router.put('/sidebar-labels/:key', verifyAdmin, requireSuperAdmin, sidebarLabelController.upsertSidebarLabel);
 router.delete('/sidebar-labels', verifyAdmin, requireSuperAdmin, sidebarLabelController.resetSidebarLabels);
 

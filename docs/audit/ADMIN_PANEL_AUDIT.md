@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (Customer table toolbar compact layout)  
+**Last updated:** 2026-09-24 (Settings export/import + Ctrl+S — Phase 3 Step 2)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -33,6 +33,7 @@
 | `client/js/admin/modules/core-nav.js` | Accordion nav, mobile drawer, section routing |
 | `client/js/admin/modules/core-breadcrumb.js` | Dashboard > Group > Section breadcrumbs |
 | `client/js/admin/modules/settings-hub.js` | Settings tab routing |
+| `client/js/admin/modules/settings-utils.js` | Shared `settingsFetchJson` (15s timeout) |
 | `client/js/admin/modules/orders-pos.js` | POS checkout, barcode, split payment |
 | `client/js/admin/modules/notifications.js` | In-app notification center |
 | `client/js/admin/modules/adminSidebar.js` | Sidebar profile — merged Admin + linked Employee via `/api/admin/profile/me/full` |
@@ -93,6 +94,20 @@
 
 ## Change Log
 
+### Settings export/import + Ctrl+S quick save — 2026-09-24
+
+- Utilities tab: Export/Import Settings Backup card (`settings-backup-restore.js`)
+- `GET /api/admin/settings-export`, `POST /api/admin/settings-import` (sanitized, confirm required)
+- Global `Ctrl+S` / `Cmd+S` triggers active tab save in Settings hub
+- Tests: **248/248** passing
+
+### Settings change history card (Security tab) — 2026-09-24
+
+- Added `settings-history.js` — table of recent settings audit events via `GET /api/admin/settings-history`
+- Card in `view-settings.html` Security panel (`data-permission="manage_settings"`)
+- Loading spinner, empty state, Refresh button; loads on Security tab activation
+- Tests: **242/242** passing
+
 ### Customer table toolbar premium single-row layout — 2026-09-24
 
 - Full-width toolbar: search (350px / left) + tier + segment pills + Export CSV (right group)
@@ -125,6 +140,12 @@
 - Files: `customerAdminController.js`, `customers-modals.js`, `customers-table.js`
 - Tests: `npm test` 231/231 pass
 
+### Settings Fetch Timeout Helper — 2026-09-24
+
+- `settings-utils.js`: `settingsFetchJson()` — 15s AbortController, structured errors, user toasts on timeout/500/network failure
+- All settings hub modules refactored from raw `fetch()` to shared helper
+- Tests: **231/231** pass
+
 ### Admin-Employee Profile Link — 2026-09-20
 
 - Sidebar loads merged profile from `GET /api/admin/profile/me/full` (Employee photo preferred over Admin.image)
@@ -132,6 +153,25 @@
 - Settings Hub: super-admin "Link to Employee Record" card in `view-settings.html`
 - Profile save + photo upload refresh sidebar immediately; employee photo update clears cache
 - Files: `adminSidebar.js`, `core-boot.js`, `core-nav.js`, `settings-cms.js`, `view-settings.html`
+
+### Settings Deep-Links & Discard Buttons — 2026-09-24
+
+- `#settings-{tab}` URL hashes with `history.replaceState`; hashchange + init routing
+- Per-card **Discard** buttons via `installSettingsDiscardButtons()` — reverts to pristine baseline
+- Tests: **237/237** pass
+
+### Settings Unsaved Changes Guard — 2026-09-24
+
+- `settings-dirty-tracker.js`: dirty/pristine tracking, tab-switch confirm, `beforeunload`, save-state chips
+- Wired across branding, general, security, notifications, embedded shipping forms
+- Tests: **237/237** pass
+
+### Settings Hub Design System Standardization — 2026-09-24
+
+- Utilities tab migrated from legacy `.settings-card` + inline styles to `.saas-settings-card`
+- Tab-switch SweetAlert toasts removed (`settings-hub.js`); save/action toasts retained
+- Settings shell widened to 1360px; utilities + notifications 2-col grids on wide screens
+- Tests: **237/237** pass
 
 ### AdminPagination.ensure rollout — 2026-09-21
 

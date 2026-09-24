@@ -2,6 +2,7 @@
  * Super Admin — Customize sidebar menu labels from System Settings.
  */
 import '../admin-core.js';
+import { settingsFetchJson, isSettingsFetchFailure } from './settings-utils.js';
 
 function menuLabelsAuthHeaders(json = false) {
     const headers = { Authorization: `Bearer ${localStorage.getItem('adminToken')}` };
@@ -72,15 +73,20 @@ async function loadMenuLabelsSettingsPanel() {
 
     const defaults = collectDefaultMenuLabels();
 
-    try {
-        const res = await fetch('/api/admin/sidebar-labels', { headers: menuLabelsAuthHeaders() });
-        const data = await res.json();
-        const labels = res.ok && data.success !== false ? (data.labels || {}) : {};
-        renderMenuLabelsTable(defaults, labels);
-    } catch (err) {
-        console.error('loadMenuLabelsSettingsPanel:', err);
+    const response = await settingsFetchJson('/api/admin/sidebar-labels', {
+        headers: menuLabelsAuthHeaders()
+    }, { showToast: false });
+
+    if (isSettingsFetchFailure(response)) {
         renderMenuLabelsTable(defaults, {});
         showToast('Could not load saved menu labels.', 'warning');
+        return;
+    }
+
+    const labels = response.data.success !== false ? (response.data.labels || {}) : {};
+    renderMenuLabelsTable(defaults, labels);
+    if (typeof window.markSettingsFormSaved === 'function') {
+        window.markSettingsFormSaved('menuLabelsSettingsCard');
     }
 }
 
@@ -97,34 +103,49 @@ async function saveMenuLabelsSettings() {
     }
 
     try {
+        const labels = {};
         for (const input of inputs) {
             const key = input.getAttribute('data-menu-key');
             const next = input.value.trim();
             const base = defaults[key] || '';
-            if (!key || !next) continue;
+            if (!key || !next || next === base) continue;
+            labels[key] = next;
+        }
 
-            if (next === base) continue;
+        if (!Object.keys(labels).length) {
+            showToast('No changes to save.', 'info');
+            return;
+        }
 
-            const res = await fetch(`/api/admin/sidebar-labels/${encodeURIComponent(key)}`, {
-                method: 'PUT',
-                headers: menuLabelsAuthHeaders(true),
-                body: JSON.stringify({ label: next })
-            });
-            const data = await res.json();
-            if (!res.ok || data.success === false) {
-                throw new Error(data.message || `Failed to save ${key}`);
-            }
+        const response = await settingsFetchJson('/api/admin/sidebar-labels', {
+            method: 'PUT',
+            headers: menuLabelsAuthHeaders(true),
+            body: JSON.stringify({ labels })
+        });
+
+        if (isSettingsFetchFailure(response)) {
+            throw new Error(response.error || 'Failed to save menu labels.');
+        }
+
+        const data = response.data;
+        if (data.success === false) {
+            throw new Error(data.message || 'Failed to save menu labels.');
         }
 
         sessionStorage.removeItem('adminSidebarLabels');
         if (typeof window.loadSidebarLabels === 'function') {
             await window.loadSidebarLabels(true);
         }
-        showToast('Menu labels saved.', 'success');
+        showToast(data.message || 'Menu labels saved.', 'success');
         await loadMenuLabelsSettingsPanel();
+        if (typeof window.markSettingsFormSaved === 'function') {
+            window.markSettingsFormSaved('menuLabelsSettingsCard');
+        }
     } catch (err) {
         console.error('saveMenuLabelsSettings:', err);
-        showToast(err.message || 'Could not save menu labels.', 'error');
+        if (!err.message?.includes('timed out')) {
+            showToast(err.message || 'Could not save menu labels.', 'error');
+        }
     } finally {
         if (saveBtn) {
             saveBtn.disabled = false;
@@ -148,12 +169,17 @@ async function resetMenuLabelsSettings() {
     if (!result.isConfirmed) return;
 
     try {
-        const res = await fetch('/api/admin/sidebar-labels', {
+        const response = await settingsFetchJson('/api/admin/sidebar-labels', {
             method: 'DELETE',
             headers: menuLabelsAuthHeaders()
         });
-        const data = await res.json();
-        if (!res.ok || data.success === false) {
+
+        if (isSettingsFetchFailure(response)) {
+            throw new Error(response.error || 'Reset failed');
+        }
+
+        const data = response.data;
+        if (data.success === false) {
             throw new Error(data.message || 'Reset failed');
         }
 
@@ -165,7 +191,9 @@ async function resetMenuLabelsSettings() {
         await loadMenuLabelsSettingsPanel();
     } catch (err) {
         console.error('resetMenuLabelsSettings:', err);
-        showToast(err.message || 'Could not reset menu labels.', 'error');
+        if (!err.message?.includes('timed out')) {
+            showToast(err.message || 'Could not reset menu labels.', 'error');
+        }
     }
 }
 

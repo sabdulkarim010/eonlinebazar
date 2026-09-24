@@ -12,6 +12,7 @@
 
 const prisma = require('../config/prismaClient');
 const { fromResourceType } = require('../services/readShapeHelpers');
+const { buildSettingsHistoryPrismaWhere } = require('../utils/settingsHistoryFilter');
 
 const ACTOR_TYPE_MAP = {
   admin: 'ADMIN',
@@ -94,6 +95,23 @@ async function count(filters = {}) {
   return prisma.securityLog.count({ where: buildWhere(filters) });
 }
 
+async function findSettingsHistory({ limit, offset } = {}) {
+  const take = Number.isFinite(Number(limit)) ? Number(limit) : undefined;
+  const skip = Number.isFinite(Number(offset)) ? Number(offset) : undefined;
+
+  const records = await prisma.securityLog.findMany({
+    where: buildSettingsHistoryPrismaWhere(),
+    orderBy: { createdAt: 'desc' },
+    take,
+    skip
+  });
+  return records.map(toShape);
+}
+
+async function countSettingsHistory() {
+  return prisma.securityLog.count({ where: buildSettingsHistoryPrismaWhere() });
+}
+
 async function distinctActors(exclude = ['', 'system']) {
   const rows = await prisma.securityLog.findMany({
     where: {
@@ -169,6 +187,8 @@ async function create(data) {
 module.exports = {
   findAll,
   count,
+  findSettingsHistory,
+  countSettingsHistory,
   distinctActors,
   countStaffAuditGroups,
   findStaffAuditGroups,

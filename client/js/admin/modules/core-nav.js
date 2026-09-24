@@ -20,8 +20,12 @@ function updateAdminPageHeader(sectionId, fallbackLabel) {
 
 function activateAdminSettingsTab(tabId) {
     if (!tabId) return;
+    if (typeof window.requestSettingsTabSwitch === 'function') {
+        window.requestSettingsTabSwitch(tabId);
+        return;
+    }
     if (typeof window.activateUnifiedSettingsTab === 'function') {
-        window.activateUnifiedSettingsTab(tabId, { silent: true });
+        window.activateUnifiedSettingsTab(tabId);
         return;
     }
 }
@@ -826,12 +830,19 @@ function navigateAdminSection(targetId, clickedItem) {
     }
 
     if (sectionId === 'view-settings') {
-        const tabTarget = settingsTab || 'branding';
+        const hashTab = typeof window.getSettingsTabFromHash === 'function'
+            ? window.getSettingsTabFromHash()
+            : null;
+        const pendingHashTab = window.__pendingSettingsTabFromHash || null;
+        const tabTarget = hashTab || pendingHashTab || settingsTab || 'branding';
+        if (pendingHashTab) window.__pendingSettingsTabFromHash = null;
+
         const tryActivateTab = (attempts = 0) => {
-            if (typeof window.activateUnifiedSettingsTab === 'function') {
+            const switchTab = window.requestSettingsTabSwitch || window.activateUnifiedSettingsTab;
+            if (typeof switchTab === 'function') {
                 const tabEl = document.querySelector(`.admin-settings-tab[data-tab="${tabTarget}"]`);
                 if (tabEl) {
-                    window.activateUnifiedSettingsTab(tabTarget, { silent: true });
+                    switchTab(tabTarget, { skipDirtyCheck: true, updateHash: !hashTab && !pendingHashTab });
                     return;
                 }
             }
