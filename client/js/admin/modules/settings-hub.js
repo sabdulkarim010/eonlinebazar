@@ -160,6 +160,12 @@ function mountEmbeddedSettingsSection(tabId) {
 function activateUnifiedSettingsTab(tabId, options = {}) {
     if (!tabId) return;
 
+    const previousTab = document.querySelector('.admin-settings-panel.is-active')?.dataset?.panel;
+    if (previousTab === 'general' && tabId !== 'general' && window.pageContentEditMode
+        && typeof window.exitPageContentEditMode === 'function') {
+        window.exitPageContentEditMode({ revert: false });
+    }
+
     const tabs = document.querySelectorAll('.admin-settings-tab');
     const panels = document.querySelectorAll('.admin-settings-panel');
     const tab =

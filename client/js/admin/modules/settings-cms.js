@@ -25,12 +25,76 @@ function getPageContentTabLabel(page) {
     return page.title || page.slug || 'Page';
 }
 
+function snapshotActivePageForEdit() {
+    const page = getActivePageState();
+    if (!page) return null;
+    return JSON.parse(JSON.stringify(page));
+}
+
+function revertActivePageFromSnapshot(snapshot) {
+    if (!snapshot?.slug) return;
+    const idx = pageContentCatalog.findIndex((p) => p.slug === snapshot.slug);
+    if (idx >= 0) {
+        pageContentCatalog[idx] = JSON.parse(JSON.stringify(snapshot));
+    }
+}
+
+function setPageContentModeAttribute(mode) {
+    const manager = document.getElementById('pageContentManager');
+    if (manager) manager.dataset.pageContentMode = mode;
+}
+
+function updatePageContentHeaderActions() {
+    const editBtn = document.getElementById('pageContentEditBtn');
+    const hasPage = Boolean(getActivePageState());
+    if (editBtn) {
+        editBtn.style.display = hasPage && !pageContentEditMode ? '' : 'none';
+    }
+}
+
 function updatePageContentFooterActions() {
     const addBtn = document.getElementById('pageContentAddToFooterBtn');
     const saveBtn = document.getElementById('pageContentSaveBtn');
+    const cancelBtn = document.getElementById('pageContentCancelEditBtn');
     const hasPage = Boolean(getActivePageState());
-    if (addBtn) addBtn.style.display = hasPage ? '' : 'none';
-    if (saveBtn) saveBtn.style.display = hasPage ? '' : 'none';
+    const inEdit = Boolean(pageContentEditMode && hasPage);
+
+    if (addBtn) addBtn.style.display = hasPage && !inEdit ? '' : 'none';
+    if (saveBtn) saveBtn.style.display = inEdit ? '' : 'none';
+    if (cancelBtn) cancelBtn.style.display = inEdit ? '' : 'none';
+
+    updatePageContentHeaderActions();
+}
+
+function enterPageContentEditMode() {
+    const page = getActivePageState();
+    if (!page) return;
+
+    pageContentEditSnapshot = snapshotActivePageForEdit();
+    pageContentEditMode = true;
+    setPageContentModeAttribute('edit');
+    renderPageContentEditor();
+
+    if (typeof window.scheduleSettingsTabBaselineCapture === 'function') {
+        window.scheduleSettingsTabBaselineCapture('general', 750);
+    }
+}
+
+function exitPageContentEditMode({ revert = false } = {}) {
+    if (revert && pageContentEditSnapshot) {
+        revertActivePageFromSnapshot(pageContentEditSnapshot);
+    }
+
+    destroyPageContentQuill();
+    pageContentEditMode = false;
+    pageContentEditSnapshot = null;
+    setPageContentModeAttribute('preview');
+    renderPageContentEditor();
+
+    const manager = document.getElementById('pageContentManager');
+    if (typeof window.markSettingsFormSaved === 'function' && manager) {
+        window.markSettingsFormSaved(manager);
+    }
 }
 
 function renderPageContentTabs() {
@@ -55,7 +119,9 @@ function renderPageContentTabs() {
 
     tabs.querySelectorAll('.page-content-tab').forEach((btn) => {
         btn.addEventListener('click', () => {
-            syncPageContentFromDom();
+            if (pageContentEditMode) {
+                exitPageContentEditMode({ revert: true });
+            }
             activePageSlug = btn.dataset.slug;
             renderPageContentTabs();
             renderPageContentEditor();
@@ -202,12 +268,47 @@ function ensurePageContentQuill() {
     pageContentQuill.on('text-change', () => {
         const hidden = document.getElementById('pageContentBodyHtml');
         if (hidden) hidden.value = decodeHtmlEntities(pageContentQuill.root.innerHTML);
+        editorEl.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
     return pageContentQuill;
 }
 
-function renderPageContentEditor() {
+function buildPageContentContactMetaPreview(page) {
+    if (page?.slug !== 'contact') return '';
+
+    const meta = page.contactMeta || {};
+    const rows = [
+        ['Store Address', meta.address],
+        ['Phone', meta.phone],
+        ['Support Email', meta.email],
+        ['Operating Hours', meta.hours],
+        ['Google Maps Embed', meta.mapEmbedUrl]
+    ].filter(([, value]) => String(value || '').trim());
+
+    if (!rows.length) {
+        return `
+            <div class="page-content-preview-contact">
+                <h5><i class="fa-solid fa-store"></i> Contact Page Details</h5>
+                <p class="page-content-preview-empty-meta">No contact details configured yet.</p>
+            </div>`;
+    }
+
+    return `
+        <div class="page-content-preview-contact">
+            <h5><i class="fa-solid fa-store"></i> Contact Page Details</h5>
+            <dl class="page-content-preview-contact-list">
+                ${rows.map(([label, value]) => `
+                    <div class="page-content-preview-contact-row">
+                        <dt>${escapeHtml(label)}</dt>
+                        <dd>${escapeHtml(String(value))}</dd>
+                    </div>
+                `).join('')}
+            </dl>
+        </div>`;
+}
+
+function renderPageContentPreview() {
     const editor = document.getElementById('pageContentEditor');
     if (!editor) return;
 
@@ -224,7 +325,48 @@ function renderPageContentEditor() {
                 </button>
             </div>`;
         document.getElementById('pageContentEmptyCreateBtn')?.addEventListener('click', openCreatePageModal);
+        setPageContentModeAttribute('preview');
         updatePageContentFooterActions();
+        return;
+    }
+
+    const bodyHtml = resolvePageContentEditorHtml(page);
+    const isPublished = page.isPublished !== false;
+    const subtitle = String(page.subtitle || '').trim();
+
+    editor.innerHTML = `
+        <div class="page-content-preview-shell">
+            <div class="page-content-preview-header">
+                <div class="page-content-preview-heading">
+                    <h3 class="page-content-preview-title">${escapeHtml(page.title || page.slug || 'Untitled Page')}</h3>
+                    ${subtitle ? `<p class="page-content-preview-subtitle">${escapeHtml(subtitle)}</p>` : ''}
+                </div>
+                <span class="page-content-status-badge ${isPublished ? 'is-published' : 'is-draft'}">
+                    ${isPublished ? 'Published' : 'Draft / Hidden'}
+                </span>
+            </div>
+            <div class="page-content-preview-meta">
+                <span class="page-content-route-hint">Route: <code>/${escapeHtml(page.slug)}</code> · <code>/pages/${escapeHtml(page.slug)}</code></span>
+            </div>
+            <div class="page-content-preview-box">
+                <div class="page-content-preview-body ql-editor">${bodyHtml}</div>
+            </div>
+            ${buildPageContentContactMetaPreview(page)}
+        </div>`;
+
+    setPageContentModeAttribute('preview');
+    updatePageContentFooterActions();
+}
+
+function renderPageContentEditForm() {
+    const editor = document.getElementById('pageContentEditor');
+    if (!editor) return;
+
+    destroyPageContentQuill();
+
+    const page = getActivePageState();
+    if (!page) {
+        renderPageContentPreview();
         return;
     }
 
@@ -257,7 +399,7 @@ function renderPageContentEditor() {
             </div>` : '';
 
     editor.innerHTML = `
-        <div class="page-content-form">
+        <form id="pageContentEditForm" class="page-content-form" novalidate>
             <div class="form-group">
                 <label for="pageContentTitle">Page Title</label>
                 <input type="text" id="pageContentTitle" maxlength="120" value="${escapeHtml(page.title || '')}">
@@ -289,13 +431,26 @@ function renderPageContentEditor() {
                 </div>
                 <span class="page-content-route-hint">Route: <code>/${escapeHtml(page.slug)}</code> · <code>/pages/${escapeHtml(page.slug)}</code></span>
             </div>
-        </div>`;
+        </form>`;
+
+    setPageContentModeAttribute('edit');
 
     requestAnimationFrame(() => {
         ensurePageContentQuill();
         setPageContentQuillHtml(resolvePageContentEditorHtml(page));
+        if (typeof window.scheduleSettingsTabBaselineCapture === 'function') {
+            window.scheduleSettingsTabBaselineCapture('general', 750);
+        }
     });
     updatePageContentFooterActions();
+}
+
+function renderPageContentEditor() {
+    if (pageContentEditMode) {
+        renderPageContentEditForm();
+    } else {
+        renderPageContentPreview();
+    }
 }
 
 function syncPageContentFromDom() {
@@ -505,6 +660,10 @@ window.fetchPageContentCatalog = async function fetchPageContentCatalog() {
             activePageSlug = pageContentCatalog[0]?.slug || '';
         }
 
+        pageContentEditMode = false;
+        pageContentEditSnapshot = null;
+        setPageContentModeAttribute('preview');
+
         renderPageContentTabs();
         renderPageContentEditor();
 
@@ -553,9 +712,19 @@ async function savePageContent() {
         const idx = pageContentCatalog.findIndex((p) => p.slug === page.slug);
         if (idx >= 0) pageContentCatalog[idx] = result.data;
 
+        pageContentEditMode = false;
+        pageContentEditSnapshot = null;
+        destroyPageContentQuill();
+        setPageContentModeAttribute('preview');
+
+        const manager = document.getElementById('pageContentManager');
+        if (typeof window.markSettingsFormSaved === 'function' && manager) {
+            window.markSettingsFormSaved(manager);
+        }
+
         showToast(result.message || 'Page content saved.', 'success');
         renderPageContentTabs();
-        renderPageContentEditor();
+        renderPageContentPreview();
     } catch (err) {
         console.error('Save page content error:', err);
         showToast(`Error: ${err.message}`, 'error');
@@ -566,6 +735,13 @@ async function savePageContent() {
 
 function setupPageContentManager() {
     document.getElementById('pageContentSaveBtn')?.addEventListener('click', savePageContent);
+    document.getElementById('pageContentEditBtn')?.addEventListener('click', enterPageContentEditMode);
+    document.getElementById('pageContentCancelEditBtn')?.addEventListener('click', () => {
+        exitPageContentEditMode({ revert: true });
+        if (typeof window.showToast === 'function') {
+            window.showToast('Edit cancelled — changes discarded.', 'info');
+        }
+    });
     document.getElementById('pageContentCreateBtn')?.addEventListener('click', openCreatePageModal);
     document.getElementById('pageContentAddToFooterBtn')?.addEventListener('click', openAddPageToFooterModal);
 
@@ -1532,6 +1708,10 @@ Object.assign(window, {
     getPageContentQuillHtml,
     ensurePageContentQuill,
     renderPageContentEditor,
+    renderPageContentPreview,
+    renderPageContentEditForm,
+    enterPageContentEditMode,
+    exitPageContentEditMode,
     syncPageContentFromDom,
     populateFooterColumnSelects,
     syncCreatePageSlugPreview,

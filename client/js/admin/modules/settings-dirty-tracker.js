@@ -411,6 +411,14 @@ function triggerSettingsQuickSave() {
     const tabId = getActiveSettingsTabId();
     if (!tabId) return { saved: false, reason: 'no-tab' };
 
+    if (tabId === 'general' && window.pageContentEditMode) {
+        const pageSaveBtn = document.getElementById('pageContentSaveBtn');
+        if (pageSaveBtn && pageSaveBtn.offsetParent !== null && !pageSaveBtn.disabled) {
+            pageSaveBtn.click();
+            return { saved: true, tabId, dirty: true };
+        }
+    }
+
     const dirtyScope = getFirstDirtyScopeInTab(tabId);
     const scopeEl = dirtyScope || getDefaultSaveScopeForTab(tabId);
     if (!scopeEl) {

@@ -177,7 +177,7 @@
             </div>
         </section>
 
-        <section id="pageContentManager" class="system-settings-form" aria-labelledby="pageContentHeading">
+        <section id="pageContentManager" class="system-settings-form" data-settings-dirty-scope="pageContentManager" data-page-content-mode="preview" aria-labelledby="pageContentHeading">
             <div class="system-settings-card system-settings-card--cyan">
                 <div class="system-settings-card-header">
                     <div class="system-settings-card-icon system-settings-card-icon--cyan" aria-hidden="true">
@@ -187,9 +187,14 @@
                         <h4 id="pageContentHeading">Page Content Manager</h4>
                         <p class="settings-card-sub">Fully dynamic CMS — tabs come only from the database. Create pages here, or save internal Footer Column links (e.g. <code>/return-policy</code>) to auto-generate editable pages. Toggle publish to control footer links and public access.</p>
                     </div>
-                    <button type="button" id="pageContentCreateBtn" class="page-content-create-btn">
-                        <i class="fa-solid fa-plus"></i> Create New Page
-                    </button>
+                    <div class="page-content-header-actions">
+                        <button type="button" id="pageContentEditBtn" class="page-content-edit-btn" style="display:none;" aria-label="Edit page content">
+                            <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Edit Page
+                        </button>
+                        <button type="button" id="pageContentCreateBtn" class="page-content-create-btn">
+                            <i class="fa-solid fa-plus"></i> Create New Page
+                        </button>
+                    </div>
                 </div>
 
                 <div class="page-content-body">
@@ -206,8 +211,11 @@
                     <button type="button" id="pageContentAddToFooterBtn" class="btn-secondary page-content-footer-link-btn" style="display:none;">
                         <i class="fa-solid fa-link"></i> Add to Footer
                     </button>
-                    <button type="button" id="pageContentSaveBtn" class="btn-submit system-settings-save-btn">
-                        <i class="fa-solid fa-floppy-disk"></i> Save Page Content
+                    <button type="button" id="pageContentCancelEditBtn" class="btn-secondary page-content-cancel-edit-btn" style="display:none;">
+                        <i class="fa-solid fa-xmark"></i> Cancel
+                    </button>
+                    <button type="button" id="pageContentSaveBtn" class="btn-submit system-settings-save-btn" style="display:none;">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Changes
                     </button>
                 </div>
             </div>

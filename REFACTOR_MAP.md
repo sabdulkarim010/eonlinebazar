@@ -2682,6 +2682,15 @@ docs/audit/ADMIN_PANEL_AUDIT.md [MOD] change log
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] settings fetch timeout ✅
 README.md [MOD] last updated
 
+# Page Content Manager Preview/Edit UX — 2026-09-24
+client/js/admin/modules/settings-cms.js [MOD] preview/edit mode toggle, snapshot revert, dirty integration
+client/js/admin/modules/core-state.js [MOD] pageContentEditMode + pageContentEditSnapshot state
+client/js/admin/modules/settings-hub.js [MOD] exit edit mode when leaving General tab
+client/js/admin/modules/settings-dirty-tracker.js [MOD] Ctrl+S saves page content when in edit mode
+client/admin/partials/view-store-config.html [MOD] Edit Page btn, Cancel btn, dirty scope on manager
+client/css/admin/_cms.css [MOD] preview shell, status badge, edit mode styles
+docs/audit/CMS_AUDIT.md [MOD] preview/edit mode complete
+
 # Settings Export/Import & Ctrl+S Quick Save (Phase 3 Step 2) — 2026-09-24
 backend/src/utils/settingsExportSanitizer.js [NEW] secret stripping + import allowlists
 backend/src/services/settingsExportImportService.js [NEW] build export + validated import apply

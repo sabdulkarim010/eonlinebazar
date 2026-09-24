@@ -94,6 +94,12 @@
 
 ## Change Log
 
+### Page Content Manager preview/edit mode — 2026-09-24
+
+- General tab CMS card: read-only preview default; Edit Page pencil; Save/Cancel in edit mode
+- Tab switch + Cancel revert unsaved edits; save returns to preview; dirty-tracker wired
+- Tests: **248/248** passing
+
 ### Settings export/import + Ctrl+S quick save — 2026-09-24
 
 - Utilities tab: Export/Import Settings Backup card (`settings-backup-restore.js`)

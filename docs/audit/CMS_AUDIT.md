@@ -1,6 +1,6 @@
 # CMS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20 (Group 4 — maintenance mode middleware + allowlist UI)  
+**Last updated:** 2026-09-24 (Page Content Manager preview/edit mode UX)  
 **Scope:** Banners, CMS pages, navbar links, footer settings, store branding, PWA  
 **Status:** ✅ COMPLETE
 
@@ -57,6 +57,7 @@
 - [x] PG dual-write + read cutover — `READ_PG_BANNER`, `READ_PG_PAGECONTENT`, `READ_PG_NAVBARLINK`, `READ_PG_FOOTERSETTINGS`, `READ_PG_SETTINGS`
 - [x] Stage 4 Step 2 CMS/Settings data sync verified — see `DATABASE_MIGRATION_AUDIT.md`
 - [x] Maintenance mode with custom message + IP allowlist — Settings Hub; `maintenanceModeMiddleware.js`
+- [x] Page Content Manager preview/edit toggle — read-only preview default; Edit Page pencil; Save/Cancel in edit mode; dirty-tracker integration
 
 ---
 
@@ -77,6 +78,15 @@
 ---
 
 ## Change Log
+
+### Page Content Manager preview/edit UX — 2026-09-24
+
+- Default read-only preview mode with formatted title, subtitle, body, publish badge, contact meta
+- Header **Edit Page** pencil toggles edit mode (Quill + inputs); footer **Save Changes** / **Cancel**
+- Tab switch or Cancel reverts unsaved edits; successful save returns to preview
+- Integrated with `settings-dirty-tracker.js` (`data-settings-dirty-scope="pageContentManager"`) and Ctrl+S quick save when editing
+- Files: `settings-cms.js`, `view-store-config.html`, `_cms.css`, `settings-hub.js`, `settings-dirty-tracker.js`
+- Tests: **248/248** passing
 
 ### Group 4 — Maintenance mode — 2026-09-20
 
