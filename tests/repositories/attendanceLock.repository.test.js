@@ -2,7 +2,7 @@
  * AttendanceLock Repository — Isolated Integration Tests
  ********************************************************************/
 
-const { describe, test, expect, afterEach, afterAll } = require('./jestCompat');
+const { describe, test, expect, afterEach, afterAll, withRepositoryRetry } = require('./jestCompat');
 
 require('dotenv').config();
 
@@ -20,8 +20,10 @@ const createdLockDates = [];
 
 async function cleanup() {
   if (createdLockDates.length) {
-    await prisma.attendanceLock.deleteMany({
-      where: { date: { in: [...createdLockDates] } }
+    await withRepositoryRetry(async () => {
+      await prisma.attendanceLock.deleteMany({
+        where: { date: { in: [...createdLockDates] } }
+      });
     });
     createdLockDates.length = 0;
   }
@@ -32,8 +34,12 @@ afterAll(async () => { await cleanup(); });
 
 describe('AttendanceLock repository', () => {
   test('lockDate() / isDateLocked() / getLockStatus() work correctly', async () => {
-    const dateKey = '2026-06-01';
+    const dateKey = `2026-${String((Date.now() % 12) + 1).padStart(2, '0')}-${String((Date.now() % 27) + 1).padStart(2, '0')}`;
     createdLockDates.push(dateKey);
+
+    await withRepositoryRetry(async () => {
+      await prisma.attendanceLock.deleteMany({ where: { date: dateKey } });
+    });
 
     expect(await isDateLocked(dateKey)).toBe(false);
 
@@ -49,7 +55,7 @@ describe('AttendanceLock repository', () => {
   });
 
   test('unlockDate() removes the lock row', async () => {
-    const dateKey = '2026-06-02';
+    const dateKey = `2026-${String((Date.now() % 12) + 1).padStart(2, '0')}-${String((Date.now() % 26) + 2).padStart(2, '0')}`;
     createdLockDates.push(dateKey);
 
     await lockDate(dateKey, 'admin-id', 'Super Admin');

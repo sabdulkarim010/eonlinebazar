@@ -2946,6 +2946,16 @@ docs/audit/ADMIN_PANEL_AUDIT.md [MOD] verification pass changelog
 docs/audit/PRODUCTS_AUDIT.md [MOD] full end-to-end audit; rename scope to Product & Stock Operations; known issues expanded
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Product & Stock Operations audit section 2026-09-25
 
+# Global repository test CI resilience — 2026-09-25
+tests/repositories/jestCompat.js [MOD] REPOSITORY_TEST pin; 45s default hook timeout; global Neon warm + withRepositoryRetry export
+scripts/run-repository-tests.js [MOD] REPOSITORY_TEST at entry; REPO_TEST_HOOK_TIMEOUT_MS=45000 in spawn env
+tests/repositories/user.repository.test.js [MOD] uses global jestCompat setup (removed per-file timeout/warm)
+tests/repositories/attendanceLock.repository.test.js [MOD] unique date keys; withRepositoryRetry cleanup
+tests/repositories/cart.repository.test.js [MOD] generateReferralCode; withRepositoryRetry teardown
+tests/repositories/review.repository.test.js [MOD] generateReferralCode; withRepositoryRetry teardown
+DATABASE_MIGRATION_AUDIT.md [MOD] global repository CI resilience changelog
+Result: npm run test:repositories 21/21 files pass
+
 # user.repository.test.js CI timeout fix — 2026-09-25
 tests/repositories/user.repository.test.js [MOD] jest.setTimeout(30000); REPOSITORY_TEST pin; withNeonRetry on warm/cleanup; valid referralCode test inputs (generateReferralCode)
 tests/repositories/jestCompat.js [MOD] jest.setTimeout shim for Node test runner hook timeouts

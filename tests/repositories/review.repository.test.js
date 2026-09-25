@@ -3,7 +3,7 @@
  * Stage 2 Step 3, Part 6 — 2026-09-14
  ********************************************************************/
 
-const { describe, test, expect, afterAll } = require('./jestCompat');
+const { describe, test, expect, afterAll, withRepositoryRetry } = require('./jestCompat');
 
 require('dotenv').config();
 
@@ -13,21 +13,26 @@ const {
   resolveUserId,
   resolveProductId
 } = require('../../backend/src/repositories/reviewRepository');
-const { create: createUser, remove: removeUser } = require('../../backend/src/repositories/userRepository');
+const {
+  create: createUser,
+  generateReferralCode
+} = require('../../backend/src/repositories/userRepository');
 
 const PREFIX = `__test_review_${Date.now()}_`;
 const createdIds = [];
 const createdUserIds = [];
 
 afterAll(async () => {
-  if (createdIds.length) {
-    await prisma.review.deleteMany({ where: { id: { in: [...createdIds] } } });
-    createdIds.length = 0;
-  }
-  if (createdUserIds.length) {
-    await prisma.user.deleteMany({ where: { id: { in: [...createdUserIds] } } });
-    createdUserIds.length = 0;
-  }
+  await withRepositoryRetry(async () => {
+    if (createdIds.length) {
+      await prisma.review.deleteMany({ where: { id: { in: [...createdIds] } } });
+      createdIds.length = 0;
+    }
+    if (createdUserIds.length) {
+      await prisma.user.deleteMany({ where: { id: { in: [...createdUserIds] } } });
+      createdUserIds.length = 0;
+    }
+  });
 });
 
 describe('Review repository — cross-model FK fallback', () => {
@@ -80,7 +85,7 @@ describe('Review repository — cross-model FK fallback', () => {
       firstName: 'Review',
       lastName: 'Linker',
       email: `${PREFIX}${suffix}@example.com`,
-      referralCode: 'MNOP2345',
+      referralCode: generateReferralCode(),
       legacyId: mongoUserLegacyId
     });
     createdUserIds.push(user.id);

@@ -12,6 +12,9 @@
 
 'use strict';
 
+// Repository tests need Neon retry + 90s fetch before Prisma loads in child processes.
+process.env.REPOSITORY_TEST = process.env.REPOSITORY_TEST || '1';
+
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -38,6 +41,7 @@ if (!connectionString) {
 const FILE_DELAY_MS = Number(process.env.REPO_TEST_FILE_DELAY_MS || 200);
 const MAX_FILE_RETRIES = Number(process.env.REPO_TEST_FILE_RETRIES || 2);
 const TEST_TIMEOUT_MS = Number(process.env.REPO_TEST_TIMEOUT_MS || 120000);
+const HOOK_TIMEOUT_MS = Number(process.env.REPO_TEST_HOOK_TIMEOUT_MS || 45000);
 
 const repoDir = path.join(__dirname, '..', 'tests', 'repositories');
 const testFiles = fs.readdirSync(repoDir)
@@ -63,6 +67,7 @@ function runTestFile(file) {
       env: {
         ...process.env,
         REPOSITORY_TEST: '1',
+        REPO_TEST_HOOK_TIMEOUT_MS: String(HOOK_TIMEOUT_MS),
         NEON_FETCH_TIMEOUT_MS: process.env.NEON_FETCH_TIMEOUT_MS || '90000',
         NEON_RETRY_ATTEMPTS: process.env.NEON_RETRY_ATTEMPTS || '4',
         NEON_RETRY_BASE_DELAY_MS: process.env.NEON_RETRY_BASE_DELAY_MS || '300'
@@ -76,7 +81,8 @@ function runTestFile(file) {
 (async () => {
   console.log(
     `[test:repositories] Running ${testFiles.length} files ` +
-    `(timeout=${TEST_TIMEOUT_MS}ms, fileDelay=${FILE_DELAY_MS}ms, retries=${MAX_FILE_RETRIES})`
+    `(timeout=${TEST_TIMEOUT_MS}ms, hookTimeout=${HOOK_TIMEOUT_MS}ms, ` +
+    `fileDelay=${FILE_DELAY_MS}ms, retries=${MAX_FILE_RETRIES})`
   );
 
   const failedFiles = [];

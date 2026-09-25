@@ -118,6 +118,13 @@
 
 ## Change Log
 
+### Global repository test CI resilience — 2026-09-25
+
+- `jestCompat.js`: `REPOSITORY_TEST=1` on load; **45s** default hook timeout; global Neon warm ping + `withRepositoryRetry` export
+- `run-repository-tests.js`: passes `REPO_TEST_HOOK_TIMEOUT_MS=45000` to all child processes
+- Fixed hardcoded test data collisions in `attendanceLock`, `cart`, `review` repository tests
+- Result: **21/21** repository test files pass
+
 ### user.repository.test.js CI timeout fix — 2026-09-25
 
 - `user.repository.test.js`: 30s per-test/hook timeout; Neon warm ping + cleanup retries for cold-start CI

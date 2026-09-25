@@ -8,17 +8,10 @@
  * Stage 2 Step 2, Part 3 — 2026-09-13
  ********************************************************************/
 
-// Pin repository-test mode before prismaClient loads (Neon 90s fetch + query retries).
-process.env.REPOSITORY_TEST = process.env.REPOSITORY_TEST || '1';
-
-const { describe, test, expect, beforeAll, afterEach, afterAll, jest } = require('./jestCompat');
-
-jest.setTimeout(30000);
+const { describe, test, expect, afterEach, afterAll, withRepositoryRetry } = require('./jestCompat');
 
 require('dotenv').config();
 
-const { withNeonRetry } = require('../../backend/src/config/neonRetry');
-const { warmNeonConnection } = require('../../backend/src/config/postgresBootstrap');
 const prisma = require('../../backend/src/config/prismaClient');
 const {
   REFERRAL_CODE_ALPHABET,
@@ -46,17 +39,10 @@ const {
 const PREFIX = `__test_user_${Date.now()}_`;
 const createdIds = [];
 
-beforeAll(async () => {
-  await withNeonRetry(
-    () => warmNeonConnection({ attempts: 4, baseDelayMs: 300 }),
-    { attempts: 4, baseDelayMs: 300 }
-  );
-});
-
 async function cleanup() {
   if (!createdIds.length) return;
 
-  await withNeonRetry(async () => {
+  await withRepositoryRetry(async () => {
     await prisma.user.deleteMany({ where: { id: { in: [...createdIds] } } });
   });
   createdIds.length = 0;

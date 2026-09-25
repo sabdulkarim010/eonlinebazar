@@ -3827,3 +3827,16 @@ Full **HTTP-level** verification via supertest against `tests/app`, toggling `RE
 
 **Follow-up (referralCode assertion):** Explicit-code test now uses `generateReferralCode()` (alphabet excludes `0`/`1`/`I`/`O`); collision test uses dynamic codes instead of hardcoded `ABCDEFGH` to avoid cross-test unique constraint clashes. **13/13** pass in `user.repository.test.js`.
 
+---
+
+## Global Repository Test CI Resilience — 2026-09-25
+
+| Component | Change |
+|-----------|--------|
+| `tests/repositories/jestCompat.js` | `REPOSITORY_TEST=1` pinned on load; default **45s** hook timeout; global Neon warm ping via `withRepositoryRetry`; exports `withRepositoryRetry` |
+| `scripts/run-repository-tests.js` | `REPOSITORY_TEST=1` at entry; passes `REPO_TEST_HOOK_TIMEOUT_MS=45000` to child processes |
+| `attendanceLock.repository.test.js` | Unique date keys + pre-test cleanup (shared Neon DB) |
+| `cart.repository.test.js` / `review.repository.test.js` | `generateReferralCode()` instead of hardcoded codes |
+
+**Result:** `npm run test:repositories` — **21/21 files**, zero timeout failures.
+

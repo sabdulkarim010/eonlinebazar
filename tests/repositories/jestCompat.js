@@ -6,7 +6,7 @@
  * Jest's module loader cannot parse those files, so these tests run with:
  *
  *   npm run test:repositories
- *   → node --test tests/repositories/*.repository.test.js
+ *   → node scripts/run-repository-tests.js
  *
  * They are excluded from the main `npm test` Jest suite via
  * testPathIgnorePatterns in package.json.
@@ -14,15 +14,39 @@
 
 'use strict';
 
+// Pin repository-test mode before any Prisma client load (Neon 90s fetch + query retries).
+process.env.REPOSITORY_TEST = process.env.REPOSITORY_TEST || '1';
+
 const nodeTest = require('node:test');
 const assert = require('node:assert/strict');
 
 /** Per-test/hook timeout — override via jest.setTimeout(ms) before registering tests. */
-let defaultTimeoutMs = 5000;
+const DEFAULT_HOOK_TIMEOUT_MS = Number(process.env.REPO_TEST_HOOK_TIMEOUT_MS || 45000);
+let defaultTimeoutMs = DEFAULT_HOOK_TIMEOUT_MS;
 
 function hookOptions() {
   return { timeout: defaultTimeoutMs };
 }
+
+async function withRepositoryRetry(fn, options = {}) {
+  const { withNeonRetry } = require('../../backend/src/config/neonRetry');
+  return withNeonRetry(fn, {
+    attempts: 4,
+    baseDelayMs: 300,
+    ...options
+  });
+}
+
+function registerGlobalSetup() {
+  nodeTest.before(hookOptions(), async () => {
+    await withRepositoryRetry(async () => {
+      const { warmNeonConnection } = require('../../backend/src/config/postgresBootstrap');
+      return warmNeonConnection({ attempts: 4, baseDelayMs: 300 });
+    });
+  });
+}
+
+registerGlobalSetup();
 
 function describe(name, fn) {
   nodeTest.describe(name, fn);
@@ -129,4 +153,13 @@ const jest = {
   }
 };
 
-module.exports = { describe, test, expect, beforeAll, afterAll, afterEach, jest };
+module.exports = {
+  describe,
+  test,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+  jest,
+  withRepositoryRetry
+};

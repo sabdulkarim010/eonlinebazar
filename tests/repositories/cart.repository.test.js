@@ -4,12 +4,15 @@
  ********************************************************************/
 
 const assert = require('node:assert/strict');
-const { describe, test, expect, afterAll } = require('./jestCompat');
+const { describe, test, expect, afterAll, withRepositoryRetry } = require('./jestCompat');
 
 require('dotenv').config();
 
 const prisma = require('../../backend/src/config/prismaClient');
-const { create: createUser, remove: removeUser } = require('../../backend/src/repositories/userRepository');
+const {
+  create: createUser,
+  generateReferralCode
+} = require('../../backend/src/repositories/userRepository');
 const { syncFromMongo } = require('../../backend/src/repositories/cartRepository');
 
 const PREFIX = `__test_cart_${Date.now()}_`;
@@ -17,12 +20,14 @@ const createdUserIds = [];
 const createdCartIds = [];
 
 afterAll(async () => {
-  if (createdCartIds.length) {
-    await prisma.cart.deleteMany({ where: { id: { in: [...createdCartIds] } } });
-  }
-  if (createdUserIds.length) {
-    await prisma.user.deleteMany({ where: { id: { in: [...createdUserIds] } } });
-  }
+  await withRepositoryRetry(async () => {
+    if (createdCartIds.length) {
+      await prisma.cart.deleteMany({ where: { id: { in: [...createdCartIds] } } });
+    }
+    if (createdUserIds.length) {
+      await prisma.user.deleteMany({ where: { id: { in: [...createdUserIds] } } });
+    }
+  });
 });
 
 describe('Cart repository — required product FK', () => {
@@ -33,7 +38,7 @@ describe('Cart repository — required product FK', () => {
       firstName: 'Cart',
       lastName: 'Tester',
       email: `${PREFIX}${suffix}@example.com`,
-      referralCode: 'ABCD2345',
+      referralCode: generateReferralCode(),
       legacyId: mongoUserLegacyId
     });
     createdUserIds.push(user.id);
