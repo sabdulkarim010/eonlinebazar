@@ -3645,5 +3645,55 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Prisma/Neon setup | ✅ | `@prisma/adapter-neon` HTTP driver; `neonRetry.js` fetch timeout + transient retries |
 | Tests | ✅ | **307/307** — full Jest suite pass |
 
+## Phase 4.1 Marketing Security & Core Bug Fixes — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Campaign HTML XSS | ✅ | `sanitizeCampaignHtml` on save + send; sandbox iframe admin preview |
+| Atomic loyalty debit | ✅ | Checkout + convertPoints use `$gte` floor guard |
+| Cancel redemption restore | ✅ | Points + coupon slot restored on customer/admin cancel |
+| Per-user coupon race | ✅ | `redeemCoupon(couponId, userId)` atomic global + per-user limit |
+| Tests | ✅ | **307/307** — full Jest suite pass |
+
+## Phase 4.2 Marketing Async Workers & Caching — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Email campaign BullMQ queue | ✅ | `emailCampaignQueue.js` + worker; inline fallback without Redis |
+| Scheduled campaign auto-dispatch | ✅ | `scheduledCampaignJob.js` — default every 3 minutes |
+| Banner public Redis cache | ✅ | `BANNERS_ACTIVE` 300s TTL; invalidation on admin mutations |
+| Navbar public Redis cache | ✅ | Always cached (PG read no longer bypasses) |
+| PG coupon redemption records | ✅ | `upsertCouponRedemptionInPG` on checkout redeem |
+| Newsletter delete PG sync | ✅ | Admin `deleteSubscriber` dual-write |
+| Banner reorder PG sync | ✅ | Position updates mirrored to PostgreSQL |
+| Tests | ✅ | **307/307** — full Jest suite pass |
+
+## Phase 4.3 Campaign & Newsletter Enterprise Features — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Double opt-in subscription | ✅ | Pending `isConfirmed: false`; JWT confirm link; legacy rows treated as confirmed |
+| Confirmed-only campaign send | ✅ | `buildConfirmedSubscriberQuery()` in dispatch service |
+| JWT unsubscribe tokens | ✅ | Per-recipient signed tokens; legacy hex token fallback |
+| RFC 2369 List-Unsubscribe headers | ✅ | `List-Unsubscribe` + `List-Unsubscribe-Post` in campaign mailer |
+| One-click unsubscribe POST | ✅ | `POST /api/newsletter/unsubscribe`; empty token → 400 |
+| Campaign templateData JSON | ✅ | Mixed field on EmailCampaign; create + updateCampaign |
+| Granular newsletter RBAC | ✅ | `manage_newsletter`, `manage_campaigns`; `manage_marketing` implies both |
+| Tests | ✅ | **307/307** — full Jest suite pass |
+
+## Phase 4.4 Loyalty Ledger, Coupon Rules & Banner CTR — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Immutable loyalty ledger | ✅ | `LoyaltyLedger` model; all mutations log balanceAfter |
+| User loyalty history API | ✅ | `GET /api/user/loyalty/history` paginated |
+| Loyalty point expiry cron | ✅ | `loyaltyPointExpiryJob.js`; `LOYALTY_POINT_EXPIRY_DAYS` |
+| Advanced coupon rules | ✅ | Payment method, category spend, tiered, buy-x-get-y |
+| Checkout coupon validation | ✅ | Rules enforced in `validateCouponForCart` + checkout |
+| Banner mobile image | ✅ | `mobileImageUrl` (existing) + analytics counters |
+| Banner impression/click tracking | ✅ | `POST /api/banners/:id/impression\|click` |
+| Admin banner CTR | ✅ | Computed in admin list API |
+| Tests | ✅ | **313/313** — full Jest suite pass |
+
 
 

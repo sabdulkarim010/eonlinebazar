@@ -12,6 +12,8 @@ const emailCampaignSchema = new mongoose.Schema({
     title: { type: String, required: true },
     subject: { type: String, required: true },
     htmlContent: { type: String, required: true },
+    /** Visual editor state (Unlayer/GrapesJS JSON) — persisted alongside sanitized htmlContent. */
+    templateData: { type: mongoose.Schema.Types.Mixed, default: null },
     status: {
         type: String,
         enum: ['draft', 'scheduled', 'sending', 'sent', 'failed'],

@@ -68,7 +68,7 @@ function normalizeRecipients(to) {
 /**
  * Resend → Brevo → log (never throw).
  */
-async function sendEmail({ to, subject, html, text, from } = {}) {
+async function sendEmail({ to, subject, html, text, from, headers } = {}) {
     const recipients = normalizeRecipients(to);
     const config = resolveEmailConfig();
 
@@ -95,12 +95,16 @@ async function sendEmail({ to, subject, html, text, from } = {}) {
             if (!client || !fromAddress) continue;
 
             try {
-                const result = await client.emails.send({
+                const payload = {
                     from: fromAddress,
                     to: recipients,
                     subject: String(subject || '').trim() || '(no subject)',
                     html: htmlBody
-                });
+                };
+                if (headers && typeof headers === 'object' && Object.keys(headers).length > 0) {
+                    payload.headers = headers;
+                }
+                const result = await client.emails.send(payload);
                 if (result.error) throw new Error(result.error.message || 'Resend error');
                 console.log(`[EMAIL-RESEND] Sent to ${recipients.join(', ')}: ${subject}`);
                 return { success: true, provider: 'resend', id: result.data?.id || null };
@@ -126,7 +130,10 @@ async function sendEmail({ to, subject, html, text, from } = {}) {
                         },
                         to: recipients.map((email) => ({ email })),
                         subject: String(subject || '').trim() || '(no subject)',
-                        htmlContent: htmlBody
+                        htmlContent: htmlBody,
+                        ...(headers && typeof headers === 'object' && Object.keys(headers).length > 0
+                            ? { headers }
+                            : {})
                     })
                 });
 

@@ -12,6 +12,8 @@ const bannerSchema = new mongoose.Schema({
   overlayOpacity: { type: Number, default: 0.3, min: 0, max: 1 },
   position: { type: Number, default: 0 },
   isActive: { type: Boolean, default: true },
+  impressionCount: { type: Number, default: 0, min: 0 },
+  clickCount: { type: Number, default: 0, min: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 

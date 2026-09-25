@@ -5,7 +5,7 @@
 
 'use strict';
 
-const FAILURE_THRESHOLD = Number(process.env.PG_CB_FAILURE_THRESHOLD || 3);
+const FAILURE_THRESHOLD = Number(process.env.PG_CB_FAILURE_THRESHOLD || 10);
 const FAILURE_WINDOW_MS = Number(process.env.PG_CB_FAILURE_WINDOW_MS || 60000);
 const OPEN_DURATION_MS = Number(process.env.PG_CB_OPEN_DURATION_MS || 30000);
 

@@ -463,7 +463,15 @@ function viewNewsletterCampaign(id) {
             <p><strong>Tags:</strong> ${(campaign.targetTags || []).length ? nlEscapeHtml(campaign.targetTags.join(', ')) : 'All subscribers'}</p>
         `;
     }
-    if (htmlBox) htmlBox.innerHTML = campaign.htmlContent || '';
+    if (htmlBox) {
+        htmlBox.innerHTML = '';
+        const frame = document.createElement('iframe');
+        frame.setAttribute('title', 'Campaign HTML preview');
+        frame.setAttribute('sandbox', '');
+        frame.style.cssText = 'width:100%;min-height:320px;border:1px solid #334155;border-radius:8px;background:#fff;';
+        frame.srcdoc = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:16px;font-family:Arial,sans-serif;">${campaign.htmlContent || ''}</body></html>`;
+        htmlBox.appendChild(frame);
+    }
     if (modal) modal.style.display = 'flex';
 }
 

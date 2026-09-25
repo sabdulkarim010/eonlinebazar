@@ -63,6 +63,19 @@
       .replace(/"/g, '&quot;');
   }
 
+  function computeBannerCtr(banner) {
+    const impressions = Math.max(0, Number(banner?.impressionCount) || 0);
+    const clicks = Math.max(0, Number(banner?.clickCount) || 0);
+    if (impressions <= 0) return null;
+    return Math.round((clicks / impressions) * 10000) / 100;
+  }
+
+  function formatCtrLabel(banner) {
+    const ctr = computeBannerCtr(banner);
+    if (ctr == null) return '';
+    return `CTR ${ctr}%`;
+  }
+
   function clampPx(n, min, max) {
     return Math.min(max, Math.max(min, n));
   }
@@ -540,12 +553,14 @@
     if (desktopSubtitle) {
       if (subtitle) {
         desktopSubtitle.textContent = subtitle;
+        desktopSubtitle.classList.remove('banner-preview-placeholder');
         desktopSubtitle.style.color = color;
         desktopSubtitle.style.display = 'block';
         desktopSubtitle.hidden = false;
       } else if (!title && !imgSrc && !bgColor) {
         desktopSubtitle.textContent = 'Select from Current Banners →';
-        desktopSubtitle.style.color = 'rgba(255,255,255,0.8)';
+        desktopSubtitle.classList.add('banner-preview-placeholder');
+        desktopSubtitle.style.color = '';
         desktopSubtitle.style.display = 'block';
         desktopSubtitle.hidden = false;
       } else {
@@ -683,16 +698,24 @@
     const mobileTab = document.getElementById('previewMobileTab');
 
     const isDesktop = tab !== 'mobile';
-    if (desktopFrame) {
-      desktopFrame.hidden = !isDesktop;
-      desktopFrame.style.display = isDesktop ? 'block' : 'none';
-    }
-    if (mobileFrame) {
-      mobileFrame.hidden = isDesktop;
-      mobileFrame.style.display = isDesktop ? 'none' : 'flex';
-    }
-    desktopTab?.classList.toggle('is-active', isDesktop);
-    mobileTab?.classList.toggle('is-active', !isDesktop);
+    [desktopFrame, mobileFrame].forEach((el) => el?.classList.add('is-switching'));
+
+    window.setTimeout(() => {
+      if (desktopFrame) {
+        desktopFrame.hidden = !isDesktop;
+        desktopFrame.style.display = isDesktop ? 'block' : 'none';
+      }
+      if (mobileFrame) {
+        mobileFrame.hidden = isDesktop;
+        mobileFrame.style.display = isDesktop ? 'none' : 'flex';
+      }
+      desktopTab?.classList.toggle('is-active', isDesktop);
+      mobileTab?.classList.toggle('is-active', !isDesktop);
+
+      window.setTimeout(() => {
+        [desktopFrame, mobileFrame].forEach((el) => el?.classList.remove('is-switching'));
+      }, 180);
+    }, 120);
   }
 
   function toggleSliderSettings() {
@@ -834,6 +857,9 @@
     container.innerHTML = banners.map((b, i) => {
       const overlayPct = Math.round((b.overlayOpacity ?? 0.3) * 100);
       const isSelected = selectedPreviewId === b._id;
+      const ctrLabel = formatCtrLabel(b);
+      const impressions = Math.max(0, Number(b.impressionCount) || 0);
+      const clicks = Math.max(0, Number(b.clickCount) || 0);
       return `
     <div class="banner-list-item${isSelected ? ' is-previewing' : ''}${editingBannerId === b._id ? ' is-editing' : ''}"
          draggable="true"
@@ -849,13 +875,17 @@
          data-text-color="${escapeHtml(b.textColor || '#ffffff')}"
          data-link="${escapeHtml(b.linkUrl || '')}"
          onclick="previewBanner(this, { event: event })">
-      <span class="banner-drag-handle drag-handle" title="Drag to reorder">⠿</span>
+      <span class="banner-drag-handle drag-handle" title="Drag to reorder" aria-hidden="true">⠿</span>
       ${thumbHtml(b)}
       <div class="banner-list-info">
         <div class="banner-list-title">
           ${escapeHtml(b.title || '(No title)')}
+        </div>
+        <div class="banner-list-meta">
+          <span class="banner-badge ${b.isActive ? 'banner-badge--active' : 'banner-badge--inactive'}">${b.isActive ? 'Active' : 'Inactive'}</span>
           ${b.mobileImageUrl ? '<span class="banner-badge banner-badge--mobile">📱 Mobile</span>' : ''}
           ${!b.imageUrl && b.backgroundColor ? '<span class="banner-badge banner-badge--color">Solid</span>' : ''}
+          ${ctrLabel ? `<span class="banner-badge banner-badge--ctr" title="${clicks} clicks / ${impressions} impressions">${escapeHtml(ctrLabel)}</span>` : ''}
           ${editingBannerId === b._id ? '<span class="banner-badge banner-badge--editing">Editing</span>' : ''}
         </div>
         <div class="banner-list-url">
@@ -1232,6 +1262,7 @@
   }
 
   async function saveBannerSettings() {
+    const saveBtn = document.querySelector('.banner-settings-save-btn');
     const height = resolveHeightFromUi(
       'bannerHeight', 'bannerHeightCustom',
       DESKTOP_PRESETS, DESKTOP_MIN, DESKTOP_MAX, '300px'
@@ -1251,6 +1282,11 @@
       showArrows: document.getElementById('bannerShowArrows').value === 'true'
     };
 
+    if (saveBtn) {
+      saveBtn.classList.add('is-saving');
+      saveBtn.textContent = 'Saving…';
+    }
+
     try {
       const res = await fetch('/api/admin/banners/settings', {
         method: 'PUT',
@@ -1260,11 +1296,18 @@
       const data = await res.json();
       if (handleBannerAuth(res, data) !== 'ok') return;
       if (data.success) {
-        bannerNotify('Banner settings saved!', 'success');
+        bannerNotify('Slider settings saved successfully!', 'success');
         if (data.settings) loadBannerSettings(data.settings);
+      } else {
+        bannerNotify(data.message || 'Save failed', 'error');
       }
     } catch (err) {
-      bannerNotify('Save failed', 'error');
+      bannerNotify('Save failed: ' + err.message, 'error');
+    } finally {
+      if (saveBtn) {
+        saveBtn.classList.remove('is-saving');
+        saveBtn.textContent = '💾 Save Settings';
+      }
     }
   }
 

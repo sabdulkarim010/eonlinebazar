@@ -416,7 +416,7 @@ See also: `docs/SETUP.md`, `ecommerce-chat/docs/SETUP.md`, `devops/first-time-se
 | `ADMIN_WHATSAPP_NUMBER` | Digits for admin test messages |
 | `ADMIN_DELETE_PASSWORD` | Required for `DELETE /api/admin/hrm/employees/:id/permanent` — permanent employee removal |
 
-Services: `backend/src/services/emailService.js`, `whatsappService.js`, `notificationConfigService.js`. Admin UI: **System Settings → Notifications**. Setup: `docs/NOTIFICATION_SETUP.md`.
+Services: `backend/src/services/emailService.js`, `mailer.js`, `whatsappService.js`, `notificationConfigService.js`, `newsletterTokenService.js` (double opt-in confirm + JWT unsubscribe), `emailCampaignDispatchService.js`, `loyaltyLedgerService.js` (immutable point ledger + atomic credit/debit). Admin UI: **System Settings → Notifications**. Setup: `docs/NOTIFICATION_SETUP.md`.
 
 Platform branding read path: `backend/src/services/platformSettingsReadService.js` — PG-first admin settings for `GET /api/admin/platform-settings` (`routedRead('admin')` + safe defaults). Settings singleton reads: `settingsReadService.js`. Settings change history (read-only): `settingsHistoryReadService.js` + `settingsHistoryFilter.js` → `GET /api/admin/settings-history`; UI in Security tab (`settings-history.js`). Sanitized JSON backup: `settingsExportImportService.js` + `settingsExportSanitizer.js` → `GET/POST /api/admin/settings-export|import`; Utilities tab (`settings-backup-restore.js`). Quick save: `Ctrl+S`/`Cmd+S` in `settings-hub.js` via `triggerSettingsQuickSave()` in `settings-dirty-tracker.js`.
 

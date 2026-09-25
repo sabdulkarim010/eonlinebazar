@@ -31,10 +31,14 @@ function mapMongoToWrite(mongoDoc) {
     email: String(plain.email || '').trim().toLowerCase(),
     name: plain.name != null ? String(plain.name).trim() || null : null,
     isActive: plain.isActive !== false,
+    isConfirmed: plain.isConfirmed !== false,
     source: toSource(plain.source),
     subscribedAt: plain.subscribedAt ? new Date(plain.subscribedAt) : new Date(),
     unsubscribedAt: plain.unsubscribedAt ? new Date(plain.unsubscribedAt) : null,
     unsubscribeToken: plain.unsubscribeToken != null ? String(plain.unsubscribeToken) : null,
+    confirmToken: plain.confirmToken != null ? String(plain.confirmToken) : null,
+    confirmTokenExpiresAt: plain.confirmTokenExpiresAt ? new Date(plain.confirmTokenExpiresAt) : null,
+    confirmedAt: plain.confirmedAt ? new Date(plain.confirmedAt) : null,
     tags: Array.isArray(plain.tags) ? plain.tags.map((t) => String(t)) : [],
     emailsSent: Number(plain.emailsSent) || 0,
     lastEmailAt: plain.lastEmailAt ? new Date(plain.lastEmailAt) : null,
@@ -130,7 +134,17 @@ async function update(id, data) {
   const fields = {};
   if (data.name !== undefined) fields.name = data.name != null ? String(data.name).trim() || null : null;
   if (data.isActive !== undefined) fields.isActive = Boolean(data.isActive);
+  if (data.isConfirmed !== undefined) fields.isConfirmed = Boolean(data.isConfirmed);
   if (data.source !== undefined) fields.source = toSource(data.source);
+  if (data.confirmToken !== undefined) {
+    fields.confirmToken = data.confirmToken != null ? String(data.confirmToken) : null;
+  }
+  if (data.confirmTokenExpiresAt !== undefined) {
+    fields.confirmTokenExpiresAt = data.confirmTokenExpiresAt ? new Date(data.confirmTokenExpiresAt) : null;
+  }
+  if (data.confirmedAt !== undefined) {
+    fields.confirmedAt = data.confirmedAt ? new Date(data.confirmedAt) : null;
+  }
   if (data.subscribedAt !== undefined) fields.subscribedAt = new Date(data.subscribedAt);
   if (data.unsubscribedAt !== undefined) {
     fields.unsubscribedAt = data.unsubscribedAt ? new Date(data.unsubscribedAt) : null;

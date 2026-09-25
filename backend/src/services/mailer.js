@@ -7,6 +7,7 @@
 
 const { sendEmail: coreSendEmail, resolveEmailConfig } = require('./emailService');
 const { sendAdminOtpEmail } = require('../utils/sendEmail');
+const { sanitizeCampaignHtml } = require('../utils/sanitizeHtml');
 
 const DEFAULT_FROM = process.env.RESEND_FROM_EMAIL
     || process.env.RESEND_FROM
@@ -21,8 +22,8 @@ function getTransportForPort() {
     return null;
 }
 
-async function deliverViaApi({ to, subject, html, from }) {
-    const result = await coreSendEmail({ to, subject, html, from: from || DEFAULT_FROM });
+async function deliverViaApi({ to, subject, html, from, headers }) {
+    const result = await coreSendEmail({ to, subject, html, from: from || DEFAULT_FROM, headers });
     return {
         delivered: result.success === true,
         provider: result.provider,
@@ -35,7 +36,7 @@ function isEmailConfigured() {
     return status.configured === true;
 }
 
-async function sendBrandedMail({ to, subject, html, from, logLabel }) {
+async function sendBrandedMail({ to, subject, html, from, logLabel, headers }) {
     const recipientEmail = String(to || '').trim();
     if (!recipientEmail) {
         return { delivered: false, reason: 'Missing recipient email' };
@@ -49,7 +50,8 @@ async function sendBrandedMail({ to, subject, html, from, logLabel }) {
             to: recipientEmail,
             subject,
             html,
-            from: from || DEFAULT_FROM
+            from: from || DEFAULT_FROM,
+            headers
         });
         if (result.delivered && logLabel) {
             console.log(`SUCCESS: ${logLabel} sent to ${recipientEmail}`);
@@ -333,6 +335,7 @@ function buildNewsletterWelcomeHtml({ name, unsubscribeUrl, storeUrl }) {
 
 function buildNewsletterCampaignHtml({ htmlContent, unsubscribeUrl }) {
     const safeUnsub = escapeHtml(unsubscribeUrl);
+    const safeBody = sanitizeCampaignHtml(htmlContent);
 
     return `
         <div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;background:#ffffff;">
@@ -340,7 +343,7 @@ function buildNewsletterCampaignHtml({ htmlContent, unsubscribeUrl }) {
                 <h2 style="color:#f8fafc;margin:0;font-size:22px;">EOnlineBazar</h2>
             </div>
             <div style="padding:24px;">
-                ${htmlContent}
+                ${safeBody}
             </div>
             <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:18px 24px;text-align:center;">
                 <p style="margin:0;color:#64748b;font-size:12px;line-height:1.6;">
@@ -350,6 +353,47 @@ function buildNewsletterCampaignHtml({ htmlContent, unsubscribeUrl }) {
             </div>
         </div>
     `;
+}
+
+function buildNewsletterConfirmHtml({ name, confirmUrl, storeUrl }) {
+    const safeName = escapeHtml(name || 'গ্রাহক');
+    const safeConfirm = escapeHtml(confirmUrl);
+    const safeStore = escapeHtml(storeUrl || '/');
+
+    return `
+        <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#ffffff;">
+            <div style="background:#0f172a;padding:28px;text-align:center;">
+                <h2 style="color:#f8fafc;margin:0;font-size:26px;">EOnlineBazar</h2>
+                <p style="color:#94a3b8;margin:10px 0 0;font-size:14px;">আপনার সাবস্ক্রিপশন নিশ্চিত করুন</p>
+            </div>
+            <div style="padding:32px;">
+                <p style="color:#111827;font-size:16px;margin:0 0 16px;">প্রিয় <b>${safeName}</b>,</p>
+                <p style="color:#374151;line-height:1.7;margin:0 0 24px;">
+                    EOnlineBazar নিউজলেটারে সাবস্ক্রাইব করার জন্য ধন্যবাদ! আপনার ইমেইল নিশ্চিত করতে নিচের বাটনে ক্লিক করুন।
+                </p>
+                <div style="text-align:center;margin:28px 0;">
+                    <a href="${safeConfirm.replace(/&amp;/g, '&')}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;">সাবস্ক্রিপশন নিশ্চিত করুন</a>
+                </div>
+                <p style="color:#64748b;font-size:12px;line-height:1.6;margin:24px 0 0;text-align:center;">
+                    যদি আপনি সাবস্ক্রাইব না করে থাকেন, <a href="${safeStore.replace(/&amp;/g, '&')}" style="color:#64748b;">এই লিংকটি উপেক্ষা করুন</a>
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Send double opt-in confirmation email.
+ * Never throws — returns { delivered }.
+ */
+async function sendNewsletterConfirmEmail({ to, name, confirmUrl, storeUrl }) {
+    return sendBrandedMail({
+        to,
+        from: `"EOnlineBazar Newsletter" <${DEFAULT_FROM}>`,
+        subject: 'আপনার নিউজলেটার সাবস্ক্রিপশন নিশ্চিত করুন',
+        html: buildNewsletterConfirmHtml({ name, confirmUrl, storeUrl }),
+        logLabel: 'Newsletter confirm email'
+    });
 }
 
 /**
@@ -370,12 +414,16 @@ async function sendNewsletterWelcomeEmail({ to, name, unsubscribeUrl, storeUrl }
  * Send a newsletter campaign email to one recipient.
  * Never throws — returns { delivered }.
  */
-async function sendNewsletterCampaignEmail({ to, subject, htmlContent, unsubscribeUrl }) {
+async function sendNewsletterCampaignEmail({ to, subject, htmlContent, unsubscribeUrl, headers }) {
+    const { buildListUnsubscribeHeaders } = require('./newsletterTokenService');
+    const complianceHeaders = headers || buildListUnsubscribeHeaders(unsubscribeUrl);
+
     return sendBrandedMail({
         to,
         from: `"EOnlineBazar Newsletter" <${DEFAULT_FROM}>`,
         subject: String(subject || 'EOnlineBazar Newsletter'),
         html: buildNewsletterCampaignHtml({ htmlContent, unsubscribeUrl }),
+        headers: complianceHeaders,
         logLabel: 'Newsletter campaign email'
     });
 }
@@ -571,6 +619,7 @@ module.exports = {
     sendInquiryReplyEmail,
     sendStockAlertEmail,
     sendNewsletterWelcomeEmail,
+    sendNewsletterConfirmEmail,
     sendNewsletterCampaignEmail,
     sendAbandonedCartEmail,
     sendTierUpgradeEmail,

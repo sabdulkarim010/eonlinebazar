@@ -42,6 +42,10 @@ const {
     creditOrderDeliveryRewards,
     isWithinRefundUndoWindow
 } = require('../utils/rewardSettings');
+const {
+    restoreOrderMarketingRedemptions,
+    isCancelledStatus
+} = require('../services/orderMarketingRedemptionService');
 const { pickImageFromSources, pickEmojiFromSources, enrichOrderItemsWithImages } = require('../utils/orderItemImages');
 const { seedInitialStatusHistory } = require('../utils/orderStatusHistory');
 const { generateInvoicePDF } = require('../services/invoiceService');
@@ -1133,6 +1137,16 @@ const updateOrderStatus = async (req, res) => {
             return res.status(404).json({ success: false, message: "Order not found!" });
         }
 
+        const wasCancelledBefore = isCancelledStatus(existingOrder.status);
+        const isCancelledNow = isCancelledStatus(status);
+        if (isCancelledNow && !wasCancelledBefore) {
+            try {
+                await restoreOrderMarketingRedemptions(existingOrder);
+            } catch (restoreErr) {
+                console.error('[ORDER-CANCEL] Marketing redemption restore failed:', restoreErr.message);
+            }
+        }
+
         if (isDelivered && !wasDelivered && updatedOrder.user) {
             try {
                 await creditOrderDeliveryRewards(updatedOrder);
@@ -1264,6 +1278,9 @@ const bulkUpdateOrderStatus = async (req, res) => {
                     };
                 }
 
+                const wasCancelledBefore = isCancelledStatus(existingOrder.status);
+                const isCancelledNow = isCancelledStatus(status);
+
                 // eslint-disable-next-line no-await-in-loop
                 await dualWrite(
                     () => Order.findByIdAndUpdate(id, updateOps, { returnDocument: 'after' }),
@@ -1281,6 +1298,15 @@ const bulkUpdateOrderStatus = async (req, res) => {
                         mongoId: String(id)
                     }
                 );
+
+                if (isCancelledNow && !wasCancelledBefore) {
+                    try {
+                        // eslint-disable-next-line no-await-in-loop
+                        await restoreOrderMarketingRedemptions(existingOrder);
+                    } catch (restoreErr) {
+                        console.error('[ORDER-CANCEL] Bulk marketing redemption restore failed:', restoreErr.message);
+                    }
+                }
 
                 updated += 1;
             } catch (err) {

@@ -76,6 +76,7 @@ async function mapMongoToWrite(mongoDoc) {
     title: String(plain.title || '').trim(),
     subject: String(plain.subject || '').trim(),
     htmlContent: String(plain.htmlContent || ''),
+    templateData: plain.templateData && typeof plain.templateData === 'object' ? plain.templateData : undefined,
     status: toCampaignStatus(plain.status),
     targetTags: Array.isArray(plain.targetTags) ? plain.targetTags.map(String) : [],
     targetSegment: toCampaignSegment(plain.targetSegment),
@@ -154,6 +155,9 @@ async function update(id, data) {
   if (data.title !== undefined) fields.title = String(data.title).trim();
   if (data.subject !== undefined) fields.subject = String(data.subject).trim();
   if (data.htmlContent !== undefined) fields.htmlContent = String(data.htmlContent);
+  if (data.templateData !== undefined) {
+    fields.templateData = data.templateData && typeof data.templateData === 'object' ? data.templateData : null;
+  }
   if (data.status !== undefined) fields.status = toCampaignStatus(data.status);
   if (data.targetTags !== undefined) {
     fields.targetTags = Array.isArray(data.targetTags) ? data.targetTags.map(String) : [];

@@ -3051,3 +3051,86 @@ backend/src/controllers/productController.js [MOD] searchProducts delegates to p
 client/js/admin/modules/products-table.js [MOD] res.ok + detailed error row rendering
 docs/audit/PRODUCTS_AUDIT.md [MOD] Phase 1.1 changelog
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] READ_PG_PRODUCT cutover marked complete
+
+# Phase 4.1 — Marketing critical security & bug fixes — 2026-09-25
+backend/src/utils/sanitizeHtml.js [MOD] sanitizeCampaignHtml + allowStyleTag option for email HTML
+backend/src/services/mailer.js [MOD] sanitize campaign body in buildNewsletterCampaignHtml
+backend/src/controllers/newsletterAdminController.js [MOD] sanitize htmlContent on createCampaign
+client/js/admin-newsletter.js [MOD] sandboxed iframe preview (no script execution)
+backend/src/services/orderMarketingRedemptionService.js [NEW] atomic loyalty debit/restore + cancel redemption restore
+backend/src/controllers/couponController.js [MOD] atomic redeemCoupon with per-user limit; releaseCouponRedemption
+backend/src/controllers/orderCheckoutController.js [MOD] atomic points/coupon before order save; unified rollback
+backend/src/controllers/userProfileController.js [MOD] atomic convertPoints
+backend/src/controllers/orderCustomerController.js [MOD] restore points/coupon on customer cancel
+backend/src/controllers/orderAdminController.js [MOD] restore points/coupon on admin/bulk cancel
+docs/audit/MARKETING_AUDIT.md [MOD] Phase 4.1 changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Phase 4.1 marketing security section
+README.md [MOD] Last updated
+
+# Phase 4.2 — Async workers & caching layer — 2026-09-25
+backend/src/queues/emailCampaignQueue.js [NEW] BullMQ campaign queue + inline fallback
+backend/src/workers/emailCampaignWorker.js [NEW] async campaign worker
+backend/src/services/emailCampaignDispatchService.js [NEW] batch campaign dispatch logic
+backend/src/jobs/scheduledCampaignJob.js [NEW] auto-dispatch scheduled campaigns cron
+backend/src/controllers/newsletterAdminController.js [MOD] sendCampaign enqueues; deleteSubscriber PG dual-write
+backend/src/services/cacheService.js [MOD] BANNERS_ACTIVE key + invalidateBannerCaches
+backend/src/controllers/bannerController.js [MOD] Redis cache + PG reorder + cache invalidation
+backend/src/controllers/navbarLinkController.js [MOD] always cache public navbar reads
+backend/src/controllers/couponController.js [MOD] upsertCouponRedemptionInPG on redeem
+backend/src/server.js [MOD] bootstrap email campaign worker + scheduled campaign cron
+docs/audit/MARKETING_AUDIT.md [MOD] Phase 4.2 changelog
+docs/audit/CMS_AUDIT.md [MOD] banner cache + reorder
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Phase 4.2 section
+README.md [MOD] Last updated
+
+# Phase 4.3 — Campaign & newsletter enterprise features — 2026-09-25
+backend/src/services/newsletterTokenService.js [NEW] JWT confirm/unsubscribe tokens + List-Unsubscribe headers
+backend/src/utils/newsletterSubscriberHelpers.js [NEW] isSubscriberConfirmed + buildConfirmedSubscriberQuery
+backend/src/models/newsletter.js [MOD] isConfirmed, confirmToken, confirmTokenExpiresAt, confirmedAt
+backend/src/models/emailCampaign.js [MOD] templateData Mixed field
+prisma/schema.prisma [MOD] Newsletter confirm fields + EmailCampaign.templateData
+backend/src/repositories/newsletterRepository.js [MOD] confirm field mapping
+backend/src/repositories/emailCampaignRepository.js [MOD] templateData mapping
+backend/src/services/emailService.js [MOD] optional headers param for Resend/Brevo
+backend/src/services/mailer.js [MOD] confirm email, List-Unsubscribe headers, export sendNewsletterConfirmEmail
+backend/src/controllers/newsletterController.js [MOD] double opt-in subscribe, confirm, JWT unsubscribe + POST one-click
+backend/src/routes/newsletterRoutes.js [MOD] GET /confirm, POST /unsubscribe
+backend/src/services/emailCampaignDispatchService.js [MOD] confirmed-only query + JWT unsubscribe URLs
+backend/src/controllers/newsletterAdminController.js [MOD] templateData create + updateCampaign
+backend/src/routes/adminRoutes.js [MOD] granular RBAC + PUT/PATCH campaign update
+backend/src/config/permissions.js [MOD] manage_newsletter, manage_campaigns keys + SECTION_PERMISSIONS
+docs/audit/MARKETING_AUDIT.md [MOD] Phase 4.3 changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Phase 4.3 section
+README.md [MOD] Last updated
+
+# Phase 4.4 — Loyalty ledger, coupon rules, banner CTR — 2026-09-25
+backend/src/models/loyaltyLedger.js [NEW] immutable loyalty transaction schema
+backend/src/services/loyaltyLedgerService.js [NEW] atomic credit/debit + ledger append
+backend/src/repositories/loyaltyLedgerRepository.js [NEW] PG loyalty ledger dual-write
+backend/src/jobs/loyaltyPointExpiryJob.js [NEW] daily point expiry cron
+backend/src/services/orderMarketingRedemptionService.js [MOD] ledger-backed debit/restore
+backend/src/utils/rewardSettings.js [MOD] delivery earn logs earned ledger entry
+backend/src/controllers/userProfileController.js [MOD] convertPoints + getLoyaltyHistory
+backend/src/routes/userRoutes.js [MOD] GET /loyalty/history
+backend/src/models/coupon.js [MOD] allowedPaymentMethods, applicableCategories, ruleMetadata, tiered/buy_x_get_y
+backend/src/controllers/couponController.js [MOD] advanced rules engine + checkout validation
+backend/src/controllers/orderCheckoutController.js [MOD] pass payment method + cart items to coupon validate
+backend/src/repositories/couponRepository.js [MOD] new coupon fields PG mapping
+backend/src/models/banner.js [MOD] impressionCount, clickCount
+backend/src/controllers/bannerController.js [MOD] track impression/click + admin CTR
+backend/src/routes/bannerRoutes.js [MOD] public analytics endpoints
+backend/src/repositories/bannerRepository.js [MOD] analytics field mapping
+backend/src/server.js [MOD] bootstrap loyalty point expiry cron
+prisma/schema.prisma [MOD] LoyaltyLedger, coupon/banner field extensions
+tests/services/phase4Part4.test.js [NEW] coupon rules + CTR unit tests
+docs/audit/MARKETING_AUDIT.md [MOD] Phase 4.4 changelog
+docs/audit/CMS_AUDIT.md [MOD] banner CTR analytics
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Phase 4.4 section
+README.md [MOD] test count 313/313
+ARCHITECTURE.md [MOD] loyalty ledger service reference
+
+# Hero Banner Manager theme-adaptive UI — 2026-09-25
+client/css/admin/_banners.css [MOD] light/dark theme tokens via html[data-theme="light"]
+client/js/admin-banner.js [MOD] CTR/status badges, preview transitions, settings save UX
+client/admin/partials/view-banners.html [MOD] preview frame classes, drawer close cleanup
+docs/audit/CMS_AUDIT.md [MOD] theme UI changelog

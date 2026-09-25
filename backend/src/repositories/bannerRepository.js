@@ -84,6 +84,8 @@ async function createBanner(data) {
       overlayOpacity: clampOverlayOpacity(data.overlayOpacity, 0.3),
       position: data.position !== undefined ? Number(data.position) : 0,
       isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
+      impressionCount: data.impressionCount !== undefined ? Number(data.impressionCount) : 0,
+      clickCount: data.clickCount !== undefined ? Number(data.clickCount) : 0,
       legacyId: data.legacyId != null ? String(data.legacyId) : null
     }
   });
@@ -112,6 +114,8 @@ async function updateBanner(id, data) {
   }
   if (data.position !== undefined) fields.position = Number(data.position);
   if (data.isActive !== undefined) fields.isActive = Boolean(data.isActive);
+  if (data.impressionCount !== undefined) fields.impressionCount = Number(data.impressionCount);
+  if (data.clickCount !== undefined) fields.clickCount = Number(data.clickCount);
 
   const record = await prisma.banner.update({ where: { id }, data: fields });
   return toBannerShape(record);

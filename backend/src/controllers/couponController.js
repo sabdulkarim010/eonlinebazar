@@ -8,6 +8,7 @@
  * usage counters — redemption happens on successful order placement.
  ********************************************************************/
 
+const mongoose = require('mongoose');
 const Coupon = require('../models/coupon');
 const {
     getApplicationNow,
@@ -55,16 +56,157 @@ function assertCouponActiveAndUnexpired(coupon, now = getApplicationNow()) {
     return { ok: true };
 }
 
+function normalizePaymentCode(value) {
+    return String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+}
+
+function normalizeCategoryName(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function filterEligibleCartItems(cartItems, applicableCategories) {
+    const items = Array.isArray(cartItems) ? cartItems : [];
+    const allowed = (Array.isArray(applicableCategories) ? applicableCategories : [])
+        .map(normalizeCategoryName)
+        .filter(Boolean);
+    if (!allowed.length) return items;
+    return items.filter((item) => allowed.includes(normalizeCategoryName(item.category || 'General')));
+}
+
+function sumCartSubtotal(items) {
+    return (Array.isArray(items) ? items : []).reduce((sum, item) => {
+        const qty = Math.max(1, Number(item.quantity) || 1);
+        const price = Math.max(0, Number(item.price) || 0);
+        return sum + price * qty;
+    }, 0);
+}
+
+function validateAdvancedCouponRules(coupon, { paymentMethodCode, cartItems, subtotal }) {
+    const allowedMethods = (Array.isArray(coupon.allowedPaymentMethods) ? coupon.allowedPaymentMethods : [])
+        .map(normalizePaymentCode)
+        .filter(Boolean);
+
+    if (allowedMethods.length > 0) {
+        const methodCode = normalizePaymentCode(paymentMethodCode);
+        if (!methodCode || !allowedMethods.includes(methodCode)) {
+            return {
+                ok: false,
+                status: 400,
+                message: 'This coupon is not valid for the selected payment method.'
+            };
+        }
+    }
+
+    const applicableCategories = Array.isArray(coupon.applicableCategories)
+        ? coupon.applicableCategories
+        : [];
+    const eligibleItems = filterEligibleCartItems(cartItems, applicableCategories);
+    const categorySpend = sumCartSubtotal(eligibleItems);
+
+    if (applicableCategories.length > 0 && eligibleItems.length === 0) {
+        return {
+            ok: false,
+            status: 400,
+            message: 'This coupon requires products from specific categories.'
+        };
+    }
+
+    const minCategorySpend = Number(coupon.minCategorySpend);
+    if (applicableCategories.length > 0 && Number.isFinite(minCategorySpend) && minCategorySpend > 0) {
+        if (categorySpend < minCategorySpend) {
+            return {
+                ok: false,
+                status: 400,
+                message: `Minimum spend of ৳${minCategorySpend} in eligible categories required for this coupon.`
+            };
+        }
+    }
+
+    if (coupon.discountType === 'buy_x_get_y') {
+        const meta = coupon.ruleMetadata && typeof coupon.ruleMetadata === 'object' ? coupon.ruleMetadata : {};
+        const buyQty = Math.max(1, Number(meta.buyQuantity) || 2);
+        const totalEligibleQty = eligibleItems.reduce(
+            (sum, item) => sum + Math.max(1, Number(item.quantity) || 1),
+            0
+        );
+        if (totalEligibleQty < buyQty) {
+            return {
+                ok: false,
+                status: 400,
+                message: `Add at least ${buyQty} eligible items to use this offer.`
+            };
+        }
+    }
+
+    if (coupon.discountType === 'tiered') {
+        const tiers = Array.isArray(coupon.ruleMetadata?.tiers) ? coupon.ruleMetadata.tiers : [];
+        const qualifying = tiers.some((tier) => Number(subtotal) >= Number(tier.minSpend || 0));
+        if (tiers.length > 0 && !qualifying) {
+            return {
+                ok: false,
+                status: 400,
+                message: 'Your cart total does not qualify for any tier of this coupon.'
+            };
+        }
+    }
+
+    return { ok: true, categorySpend, eligibleItems };
+}
+
 /** Compute discount for a cart subtotal given a coupon document. */
-function calculateDiscount(coupon, subtotal) {
+function calculateDiscount(coupon, subtotal, cartItems = []) {
     const cartTotal = Math.max(0, Number(subtotal) || 0);
     let discountAmount = 0;
+    const eligibleItems = filterEligibleCartItems(
+        cartItems,
+        coupon.applicableCategories
+    );
+    const discountBase = coupon.applicableCategories?.length
+        ? sumCartSubtotal(eligibleItems)
+        : cartTotal;
 
     if (coupon.discountType === 'percentage') {
-        discountAmount = (cartTotal * Number(coupon.discountValue)) / 100;
+        discountAmount = (discountBase * Number(coupon.discountValue)) / 100;
         const cap = Number(coupon.maxDiscountAmount);
         if (Number.isFinite(cap) && cap > 0) {
             discountAmount = Math.min(discountAmount, cap);
+        }
+    } else if (coupon.discountType === 'flat') {
+        discountAmount = Number(coupon.discountValue) || 0;
+    } else if (coupon.discountType === 'tiered') {
+        const tiers = Array.isArray(coupon.ruleMetadata?.tiers) ? coupon.ruleMetadata.tiers : [];
+        const sorted = [...tiers].sort((a, b) => Number(b.minSpend) - Number(a.minSpend));
+        const tier = sorted.find((row) => cartTotal >= Number(row.minSpend || 0));
+        if (tier) {
+            const tierType = String(tier.discountType || 'percentage').toLowerCase();
+            if (tierType === 'flat') {
+                discountAmount = Number(tier.discountValue) || 0;
+            } else {
+                discountAmount = (cartTotal * Number(tier.discountValue || 0)) / 100;
+                const tierCap = Number(tier.maxDiscount);
+                if (Number.isFinite(tierCap) && tierCap > 0) {
+                    discountAmount = Math.min(discountAmount, tierCap);
+                }
+            }
+        }
+    } else if (coupon.discountType === 'buy_x_get_y') {
+        const meta = coupon.ruleMetadata && typeof coupon.ruleMetadata === 'object'
+            ? coupon.ruleMetadata
+            : {};
+        const buyQty = Math.max(1, Number(meta.buyQuantity) || 2);
+        const getQty = Math.max(1, Number(meta.getQuantity) || 1);
+        const getPct = Math.min(100, Math.max(0, Number(meta.getDiscountPercent ?? 100)));
+        const unitPrices = [];
+        for (const item of eligibleItems) {
+            const qty = Math.max(1, Number(item.quantity) || 1);
+            const price = Math.max(0, Number(item.price) || 0);
+            for (let i = 0; i < qty; i++) unitPrices.push(price);
+        }
+        unitPrices.sort((a, b) => a - b);
+        const sets = Math.floor(unitPrices.length / buyQty);
+        const freeUnits = Math.min(sets * getQty, unitPrices.length);
+        for (let i = 0; i < freeUnits; i++) {
+            discountAmount += unitPrices[i] * (getPct / 100);
         }
     } else {
         discountAmount = Number(coupon.discountValue) || 0;
@@ -83,7 +225,14 @@ function calculateDiscount(coupon, subtotal) {
  * Shared validation (apply + order place). Returns { ok, status, message, coupon, breakdown }
  * or { ok: false, ... }. Does NOT increment usedCount.
  */
-async function validateCouponForCart({ code, subtotal, userId, now = getApplicationNow() }) {
+async function validateCouponForCart({
+    code,
+    subtotal,
+    userId,
+    paymentMethodCode = null,
+    cartItems = [],
+    now = getApplicationNow()
+}) {
     const normalizedCode = String(code || '').trim().toUpperCase();
     const cartSubtotal = Number(subtotal);
 
@@ -152,7 +301,16 @@ async function validateCouponForCart({ code, subtotal, userId, now = getApplicat
         return { ok: false, status: 400, message: 'Invalid coupon configuration.' };
     }
 
-    const { discountAmount, finalTotal } = calculateDiscount(coupon, cartSubtotal);
+    const rulesCheck = validateAdvancedCouponRules(coupon, {
+        paymentMethodCode,
+        cartItems,
+        subtotal: cartSubtotal
+    });
+    if (!rulesCheck.ok) {
+        return rulesCheck;
+    }
+
+    const { discountAmount, finalTotal } = calculateDiscount(coupon, cartSubtotal, cartItems);
 
     return {
         ok: true,
@@ -168,24 +326,61 @@ async function validateCouponForCart({ code, subtotal, userId, now = getApplicat
     };
 }
 
-/** Atomically claim one global usage slot (race-safe). Call before order save. */
-async function redeemCoupon(couponId, now = getApplicationNow()) {
+function toObjectId(value) {
+    if (!value) return null;
+    const str = String(value);
+    return mongoose.Types.ObjectId.isValid(str) ? new mongoose.Types.ObjectId(str) : null;
+}
+
+/** Atomically claim a global usage slot and optional per-user redemption (race-safe). */
+async function redeemCoupon(couponId, userId = null, now = getApplicationNow()) {
     if (!couponId) return null;
 
-    const updated = await Coupon.findOneAndUpdate(
-        {
-            _id: couponId,
-            status: 'ACTIVE',
-            isActive: true,
-            expiryDate: { $gt: now },
-            $expr: { $lt: ['$usedCount', '$usageLimit'] }
-        },
-        { $inc: { usedCount: 1 } },
-        { returnDocument: 'after' }
-    );
-    
-    // Dual-write: update usedCount in PostgreSQL
-    if (updated) {
+    const uid = toObjectId(userId);
+    const filter = {
+        _id: couponId,
+        status: 'ACTIVE',
+        isActive: true,
+        expiryDate: { $gt: now }
+    };
+
+    if (uid) {
+        filter.$expr = {
+            $and: [
+                { $lt: ['$usedCount', '$usageLimit'] },
+                {
+                    $lt: [
+                        {
+                            $size: {
+                                $filter: {
+                                    input: { $ifNull: ['$usedBy', []] },
+                                    as: 'entry',
+                                    cond: { $eq: ['$$entry', uid] }
+                                }
+                            }
+                        },
+                        '$perUserLimit'
+                    ]
+                }
+            ]
+        };
+    } else {
+        filter.$expr = { $lt: ['$usedCount', '$usageLimit'] };
+    }
+
+    const update = { $inc: { usedCount: 1 } };
+    if (uid) {
+        update.$push = { usedBy: uid };
+    }
+
+    const updated = await Coupon.findOneAndUpdate(filter, update, { returnDocument: 'after' });
+
+    if (!updated) {
+        console.warn('[COUPON-REDEEM] Atomic reservation failed', {
+            couponId: String(couponId),
+            userId: uid ? String(uid) : 'guest'
+        });
+    } else {
         try {
             await couponRepo.upsertCouponInPG(updated);
         } catch (pgErr) {
@@ -195,8 +390,18 @@ async function redeemCoupon(couponId, now = getApplicationNow()) {
                 error: pgErr.message
             });
         }
+
+        if (uid) {
+            await couponRepo.upsertCouponRedemptionInPG({
+                couponId,
+                userId,
+                isMongoId: true,
+                isMongoUserId: true,
+                redeemedAt: now
+            });
+        }
     }
-    
+
     return updated;
 }
 
@@ -210,28 +415,72 @@ async function recordCouponUserUse(couponId, userId) {
     );
 }
 
-/** Undo a claimed usage slot if order persistence fails. */
+/** Undo a claimed usage slot if order persistence fails (guest checkout — no usedBy entry). */
 async function releaseCouponSlot(couponId) {
+    return releaseCouponRedemption(couponId, null);
+}
+
+/**
+ * Release one coupon redemption — decrements usedCount and removes one usedBy entry when userId given.
+ */
+async function releaseCouponRedemption(couponId, userId = null) {
     if (!couponId) return null;
-    const updated = await Coupon.findOneAndUpdate(
-        { _id: couponId, usedCount: { $gt: 0 } },
-        { $inc: { usedCount: -1 } },
-        { returnDocument: 'after' }
-    );
-    
-    // Dual-write: update usedCount in PostgreSQL
+
+    const uid = toObjectId(userId);
+    let updated;
+
+    if (uid) {
+        updated = await Coupon.findOneAndUpdate(
+            { _id: couponId, usedCount: { $gt: 0 } },
+            [
+                {
+                    $set: {
+                        usedCount: { $max: [0, { $subtract: ['$usedCount', 1] }] },
+                        usedBy: {
+                            $let: {
+                                vars: {
+                                    arr: { $ifNull: ['$usedBy', []] },
+                                    idx: { $indexOfArray: [{ $ifNull: ['$usedBy', []] }, uid] }
+                                },
+                                in: {
+                                    $cond: {
+                                        if: { $gte: ['$$idx', 0] },
+                                        then: {
+                                            $concatArrays: [
+                                                { $slice: ['$$arr', '$$idx'] },
+                                                { $slice: ['$$arr', { $add: ['$$idx', 1] }, 99999] }
+                                            ]
+                                        },
+                                        else: '$$arr'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            { returnDocument: 'after' }
+        );
+    } else {
+        updated = await Coupon.findOneAndUpdate(
+            { _id: couponId, usedCount: { $gt: 0 } },
+            { $inc: { usedCount: -1 } },
+            { returnDocument: 'after' }
+        );
+    }
+
     if (updated) {
         try {
             await couponRepo.upsertCouponInPG(updated);
         } catch (pgErr) {
             console.error('[DUAL-WRITE-COUPON-FAIL]', {
-                operation: 'releaseSlot',
+                operation: 'releaseRedemption',
                 couponId: String(couponId),
                 error: pgErr.message
             });
         }
     }
-    
+
     return updated;
 }
 
@@ -276,9 +525,34 @@ const getCouponById = async (req, res) => {
     }
 };
 
+function parseStringArray(value) {
+    if (Array.isArray(value)) {
+        return value.map((v) => String(v || '').trim()).filter(Boolean);
+    }
+    if (typeof value === 'string') {
+        return value.split(',').map((v) => v.trim()).filter(Boolean);
+    }
+    return [];
+}
+
+function parseRuleMetadata(value) {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'object' && !Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+        } catch (_) {
+            return null;
+        }
+    }
+    return null;
+}
+
 function parseCouponBody(body) {
     const code = String(body.code || '').trim().toUpperCase();
-    const discountType = body.discountType === 'flat' ? 'flat' : 'percentage';
+    const allowedTypes = ['percentage', 'flat', 'tiered', 'buy_x_get_y'];
+    const discountType = allowedTypes.includes(body.discountType) ? body.discountType : 'percentage';
     const discountValue = Number(body.discountValue);
     const minOrderAmount = Number(body.minOrderAmount) || 0;
     let maxDiscountAmount = body.maxDiscountAmount;
@@ -291,6 +565,13 @@ function parseCouponBody(body) {
     const expiryDate = body.expiryDate ? new Date(body.expiryDate) : null;
     const usageLimit = Number(body.usageLimit);
     const perUserLimit = Number(body.perUserLimit) > 0 ? Number(body.perUserLimit) : 1;
+    let minCategorySpend = body.minCategorySpend;
+    if (minCategorySpend === '' || minCategorySpend === undefined || minCategorySpend === null) {
+        minCategorySpend = null;
+    } else {
+        minCategorySpend = Number(minCategorySpend);
+        if (!Number.isFinite(minCategorySpend) || minCategorySpend <= 0) minCategorySpend = null;
+    }
 
     return {
         code,
@@ -300,7 +581,11 @@ function parseCouponBody(body) {
         maxDiscountAmount,
         expiryDate,
         usageLimit,
-        perUserLimit
+        perUserLimit,
+        allowedPaymentMethods: parseStringArray(body.allowedPaymentMethods),
+        applicableCategories: parseStringArray(body.applicableCategories),
+        minCategorySpend,
+        ruleMetadata: parseRuleMetadata(body.ruleMetadata)
     };
 }
 
@@ -310,11 +595,25 @@ function validateCouponFields(fields, { isUpdate = false } = {}) {
             return 'Coupon code must be at least 2 characters.';
         }
     }
-    if (!Number.isFinite(fields.discountValue) || fields.discountValue <= 0) {
+    const advancedType = ['tiered', 'buy_x_get_y'].includes(fields.discountType);
+    if (!Number.isFinite(fields.discountValue) || (!advancedType && fields.discountValue <= 0)) {
         return 'Discount value must be a positive number.';
     }
     if (fields.discountType === 'percentage' && fields.discountValue > 100) {
         return 'Percentage discount cannot exceed 100%.';
+    }
+    if (fields.discountType === 'tiered') {
+        const tiers = Array.isArray(fields.ruleMetadata?.tiers) ? fields.ruleMetadata.tiers : [];
+        if (!tiers.length) {
+            return 'Tiered coupons require at least one tier in ruleMetadata.tiers.';
+        }
+    }
+    if (fields.discountType === 'buy_x_get_y') {
+        const buyQty = Number(fields.ruleMetadata?.buyQuantity);
+        const getQty = Number(fields.ruleMetadata?.getQuantity);
+        if (!Number.isFinite(buyQty) || buyQty < 1 || !Number.isFinite(getQty) || getQty < 1) {
+            return 'Buy-X-Get-Y coupons require buyQuantity and getQuantity in ruleMetadata.';
+        }
     }
     if (!fields.expiryDate || Number.isNaN(fields.expiryDate.getTime())) {
         return 'Please provide a valid expiry date and time.';
@@ -394,7 +693,11 @@ const updateCoupon = async (req, res) => {
             maxDiscountAmount: fields.maxDiscountAmount,
             expiryDate: fields.expiryDate,
             usageLimit: fields.usageLimit,
-            perUserLimit: fields.perUserLimit
+            perUserLimit: fields.perUserLimit,
+            allowedPaymentMethods: fields.allowedPaymentMethods,
+            applicableCategories: fields.applicableCategories,
+            minCategorySpend: fields.minCategorySpend,
+            ruleMetadata: fields.ruleMetadata
         });
 
         await coupon.save();
@@ -534,8 +837,19 @@ const applyCoupon = async (req, res) => {
         const code = req.body.code || req.body.couponCode;
         const subtotal = req.body.subtotal ?? req.body.cartSubtotal ?? req.body.total;
         const userId = req.user ? req.user.id : null;
+        const paymentMethodCode = req.body.paymentMethodCode
+            || req.body.paymentMethod
+            || req.body.method
+            || null;
+        const cartItems = req.body.cartItems || req.body.items || [];
 
-        const result = await validateCouponForCart({ code, subtotal, userId });
+        const result = await validateCouponForCart({
+            code,
+            subtotal,
+            userId,
+            paymentMethodCode,
+            cartItems
+        });
         if (!result.ok) {
             return res.status(result.status).json({ success: false, message: result.message });
         }
@@ -569,7 +883,10 @@ module.exports = {
     assertCouponActiveAndUnexpired,
     runCouponAutoExpiry,
     calculateDiscount,
+    validateAdvancedCouponRules,
+    normalizePaymentCode,
     redeemCoupon,
     recordCouponUserUse,
-    releaseCouponSlot
+    releaseCouponSlot,
+    releaseCouponRedemption
 };

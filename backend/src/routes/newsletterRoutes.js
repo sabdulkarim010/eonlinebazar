@@ -15,6 +15,8 @@ const subscribeLimiter = rateLimit({
 });
 
 router.post('/subscribe', subscribeLimiter, newsletterController.subscribe);
+router.get('/confirm', newsletterController.confirm);
 router.get('/unsubscribe', newsletterController.unsubscribe);
+router.post('/unsubscribe', newsletterController.unsubscribePost);
 
 module.exports = router;

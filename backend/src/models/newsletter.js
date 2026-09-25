@@ -18,6 +18,11 @@ const newsletterSchema = new mongoose.Schema({
     },
     name: { type: String, default: null },
     isActive: { type: Boolean, default: true },
+    /** Double opt-in — false until confirm link clicked; legacy rows without this field count as confirmed. */
+    isConfirmed: { type: Boolean, default: false },
+    confirmToken: { type: String, default: null },
+    confirmTokenExpiresAt: { type: Date, default: null },
+    confirmedAt: { type: Date, default: null },
     source: {
         type: String,
         enum: ['footer_form', 'checkout', 'popup', 'manual'],

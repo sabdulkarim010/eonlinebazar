@@ -116,7 +116,7 @@ async function withNeonRetry(fn, options = {}) {
 
 function buildNeonHttpAdapterOptions() {
   const isRepoTest = process.env.REPOSITORY_TEST === '1';
-  const defaultTimeout = isRepoTest ? 90000 : 3000;
+  const defaultTimeout = isRepoTest ? 90000 : 10000;
   const timeoutMs = Number(process.env.NEON_FETCH_TIMEOUT_MS || defaultTimeout);
 
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {

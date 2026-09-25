@@ -178,6 +178,20 @@ connectDB().then(async () => {
         console.error('Import/export worker bootstrap error:', err.message);
     }
 
+    try {
+        const { startEmailCampaignWorker } = require('./workers/emailCampaignWorker');
+        startEmailCampaignWorker();
+    } catch (err) {
+        console.error('Email campaign worker bootstrap error:', err.message);
+    }
+
+    try {
+        const { startScheduledCampaignCron } = require('./jobs/scheduledCampaignJob');
+        startScheduledCampaignCron();
+    } catch (err) {
+        console.error('Scheduled campaign cron bootstrap error:', err.message);
+    }
+
     // Daily review reminder SMS (delivered orders ~3 days ago)
     try {
         const { startReviewReminderCron } = require('./jobs/reviewReminderJob');
@@ -229,6 +243,14 @@ connectDB().then(async () => {
         startLoyaltyTierCron();
     } catch (err) {
         console.error('Loyalty tier cron bootstrap error:', err.message);
+    }
+
+    // Daily loyalty point expiry (earned points past LOYALTY_POINT_EXPIRY_DAYS)
+    try {
+        const { startLoyaltyPointExpiryCron } = require('./jobs/loyaltyPointExpiryJob');
+        startLoyaltyPointExpiryCron();
+    } catch (err) {
+        console.error('Loyalty point expiry cron bootstrap error:', err.message);
     }
 
     // Daily PostgreSQL TTL sweep (login attempts, expired bans, stale sessions — 2am)

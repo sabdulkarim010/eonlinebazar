@@ -19,10 +19,12 @@ const {
     validateCouponForCart,
     assertCouponActiveAndUnexpired,
     runCouponAutoExpiry,
-    redeemCoupon,
-    recordCouponUserUse,
-    releaseCouponSlot
+    redeemCoupon
 } = require('./couponController');
+const {
+    deductLoyaltyPointsAtomic,
+    rollbackCheckoutMarketingReservations
+} = require('../services/orderMarketingRedemptionService');
 const { getApplicationNow, isExpiryReached } = require('../utils/applicationTime');
 const Coupon = require('../models/coupon');
 const {
@@ -297,10 +299,15 @@ const createOrder = async (req, res) => {
                 });
             }
 
+            const paymentMethodCode = selectedPaymentMethod?.code
+                || selectedPaymentMethod?.id
+                || requestedPaymentMethod;
             const couponResult = await validateCouponForCart({
                 code: couponCode,
                 subtotal,
                 userId,
+                paymentMethodCode,
+                cartItems: normalizedItems,
                 now
             });
             if (!couponResult.ok) {
@@ -320,15 +327,6 @@ const createOrder = async (req, res) => {
                 return res.status(redeemEligibility.status).json({
                     success: false,
                     message: redeemEligibility.message
-                });
-            }
-
-            // Atomically claim a usage slot before persisting the order (race-safe)
-            const redeemed = await redeemCoupon(couponDocId, now);
-            if (!redeemed) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'This coupon has reached its usage limit.'
                 });
             }
         }
@@ -414,20 +412,42 @@ const createOrder = async (req, res) => {
         const finalGrandTotal = roundMoney(Math.max(0, payableBeforeWallet - walletApplied));
         const settledFromWallet = finalGrandTotal <= 0 && walletApplied > 0;
 
-        // স্টেল ক্লায়েন্ট 'Wallet' পাঠিয়েছে কিন্তু ব্যালেন্স আর যথেষ্ট নয় —
-        // এখানে কুপন স্লট রিলিজ করে পরিষ্কার এরর ফেরত যায়।
         if (!selectedPaymentMethod && !settledFromWallet) {
-            if (couponDocId) {
-                try {
-                    await releaseCouponSlot(couponDocId);
-                } catch (rbErr) {
-                    console.error('⚠️ Coupon rollback error:', rbErr.message);
-                }
-            }
             return res.status(400).json({
                 success: false,
                 message: 'Your wallet balance no longer covers this order. Please select a payment method.'
             });
+        }
+
+        if (pointsRedeemed > 0 && userId) {
+            const pointsDebited = await deductLoyaltyPointsAtomic(userId, pointsRedeemed, {
+                orderId,
+                description: `Points redeemed for order ${orderId}`
+            });
+            if (!pointsDebited) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Insufficient loyalty points. Please refresh and try again.'
+                });
+            }
+        }
+
+        if (couponDocId) {
+            const now = getApplicationNow();
+            const redeemed = await redeemCoupon(couponDocId, userId, now);
+            if (!redeemed) {
+                await rollbackCheckoutMarketingReservations({
+                    couponDocId: null,
+                    userId,
+                    pointsRedeemed
+                });
+                return res.status(400).json({
+                    success: false,
+                    message: userId
+                        ? 'This coupon has reached its usage limit or you have already used it the maximum number of times.'
+                        : 'This coupon has reached its usage limit.'
+                });
+            }
         }
 
         const resolvedPaymentMethod = settledFromWallet
@@ -517,30 +537,8 @@ const createOrder = async (req, res) => {
                 }
             );
         } catch (saveErr) {
-            if (couponDocId) {
-                try {
-                    await releaseCouponSlot(couponDocId);
-                } catch (rbErr) {
-                    console.error('⚠️ Coupon rollback error:', rbErr.message);
-                }
-            }
+            await rollbackCheckoutMarketingReservations({ couponDocId, userId, pointsRedeemed });
             throw saveErr;
-        }
-
-        if (pointsRedeemed > 0 && userId) {
-            const pointsUser = await User.findById(userId).select('loyaltyPoints');
-            const currentPoints = Number(pointsUser?.loyaltyPoints) || 0;
-            if (currentPoints < pointsRedeemed) {
-                await Order.findByIdAndDelete(newOrder._id);
-                if (couponDocId) {
-                    try { await releaseCouponSlot(couponDocId); } catch (_) { /* noop */ }
-                }
-                return res.status(400).json({
-                    success: false,
-                    message: 'Insufficient loyalty points. Please refresh and try again.'
-                });
-            }
-            await User.findByIdAndUpdate(userId, { $inc: { loyaltyPoints: -pointsRedeemed } });
         }
 
         if (walletApplied > 0 && userId) {
@@ -553,13 +551,7 @@ const createOrder = async (req, res) => {
                 );
                 if (!walletAfter) {
                     await Order.findByIdAndDelete(newOrder._id);
-                    if (couponDocId) {
-                        try {
-                            await releaseCouponSlot(couponDocId);
-                        } catch (rbErr) {
-                            console.error('⚠️ Coupon rollback error:', rbErr.message);
-                        }
-                    }
+                    await rollbackCheckoutMarketingReservations({ couponDocId, userId, pointsRedeemed });
                     return res.status(400).json({
                         success: false,
                         message: 'Insufficient wallet balance. Please refresh and try again.'
@@ -567,23 +559,8 @@ const createOrder = async (req, res) => {
                 }
             } catch (walletErr) {
                 await Order.findByIdAndDelete(newOrder._id);
-                if (couponDocId) {
-                    try {
-                        await releaseCouponSlot(couponDocId);
-                    } catch (rbErr) {
-                        console.error('⚠️ Coupon rollback error:', rbErr.message);
-                    }
-                }
+                await rollbackCheckoutMarketingReservations({ couponDocId, userId, pointsRedeemed });
                 throw walletErr;
-            }
-        }
-
-        // Track per-user usage only after a successful order save
-        if (couponDocId && userId) {
-            try {
-                await recordCouponUserUse(couponDocId, userId);
-            } catch (userUseErr) {
-                console.error('⚠️ Coupon usedBy record error:', userUseErr.message);
             }
         }
 

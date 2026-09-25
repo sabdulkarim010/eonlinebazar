@@ -17,6 +17,29 @@ const ALLOWED_TAGS = new Set([
 
 const VOID_TAGS = new Set(['br', 'hr', 'img']);
 
+/** Email campaign HTML — table layouts + inline style blocks (no scripts). */
+const CAMPAIGN_ALLOWED_TAGS = new Set([
+    'p', 'br', 'hr', 'div', 'span', 'pre', 'blockquote',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'sub', 'sup',
+    'ul', 'ol', 'li',
+    'a', 'img',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'style'
+]);
+
+function sanitizeStyleBlock(css) {
+    return String(css || '')
+        .replace(/@import\b/gi, '')
+        .replace(/expression\s*\(/gi, '')
+        .replace(/javascript\s*:/gi, '')
+        .replace(/vbscript\s*:/gi, '')
+        .replace(/behavior\s*:/gi, '')
+        .replace(/binding\s*:/gi, '')
+        .replace(/url\s*\(\s*['"]?\s*javascript/gi, 'url(')
+        .slice(0, 50000);
+}
+
 function isSafeUrl(raw) {
     const url = String(raw || '').trim();
     if (!url) return false;
@@ -37,15 +60,28 @@ function isSafeIframeSrc(raw) {
  * Sanitize rich HTML from Quill / paste. Not a full HTML parser — good enough
  * for trusted admin authors while blocking script / javascript: payloads.
  */
-function sanitizeHtml(input, { maxLength = 200000 } = {}) {
+function sanitizeHtml(input, { maxLength = 200000, allowedTags = ALLOWED_TAGS, allowStyleTag = false } = {}) {
     let html = String(input || '').slice(0, maxLength);
     if (!html.trim()) return '';
 
-    // Remove comments, scripts, styles, and event handlers early
+    if (allowStyleTag) {
+        html = html.replace(/<\s*style\b([^>]*)>([\s\S]*?)<\s*\/\s*style\s*>/gi, (_match, _attrs, content) => (
+            `<style>${sanitizeStyleBlock(content)}</style>`
+        ));
+    }
+
+    const stripPattern = allowStyleTag
+        ? /<\s*(script|link|meta|object|embed|form|input|button|textarea|select)[\s\S]*?>[\s\S]*?<\s*\/\s*\1\s*>/gi
+        : /<\s*(script|style|link|meta|object|embed|form|input|button|textarea|select)[\s\S]*?>[\s\S]*?<\s*\/\s*\1\s*>/gi;
+    const stripVoidPattern = allowStyleTag
+        ? /<\s*(script|link|meta|object|embed|form|input|button|textarea|select)[^>]*\/?\s*>/gi
+        : /<\s*(script|style|link|meta|object|embed|form|input|button|textarea|select)[^>]*\/?\s*>/gi;
+
+    // Remove comments, scripts, dangerous tags, and event handlers early
     html = html
         .replace(/<!--[\s\S]*?-->/g, '')
-        .replace(/<\s*(script|style|link|meta|object|embed|form|input|button|textarea|select)[\s\S]*?>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-        .replace(/<\s*(script|style|link|meta|object|embed|form|input|button|textarea|select)[^>]*\/?\s*>/gi, '')
+        .replace(stripPattern, '')
+        .replace(stripVoidPattern, '')
         .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
         .replace(/javascript\s*:/gi, '')
         .replace(/vbscript\s*:/gi, '')
@@ -55,7 +91,7 @@ function sanitizeHtml(input, { maxLength = 200000 } = {}) {
     html = html.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/g, (match, tagName, attrs) => {
         const tag = String(tagName || '').toLowerCase();
         const isClose = match.startsWith('</');
-        if (!ALLOWED_TAGS.has(tag)) return '';
+        if (!allowedTags.has(tag)) return '';
         if (isClose) return VOID_TAGS.has(tag) ? '' : `</${tag}>`;
 
         const kept = [];
@@ -109,4 +145,13 @@ function sanitizeHtml(input, { maxLength = 200000 } = {}) {
     return html.trim().slice(0, maxLength);
 }
 
-module.exports = { sanitizeHtml, isSafeUrl };
+/** Sanitize newsletter / email campaign HTML before persist or send. */
+function sanitizeCampaignHtml(input, { maxLength = 500000 } = {}) {
+    return sanitizeHtml(input, {
+        maxLength,
+        allowedTags: CAMPAIGN_ALLOWED_TAGS,
+        allowStyleTag: true
+    });
+}
+
+module.exports = { sanitizeHtml, sanitizeCampaignHtml, isSafeUrl };

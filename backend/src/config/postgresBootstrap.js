@@ -46,8 +46,8 @@ async function warmNeonConnection(options = {}) {
 
   const prisma = require('./prismaClient');
   const { withNeonRetry, logPgFallback } = require('./neonRetry');
-  const attempts = Number(options.attempts ?? process.env.NEON_WARMUP_ATTEMPTS ?? 2);
-  const baseDelayMs = Number(options.baseDelayMs ?? process.env.NEON_WARMUP_BASE_DELAY_MS ?? 500);
+  const attempts = Number(options.attempts ?? process.env.NEON_WARMUP_ATTEMPTS ?? 5);
+  const baseDelayMs = Number(options.baseDelayMs ?? process.env.NEON_WARMUP_BASE_DELAY_MS ?? 2000);
 
   try {
     await withNeonRetry(() => prisma.$queryRawUnsafe('SELECT 1'), { attempts, baseDelayMs });

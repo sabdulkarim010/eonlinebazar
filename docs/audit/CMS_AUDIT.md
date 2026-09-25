@@ -1,6 +1,6 @@
 # CMS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (Page Content Manager preview/edit mode UX)  
+**Last updated:** 2026-09-25 (Hero Banner Manager theme-adaptive UI)  
 **Scope:** Banners, CMS pages, navbar links, footer settings, store branding, PWA  
 **Status:** ✅ COMPLETE
 
@@ -47,6 +47,8 @@
 ## Feature Checklist
 
 - [x] Hero banner CRUD + carousel — `bannerController.js`, `banner-slider.js`
+- [x] Responsive banner images (`mobileImageUrl`) — `banner.js`, `bannerController.js`
+- [x] Banner impression/click tracking + admin CTR — `POST /api/banners/:id/impression|click`
 - [x] Flash sale product IDs in settings — `Settings.js`, master settings
 - [x] CMS pages (Markdown/HTML) — `pageContentController.js`, `cms-page.html`
 - [x] Navbar link management — `navbarLinkController.js`, `catalog-navbar.js`
@@ -78,6 +80,29 @@
 ---
 
 ## Change Log
+
+### Hero Banner Manager theme-adaptive UI — 2026-09-25
+
+- `_banners.css` refactored: CSS variables switch on `html[data-theme="light"]` vs default dark (admin Night Mode toggle)
+- Preview cards, list cards, slider settings, and drawer adapt light/dark backgrounds, borders, and text
+- Glassmorphic banner list cards with Active/Inactive, Mobile, CTR badges (`admin-banner.js`)
+- Premium browser/phone preview mockups with `transition-all` tab switching
+- Slider settings save button loading state + toast feedback
+- Tests: Jest **313/313** passing
+
+### Phase 4.4 — Banner CTR analytics — 2026-09-25
+
+- `impressionCount` + `clickCount` on Banner schema; atomic `$inc` on public POST endpoints
+- Admin `GET /api/admin/banners` includes computed `ctr` per banner
+- Analytics events do not invalidate Redis banner cache (structural CRUD still does)
+- Tests: Jest **313/313** passing
+
+### Phase 4.2 — Banner cache + PG reorder dual-write — 2026-09-25
+
+- `GET /api/store/banners` cached via `CACHE_KEYS.BANNERS_ACTIVE` (300s TTL); invalidated on admin CRUD/reorder/settings
+- `reorderBanners` mirrors position updates to PostgreSQL via `bannerRepository.updateBanner`
+- Navbar public reads always use Redis cache (PG read cutover no longer bypasses cache)
+- Tests: Jest **307/307** passing
 
 ### Page Content Manager preview/edit UX — 2026-09-24
 

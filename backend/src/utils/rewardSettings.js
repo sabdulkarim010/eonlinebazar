@@ -157,7 +157,7 @@ async function creditOrderDeliveryRewards(order) {
         || (order._id ? String(order._id).slice(-6).toUpperCase() : 'N/A');
 
     const rewardUpdate = {
-        $inc: { loyaltyPoints: earnedPoints, walletBalance: cashback }
+        $inc: { walletBalance: cashback }
     };
     if (cashback > 0) {
         rewardUpdate.$push = {
@@ -173,7 +173,18 @@ async function creditOrderDeliveryRewards(order) {
         };
     }
 
-    await User.findByIdAndUpdate(order.user, rewardUpdate);
+    if (cashback > 0) {
+        await User.findByIdAndUpdate(order.user, rewardUpdate);
+    }
+
+    if (earnedPoints > 0) {
+        const { creditLoyaltyPoints } = require('../services/loyaltyLedgerService');
+        await creditLoyaltyPoints(order.user, earnedPoints, {
+            type: 'earned',
+            referenceId: order.orderId || String(order._id),
+            description: `Points earned for delivered order ${orderLabel}`
+        });
+    }
     await Order.findByIdAndUpdate(order._id, {
         $set: {
             rewardsCredited: true,

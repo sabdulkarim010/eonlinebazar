@@ -811,12 +811,14 @@ router.patch('/hrm/leaves/:id/reject', verifyAdmin, checkPermission('approve_lea
  # ৫ছ. 📧 NEWSLETTER & EMAIL CAMPAIGNS
  # URL: /api/admin/newsletter/*
  ********************************************************************/
-router.get('/newsletter/subscribers', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.listSubscribers);
-router.delete('/newsletter/subscribers/:id', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.deleteSubscriber);
-router.post('/newsletter/campaigns', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.createCampaign);
-router.get('/newsletter/campaigns', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.listCampaigns);
-router.post('/newsletter/campaigns/:id/send', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.sendCampaign);
-router.post('/newsletter/campaigns/:id/test', verifyAdmin, checkPermission('manage_marketing'), newsletterAdminController.testCampaign);
+router.get('/newsletter/subscribers', verifyAdmin, checkPermission('manage_marketing', 'manage_newsletter'), newsletterAdminController.listSubscribers);
+router.delete('/newsletter/subscribers/:id', verifyAdmin, checkPermission('manage_marketing', 'manage_newsletter'), newsletterAdminController.deleteSubscriber);
+router.post('/newsletter/campaigns', verifyAdmin, checkPermission('manage_marketing', 'manage_campaigns'), newsletterAdminController.createCampaign);
+router.get('/newsletter/campaigns', verifyAdmin, checkPermission('manage_marketing', 'manage_campaigns'), newsletterAdminController.listCampaigns);
+router.put('/newsletter/campaigns/:id', verifyAdmin, checkPermission('manage_marketing', 'manage_campaigns'), newsletterAdminController.updateCampaign);
+router.patch('/newsletter/campaigns/:id', verifyAdmin, checkPermission('manage_marketing', 'manage_campaigns'), newsletterAdminController.updateCampaign);
+router.post('/newsletter/campaigns/:id/send', verifyAdmin, checkPermission('manage_marketing', 'manage_campaigns'), newsletterAdminController.sendCampaign);
+router.post('/newsletter/campaigns/:id/test', verifyAdmin, checkPermission('manage_marketing', 'manage_campaigns'), newsletterAdminController.testCampaign);
 
 // URL: GET|POST /api/admin/announcement-settings (legacy announcement-only save)
 router.get('/announcement-settings', verifyAdmin, masterSettingsController.getAnnouncementSettings);

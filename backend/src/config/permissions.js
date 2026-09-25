@@ -67,6 +67,20 @@ const PERMISSIONS = Object.freeze([
         group: 'Marketing'
     },
     {
+        key: 'manage_newsletter',
+        label: 'Manage Newsletter Subscribers',
+        description: 'View and manage newsletter subscriber lists.',
+        icon: 'fa-envelope',
+        group: 'Marketing'
+    },
+    {
+        key: 'manage_campaigns',
+        label: 'Manage Email Campaigns',
+        description: 'Create, edit, and send email marketing campaigns.',
+        icon: 'fa-paper-plane',
+        group: 'Marketing'
+    },
+    {
         key: 'manage_customers',
         label: 'Manage Customers',
         description: 'Preset shortcut — grants customer and support ticket keys.',
@@ -457,7 +471,8 @@ const PERMISSION_IMPLICATIONS = Object.freeze({
         'manage_pim', 'transfers_approve'
     ],
     manage_marketing: [
-        'manage_banners', 'manage_navbar', 'manage_loyalty', 'manage_coupons'
+        'manage_banners', 'manage_navbar', 'manage_loyalty', 'manage_coupons',
+        'manage_newsletter', 'manage_campaigns'
     ],
     manage_settings: [
         'view_accounts', 'view_financial_reports', 'manage_expenses'
@@ -491,8 +506,8 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-suppliers': 'manage_suppliers',
     'view-warehouses': 'manage_warehouses',
     'view-purchase-orders': 'manage_purchase_orders',
-    'view-newsletter-campaigns': 'manage_marketing',
-    'view-newsletter-subscribers': 'manage_marketing',
+    'view-newsletter-campaigns': 'manage_campaigns',
+    'view-newsletter-subscribers': 'manage_newsletter',
     'manage-coupons': 'manage_coupons',
     'view-banners': 'manage_banners',
     'manage-navbar-links': 'manage_navbar',

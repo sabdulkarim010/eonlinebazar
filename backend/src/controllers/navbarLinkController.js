@@ -15,7 +15,6 @@ const { sanitizeHtml } = require('../utils/sanitizeHtml');
 const { getOrSet, invalidate, CACHE_KEYS } = require('../services/cacheService');
 const { dualWrite } = require('../services/dualWriteService');
 const { routedRead } = require('../services/readRouter');
-const { isPgReadEnabled } = require('../config/readCutoverFlags');
 const {
     mapNavbarLinksToAdminShape,
     mapNavbarLinksToPublicShape
@@ -152,9 +151,7 @@ async function fetchAdminNavbarLinks() {
 /** GET /api/navbar-links — published links for the storefront top bar */
 const getPublicNavbarLinks = async (req, res) => {
     try {
-        const links = isPgReadEnabled('navbarlink')
-            ? await fetchPublicNavbarLinks()
-            : await getOrSet(CACHE_KEYS.NAVBAR_LINKS, () => fetchPublicNavbarLinks(), 300);
+        const links = await getOrSet(CACHE_KEYS.NAVBAR_LINKS, () => fetchPublicNavbarLinks(), 300);
         res.status(200).json({ success: true, data: links });
     } catch (error) {
         console.error('Navbar links public fetch error:', error);

@@ -24,6 +24,10 @@ const { enrichOrderItemsWithImages, enrichOrdersWithImages } = require('../utils
 const { findOrderByRef } = require('../utils/orderMongoLookup');
 const { normalizeOrderStatus } = require('./orderControllerHelpers');
 const { sendAdminNotification } = require('../services/notificationService');
+const {
+    restoreOrderMarketingRedemptions,
+    isCancelledStatus
+} = require('../services/orderMarketingRedemptionService');
 
 function mapCustomerOrderItem(item = {}) {
     const productImages = Array.isArray(item.product?.images) ? item.product.images : [];
@@ -284,6 +288,7 @@ const cancelUserOrder = async (req, res) => {
             });
         }
 
+        const priorStatus = order.status;
         order.status = 'Cancelled';
         order.cancelReason = cancelReason;
         order.cancelledBy = 'Customer';
@@ -297,6 +302,14 @@ const cancelUserOrder = async (req, res) => {
                 mongoId: (saved) => String(saved._id)
             }
         );
+
+        if (!isCancelledStatus(priorStatus)) {
+            try {
+                await restoreOrderMarketingRedemptions(order);
+            } catch (restoreErr) {
+                console.error('[ORDER-CANCEL] Marketing redemption restore failed:', restoreErr.message);
+            }
+        }
 
         res.json({
             success: true,
@@ -339,6 +352,7 @@ const cancelPendingOrder = async (req, res) => {
         }
 
         const cancelReason = resolveSubmittedReason(req.body) || 'Cancelled from the mobile app';
+        const priorStatus = order.status;
         order.status = 'Cancelled';
         order.cancelReason = cancelReason;
         order.cancelledBy = 'Customer';
@@ -352,6 +366,14 @@ const cancelPendingOrder = async (req, res) => {
                 mongoId: (saved) => String(saved._id)
             }
         );
+
+        if (!isCancelledStatus(priorStatus)) {
+            try {
+                await restoreOrderMarketingRedemptions(order);
+            } catch (restoreErr) {
+                console.error('[ORDER-CANCEL] Marketing redemption restore failed:', restoreErr.message);
+            }
+        }
 
         res.json({
             success: true,

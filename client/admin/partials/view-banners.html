@@ -27,7 +27,7 @@
             </div>
 
             <!-- Desktop frame -->
-            <div id="desktopPreviewFrame" class="banner-desktop-frame">
+            <div id="desktopPreviewFrame" class="banner-desktop-frame banner-preview-frame">
                 <div class="banner-browser-chrome">
                     <span class="banner-traffic-light banner-traffic-light--red"></span>
                     <span class="banner-traffic-light banner-traffic-light--yellow"></span>
@@ -50,7 +50,7 @@
             </div>
 
             <!-- Mobile frame -->
-            <div id="mobilePreviewFrame" class="banner-mobile-frame" hidden>
+            <div id="mobilePreviewFrame" class="banner-mobile-frame banner-preview-frame" hidden>
                 <div class="banner-phone-shell">
                     <div class="banner-phone-notch"></div>
                     <div id="mobileBannerPreview" class="banner-mobile-viewport" role="img" aria-label="Mobile banner preview">
@@ -177,9 +177,7 @@
         <div class="banner-drawer-header">
             <h2 id="bannerFormTitle" class="banner-drawer-title">➕ Add New Banner</h2>
             <button type="button" class="banner-drawer-close" onclick="closeBannerDrawer()"
-                    aria-label="Close drawer"
-                    onmouseover="this.style.background='#ef4444';this.style.color='#fff'"
-                    onmouseout="this.style.background='transparent';this.style.color='#ef4444'">✕</button>
+                    aria-label="Close drawer">✕</button>
         </div>
 
         <div class="banner-drawer-body" id="bannerFormCard">

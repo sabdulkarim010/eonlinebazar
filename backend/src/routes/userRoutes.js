@@ -56,6 +56,7 @@ router.delete('/addresses/:addressId', verifyUser, userProfileController.deleteA
 router.get('/wallet/balance', verifyUser, walletCustomerController.getCustomerWalletBalance);
 router.get('/wallet/transactions', verifyUser, walletCustomerController.getCustomerWalletTransactions);
 router.post('/convert-points', verifyUser, userProfileController.convertPoints);
+router.get('/loyalty/history', verifyUser, userProfileController.getLoyaltyHistory);
 
 // ================== রেফারেল প্রোগ্রাম (Referral Program) ==================
 router.get('/referral', verifyUser, referralController.getReferralInfo);

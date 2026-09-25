@@ -17,11 +17,17 @@ const prisma = require('../config/prismaClient');
 // Prisma: PERCENTAGE | FLAT
 function toDiscountTypeEnum(mongoType) {
   const normalized = String(mongoType || 'percentage').toLowerCase();
-  return normalized === 'flat' ? 'FLAT' : 'PERCENTAGE';
+  if (normalized === 'flat') return 'FLAT';
+  if (normalized === 'tiered') return 'TIERED';
+  if (normalized === 'buy_x_get_y') return 'BUY_X_GET_Y';
+  return 'PERCENTAGE';
 }
 
 function toMongoDiscountType(prismaType) {
-  return prismaType === 'FLAT' ? 'flat' : 'percentage';
+  if (prismaType === 'FLAT') return 'flat';
+  if (prismaType === 'TIERED') return 'tiered';
+  if (prismaType === 'BUY_X_GET_Y') return 'buy_x_get_y';
+  return 'percentage';
 }
 
 // Mongoose: 'ACTIVE' | 'EXPIRED'
@@ -54,6 +60,10 @@ function toMongoShape(record) {
     usedCount: record.usedCount,
     perUserLimit: record.perUserLimit,
     isActive: record.isActive,
+    allowedPaymentMethods: Array.isArray(record.allowedPaymentMethods) ? record.allowedPaymentMethods : [],
+    applicableCategories: Array.isArray(record.applicableCategories) ? record.applicableCategories : [],
+    minCategorySpend: record.minCategorySpend != null ? Number(record.minCategorySpend) : null,
+    ruleMetadata: record.ruleMetadata && typeof record.ruleMetadata === 'object' ? record.ruleMetadata : null,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt
   };
@@ -82,6 +92,16 @@ async function upsertCouponInPG(mongoDoc) {
       usedCount: Number(mongoDoc.usedCount) || 0,
       perUserLimit: Number(mongoDoc.perUserLimit) || 1,
       isActive: mongoDoc.isActive === true || mongoDoc.status === 'ACTIVE',
+      allowedPaymentMethods: Array.isArray(mongoDoc.allowedPaymentMethods)
+        ? mongoDoc.allowedPaymentMethods
+        : [],
+      applicableCategories: Array.isArray(mongoDoc.applicableCategories)
+        ? mongoDoc.applicableCategories
+        : [],
+      minCategorySpend: mongoDoc.minCategorySpend != null ? Number(mongoDoc.minCategorySpend) : null,
+      ruleMetadata: mongoDoc.ruleMetadata && typeof mongoDoc.ruleMetadata === 'object'
+        ? mongoDoc.ruleMetadata
+        : null,
       updatedAt: new Date()
     };
 

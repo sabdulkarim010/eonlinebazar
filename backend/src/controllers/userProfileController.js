@@ -882,42 +882,81 @@ exports.convertPoints = async (req, res) => {
             return res.status(400).json({ success: false, message: `Points must be in multiples of ${minPoints}.` });
         }
 
-        const user = await User.findById(req.user.id);
-        if (!user) return res.status(404).json({ success: false, message: "User not found." });
-
-        if (user.loyaltyPoints < pointsToConvert) {
-            return res.status(400).json({ success: false, message: `You only have ${user.loyaltyPoints} points.` });
-        }
-
         const cashValue = calculatePointsCashValue(pointsToConvert, rewardSettings);
         if (cashValue <= 0) {
             return res.status(400).json({ success: false, message: "Point conversion is currently disabled or misconfigured." });
         }
 
-        user.loyaltyPoints -= pointsToConvert;
-        user.walletBalance += cashValue;
-        user.walletHistory.unshift({
+        const conversionNote = `Converted ${pointsToConvert} points to wallet balance (${minPoints} pts = ৳${rewardSettings.pointsToTakaConversionRate})`;
+        const historyEntry = {
             type: 'conversion',
             amount: cashValue,
-            note: `Converted ${pointsToConvert} points to wallet balance (${minPoints} pts = ৳${rewardSettings.pointsToTakaConversionRate})`
+            note: conversionNote,
+            date: new Date()
+        };
+
+        const { debitLoyaltyPoints } = require('../services/loyaltyLedgerService');
+        const debited = await debitLoyaltyPoints(req.user.id, pointsToConvert, {
+            type: 'redeemed',
+            referenceId: `convert-${Date.now()}`,
+            description: conversionNote
         });
 
-        await dualWrite(
-            () => user.save(),
-            async (saved) => { await mirrorWalletUser(saved); },
-            { model: 'WalletTransaction', operation: 'convert-points', mongoId: (saved) => String(saved._id) }
+        if (!debited) {
+            const existing = await User.findById(req.user.id).select('loyaltyPoints');
+            if (!existing) {
+                return res.status(404).json({ success: false, message: "User not found." });
+            }
+            console.warn('[LOYALTY-CONVERT] Atomic conversion failed — insufficient points', {
+                userId: String(req.user.id),
+                requested: pointsToConvert,
+                available: existing.loyaltyPoints
+            });
+            return res.status(400).json({
+                success: false,
+                message: `You only have ${existing.loyaltyPoints} points.`
+            });
+        }
+
+        const user = await dualWrite(
+            () => User.findByIdAndUpdate(
+                req.user.id,
+                { $inc: { walletBalance: cashValue }, $push: { walletHistory: { $each: [historyEntry], $position: 0 } } },
+                { returnDocument: 'after' }
+            ),
+            async (saved) => { if (saved) await mirrorWalletUser(saved); },
+            { model: 'WalletTransaction', operation: 'convert-points', mongoId: (saved) => (saved ? String(saved._id) : req.user.id) }
         );
 
         res.status(200).json({
             success: true,
             message: `Successfully converted ${pointsToConvert} points to ৳${cashValue}!`,
-            walletBalance: user.walletBalance,
-            loyaltyPoints: user.loyaltyPoints,
-            walletHistory: user.walletHistory,
+            walletBalance: user?.walletBalance,
+            loyaltyPoints: debited.loyaltyPoints,
+            walletHistory: user?.walletHistory,
             rewardSettings
         });
     } catch (error) {
         console.error("Convert Points Error:", error);
         res.status(500).json({ success: false, message: "Server error during points conversion." });
+    }
+};
+
+exports.getLoyaltyHistory = async (req, res) => {
+    try {
+        const { fetchLoyaltyHistory } = require('../services/loyaltyLedgerService');
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 20;
+        const result = await fetchLoyaltyHistory(req.user.id, { page, limit });
+
+        res.status(200).json({
+            success: true,
+            data: result.data,
+            pagination: result.pagination,
+            currentBalance: result.currentBalance
+        });
+    } catch (error) {
+        console.error('Loyalty history error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load loyalty history.' });
     }
 };

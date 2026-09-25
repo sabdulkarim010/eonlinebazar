@@ -16,6 +16,7 @@ const CACHE_KEYS = {
     CATEGORIES: 'catalog:categories:all',
     BRANDS: 'catalog:brands:all',
     NAVBAR_LINKS: 'catalog:navbar-links:published',
+    BANNERS_ACTIVE: 'catalog:banners:active',
     POPULAR_PRODUCTS: 'products:popular',
     FEATURED_PRODUCTS: 'products:featured',
     FLASH_SALE: 'store:flash-sale',
@@ -110,11 +111,16 @@ async function invalidateProductCaches(productId) {
     await invalidateMany(keys);
 }
 
+async function invalidateBannerCaches() {
+    await invalidate(CACHE_KEYS.BANNERS_ACTIVE);
+}
+
 module.exports = {
     CACHE_KEYS,
     getOrSet,
     invalidate,
     invalidateMany,
     invalidatePattern,
-    invalidateProductCaches
+    invalidateProductCaches,
+    invalidateBannerCaches
 };

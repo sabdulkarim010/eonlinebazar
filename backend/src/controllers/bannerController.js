@@ -3,10 +3,30 @@ const cloudinary = require('../config/cloudinary');
 const multer = require('multer');
 const { dualWrite } = require('../services/dualWriteService');
 const { routedRead } = require('../services/readRouter');
+const { getOrSet, invalidateBannerCaches, CACHE_KEYS } = require('../services/cacheService');
 const { mapBannersToMongo, bannerSettingsToMongoShape } = require('../services/readShapeHelpers');
 
 function getBannerRepository() {
   return require('../repositories/bannerRepository');
+}
+
+function computeBannerCtr(clickCount, impressionCount) {
+  const clicks = Math.max(0, Number(clickCount) || 0);
+  const impressions = Math.max(0, Number(impressionCount) || 0);
+  if (impressions <= 0) return 0;
+  return Math.round((clicks / impressions) * 10000) / 100;
+}
+
+function attachBannerAnalytics(banner) {
+  const plain = banner?.toObject ? banner.toObject() : { ...banner };
+  const impressionCount = Math.max(0, Number(plain.impressionCount) || 0);
+  const clickCount = Math.max(0, Number(plain.clickCount) || 0);
+  return {
+    ...plain,
+    impressionCount,
+    clickCount,
+    ctr: computeBannerCtr(clickCount, impressionCount)
+  };
 }
 
 function mapMongoBannerToPostgresWrite(banner) {
@@ -23,6 +43,8 @@ function mapMongoBannerToPostgresWrite(banner) {
     overlayOpacity: plain.overlayOpacity,
     position: plain.position,
     isActive: plain.isActive,
+    impressionCount: Math.max(0, Number(plain.impressionCount) || 0),
+    clickCount: Math.max(0, Number(plain.clickCount) || 0),
     legacyId: String(banner._id)
   };
 }
@@ -151,19 +173,27 @@ async function fetchBannerSettingsDoc() {
   );
 }
 
+async function fetchActiveBannersPayload() {
+  const [banners, settings] = await Promise.all([
+    fetchBanners({ isActive: true }),
+    fetchBannerSettingsDoc()
+  ]);
+  return {
+    success: true,
+    banners,
+    settings: normalizeBannerSettings(settings)
+  };
+}
+
 // GET /api/store/banners — PUBLIC
 exports.getActiveBanners = async (req, res) => {
   try {
-    const [banners, settings] = await Promise.all([
-      fetchBanners({ isActive: true }),
-      fetchBannerSettingsDoc()
-    ]);
-
-    res.json({
-      success: true,
-      banners,
-      settings: normalizeBannerSettings(settings)
-    });
+    const payload = await getOrSet(
+      CACHE_KEYS.BANNERS_ACTIVE,
+      () => fetchActiveBannersPayload(),
+      300
+    );
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -178,9 +208,58 @@ exports.getAllBanners = async (req, res) => {
     ]);
     res.json({
       success: true,
-      banners,
+      banners: banners.map(attachBannerAnalytics),
       settings: normalizeBannerSettings(settings)
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+async function incrementBannerMetric(bannerId, field) {
+  const updated = await Banner.findByIdAndUpdate(
+    bannerId,
+    { $inc: { [field]: 1 } },
+    { returnDocument: 'after' }
+  );
+  if (!updated) return null;
+
+  try {
+    const repo = getBannerRepository();
+    const pgRow = await repo.findBannerByLegacyId(String(updated._id));
+    if (pgRow) {
+      await repo.updateBanner(pgRow.id, {
+        [field]: Math.max(0, Number(updated[field]) || 0)
+      });
+    }
+  } catch (pgErr) {
+    console.error('[BANNER-ANALYTICS] PG sync failed:', pgErr.message);
+  }
+
+  return updated;
+}
+
+// POST /api/banners/:id/impression — PUBLIC
+exports.trackBannerImpression = async (req, res) => {
+  try {
+    const updated = await incrementBannerMetric(req.params.id, 'impressionCount');
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Banner not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/banners/:id/click — PUBLIC
+exports.trackBannerClick = async (req, res) => {
+  try {
+    const updated = await incrementBannerMetric(req.params.id, 'clickCount');
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Banner not found' });
+    }
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -238,6 +317,7 @@ exports.createBanner = async (req, res) => {
         mongoId: (saved) => String(saved._id)
       }
     );
+    await invalidateBannerCaches();
     res.status(201).json({ success: true, banner });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -322,6 +402,7 @@ exports.updateBanner = async (req, res) => {
       }
     );
 
+    await invalidateBannerCaches();
     res.json({ success: true, banner });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -345,6 +426,7 @@ exports.deleteBanner = async (req, res) => {
         mongoId: (deleted) => (deleted ? String(deleted._id) : undefined)
       }
     );
+    await invalidateBannerCaches();
     res.json({ success: true, message: 'Banner deleted' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -358,11 +440,25 @@ exports.reorderBanners = async (req, res) => {
     if (!Array.isArray(order)) {
       return res.status(400).json({ success: false, message: 'order array is required' });
     }
+
+    const repo = getBannerRepository();
     await Promise.all(
-      order.map((item) =>
-        Banner.findByIdAndUpdate(item.id, { position: item.position })
-      )
+      order.map(async (item) => {
+        const updated = await Banner.findByIdAndUpdate(
+          item.id,
+          { position: item.position },
+          { returnDocument: 'after' }
+        );
+        if (!updated) return null;
+        const pgRow = await repo.findBannerByLegacyId(String(updated._id));
+        if (pgRow) {
+          await repo.updateBanner(pgRow.id, { position: Number(item.position) });
+        }
+        return updated;
+      })
     );
+
+    await invalidateBannerCaches();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -408,6 +504,7 @@ exports.updateSettings = async (req, res) => {
         mongoId: () => 'global'
       }
     );
+    await invalidateBannerCaches();
     res.json({ success: true, settings: normalizeBannerSettings(settings) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

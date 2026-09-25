@@ -21,7 +21,7 @@ const couponSchema = new mongoose.Schema({
     },
     discountType: {
         type: String,
-        enum: ['percentage', 'flat'],
+        enum: ['percentage', 'flat', 'tiered', 'buy_x_get_y'],
         required: true
     },
     discountValue: {
@@ -73,6 +73,27 @@ const couponSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    /** Restrict to payment gateway codes (e.g. cod, bkash, sslcommerz). Empty = all methods. */
+    allowedPaymentMethods: {
+        type: [String],
+        default: []
+    },
+    /** Category names that must be represented in the cart for this coupon. */
+    applicableCategories: {
+        type: [String],
+        default: []
+    },
+    /** Minimum spend within applicableCategories (falls back to minOrderAmount when unset). */
+    minCategorySpend: {
+        type: Number,
+        default: null,
+        min: 0
+    },
+    /** Tiered discount tiers or Buy-X-Get-Y metadata. */
+    ruleMetadata: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null
     }
 }, { timestamps: true });
 
