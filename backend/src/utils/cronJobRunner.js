@@ -15,13 +15,16 @@ const { ensurePostgresReady } = require('../config/postgresBootstrap');
  *
  * @param {string} jobName
  * @param {() => Promise<any>} fn
+ * @param {{ requirePostgres?: boolean }} [options]
  */
-async function runCronJob(jobName, fn) {
+async function runCronJob(jobName, fn, options = {}) {
   const startedAt = new Date().toISOString();
   console.log(`[CRON-START] ${jobName} at ${startedAt}`);
 
   try {
-    await ensurePostgresReady();
+    if (options.requirePostgres !== false) {
+      await ensurePostgresReady();
+    }
     const result = await fn();
     console.log(`[CRON-DONE] ${jobName} at ${new Date().toISOString()}`);
     return result;
@@ -36,10 +39,14 @@ async function runCronJob(jobName, fn) {
 
 /**
  * node-cron callback adapter — always returns void; errors are logged here.
+ *
+ * @param {string} jobName
+ * @param {() => Promise<any>} fn
+ * @param {{ requirePostgres?: boolean }} [options]
  */
-function scheduleCronHandler(jobName, fn) {
+function scheduleCronHandler(jobName, fn, options = {}) {
   return () => {
-    runCronJob(jobName, fn).catch((err) => {
+    runCronJob(jobName, fn, options).catch((err) => {
       console.error(`[CRON-FAIL] ${jobName} (unhandled): ${err && err.message ? err.message : String(err)}`);
     });
   };

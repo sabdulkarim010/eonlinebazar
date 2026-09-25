@@ -3635,5 +3635,15 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Admin API | ✅ | `/api/admin/pim/*`, `/api/admin/jobs/*`, `/api/admin/outbox` |
 | Tests | ✅ | **307/307** — `tests/services/phase3Part3_3.test.js` (7 cases) |
 
+## BullMQ Redis Connection Hardening — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| BullMQ ioredis config | ✅ | `createBullMqConnection()` — `maxRetriesPerRequest: null`, `enableReadyCheck: false` |
+| Import/export queue | ✅ | Separate Queue/Worker connections; inline fallback on enqueue failure |
+| Outbox dispatcher resilience | ✅ | Skips Postgres warmup gate; Mongo query/mark failures logged, no unhandled rejections |
+| Prisma/Neon setup | ✅ | `@prisma/adapter-neon` HTTP driver; `neonRetry.js` fetch timeout + transient retries |
+| Tests | ✅ | **307/307** — full Jest suite pass |
+
 
 

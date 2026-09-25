@@ -81,11 +81,17 @@ async function markOutboxFailed(entry, error) {
 }
 
 async function dispatchPendingOutboxEvents(limit = MAX_DISPATCH_BATCH) {
-    const pending = await Outbox.find({ status: 'pending' })
-        .sort({ createdAt: 1 })
-        .limit(Math.max(1, Number(limit) || MAX_DISPATCH_BATCH));
-
     const summary = { processed: 0, failed: 0, skipped: 0 };
+
+    let pending;
+    try {
+        pending = await Outbox.find({ status: 'pending' })
+            .sort({ createdAt: 1 })
+            .limit(Math.max(1, Number(limit) || MAX_DISPATCH_BATCH));
+    } catch (err) {
+        console.warn('[OutboxDispatcher] pending query failed:', err?.message || err);
+        return summary;
+    }
 
     for (const entry of pending) {
         try {
@@ -94,7 +100,11 @@ async function dispatchPendingOutboxEvents(limit = MAX_DISPATCH_BATCH) {
             await markOutboxCompleted(entry);
             summary.processed += 1;
         } catch (err) {
-            await markOutboxFailed(entry, err);
+            try {
+                await markOutboxFailed(entry, err);
+            } catch (markErr) {
+                console.warn('[OutboxDispatcher] failed to mark entry:', markErr?.message || markErr);
+            }
             summary.failed += 1;
         }
     }

@@ -24,6 +24,8 @@ const EXPORT_DIR = path.join(__dirname, '..', '..', 'uploads', 'exports');
 
 let bullQueue = null;
 let bullWorker = null;
+let bullQueueConnection = null;
+let bullWorkerConnection = null;
 
 function isRedisUsable() {
     if (process.env.NODE_ENV === 'test') return false;
@@ -175,11 +177,16 @@ async function enqueueJob(type, payload = {}, createdBy = null) {
     });
 
     if (isRedisUsable()) {
-        const queue = getBullQueue();
-        await queue.add(type, { jobId: String(jobDoc._id) }, {
-            removeOnComplete: 100,
-            removeOnFail: 50
-        });
+        try {
+            const queue = getBullQueue();
+            await queue.add(type, { jobId: String(jobDoc._id) }, {
+                removeOnComplete: 100,
+                removeOnFail: 50
+            });
+        } catch (err) {
+            console.warn('[ImportExportQueue] BullMQ enqueue failed, falling back to inline:', err?.message || err);
+            scheduleInlineJob(jobDoc._id);
+        }
     } else {
         scheduleInlineJob(jobDoc._id);
     }
@@ -187,14 +194,19 @@ async function enqueueJob(type, payload = {}, createdBy = null) {
     return jobDoc;
 }
 
+function getBullQueueConnection() {
+    if (!bullQueueConnection) {
+        const { createBullMqConnection } = require('../utils/redisClient');
+        bullQueueConnection = createBullMqConnection();
+    }
+    return bullQueueConnection;
+}
+
 function getBullQueue() {
     if (bullQueue) return bullQueue;
 
     const { Queue } = require('bullmq');
-    const redis = require('../utils/redisClient');
-    const connection = redis.duplicate ? redis.duplicate() : redis;
-
-    bullQueue = new Queue(QUEUE_NAME, { connection });
+    bullQueue = new Queue(QUEUE_NAME, { connection: getBullQueueConnection() });
     return bullQueue;
 }
 
@@ -207,8 +219,10 @@ function startImportExportWorker() {
     if (bullWorker) return;
 
     const { Worker } = require('bullmq');
-    const redis = require('../utils/redisClient');
-    const connection = redis.duplicate ? redis.duplicate() : redis;
+    if (!bullWorkerConnection) {
+        const { createBullMqConnection } = require('../utils/redisClient');
+        bullWorkerConnection = createBullMqConnection();
+    }
 
     bullWorker = new Worker(
         QUEUE_NAME,
@@ -217,7 +231,7 @@ function startImportExportWorker() {
             if (!jobId) return;
             await executeJob(jobId);
         },
-        { connection, concurrency: 2 }
+        { connection: bullWorkerConnection, concurrency: 2 }
     );
 
     bullWorker.on('failed', (job, err) => {

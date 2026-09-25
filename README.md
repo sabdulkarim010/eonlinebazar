@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-25 (Phase 3.3 — Enterprise PIM, outbox, async queue, scope RBAC)
+**Last updated:** 2026-09-25 (BullMQ Redis hardening + Phase 3.3 PIM/outbox/queue)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 

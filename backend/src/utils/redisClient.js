@@ -10,6 +10,12 @@ const Redis = require('ioredis');
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 const REDIS_ERROR_DEBOUNCE_MS = Number(process.env.REDIS_ERROR_DEBOUNCE_MS || 30000);
 
+/** Required by BullMQ — blocking commands must not retry per request. */
+const BULLMQ_REDIS_OPTIONS = {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false
+};
+
 let lastRedisErrorMessage = '';
 let lastRedisErrorAt = 0;
 let redisUnavailableLogged = false;
@@ -67,6 +73,29 @@ function isRedisAvailable() {
     return client.isReady === true && client.status === 'ready';
 }
 
+/**
+ * Dedicated ioredis connection for BullMQ Queue/Worker instances.
+ * Uses maxRetriesPerRequest: null and enableReadyCheck: false as required by BullMQ.
+ */
+function createBullMqConnection() {
+    const connection = new Redis(redisUrl, {
+        ...BULLMQ_REDIS_OPTIONS,
+        lazyConnect: false,
+        retryStrategy(times) {
+            if (times > 3) return null;
+            return Math.min(times * 200, 1000);
+        }
+    });
+
+    connection.on('error', (err) => {
+        logRedisUnavailable(`BullMQ: ${err?.message || err}`);
+    });
+
+    return connection;
+}
+
 module.exports = client;
 module.exports.isRedisAvailable = isRedisAvailable;
 module.exports.logRedisUnavailable = logRedisUnavailable;
+module.exports.createBullMqConnection = createBullMqConnection;
+module.exports.BULLMQ_REDIS_OPTIONS = BULLMQ_REDIS_OPTIONS;

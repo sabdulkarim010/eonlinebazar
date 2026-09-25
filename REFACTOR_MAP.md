@@ -2946,6 +2946,16 @@ docs/audit/ADMIN_PANEL_AUDIT.md [MOD] verification pass changelog
 docs/audit/PRODUCTS_AUDIT.md [MOD] full end-to-end audit; rename scope to Product & Stock Operations; known issues expanded
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Product & Stock Operations audit section 2026-09-25
 
+# BullMQ Redis connection hardening — 2026-09-25
+backend/src/utils/redisClient.js [MOD] createBullMqConnection() with BullMQ-required ioredis options
+backend/src/queues/importExportQueue.js [MOD] dedicated BullMQ connections; enqueue fallback to inline
+backend/src/utils/cronJobRunner.js [MOD] requirePostgres option for Mongo-only cron jobs
+backend/src/jobs/outboxDispatcherJob.js [MOD] requirePostgres: false — outbox not blocked by PG warmup
+backend/src/services/outboxService.js [MOD] graceful dispatch query/mark-failed error handling
+docs/audit/DEVOPS_AUDIT.md [MOD] BullMQ Redis hardening changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] BullMQ Redis Connection Hardening section 2026-09-25
+Result: npm test 307/307
+
 # Phase 3.3 — Enterprise PIM, outbox, async queue, scope RBAC — 2026-09-25
 backend/src/models/ProductVariant.js [NEW] variant + attribute definition schemas
 backend/src/models/Outbox.js [NEW] transactional outbox events

@@ -26,12 +26,16 @@ function startOutboxDispatcher() {
 
     cronTask = cron.schedule(
         expression,
-        scheduleCronHandler('OutboxDispatcher.dispatchPendingOutboxEvents', async () => {
-            const summary = await dispatchPendingOutboxEvents();
-            if (summary.processed || summary.failed) {
-                console.log(`[OutboxDispatcher] processed=${summary.processed} failed=${summary.failed}`);
-            }
-        })
+        scheduleCronHandler(
+            'OutboxDispatcher.dispatchPendingOutboxEvents',
+            async () => {
+                const summary = await dispatchPendingOutboxEvents();
+                if (summary.processed || summary.failed) {
+                    console.log(`[OutboxDispatcher] processed=${summary.processed} failed=${summary.failed}`);
+                }
+            },
+            { requirePostgres: false }
+        )
     );
 
     console.log(`[OutboxDispatcher] Scheduled: "${expression}"`);

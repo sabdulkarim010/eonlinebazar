@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (PG fail-fast 3s timeout + circuit breaker + clean fallback logs)  
+**Last updated:** 2026-09-25 (BullMQ Redis connection hardening + outbox cron resilience)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -37,7 +37,10 @@
 | `backend/src/config/neonRetry.js` | Neon HTTP fetch timeout + transient query retry (runtime + repository tests) |
 | `backend/src/config/postgresBootstrap.js` | `warmNeonConnection()` — boot ping with retries for Neon cold start |
 | `backend/src/services/readRouter.js` | PG reads wrapped in `withNeonRetry`; Mongo CastError suppression on fallback |
-| `backend/src/utils/redisClient.js` | Debounced `Redis unavailable` logging when Redis offline |
+| `backend/src/utils/redisClient.js` | General Redis client (cache/rate-limit) + `createBullMqConnection()` for BullMQ |
+| `backend/src/queues/importExportQueue.js` | BullMQ import/export queue — dedicated BullMQ Redis connections |
+| `backend/src/utils/cronJobRunner.js` | Shared cron wrapper — optional `requirePostgres: false` for Mongo-only jobs |
+| `backend/src/jobs/outboxDispatcherJob.js` | Outbox polling cron — skips Postgres gate; Mongo-only dispatch |
 | `backend/src/utils/orderMongoLookup.js` | Safe Mongo order lookup by `_id` or business `orderId` (PG cutover fallback) |
 | `backend/src/config/pgCircuitBreaker.js` | In-memory PG read circuit breaker (3 timeouts / 60s → bypass 30s) |
 | `scripts/run-repository-tests.js` | Per-file runner with delay, backoff retries, `REPOSITORY_TEST=1` |
@@ -114,6 +117,15 @@
 - Tests: Jest **228/228** passing
 
 ## Change Log
+
+### BullMQ Redis connection hardening — 2026-09-25
+
+- `redisClient.js`: added `createBullMqConnection()` with `maxRetriesPerRequest: null` and `enableReadyCheck: false` (BullMQ requirement); general cache client unchanged
+- `importExportQueue.js`: Queue and Worker use dedicated BullMQ connections (no `duplicate()` from cache client); enqueue failures fall back to inline execution
+- `cronJobRunner.js`: `requirePostgres: false` option for Mongo-only cron jobs
+- `outboxDispatcherJob.js`: outbox dispatch no longer blocked by Neon/Postgres warmup failures
+- `outboxService.js`: top-level query failure + mark-failed errors logged without unhandled rejections
+- Tests: Jest **307/307** passing
 
 ### PG fail-fast timeout + circuit breaker — 2026-09-24
 
