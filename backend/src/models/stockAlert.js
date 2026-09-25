@@ -30,6 +30,11 @@ const stockAlertSchema = new mongoose.Schema({
         sms: { type: Boolean, default: false },
         whatsapp: { type: Boolean, default: false }
     },
+    /** Sales velocity / ROP metrics from inventory intelligence cron runs. */
+    intelligenceMetrics: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null
+    },
     createdAt: { type: Date, default: Date.now }
 });
 

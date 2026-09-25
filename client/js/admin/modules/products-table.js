@@ -54,6 +54,7 @@ function buildProductSearchQuery(page, limit) {
     const stockStatus = document.getElementById('filterStockStatus')?.value;
     if (stockStatus === 'InStock') qs.set('inStock', 'true');
     else if (stockStatus === 'OutOfStock') qs.set('inStock', 'false');
+    else if (stockStatus === 'LowStock') qs.set('lowStock', 'true');
 
     const priceRange = document.getElementById('filterPriceRange')?.value;
     if (priceRange === '0-500') qs.set('maxPrice', '500');
@@ -65,13 +66,49 @@ function buildProductSearchQuery(page, limit) {
     return qs;
 }
 
-function applyLowStockClientFilter(products) {
-    const stockStatus = document.getElementById('filterStockStatus')?.value;
-    if (stockStatus !== 'LowStock') return products;
-    return products.filter((p) => {
-        const stockNum = Number(p.stock ?? p.stockQuantity ?? 0);
-        const threshold = Number(p.lowStockThreshold) > 0 ? Number(p.lowStockThreshold) : 10;
-        return stockNum > 0 && stockNum < threshold;
+function escapeProductTableError(message) {
+    if (typeof window.escapeHtml === 'function') return window.escapeHtml(message);
+    return String(message || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function resolveProductFetchErrorMessage(res, data, parseError) {
+    if (parseError) {
+        return `Invalid server response (HTTP ${res.status}). Please refresh or contact support.`;
+    }
+    if (data?.message) return String(data.message);
+    if (!res.ok) return `HTTP ${res.status}: Failed to load products.`;
+    if (data?.success === false) return 'Failed to load products.';
+    return 'Failed to load products.';
+}
+
+function renderProductTableError(tbody, message) {
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="9" class="table-status-error">${escapeProductTableError(message)}</td></tr>`;
+}
+
+function applyProductTablePermissionGating() {
+    const section = document.getElementById('view-manage-products');
+    if (!section) return;
+
+    if (typeof window.applyPermissionGating === 'function') {
+        window.applyPermissionGating(section);
+        return;
+    }
+
+    section.querySelectorAll('[data-permission]').forEach((el) => {
+        const perm = el.dataset.permission;
+        const allowed = typeof window.hasAdminPermission === 'function'
+            && window.hasAdminPermission(perm);
+        if (el.matches('input[type="checkbox"], button')) {
+            el.disabled = !allowed;
+            el.style.display = allowed ? '' : 'none';
+        } else {
+            el.style.display = allowed ? '' : 'none';
+        }
     });
 }
 
@@ -107,17 +144,34 @@ async function fetchLiveProducts(pageOrReset = 1, limitArg) {
 
     try {
         const authToken = localStorage.getItem('adminToken') || token || '';
-        const res = await fetch(`/api/products/search?${buildProductSearchQuery(page, limit)}`, {
+        const res = await fetch(`/api/admin/products/search?${buildProductSearchQuery(page, limit)}`, {
             method: 'GET',
             headers: { Authorization: `Bearer ${authToken}` }
         });
-        const data = await res.json();
-        let batch = Array.isArray(data) ? data : (data.products || data.data?.products || []);
-        batch = applyLowStockClientFilter(batch);
+
+        let data = null;
+        try {
+            data = await res.json();
+        } catch (parseErr) {
+            renderProductTableError(tbody, resolveProductFetchErrorMessage(res, null, parseErr));
+            return;
+        }
+
+        if (!res.ok || data?.success === false) {
+            renderProductTableError(tbody, resolveProductFetchErrorMessage(res, data, null));
+            return;
+        }
+
+        const batch = Array.isArray(data) ? data : (data.products || data.data?.products || []);
 
         const pagination = data.pagination || data.data?.pagination || {};
-        const total = Number(pagination.totalProducts ?? pagination.total ?? batch.length) || 0;
-        const currentApiPage = Number(pagination.currentPage ?? page) || page;
+        const total = Number(
+            data.total
+            ?? pagination.totalProducts
+            ?? pagination.total
+            ?? batch.length
+        ) || 0;
+        const currentApiPage = Number(data.page ?? pagination.currentPage ?? page) || page;
 
         globalProducts = batch;
         currentFilteredProducts = batch;
@@ -134,10 +188,14 @@ async function fetchLiveProducts(pageOrReset = 1, limitArg) {
 
         loadCategoryFilter();
         renderProductTable();
+        applyProductTablePermissionGating();
         persistProductListSessionState();
     } catch (e) {
         console.error('fetchLiveProducts error:', e);
-        if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-status-error">Failed to load products.</td></tr>`;
+        const fallbackMessage = e?.message
+            ? `Failed to load products: ${e.message}`
+            : 'Failed to load products.';
+        renderProductTableError(tbody, fallbackMessage);
     } finally {
         productListLoading = false;
     }
@@ -279,7 +337,7 @@ window.renderProductTable = function() {
 
         tbody.innerHTML += `
             <tr>
-                <td class="col-checkbox no-print">
+                <td class="col-checkbox no-print" data-permission="edit_products">
                     <input type="checkbox" class="row-checkbox" value="${prod._id}" ${isChecked} onchange="toggleSingleSelection(this)">
                 </td>
                 <td><b>${prod.productId || prod.id || 'N/A'}</b></td>
@@ -290,15 +348,16 @@ window.renderProductTable = function() {
                 <td class="buy-price-cell">${buyPriceHtml}</td>
                 <td>${stockHtml}</td> 
                 <td class="col-actions no-print">
-                    <button class="action-btn edit" onclick="editProduct('${prod._id}')" title="Edit Product"><i class="fa-solid fa-pen-to-square"></i></button>
-                    <button class="action-btn delete" onclick="deleteProduct('${prod._id}')" title="Delete Product"><i class="fa-solid fa-trash-can"></i></button>
+                    <button type="button" class="action-btn edit" data-permission="edit_products" onclick="editProduct('${prod._id}')" title="Edit Product"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button type="button" class="action-btn delete" data-permission="edit_products" onclick="deleteProduct('${prod._id}')" title="Delete Product"><i class="fa-solid fa-trash-can"></i></button>
                 </td>
             </tr>
         `;
     });
 
     persistProductListSessionState();
-    
+    applyProductTablePermissionGating();
+
     const selectAllCheckbox = document.getElementById('selectAllProducts');
     if (selectAllCheckbox) {
         selectAllCheckbox.checked = paginated.length > 0 && Array.from(document.querySelectorAll('.row-checkbox')).every(cb => cb.checked);
@@ -326,11 +385,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', window.filterAndRenderProducts);
     });
+
+    applyProductTablePermissionGating();
 });
 
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
     ensureProductPagination,
-    updateFilterCategoryDropdown
+    updateFilterCategoryDropdown,
+    applyProductTablePermissionGating
 });
 

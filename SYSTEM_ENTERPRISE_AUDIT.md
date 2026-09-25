@@ -3573,5 +3573,67 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Enterprise summary | ✅ | Same circuit + compact logs in `collectMetric` / `safeMetric` |
 | Jest regression suite | ✅ | **261/261** passing (`tests/config/pgCircuitBreaker.test.js`) |
 
+## Product & Stock Operations — Comprehensive Module Audit — 2026-09-25
+
+**Status:** ⚠️ PARTIAL — functional CRUD; migration and enterprise gaps documented
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Inventory list (`view-manage-products`) | ✅ | `GET /api/admin/products/search` RBAC + `productReadService`; edit UI gated |
+| `READ_PG_PRODUCT` cutover | ✅ | `productController.searchProducts` → `productReadService.searchProducts(req)` |
+| Low-stock filter | ✅ | Server-side `lowStock=true` before count/pagination (Phase 1.2) |
+| Categories / Brands / Attributes | ✅ | PG reads via `routedRead`; attributes still Mongo-only on GET |
+| Suppliers / Warehouses | ✅ | PG reads + dual-write; no stock transfer |
+| Purchase orders + GRN | ✅ | Variant GRN + PG dual-write; PO reads use `routedRead` PG-FALLBACK (Phase 2.1) |
+| Stock transfer / movement ledger | ✅ | Immutable StockLedger + WarehouseTransfer FSM (Phase 3.1) |
+| Nav rename (Catalog → Product & Stock Operations) | ✅ | Sidebar, breadcrumbs, permissions group, docs updated (Phase 1.3) |
+| Full report | ✅ | `docs/audit/PRODUCTS_AUDIT.md` |
+
+## Phase 2.1 — PO Dual-Write, Admin Search RBAC & UI Gates — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Variant GRN stock dual-write | ✅ | PO receive increments variant + parent stock; `updateProductInPG()` sync |
+| PO reads PG-FALLBACK | ✅ | List/detail via `routedRead('purchaseorder', ...)` |
+| Admin product search endpoint | ✅ | `GET /api/admin/products/search` — `verifyAdmin` + `checkPermission('view_products', 'manage_inventory')` |
+| Products table RBAC UI | ✅ | Bulk import/delete, edit, checkboxes gated with `data-permission="edit_products"` |
+| Tests | ✅ | **287/287** — `tests/services/phase2Part2.test.js` (5 cases) |
+
+## Phase 3.1 — WMS Engine: Ledger, Transfers & Reservations — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Immutable StockLedger | ✅ | Append-only; update/delete blocked at schema level |
+| Per-warehouse stock (WarehouseStock) | ✅ | quantity + reservedStockQuantity + binLocation |
+| Location hierarchy on Warehouse | ✅ | Zone > Aisle > Rack > Shelf > Bin JSON tree |
+| Transfer state machine | ✅ | draft → in_transit → received \| discrepancy |
+| Order reservation pipeline | ✅ | `reserveStockForOrder` / `fulfillReservedStock` |
+| Admin API routes | ✅ | `/api/admin/warehouse-transfers`, `/api/admin/stock-ledger` |
+| PG dual-write | ✅ | stockLedger, warehouseStock, warehouseTransfer repositories |
+| Tests | ✅ | **294/294** — `tests/services/phase3Part3_1.test.js` (7 cases) |
+
+## Phase 3.2 — Inventory Intelligence: Velocity, ROP & Auto PO — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Sales velocity (N-day window) | ✅ | From Delivered/Shipped/Processing orders |
+| Dynamic ROP | ✅ | `(velocity × lead time) + safety stock`; fallback to `lowStockThreshold` |
+| REORDER_NEEDED scan | ✅ | `stockAlertCron.js` persists metrics on StockAlert |
+| Auto draft PO by supplier | ✅ | `generateAutoDraftPurchaseOrders()` skips open PO duplicates |
+| Admin API | ✅ | `GET /inventory-intelligence/velocity`, `POST /trigger-auto-po` |
+| Tests | ✅ | **300/300** — `tests/services/phase3Part3_2.test.js` (6 cases) |
+
+## Phase 3.3 — Enterprise PIM, Outbox, Async Queue & Scope RBAC — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| N-dimensional variant matrix | ✅ | Cartesian `generateVariantCombinations` — Color × Size × Material × Fit × … |
+| Variant price/stock overrides | ✅ | Per-variant `price`, `buyingPrice`, `stock`; product-level aggregates |
+| Transactional outbox | ✅ | `Outbox` model + `recordOutboxEvent` + dispatcher cron |
+| BullMQ import/export queue | ✅ | `BackgroundJob` progress 0–100%; inline fallback when Redis unavailable |
+| Scope RBAC middleware | ✅ | `products:read`, `pim:manage`, `import:run`, `transfers:approve`, etc. |
+| Admin API | ✅ | `/api/admin/pim/*`, `/api/admin/jobs/*`, `/api/admin/outbox` |
+| Tests | ✅ | **307/307** — `tests/services/phase3Part3_3.test.js` (7 cases) |
+
 
 

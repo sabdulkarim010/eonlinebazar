@@ -35,7 +35,8 @@ function mapMongoWarehouseToPostgresCreate(mongoWarehouse) {
         status: mongoWarehouse.status,
         isDefault: mongoWarehouse.isDefault,
         createdById: mongoWarehouse.createdBy || null,
-        legacyId: String(mongoWarehouse._id)
+        legacyId: String(mongoWarehouse._id),
+        locationHierarchy: mongoWarehouse.locationHierarchy || []
     };
 }
 
@@ -48,6 +49,9 @@ function mapMongoWarehouseFieldsToPostgresUpdate(mongoWarehouse, mongoFields) {
     if (mongoFields.phone !== undefined) payload.phone = mongoWarehouse.phone;
     if (mongoFields.status !== undefined) payload.status = mongoWarehouse.status;
     if (mongoFields.isDefault === true) payload.isDefault = true;
+    if (mongoFields.locationHierarchy !== undefined) {
+        payload.locationHierarchy = mongoWarehouse.locationHierarchy || [];
+    }
     return payload;
 }
 
@@ -83,6 +87,9 @@ function pickWarehouseFields(body) {
     if (body.status !== undefined) {
         const status = String(body.status).trim().toLowerCase();
         if (status === 'active' || status === 'inactive') fields.status = status;
+    }
+    if (body.locationHierarchy !== undefined && Array.isArray(body.locationHierarchy)) {
+        fields.locationHierarchy = body.locationHierarchy;
     }
 
     return fields;

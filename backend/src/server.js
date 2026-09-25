@@ -158,10 +158,24 @@ connectDB().then(async () => {
 
     // Start background stock alert cron job
     try {
-        const { startStockAlertCron } = require('./services/stockAlertService');
+        const { startStockAlertCron } = require('./jobs/stockAlertCron');
         startStockAlertCron();
     } catch (err) {
         console.error('Stock alert cron bootstrap error:', err.message);
+    }
+
+    try {
+        const { startOutboxDispatcher } = require('./jobs/outboxDispatcherJob');
+        startOutboxDispatcher();
+    } catch (err) {
+        console.error('Outbox dispatcher bootstrap error:', err.message);
+    }
+
+    try {
+        const { startImportExportWorker } = require('./queues/importExportQueue');
+        startImportExportWorker();
+    } catch (err) {
+        console.error('Import/export worker bootstrap error:', err.message);
     }
 
     // Daily review reminder SMS (delivered orders ~3 days ago)

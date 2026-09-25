@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-24 (Phase 3 Part 3 — RFM segmentation, multi-stage cart recovery, POS offline sync)
+**Last updated:** 2026-09-25 (Phase 3.3 — Enterprise PIM, outbox, async queue, scope RBAC)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-280%2F280-brightgreen" alt="280/280 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-307%2F307-brightgreen" alt="307/307 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -71,7 +71,7 @@ The web client uses vanilla JavaScript with a modular ES architecture. The API r
 
 The admin header includes an **in-app notification center** (bell icon with unread badge, dropdown inbox, 30s polling) backed by `AdminNotification` and `/api/admin/notifications/*`. High-value tables (Customers, Orders, Products, Employees) support **filter-aware CSV export** via dedicated `/api/admin/*/export` endpoints.
 
-All modules below are **100% completed** and wired into the **7-module enterprise admin navigation** (**Dashboard · Sales & Orders · Catalog & Inventory · Marketing & Content · HRM & Staff · Accounts & Finance · System Settings**). **Accounts & Finance** includes a new **Accounts Overview** page (`view-accounts.html`) with cash flow, liquidity, and balance summary cards backed by `GET /api/admin/accounts-summary`. **System Settings** is a unified tabbed hub (`view-settings.html` + `settings-hub.js`) — a single sidebar entry with five inner tabs (Branding, General, Shipping & Payments, Security, Utilities) — using SweetAlert2 for saves and tab feedback. **HRM modules** standardize on SweetAlert2 for all confirmations (permanent employee delete, bulk attendance, lock/unlock date); native `confirm()`/`alert()` are not used in HRM JS. **Super-admin database backup** (`view-system-backup.html`, `GET /api/admin/system/backup-now`) exports a portable Mongoose JSON snapshot; restore is intentionally not exposed in-panel. The backup view is **isolated to its own route** — hidden by default and only shown when navigating to Backup & Restore (fixes prior leak where superadmin CSS forced it visible on every page). **Tax & VAT** configuration lives on the Shipping & Payments tab (`vatEnabled`, `vatPercentage`, `vatInclusive`, `taxRegistrationNumber`) and applies additive VAT at checkout with amounts snapshotted on each order and shown on PDF invoices. **System Staff Directory** lives under HRM; Staff Audit, Sessions, and Security Logs open from the Security tab. Employee profile **Access** tab supports three live states — no access (Grant), active (Manage / Suspend / Revoke), and suspended (Re-activate).
+All modules below are **100% completed** and wired into the **7-module enterprise admin navigation** (**Dashboard · Sales & Orders · Product & Stock Operations · Marketing & Content · HRM & Staff · Accounts & Finance · System Settings**). **Accounts & Finance** includes a new **Accounts Overview** page (`view-accounts.html`) with cash flow, liquidity, and balance summary cards backed by `GET /api/admin/accounts-summary`. **System Settings** is a unified tabbed hub (`view-settings.html` + `settings-hub.js`) — a single sidebar entry with five inner tabs (Branding, General, Shipping & Payments, Security, Utilities) — using SweetAlert2 for saves and tab feedback. **HRM modules** standardize on SweetAlert2 for all confirmations (permanent employee delete, bulk attendance, lock/unlock date); native `confirm()`/`alert()` are not used in HRM JS. **Super-admin database backup** (`view-system-backup.html`, `GET /api/admin/system/backup-now`) exports a portable Mongoose JSON snapshot; restore is intentionally not exposed in-panel. The backup view is **isolated to its own route** — hidden by default and only shown when navigating to Backup & Restore (fixes prior leak where superadmin CSS forced it visible on every page). **Tax & VAT** configuration lives on the Shipping & Payments tab (`vatEnabled`, `vatPercentage`, `vatInclusive`, `taxRegistrationNumber`) and applies additive VAT at checkout with amounts snapshotted on each order and shown on PDF invoices. **System Staff Directory** lives under HRM; Staff Audit, Sessions, and Security Logs open from the Security tab. Employee profile **Access** tab supports three live states — no access (Grant), active (Manage / Suspend / Revoke), and suspended (Re-activate).
 
 ### 1. ERP Pillar — Enterprise Resource Planning
 

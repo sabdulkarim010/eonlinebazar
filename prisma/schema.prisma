@@ -234,6 +234,26 @@ enum PurchaseOrderStatus {
   CANCELLED @map("cancelled")
 }
 
+/// StockLedger.js — movementType
+enum StockMovementType {
+  SALE               @map("SALE")
+  RETURN             @map("RETURN")
+  PO_RECEIPT         @map("PO_RECEIPT")
+  DAMAGE_WRITE_OFF   @map("DAMAGE_WRITE_OFF")
+  MANUAL_ADJUSTMENT  @map("MANUAL_ADJUSTMENT")
+  TRANSFER_IN        @map("TRANSFER_IN")
+  TRANSFER_OUT       @map("TRANSFER_OUT")
+  RESERVATION        @map("RESERVATION")
+}
+
+/// WarehouseTransfer.js — status
+enum WarehouseTransferStatus {
+  DRAFT        @map("draft")
+  IN_TRANSIT   @map("in_transit")
+  RECEIVED     @map("received")
+  DISCREPANCY  @map("discrepancy")
+}
+
 /// order.js — ORDER_STATUSES (all 10, in declaration order)
 enum OrderStatus {
   PENDING          @map("Pending")
@@ -753,8 +773,10 @@ model Admin {
   createdProducts   Product[]
   createdSuppliers  Supplier[]
   createdWarehouses Warehouse[]
-  purchaseOrders    PurchaseOrder[]
-  reviewedProofs    OrderPaymentProof[]
+  purchaseOrders       PurchaseOrder[]
+  stockLedgerEntries   StockLedger[]
+  warehouseTransfers   WarehouseTransfer[]
+  reviewedProofs       OrderPaymentProof[]
   campaigns         EmailCampaign[]
   notifications     AdminNotification[]
   attendance        Attendance[]
@@ -1224,6 +1246,8 @@ model Product {
   purchaseOrderItems PurchaseOrderItem[]
   supplierLinks      SupplierProduct[]
   stockAlertItems    StockAlertItem[]
+  warehouseStocks    WarehouseStock[]
+  stockLedgerEntries StockLedger[]
 
   @@index([categoryId])
   @@index([categoryName])
@@ -1464,6 +1488,8 @@ model Warehouse {
   address     String       @default("")
   managerName String       @default("")
   phone       String       @default("")
+  /// Zone > Aisle > Rack > Shelf > Bin hierarchy (JSON blob).
+  locationHierarchy Json   @default("[]")
   /// Exactly one warehouse holds this flag — enforced by the controller.
   isDefault   Boolean      @default(false)
   status      ActiveStatus @default(ACTIVE)
@@ -1474,12 +1500,136 @@ model Warehouse {
 
   createdBy Admin? @relation(fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  products       Product[]
-  purchaseOrders PurchaseOrder[]
+  products              Product[]
+  purchaseOrders        PurchaseOrder[]
+  warehouseStocks       WarehouseStock[]
+  stockLedgerEntries    StockLedger[]
+  transfersFrom         WarehouseTransfer[] @relation("TransferSource")
+  transfersTo           WarehouseTransfer[] @relation("TransferDestination")
 
   @@index([status, createdAt])
   @@index([isDefault])
   @@map("warehouses")
+}
+
+/// Source: backend/src/models/WarehouseStock.js
+model WarehouseStock {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  warehouseId String
+  productId   String
+  legacyWarehouseId String?
+  legacyProductId   String?
+
+  variantId String @default("")
+  variantSku String @default("")
+
+  quantity              Int @default(0)
+  reservedStockQuantity Int @default(0)
+  locationCode          String @default("")
+  binLocation           String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([warehouseId, productId, variantId, variantSku])
+  @@index([productId])
+  @@map("warehouse_stocks")
+}
+
+/// Source: backend/src/models/StockLedger.js — append-only audit trail
+model StockLedger {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  productId String?
+  legacyProductId String?
+  variantId  String @default("")
+  variantSku String @default("")
+
+  warehouseId String?
+  legacyWarehouseId String?
+
+  changeQuantity   Int
+  previousQuantity Int
+  newQuantity      Int
+  movementType     StockMovementType
+
+  referenceId   String @default("")
+  referenceType String @default("")
+  performedById String?
+  binLocation   String @default("")
+  notes         String @default("")
+
+  createdAt DateTime @default(now())
+
+  product   Product?   @relation(fields: [productId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  performedBy Admin?   @relation(fields: [performedById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([productId, warehouseId, createdAt])
+  @@index([referenceId, movementType])
+  @@map("stock_ledger")
+}
+
+/// Source: backend/src/models/WarehouseTransfer.js
+model WarehouseTransfer {
+  id       String  @id @default(uuid())
+  legacyId String? @unique
+
+  transferNumber String @unique
+
+  sourceWarehouseId      String?
+  destinationWarehouseId String?
+  legacySourceWarehouseId      String?
+  legacyDestinationWarehouseId String?
+
+  status WarehouseTransferStatus @default(DRAFT)
+  notes  String @default("")
+
+  discrepancyDetails Json?
+  shippedAt  DateTime?
+  receivedAt DateTime?
+
+  createdById   String?
+  createdByName String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sourceWarehouse      Warehouse? @relation("TransferSource", fields: [sourceWarehouseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  destinationWarehouse Warehouse? @relation("TransferDestination", fields: [destinationWarehouseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdBy            Admin?     @relation(fields: [createdById], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  items WarehouseTransferItem[]
+
+  @@index([status, createdAt])
+  @@map("warehouse_transfers")
+}
+
+model WarehouseTransferItem {
+  id String @id @default(uuid())
+
+  warehouseTransferId String
+  legacyProductId     String?
+
+  productName  String @default("")
+  variantId    String @default("")
+  variantSku   String @default("")
+  qty          Int    @default(1)
+  shippedQty   Int    @default(0)
+  receivedQty  Int    @default(0)
+  binLocation  String @default("")
+  locationCode String @default("")
+
+  warehouseTransfer WarehouseTransfer @relation(fields: [warehouseTransferId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([warehouseTransferId])
+  @@map("warehouse_transfer_items")
 }
 
 /// Source: backend/src/models/purchaseOrder.js

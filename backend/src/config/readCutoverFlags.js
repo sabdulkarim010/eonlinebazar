@@ -39,6 +39,8 @@ const GROUP_ENV = {
   expensecategory: 'READ_PG_EXPENSE_CATEGORY',
   expense: 'READ_PG_EXPENSE',
   purchaseorder: 'READ_PG_PURCHASE_ORDER',
+  warehousetransfer: 'READ_PG_WAREHOUSE_TRANSFER',
+  stockledger: 'READ_PG_STOCK_LEDGER',
   shift: 'READ_PG_SHIFT',
   note: 'READ_PG_NOTE',
   adminnotification: 'READ_PG_ADMIN_NOTIFICATION',

@@ -102,7 +102,8 @@ async function create(data) {
       isDefault,
       status: toStatusEnum(data.status),
       createdById: data.createdById ?? null,
-      legacyId: data.legacyId != null ? String(data.legacyId) : null
+      legacyId: data.legacyId != null ? String(data.legacyId) : null,
+      locationHierarchy: Array.isArray(data.locationHierarchy) ? data.locationHierarchy : []
     }
   });
 
@@ -144,6 +145,9 @@ async function update(id, data) {
   if (data.address !== undefined) fields.address = String(data.address).trim();
   if (data.managerName !== undefined) fields.managerName = String(data.managerName).trim();
   if (data.phone !== undefined) fields.phone = String(data.phone).trim();
+  if (data.locationHierarchy !== undefined) {
+    fields.locationHierarchy = Array.isArray(data.locationHierarchy) ? data.locationHierarchy : [];
+  }
   if (data.status !== undefined) {
     const status = toStatusEnum(data.status);
     // Deactivating the default is blocked (matches the controller)

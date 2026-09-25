@@ -16,6 +16,7 @@ const cloudinary = require('cloudinary').v2; // ক্লাউডিনার�
 const mongoose = require('mongoose');
 const { parseVariants, applyProductStockFields, computeMinVariantPrice, applyPrimaryImageToVariants } = require('../utils/variantHelpers');
 const { loadFlashSaleSettings, applyFlashSaleToProducts } = require('../services/flashSaleService');
+const productReadService = require('../services/productReadService');
 const { getOrSet, invalidateProductCaches, CACHE_KEYS } = require('../services/cacheService');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 
@@ -344,7 +345,7 @@ function buildSortOption(sortParam) {
  * 🌟 ১বি. অ্যাডভান্সড সার্চ (পাবলিক) — GET /api/products/search
  * ------------------------------------------------------------------
  * Query params: q, minPrice, maxPrice, brand, category, rating, sort,
- *               inStock, page, limit
+ *               inStock, lowStock, page, limit
  */
 const searchProducts = async (req, res) => {
     try {
@@ -356,79 +357,17 @@ const searchProducts = async (req, res) => {
         const rating = req.query.rating != null && req.query.rating !== ''
             ? Number(req.query.rating) : null;
         const inStock = String(req.query.inStock || '').toLowerCase();
+        const lowStock = String(req.query.lowStock || '').toLowerCase() === 'true';
         const sort = String(req.query.sort || 'newest').toLowerCase();
 
-        const cursor = String(req.query.cursor || '').trim();
-        const rawLimit = parseInt(req.query.limit, 10);
-        const defaultLimit = await resolveDefaultProductsPerPage();
-        const limit = Math.min(
-            MAX_PRODUCTS_PER_PAGE,
-            Math.max(1, Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : defaultLimit)
-        );
-
-        let page = Math.max(1, parseInt(req.query.page, 10) || 1);
-        let skip = (page - 1) * limit;
-
-        const filter = {};
-
-        const textFilter = await buildTextSearchConditions(q);
-        if (textFilter) Object.assign(filter, textFilter);
-
-        if (minPrice != null && !Number.isNaN(minPrice)) {
-            filter.price = filter.price || {};
-            filter.price.$gte = minPrice;
-        }
-        if (maxPrice != null && !Number.isNaN(maxPrice)) {
-            filter.price = filter.price || {};
-            filter.price.$lte = maxPrice;
-        }
-
-        const brandIds = await resolveBrandFilterIds(req.query.brand);
-        if (brandIds.length === 1) filter.brand = brandIds[0];
-        else if (brandIds.length > 1) filter.brand = { $in: brandIds };
-
-        const categoryNames = await resolveCategoryFilterNames(req.query.category);
-        if (categoryNames.length > 0) {
-            // Parent expands to parent + child names via $in (e.g. Mobile + Walton Mobile)
-            filter.category = { $in: categoryNames };
-        }
-
-        if (rating != null && !Number.isNaN(rating) && rating >= 1 && rating <= 5) {
-            filter.rating = { $gte: rating };
-        }
-
-        if (inStock === 'true') {
-            filter.stockQuantity = { $gt: 0 };
-        } else if (inStock === 'false') {
-            filter.stockQuantity = 0;
-        }
-
-        const sortOption = buildSortOption(sort);
-
-        if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
-            const cursorDoc = await Product.findById(cursor).select('createdAt').lean();
-            if (cursorDoc) {
-                filter.$or = [
-                    { createdAt: { $lt: cursorDoc.createdAt } },
-                    { createdAt: cursorDoc.createdAt, _id: { $lt: cursor } }
-                ];
-            }
-            skip = 0;
-            page = 1;
-        }
-
-        const fetchLimit = cursor ? limit + 1 : limit;
+        const searchResult = await productReadService.searchProducts(req);
 
         const [
-            total,
-            productsRaw,
             flashSettings,
             priceStats,
             brandAgg,
             categoryList
         ] = await Promise.all([
-            Product.countDocuments(filter),
-            Product.find(filter).sort(sortOption).skip(skip).limit(fetchLimit),
             loadFlashSaleSettings(),
             Product.aggregate([
                 { $group: { _id: null, min: { $min: '$price' }, max: { $max: '$price' } } }
@@ -441,19 +380,7 @@ const searchProducts = async (req, res) => {
             Product.distinct('category')
         ]);
 
-        let hasMore = false;
-        let nextCursor = null;
-        let products = productsRaw;
-
-        if (cursor) {
-            hasMore = productsRaw.length > limit;
-            products = hasMore ? productsRaw.slice(0, limit) : productsRaw;
-            nextCursor = hasMore && products.length
-                ? String(products[products.length - 1]._id)
-                : null;
-        }
-
-        const enrichedProducts = applyFlashSaleToProducts(products, flashSettings);
+        const enrichedProducts = applyFlashSaleToProducts(searchResult.products, flashSettings);
 
         const brandObjectIds = brandAgg.map(b => b._id).filter(Boolean);
         const brandDocs = brandObjectIds.length
@@ -484,31 +411,28 @@ const searchProducts = async (req, res) => {
             ? { min: priceStats[0].min || 0, max: priceStats[0].max || 0 }
             : { min: 0, max: 0 };
 
-        const pagination = cursor
-            ? {
-                ...buildPaginationMeta(total, page, limit),
-                nextCursor,
-                hasMore,
-                limit
-            }
-            : buildPaginationMeta(total, page, limit);
+        const pagination = buildPaginationMeta(
+            searchResult.total,
+            searchResult.page,
+            searchResult.limit
+        );
 
         return res.json({
             success: true,
             products: enrichedProducts,
-            nextCursor,
-            hasMore: cursor ? hasMore : pagination.hasMore,
+            total: searchResult.total,
+            page: searchResult.page,
+            pages: searchResult.pages,
             pagination,
             data: {
                 products: enrichedProducts,
-                nextCursor,
-                hasMore: cursor ? hasMore : pagination.hasMore,
+                hasMore: pagination.hasMore,
                 pagination: {
                     ...pagination,
-                    nextCursor,
-                    // Legacy aliases for older storefront clients
-                    page: pagination.currentPage,
-                    total: pagination.totalProducts
+                    page: searchResult.page,
+                    pages: searchResult.pages,
+                    total: searchResult.total,
+                    totalProducts: searchResult.total
                 },
                 filters: {
                     appliedFilters: {
@@ -519,7 +443,8 @@ const searchProducts = async (req, res) => {
                         category: req.query.category || undefined,
                         rating: rating != null && !Number.isNaN(rating) ? rating : undefined,
                         sort: sort || 'newest',
-                        inStock: inStock === 'true' || inStock === 'false' ? inStock : undefined
+                        inStock: inStock === 'true' || inStock === 'false' ? inStock : undefined,
+                        lowStock: lowStock || undefined
                     },
                     priceRange,
                     availableBrands,

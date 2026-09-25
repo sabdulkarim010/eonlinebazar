@@ -2941,3 +2941,88 @@ client/css/admin/_pos.css [MOD] shift checkout hint + customer badge flex
 client/css/admin/_orders.css [MOD] order-risk-inline spacing
 backend/src/controllers/admin/customerAdminController.js [MOD] Mongo RFM overlay on customer list + detail
 docs/audit/ADMIN_PANEL_AUDIT.md [MOD] verification pass changelog
+
+# Product & Stock Operations — Comprehensive Audit — 2026-09-25
+docs/audit/PRODUCTS_AUDIT.md [MOD] full end-to-end audit; rename scope to Product & Stock Operations; known issues expanded
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Product & Stock Operations audit section 2026-09-25
+
+# Phase 3.3 — Enterprise PIM, outbox, async queue, scope RBAC — 2026-09-25
+backend/src/models/ProductVariant.js [NEW] variant + attribute definition schemas
+backend/src/models/Outbox.js [NEW] transactional outbox events
+backend/src/models/BackgroundJob.js [NEW] async job tracking
+backend/src/models/product.js [MOD] variantMatrixDefinition field
+backend/src/services/productPimService.js [NEW] N-D matrix generation/apply
+backend/src/services/outboxService.js [NEW] outbox write + dispatch
+backend/src/queues/importExportQueue.js [NEW] BullMQ import/export worker
+backend/src/middleware/rbacMiddleware.js [NEW] scope-based RBAC
+backend/src/controllers/admin/pimController.js [NEW] PIM + jobs + outbox API
+backend/src/jobs/outboxDispatcherJob.js [NEW] outbox polling cron
+backend/src/services/stockLedgerService.js [MOD] STOCK_UPDATED outbox events
+backend/src/routes/adminRoutes.js [MOD] /pim, /jobs, /outbox routes
+backend/src/server.js [MOD] outbox dispatcher + import/export worker boot
+backend/src/config/permissions.js [MOD] manage_pim, transfers_approve keys
+package.json [MOD] bullmq dependency
+tests/services/phase3Part3_3.test.js [NEW] PIM matrix, outbox, queue, RBAC tests
+docs/audit/PRODUCTS_AUDIT.md [MOD] Phase 3.3 changelog
+
+# Phase 3.2 — Inventory intelligence: velocity, ROP, auto PO — 2026-09-25
+backend/src/services/inventoryIntelligenceService.js [NEW] sales velocity, dynamic ROP, auto draft PO
+backend/src/jobs/stockAlertCron.js [NEW] intelligence scan + stock alert cron
+backend/src/controllers/admin/inventoryIntelligenceController.js [NEW] velocity + auto PO API
+backend/src/models/stockAlert.js [MOD] intelligenceMetrics field
+backend/src/services/stockAlertService.js [MOD] cron moved to stockAlertCron.js
+backend/src/routes/adminRoutes.js [MOD] /inventory-intelligence routes
+backend/src/server.js [MOD] bootstrap stockAlertCron job
+tests/services/phase3Part3_2.test.js [NEW] velocity, ROP, auto PO tests
+docs/audit/PRODUCTS_AUDIT.md [MOD] Phase 3.2 changelog
+
+# Phase 3.1 — WMS engine: ledger, transfers, reservations — 2026-09-25
+backend/src/models/StockLedger.js [NEW] immutable stock movement audit trail
+backend/src/models/WarehouseStock.js [NEW] per-warehouse stock + reservations
+backend/src/models/WarehouseTransfer.js [NEW] inter-warehouse transfer state machine
+backend/src/models/warehouse.js [MOD] locationHierarchy Zone>Aisle>Rack>Shelf>Bin
+backend/src/services/stockLedgerService.js [NEW] recordStockMovement dual-write
+backend/src/services/wmsService.js [NEW] transfers, reservations, fulfillment
+backend/src/controllers/admin/warehouseTransferController.js [NEW] transfer CRUD + ship/receive
+backend/src/repositories/stockLedgerRepository.js [NEW] PG stock ledger mirror
+backend/src/repositories/warehouseStockRepository.js [NEW] PG warehouse stock mirror
+backend/src/repositories/warehouseTransferRepository.js [NEW] PG transfer mirror
+backend/src/routes/adminRoutes.js [MOD] warehouse-transfers + stock-ledger routes
+backend/src/config/readCutoverFlags.js [MOD] warehousetransfer, stockledger flags
+backend/src/controllers/admin/warehouseController.js [MOD] locationHierarchy CRUD
+backend/src/repositories/warehouseRepository.js [MOD] locationHierarchy PG field
+prisma/schema.prisma [MOD] WMS models + enums
+tests/services/phase3Part3_1.test.js [NEW] ledger immutability, transfer FSM, reservations
+docs/audit/PRODUCTS_AUDIT.md [MOD] Phase 3.1 changelog
+
+# Phase 2.1 — PO dual-write, admin search RBAC, UI gates — 2026-09-25
+backend/src/controllers/admin/purchaseOrderController.js [MOD] variant GRN stock + routedRead PO reads + PG product sync
+backend/src/models/purchaseOrder.js [MOD] variantId/variantSku on line items
+backend/src/repositories/productRepository.js [MOD] updateStockInPG syncs stockQuantity
+backend/src/routes/adminRoutes.js [MOD] GET /api/admin/products/search
+client/js/admin/modules/products-table.js [MOD] admin search URL + edit_products RBAC gating
+client/admin/partials/view-products.html [MOD] data-permission on bulk/edit controls
+tests/services/phase2Part2.test.js [NEW] admin search RBAC, PO fallback, variant receive
+docs/audit/PRODUCTS_AUDIT.md [MOD] Phase 2.1 changelog
+
+# Phase 1.3 — Nav rename to Product & Stock Operations — 2026-09-25
+client/admin/partials/sidebar.html [MOD] parent label Product & Stock Operations
+client/js/admin/modules/core-breadcrumb.js [MOD] breadcrumb group rename
+backend/src/config/permissions.js [MOD] display group label only; permission keys unchanged
+ARCHITECTURE.md [MOD] module name
+README.md [MOD] module name
+docs/audit/PRODUCTS_AUDIT.md [MOD] Phase 1.3 changelog
+
+# Phase 1.2 — Server-side low-stock search filter — 2026-09-25
+client/js/admin/modules/products-table.js [MOD] lowStock=true query param; removed applyLowStockClientFilter
+backend/src/services/productReadService.js [MOD] lowStock Mongo $expr + PG raw SQL search before pagination
+backend/src/controllers/productController.js [MOD] lowStock in appliedFilters
+tests/services/phase1Part2LowStock.test.js [NEW] low-stock search + pagination tests
+docs/audit/PRODUCTS_AUDIT.md [MOD] Phase 1.2 changelog
+
+# Phase 1.1 — Product search PG cutover + admin error handling — 2026-09-25
+backend/src/services/productReadService.js [MOD] searchProducts(req) with routedRead, standardized { products, total, page, pages }
+backend/src/controllers/productController.js [MOD] searchProducts delegates to productReadService
+client/js/admin/modules/products-table.js [MOD] res.ok + detailed error row rendering
+docs/audit/PRODUCTS_AUDIT.md [MOD] Phase 1.1 changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] READ_PG_PRODUCT cutover marked complete

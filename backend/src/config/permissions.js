@@ -46,9 +46,9 @@ const PERMISSIONS = Object.freeze([
     {
         key: 'manage_inventory',
         label: 'Manage Inventory',
-        description: 'Preset shortcut — grants all Catalog & Inventory keys via Inventory Manager / Full Admin.',
+        description: 'Preset shortcut — grants all Product & Stock Operations keys via Inventory Manager / Full Admin.',
         icon: 'fa-boxes-stacked',
-        group: 'Catalog',
+        group: 'Product & Stock Operations',
         preset_only: true
     },
     {
@@ -56,7 +56,7 @@ const PERMISSIONS = Object.freeze([
         label: 'Manage Catalog',
         description: 'Preset shortcut — grants catalog category/brand/attribute keys.',
         icon: 'fa-layer-group',
-        group: 'Catalog',
+        group: 'Product & Stock Operations',
         preset_only: true
     },
     {
@@ -258,42 +258,56 @@ const PERMISSIONS = Object.freeze([
         label: 'View products',
         description: 'Browse the product catalog and stock levels.',
         icon: 'fa-box',
-        group: 'Catalog'
+        group: 'Product & Stock Operations'
     },
     {
         key: 'edit_products',
         label: 'Edit products',
         description: 'Create and update product listings.',
         icon: 'fa-pen',
-        group: 'Catalog'
+        group: 'Product & Stock Operations'
     },
     {
         key: 'manage_stock',
         label: 'Manage stock',
         description: 'Adjust stock quantities and warehouse assignments.',
         icon: 'fa-warehouse',
-        group: 'Catalog'
+        group: 'Product & Stock Operations'
     },
     {
         key: 'manage_suppliers',
         label: 'Manage Suppliers',
         description: 'View and manage supplier records.',
         icon: 'fa-building',
-        group: 'Catalog'
+        group: 'Product & Stock Operations'
     },
     {
         key: 'manage_warehouses',
         label: 'Manage Warehouses',
         description: 'View and manage warehouse locations.',
         icon: 'fa-warehouse',
-        group: 'Catalog'
+        group: 'Product & Stock Operations'
     },
     {
         key: 'manage_purchase_orders',
         label: 'Manage Purchase Orders',
         description: 'Create and manage purchase orders.',
         icon: 'fa-file-invoice',
-        group: 'Catalog'
+        group: 'Product & Stock Operations'
+    },
+    {
+        key: 'manage_pim',
+        label: 'Manage PIM Matrix',
+        description: 'Generate and apply N-dimensional product variant matrices.',
+        icon: 'fa-table-cells',
+        group: 'Product & Stock Operations'
+    },
+    {
+        key: 'transfers_approve',
+        label: 'Approve Stock Transfers',
+        description: 'Ship and receive inter-warehouse stock transfers.',
+        icon: 'fa-truck-ramp-box',
+        group: 'Product & Stock Operations'
     },
     // ── Granular Orders ───────────────────────────────────────────────
     {
@@ -439,7 +453,8 @@ const PERMISSION_IMPLICATIONS = Object.freeze({
     manage_support_tickets: ['manage_tickets'],
     manage_inventory: [
         'view_products', 'edit_products', 'manage_stock', 'manage_catalog',
-        'manage_suppliers', 'manage_warehouses', 'manage_purchase_orders'
+        'manage_suppliers', 'manage_warehouses', 'manage_purchase_orders',
+        'manage_pim', 'transfers_approve'
     ],
     manage_marketing: [
         'manage_banners', 'manage_navbar', 'manage_loyalty', 'manage_coupons'

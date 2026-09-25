@@ -6,12 +6,10 @@
  * admin via email, SMS, and WhatsApp when products fall below threshold.
  ********************************************************************/
 
-const cron = require('node-cron');
 const Product = require('../models/product');
 const StockAlert = require('../models/stockAlert');
 const Settings = require('../models/Settings');
 const { dualWrite } = require('./dualWriteService');
-const { scheduleCronHandler } = require('../utils/cronJobRunner');
 
 function getStockAlertRepository() {
     return require('../repositories/stockAlertRepository');
@@ -23,7 +21,6 @@ const { emitToAdmins } = require('./socketService');
 const { notifyAdminsWithPermission } = require('./notificationService');
 
 const DEFAULT_THRESHOLD = Number(process.env.LOW_STOCK_DEFAULT_THRESHOLD) || 10;
-const DEFAULT_CRON = '0 * * * *';
 const PRODUCT_FIELDS = 'name productId stockQuantity lowStockThreshold category stock';
 
 /** Products that are not inactive or deleted (field may not exist on older docs). */
@@ -334,35 +331,10 @@ async function checkAndAlertLowStock() {
     return { ...payload, alertsSent };
 }
 
-let cronTask = null;
-
-/**
- * Schedule the stock alert cron job when LOW_STOCK_ALERT_ENABLED=true.
- */
+/** @deprecated Use `backend/src/jobs/stockAlertCron.js` — re-exported for compatibility. */
 function startStockAlertCron() {
-    if (process.env.LOW_STOCK_ALERT_ENABLED !== 'true') {
-        console.log('[StockAlert] Cron disabled (LOW_STOCK_ALERT_ENABLED !== true)');
-        return;
-    }
-
-    const schedule = String(process.env.LOW_STOCK_CHECK_INTERVAL || DEFAULT_CRON).trim() || DEFAULT_CRON;
-
-    if (!cron.validate(schedule)) {
-        console.error(`[StockAlert] Invalid cron expression "${schedule}" — using default ${DEFAULT_CRON}`);
-    }
-
-    const expression = cron.validate(schedule) ? schedule : DEFAULT_CRON;
-
-    if (cronTask) {
-        cronTask.stop();
-    }
-
-    cronTask = cron.schedule(
-        expression,
-        scheduleCronHandler('StockAlert.checkAndAlertLowStock', checkAndAlertLowStock)
-    );
-
-    console.log(`[StockAlert] Cron scheduled: "${expression}"`);
+    const { startStockAlertCron: startCron } = require('../jobs/stockAlertCron');
+    return startCron();
 }
 
 module.exports = {

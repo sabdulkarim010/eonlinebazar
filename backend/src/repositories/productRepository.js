@@ -729,7 +729,7 @@ async function updateStockInPG(mongoId, variantSku, newQty) {
 
     await prisma.product.update({
       where: { id: product.id },
-      data: { stock: totalStock }
+      data: { stock: totalStock, stockQuantity: totalStock }
     });
   } catch (err) {
     console.error('[DUAL-WRITE-PRODUCT-FAIL]', {

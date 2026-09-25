@@ -16,8 +16,10 @@ const Warehouse = require('../../models/warehouse');
 const Product = require('../../models/product');
 const { getDefaultWarehouseId } = require('../../services/warehouseService');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
-const { isPgReadEnabled } = require('../../config/readCutoverFlags');
+const { routedRead } = require('../../services/readRouter');
 const poRepo = require('../../repositories/purchaseOrderRepository');
+const productRepo = require('../../repositories/productRepository');
+const { findVariantIndex, applyProductStockFields } = require('../../utils/variantHelpers');
 
 /** A PO may only be edited while nothing has been received against it. */
 const EDITABLE_STATUSES = ['draft', 'sent'];
@@ -80,7 +82,9 @@ async function normalizePoItems(rawItems) {
             productName: product.name || '',
             qty,
             unitCost,
-            receivedQty: 0
+            receivedQty: 0,
+            variantId: String(raw.variantId || '').trim(),
+            variantSku: String(raw.variantSku || raw.sku || '').trim()
         });
     }
 
@@ -97,6 +101,108 @@ async function resolveWarehouseId(rawId) {
     }
 
     return getDefaultWarehouseId();
+}
+
+async function syncProductStockToPG(productDoc) {
+    if (!productDoc?._id) return;
+    try {
+        const plain = typeof productDoc.toObject === 'function'
+            ? productDoc.toObject()
+            : productDoc;
+        await productRepo.updateProductInPG(plain._id, plain);
+    } catch (pgErr) {
+        console.error('[DUAL-WRITE-PRODUCT-FAIL] PO receive:', pgErr.message || pgErr);
+    }
+}
+
+function resolveReceiveVariantIndex(product, item, receiveMeta) {
+    const lookup = {
+        variantId: receiveMeta?.variantId || item.variantId,
+        variantSku: receiveMeta?.variantSku || item.variantSku,
+        sku: receiveMeta?.variantSku || item.variantSku
+    };
+    const idx = findVariantIndex(product, lookup);
+    if (idx >= 0) return idx;
+
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+    if (variants.length === 1) return 0;
+
+    return -1;
+}
+
+async function applyReceiveStock(product, item, delta, purchaseOrder, receiveMeta) {
+    const costEntry = {
+        cost: item.unitCost,
+        date: new Date(),
+        supplierId: purchaseOrder.supplierId
+    };
+
+    if (product.hasVariants && Array.isArray(product.variants) && product.variants.length > 0) {
+        const variantIdx = resolveReceiveVariantIndex(product, item, receiveMeta);
+        if (variantIdx < 0) {
+            return {
+                ok: false,
+                message: `"${product.name}" uses variants — provide variantId or variantSku on the receive line.`
+            };
+        }
+
+        const variant = product.variants[variantIdx];
+        variant.stock = (Number(variant.stock) || 0) + delta;
+        applyProductStockFields(product);
+        product.costHistory.push(costEntry);
+        await product.save();
+        await syncProductStockToPG(product);
+        return { ok: true };
+    }
+
+    const nextStock = (Number(product.stockQuantity) || 0) + delta;
+    product.stockQuantity = nextStock;
+    product.stock = nextStock;
+    product.costHistory.push(costEntry);
+    await product.save();
+    await syncProductStockToPG(product);
+    return { ok: true };
+}
+
+async function fetchPurchaseOrdersList(filter, skip, limit) {
+    return routedRead(
+        'purchaseorder',
+        async () => {
+            const [orders, total] = await Promise.all([
+                PurchaseOrder.find(filter)
+                    .sort({ createdAt: -1 })
+                    .skip(skip)
+                    .limit(limit)
+                    .populate('supplierId', 'name contactPerson phone')
+                    .populate('warehouseId', 'name location')
+                    .lean(),
+                PurchaseOrder.countDocuments(filter)
+            ]);
+            return { orders, total };
+        },
+        async () => {
+            const pgFilters = {};
+            if (filter.status) pgFilters.status = filter.status;
+            if (filter.supplierId) pgFilters.supplierId = String(filter.supplierId);
+            const allRows = await poRepo.listPurchaseOrdersFromPG(pgFilters);
+            return {
+                orders: allRows.slice(skip, skip + limit),
+                total: allRows.length
+            };
+        }
+    );
+}
+
+async function fetchPurchaseOrderById(id) {
+    return routedRead(
+        'purchaseorder',
+        async () => PurchaseOrder.findById(id)
+            .populate('supplierId', 'name contactPerson phone email address')
+            .populate('warehouseId', 'name location address')
+            .populate('items.productId', 'name productId stockQuantity')
+            .lean(),
+        async () => poRepo.getPurchaseOrderWithItems(id)
+    );
 }
 
 /**
@@ -119,28 +225,7 @@ exports.getAllPOs = async (req, res) => {
 
         const { page, limit, skip } = parsePagination(req.query);
 
-        let orders;
-        let total;
-
-        if (isPgReadEnabled('purchaseorder')) {
-            const pgFilters = {};
-            if (filter.status) pgFilters.status = filter.status;
-            if (filter.supplierId) pgFilters.supplierId = String(filter.supplierId);
-            const allRows = await poRepo.listPurchaseOrdersFromPG(pgFilters);
-            total = allRows.length;
-            orders = allRows.slice(skip, skip + limit);
-        } else {
-            [orders, total] = await Promise.all([
-                PurchaseOrder.find(filter)
-                    .sort({ createdAt: -1 })
-                    .skip(skip)
-                    .limit(limit)
-                    .populate('supplierId', 'name contactPerson phone')
-                    .populate('warehouseId', 'name location')
-                    .lean(),
-                PurchaseOrder.countDocuments(filter)
-            ]);
-        }
+        const { orders, total } = await fetchPurchaseOrdersList(filter, skip, limit);
 
         res.status(200).json({
             success: true,
@@ -166,16 +251,7 @@ exports.getPOById = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid purchase order id.' });
         }
 
-        let order;
-        if (isPgReadEnabled('purchaseorder')) {
-            order = await poRepo.getPurchaseOrderWithItems(id);
-        } else {
-            order = await PurchaseOrder.findById(id)
-                .populate('supplierId', 'name contactPerson phone email address')
-                .populate('warehouseId', 'name location address')
-                .populate('items.productId', 'name productId stockQuantity')
-                .lean();
-        }
+        const order = await fetchPurchaseOrderById(id);
 
         if (!order) {
             return res.status(404).json({ success: false, message: 'Purchase order not found.' });
@@ -398,7 +474,11 @@ exports.receivePO = async (req, res) => {
                 if (!Number.isFinite(qty) || qty < 0) {
                     return res.status(400).json({ success: false, message: 'receivedQty must be zero or more.' });
                 }
-                requested.set(itemId, qty);
+                requested.set(itemId, {
+                    qty,
+                    variantId: String(raw?.variantId || '').trim(),
+                    variantSku: String(raw?.variantSku || raw?.sku || '').trim()
+                });
             }
         }
 
@@ -406,8 +486,11 @@ exports.receivePO = async (req, res) => {
 
         for (const item of purchaseOrder.items) {
             const outstanding = (Number(item.qty) || 0) - (Number(item.receivedQty) || 0);
+            const receiveMeta = requested.size > 0
+                ? requested.get(String(item._id))
+                : null;
             const delta = requested.size > 0
-                ? (requested.get(String(item._id)) || 0)
+                ? (Number(receiveMeta?.qty) || 0)
                 : outstanding;
 
             if (delta <= 0) continue;
@@ -419,7 +502,7 @@ exports.receivePO = async (req, res) => {
                 });
             }
 
-            deltas.push({ item, delta });
+            deltas.push({ item, delta, receiveMeta });
         }
 
         if (!deltas.length) {
@@ -428,31 +511,22 @@ exports.receivePO = async (req, res) => {
 
         const warnings = [];
 
-        for (const { item, delta } of deltas) {
+        for (const { item, delta, receiveMeta } of deltas) {
             const product = await Product.findById(item.productId);
 
             if (!product) {
                 warnings.push(`Product for "${item.productName}" no longer exists — stock not updated.`);
-            } else if (product.hasVariants) {
-                // Variant stock is the sum of the matrix rows, so we cannot
-                // attribute an incoming carton to a specific SKU here.
-                warnings.push(`"${product.name}" uses variants — allocate the ${delta} received unit(s) to a variant manually.`);
-                product.costHistory.push({
-                    cost: item.unitCost,
-                    date: new Date(),
-                    supplierId: purchaseOrder.supplierId
-                });
-                await product.save();
             } else {
-                const nextStock = (Number(product.stockQuantity) || 0) + delta;
-                product.stockQuantity = nextStock;
-                product.stock = nextStock;
-                product.costHistory.push({
-                    cost: item.unitCost,
-                    date: new Date(),
-                    supplierId: purchaseOrder.supplierId
-                });
-                await product.save();
+                const stockResult = await applyReceiveStock(
+                    product,
+                    item,
+                    delta,
+                    purchaseOrder,
+                    receiveMeta
+                );
+                if (!stockResult.ok) {
+                    return res.status(400).json({ success: false, message: stockResult.message });
+                }
             }
 
             item.receivedQty = (Number(item.receivedQty) || 0) + delta;

@@ -27,7 +27,10 @@ const purchaseOrderItemSchema = new mongoose.Schema({
     productName: { type: String, default: '', trim: true },
     qty: { type: Number, default: 1, min: 0 },
     unitCost: { type: Number, default: 0, min: 0 },
-    receivedQty: { type: Number, default: 0, min: 0 }
+    receivedQty: { type: Number, default: 0, min: 0 },
+    /** Target variant when the product uses a variant matrix. */
+    variantId: { type: String, default: '', trim: true },
+    variantSku: { type: String, default: '', trim: true }
 }, { _id: true });
 
 const purchaseOrderSchema = new mongoose.Schema({

@@ -10,6 +10,32 @@
 
 const mongoose = require('mongoose');
 
+/** Nested bin location: Zone > Aisle > Rack > Shelf > Bin */
+const binLocationSchema = new mongoose.Schema({
+    code: { type: String, trim: true, default: '' },
+    label: { type: String, trim: true, default: '' }
+}, { _id: false });
+
+const shelfLocationSchema = new mongoose.Schema({
+    name: { type: String, trim: true, default: '' },
+    bins: { type: [binLocationSchema], default: [] }
+}, { _id: false });
+
+const rackLocationSchema = new mongoose.Schema({
+    name: { type: String, trim: true, default: '' },
+    shelves: { type: [shelfLocationSchema], default: [] }
+}, { _id: false });
+
+const aisleLocationSchema = new mongoose.Schema({
+    name: { type: String, trim: true, default: '' },
+    racks: { type: [rackLocationSchema], default: [] }
+}, { _id: false });
+
+const zoneLocationSchema = new mongoose.Schema({
+    zone: { type: String, trim: true, default: '' },
+    aisles: { type: [aisleLocationSchema], default: [] }
+}, { _id: false });
+
 const warehouseSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -36,6 +62,14 @@ const warehouseSchema = new mongoose.Schema({
         type: String,
         default: '',
         trim: true
+    },
+    /**
+     * Physical layout hierarchy: Zone > Aisle > Rack > Shelf > Bin.
+     * Example: Zone A → Aisle 2 → Rack B → Shelf 1 → Bin 104.
+     */
+    locationHierarchy: {
+        type: [zoneLocationSchema],
+        default: []
     },
     /** Exactly one warehouse holds this flag — enforced by the controller. */
     isDefault: {

@@ -362,13 +362,13 @@
         </div>
         
         <div class="header-action-buttons">
-            <button type="button" id="btn-bulk-import" class="action-btn-secondary">
+            <button type="button" id="btn-bulk-import" class="action-btn-secondary" data-permission="edit_products">
                 <i class="fa-solid fa-file-import"></i> Bulk Import
             </button>
-            <button type="button" id="btn-export-csv" class="action-btn-secondary">
+            <button type="button" id="btn-export-csv" class="action-btn-secondary" data-permission="view_products">
                 <i class="fa-solid fa-file-csv"></i> Export CSV
             </button>
-            <button type="button" id="btn-print-table" class="action-btn-secondary">
+            <button type="button" id="btn-print-table" class="action-btn-secondary" data-permission="view_products">
                 <i class="fa-solid fa-print"></i> Print
             </button>
         </div>
@@ -404,9 +404,9 @@
             </select>
         </div>
 
-        <div class="filter-controls-right no-print" id="bulk-actions-panel">
+        <div class="filter-controls-right no-print" id="bulk-actions-panel" data-permission="edit_products">
             <span id="selected-count">0 selected</span>
-            <button type="button" id="btn-bulk-delete" class="danger-btn-sm" onclick="handleBulkDelete()">
+            <button type="button" id="btn-bulk-delete" class="danger-btn-sm" data-permission="edit_products" onclick="handleBulkDelete()">
                 <i class="fa-solid fa-trash-can"></i> Delete Selected
             </button>
         </div>
@@ -423,7 +423,7 @@
         <table class="ultra-admin-table" id="productsDataTable">
             <thead>
                 <tr>
-                    <th class="col-checkbox no-print">
+                    <th class="col-checkbox no-print" data-permission="edit_products">
                         <input type="checkbox" id="selectAllProducts" onclick="toggleSelectAll(this)">
                     </th>
                     <th class="sortable-th" onclick="handleSort('productId')">
@@ -443,7 +443,7 @@
                     <th class="sortable-th" onclick="handleSort('stock')">
                         Stock <i class="fa-solid fa-sort sort-icon"></i>
                     </th>
-                    <th class="col-actions col-actions-head no-print">Actions</th>
+                    <th class="col-actions col-actions-head no-print" data-permission="edit_products">Actions</th>
                 </tr>
             </thead>
             <tbody id="adminProductTableBody">

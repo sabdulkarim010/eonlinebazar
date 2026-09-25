@@ -72,6 +72,10 @@ const crmController = require('../controllers/admin/crmController');
 const supplierController = require('../controllers/admin/supplierController');
 const warehouseController = require('../controllers/admin/warehouseController');
 const purchaseOrderController = require('../controllers/admin/purchaseOrderController');
+const warehouseTransferController = require('../controllers/admin/warehouseTransferController');
+const inventoryIntelligenceController = require('../controllers/admin/inventoryIntelligenceController');
+const pimController = require('../controllers/admin/pimController');
+const { checkScopePermission } = require('../middleware/rbacMiddleware'); // scope-based RBAC layer
 const attendanceController = require('../controllers/admin/attendanceController');
 const payrollController = require('../controllers/admin/payrollController');
 const leaveController = require('../controllers/admin/leaveController');
@@ -328,6 +332,99 @@ router.get('/stock/check-now', verifyAdmin, checkPermission('manage_inventory', 
         res.status(500).json({ success: false, message: err.message });
     }
 });
+
+router.get(
+    '/inventory-intelligence/velocity',
+    verifyAdmin,
+    checkPermission('manage_inventory', 'view_products', 'manage_purchase_orders'),
+    inventoryIntelligenceController.getVelocity
+);
+router.post(
+    '/inventory-intelligence/trigger-auto-po',
+    verifyAdmin,
+    checkPermission('manage_inventory', 'manage_purchase_orders'),
+    inventoryIntelligenceController.triggerAutoPo
+);
+router.post(
+    '/inventory-intelligence/scan',
+    verifyAdmin,
+    checkPermission('manage_inventory', 'manage_purchase_orders'),
+    inventoryIntelligenceController.runIntelligenceScan
+);
+
+/********************************************************************
+ # Enterprise PIM — N-dimensional variant matrix
+ # URL: /api/admin/pim/*
+ ********************************************************************/
+router.post(
+    '/pim/generate-combinations',
+    verifyAdmin,
+    checkScopePermission('pim:manage'),
+    pimController.generateCombinations
+);
+router.get(
+    '/pim/:id/matrix/preview',
+    verifyAdmin,
+    checkScopePermission('pim:read'),
+    pimController.previewMatrix
+);
+router.post(
+    '/pim/:id/matrix/preview',
+    verifyAdmin,
+    checkScopePermission('pim:read'),
+    pimController.previewMatrix
+);
+router.post(
+    '/pim/:id/matrix/apply',
+    verifyAdmin,
+    checkScopePermission('pim:manage'),
+    pimController.applyMatrix
+);
+
+/********************************************************************
+ # Async import/export jobs (BullMQ + Mongo job tracking)
+ ********************************************************************/
+router.post(
+    '/products/bulk-import-async',
+    verifyAdmin,
+    checkScopePermission('import:run'),
+    importFileUpload,
+    pimController.enqueueBulkImport
+);
+router.post(
+    '/products/export-async',
+    verifyAdmin,
+    checkScopePermission('export:run'),
+    pimController.enqueueProductExport
+);
+router.get(
+    '/jobs/:jobId',
+    verifyAdmin,
+    checkScopePermission('jobs:read'),
+    pimController.getJobStatus
+);
+router.get(
+    '/jobs/:jobId/download',
+    verifyAdmin,
+    checkScopePermission('export:run'),
+    pimController.downloadJobResult
+);
+
+/********************************************************************
+ # Transactional outbox (admin inspect/dispatch)
+ ********************************************************************/
+router.get(
+    '/outbox',
+    verifyAdmin,
+    checkScopePermission('outbox:read'),
+    pimController.listOutbox
+);
+router.post(
+    '/outbox/dispatch',
+    verifyAdmin,
+    checkScopePermission('outbox:read'),
+    pimController.dispatchOutbox
+);
 
 /********************************************************************
  # Bulk product import (CSV / Excel)
@@ -594,6 +691,14 @@ router.post('/warehouses', verifyAdmin, checkPermission('manage_inventory', 'man
 router.put('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseController.updateWarehouse);
 router.delete('/warehouses/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseController.deleteWarehouse);
 
+// Admin product search — RBAC-protected inventory list (must precede /products/:id)
+router.get(
+    '/products/search',
+    verifyAdmin,
+    checkPermission('manage_inventory', 'view_products'),
+    productController.searchProducts
+);
+
 // Product detail with supplier/warehouse populated — admin-only because the
 // public product endpoint must not expose vendor names or phone numbers.
 router.get('/products/:id', verifyAdmin, checkPermission('manage_inventory', 'view_products'), productController.getAdminProductById);
@@ -605,6 +710,14 @@ router.post('/purchase-orders/:id/receive', verifyAdmin, checkPermission('manage
 router.post('/purchase-orders/:id/cancel', verifyAdmin, checkPermission('manage_inventory', 'manage_purchase_orders'), purchaseOrderController.cancelPO);
 router.get('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_purchase_orders'), purchaseOrderController.getPOById);
 router.put('/purchase-orders/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_purchase_orders'), purchaseOrderController.updatePO);
+
+router.get('/stock-ledger', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses', 'view_products'), warehouseTransferController.getStockLedger);
+router.get('/warehouse-transfers', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseTransferController.getAllTransfers);
+router.post('/warehouse-transfers', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseTransferController.createTransfer);
+router.post('/warehouse-transfers/:id/ship', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseTransferController.shipTransfer);
+router.post('/warehouse-transfers/:id/receive', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseTransferController.receiveTransfer);
+router.get('/warehouse-transfers/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseTransferController.getTransferById);
+router.put('/warehouse-transfers/:id', verifyAdmin, checkPermission('manage_inventory', 'manage_warehouses'), warehouseTransferController.updateTransfer);
 
 /********************************************************************
  # 👥 HRM — Attendance & Shifts, Payroll, Leave

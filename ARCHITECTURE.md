@@ -76,7 +76,7 @@ backend/src/
 
 ├── controllers/
 
-│   ├── admin/             ← Admin-specific controllers (ERP, CRM, HRM)
+│   ├── admin/             ← Admin-specific controllers (ERP, CRM, HRM, WMS, intelligence)
 
 │   ├── auth/              ← Auth-specific controllers
 
@@ -129,7 +129,7 @@ financial data and needs rollback history.
 
 ## Admin Navigation (Enterprise SaaS — 7 modules)
 
-The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/partials/sidebar.html`): **Sales & Orders**, **Catalog & Inventory**, **Marketing & Content**, **HRM & Staff**, **Accounts & Finance**, and **System Settings** (unified tabbed hub). Breadcrumbs are rendered by `client/js/admin/modules/core-breadcrumb.js`; tab routing lives in `client/js/admin/modules/settings-hub.js`.
+The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/partials/sidebar.html`): **Sales & Orders**, **Product & Stock Operations**, **Marketing & Content**, **HRM & Staff**, **Accounts & Finance**, and **System Settings** (unified tabbed hub). Breadcrumbs are rendered by `client/js/admin/modules/core-breadcrumb.js`; tab routing lives in `client/js/admin/modules/settings-hub.js`.
 
 
 
@@ -141,7 +141,7 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 
 | Sales & Orders | POS, Orders, Customers, Support Tickets, Live Chat, Reviews, Abandoned Carts |
 
-| Catalog & Inventory | Inventory, Add Product, Categories, Brands, Attributes, Suppliers, Warehouses, POs |
+| Product & Stock Operations | Inventory, Add Product, Categories, Brands, Attributes, Suppliers, Warehouses, POs |
 
 | Marketing & Content | Campaigns, Newsletter, Coupons, Hero Banners, Navbar Links, Loyalty Program |
 
@@ -163,7 +163,19 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 
 | PurchaseOrder | `backend/src/models/purchaseOrder.js` | PO receiving workflow |
 
-| Warehouse | `backend/src/models/warehouse.js` | Multi-location inventory |
+| Warehouse | `backend/src/models/warehouse.js` | Multi-location inventory + bin hierarchy |
+
+| WarehouseStock | `backend/src/models/WarehouseStock.js` | Per-warehouse quantity + reservations |
+
+| StockLedger | `backend/src/models/StockLedger.js` | Immutable stock movement audit trail |
+
+| WarehouseTransfer | `backend/src/models/WarehouseTransfer.js` | Inter-warehouse transfer state machine |
+
+| ProductVariant | `backend/src/models/ProductVariant.js` | N-dimensional variant matrix schemas |
+
+| Outbox | `backend/src/models/Outbox.js` | Transactional outbox for domain events |
+
+| BackgroundJob | `backend/src/models/BackgroundJob.js` | Async import/export job tracking |
 
 | Employee | `backend/src/models/employee.js` | Non-login operational staff — full profile, documents, references |
 | Designation | `backend/src/models/designation.js` | Job title catalog (Manager, Delivery Man, …) seeded on bootstrap |

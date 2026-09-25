@@ -8,6 +8,7 @@
  ********************************************************************/
 
 const mongoose = require('mongoose');
+const { variantAttributeDefinitionSchema } = require('./ProductVariant');
 
 /**
  * Combination variant row (Amazon/Shopify-style matrix).
@@ -138,6 +139,16 @@ const productSchema = new mongoose.Schema({
         type: [variantSchema],
         default: []
     },
+
+    /**
+     * N-dimensional attribute axes for enterprise PIM matrix generation
+     * (e.g. Color × Size × Material × Fit × Style).
+     */
+    variantMatrixDefinition: {
+        type: [variantAttributeDefinitionSchema],
+        default: []
+    },
+
     description: { 
         type: String, 
         default: '' 
