@@ -2946,6 +2946,11 @@ docs/audit/ADMIN_PANEL_AUDIT.md [MOD] verification pass changelog
 docs/audit/PRODUCTS_AUDIT.md [MOD] full end-to-end audit; rename scope to Product & Stock Operations; known issues expanded
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Product & Stock Operations audit section 2026-09-25
 
+# user.repository.test.js CI timeout fix — 2026-09-25
+tests/repositories/user.repository.test.js [MOD] jest.setTimeout(30000); REPOSITORY_TEST pin; withNeonRetry on warm/cleanup
+tests/repositories/jestCompat.js [MOD] jest.setTimeout shim for Node test runner hook timeouts
+DATABASE_MIGRATION_AUDIT.md [MOD] CI timeout fix changelog
+
 # BullMQ Redis connection hardening — 2026-09-25
 backend/src/utils/redisClient.js [MOD] createBullMqConnection() with BullMQ-required ioredis options
 backend/src/queues/importExportQueue.js [MOD] dedicated BullMQ connections; enqueue fallback to inline

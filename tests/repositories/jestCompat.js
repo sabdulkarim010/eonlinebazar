@@ -17,6 +17,13 @@
 const nodeTest = require('node:test');
 const assert = require('node:assert/strict');
 
+/** Per-test/hook timeout — override via jest.setTimeout(ms) before registering tests. */
+let defaultTimeoutMs = 5000;
+
+function hookOptions() {
+  return { timeout: defaultTimeoutMs };
+}
+
 function describe(name, fn) {
   nodeTest.describe(name, fn);
 }
@@ -26,7 +33,7 @@ function sleep(ms) {
 }
 
 function test(name, fn) {
-  nodeTest.it(name, async () => {
+  nodeTest.it(name, hookOptions(), async () => {
     await fn();
     if (process.env.REPOSITORY_TEST === '1') {
       const pauseMs = Number(process.env.REPO_TEST_CASE_DELAY_MS || 50);
@@ -38,15 +45,15 @@ function test(name, fn) {
 }
 
 function beforeAll(fn) {
-  nodeTest.before(fn);
+  nodeTest.before(hookOptions(), fn);
 }
 
 function afterAll(fn) {
-  nodeTest.after(fn);
+  nodeTest.after(hookOptions(), fn);
 }
 
 function afterEach(fn) {
-  nodeTest.afterEach(fn);
+  nodeTest.afterEach(hookOptions(), fn);
 }
 
 function buildMatchers(actual) {
@@ -115,4 +122,11 @@ function expect(actual) {
   return buildMatchers(actual);
 }
 
-module.exports = { describe, test, expect, beforeAll, afterAll, afterEach };
+/** Jest-compatible helpers for repository tests (Node native test runner). */
+const jest = {
+  setTimeout(ms) {
+    defaultTimeoutMs = Number(ms) || defaultTimeoutMs;
+  }
+};
+
+module.exports = { describe, test, expect, beforeAll, afterAll, afterEach, jest };

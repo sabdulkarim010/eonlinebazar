@@ -118,6 +118,11 @@
 
 ## Change Log
 
+### user.repository.test.js CI timeout fix — 2026-09-25
+
+- `user.repository.test.js`: 30s per-test/hook timeout; Neon warm ping + cleanup retries for cold-start CI
+- `jestCompat.js`: `jest.setTimeout()` shim (Node native test runner, not Jest)
+
 ### BullMQ Redis connection hardening — 2026-09-25
 
 - `redisClient.js`: added `createBullMqConnection()` with `maxRetriesPerRequest: null` and `enableReadyCheck: false` (BullMQ requirement); general cache client unchanged

@@ -3810,3 +3810,18 @@ Full **HTTP-level** verification via supertest against `tests/app`, toggling `RE
 
 **Tests:** Jest **231/231**; repository integration tests unchanged.
 
+---
+
+## user.repository.test.js CI Timeout Fix — 2026-09-25
+
+**Problem:** GitHub Actions CI timed out on `user.repository.test.js` during Neon cold starts (Node test runner default 5s per test/hook).
+
+**Fix:**
+
+| Component | Change |
+|-----------|--------|
+| `tests/repositories/user.repository.test.js` | `jest.setTimeout(30000)`; pin `REPOSITORY_TEST=1` before Prisma load; `beforeAll` Neon warm ping via `withNeonRetry`; cleanup wrapped in `withNeonRetry` |
+| `tests/repositories/jestCompat.js` | `jest.setTimeout(ms)` shim maps to Node `{ timeout }` on `it`/`before`/`after`/`afterEach` hooks |
+
+**Note:** Repository tests use Node's native test runner (not Jest) — `jest.setTimeout` is provided by `jestCompat.js` for API parity.
+
