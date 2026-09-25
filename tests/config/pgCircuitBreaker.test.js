@@ -25,10 +25,11 @@ describe('pgCircuitBreaker', () => {
     expect(shouldBypassPg()).toBe(false);
   });
 
-  test('opens after 3 consecutive timeouts within 60s', () => {
-    recordPgTimeout(Date.now());
-    recordPgTimeout(Date.now());
-    expect(shouldBypassPg()).toBe(false);
+  test('opens after 10 consecutive timeouts within 60s', () => {
+    for (let i = 0; i < 9; i++) {
+      recordPgTimeout(Date.now());
+      expect(shouldBypassPg()).toBe(false);
+    }
 
     recordPgTimeout(Date.now());
     expect(shouldBypassPg()).toBe(true);
@@ -54,9 +55,9 @@ describe('pgCircuitBreaker', () => {
 
   test('auto-closes after 30 seconds', () => {
     const start = Date.now();
-    recordPgTimeout(start);
-    recordPgTimeout(start);
-    recordPgTimeout(start);
+    for (let i = 0; i < 10; i++) {
+      recordPgTimeout(start);
+    }
     expect(isPgCircuitOpen(start)).toBe(true);
 
     jest.advanceTimersByTime(30000);
