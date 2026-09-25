@@ -260,12 +260,24 @@ const orderSchema = new mongoose.Schema({
     courierSyncedAt: { type: Date, default: null },
     note: { type: String, default: "" },
     estimatedDelivery: { type: String, default: '' },
+    offlineOrderId: {
+        type: String,
+        trim: true
+    },
     orderSource: {
         type: String,
-        enum: ['online', 'manual'],
+        enum: ['online', 'manual', 'offline_pos'],
         default: 'online'
     },
     createdByAdmin: { type: String, default: '', trim: true },
+    posShiftId: { type: mongoose.Schema.Types.ObjectId, ref: 'PosShift', default: null },
+    splitPayments: {
+        type: [{
+            method: { type: String, default: '', trim: true },
+            amount: { type: Number, default: 0, min: 0 }
+        }],
+        default: []
+    },
     assignedStaffId: { type: String, default: null, trim: true },
     assignedAt: { type: Date, default: null },
     isSandbox: {
@@ -283,6 +295,7 @@ orderSchema.index({ 'payment.methodId': 1, createdAt: -1 });
 
 // Order lookup, user history, status filters, and recent-first sorting.
 orderSchema.index({ orderId: 1 });
+orderSchema.index({ offlineOrderId: 1 }, { unique: true, sparse: true });
 orderSchema.index({ user: 1 });
 orderSchema.index({ status: 1 });
 orderSchema.index({ createdAt: -1 });

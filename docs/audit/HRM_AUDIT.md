@@ -346,6 +346,12 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 - Files: `orderRoutes.js`, `adminRoutes.js`, `permissions.js`, `admin-staff.js`, `core-nav.js`, `core-boot.js`, `core-realtime.js`, `.cursorrules`
 - Tests: Jest **231/231** passing
 
+### POS access_pos route + implication alignment — 2026-09-24
+
+- **Route guards:** `POST /api/admin/orders/manual` and `POST /api/admin/customers/quick` accept `access_pos` (in addition to `manage_orders` / `manage_customers`)
+- **PERMISSION_IMPLICATIONS:** `access_pos` → `view_customers` (POS customer lookup)
+- **Tests:** `tests/pos.test.js` — staff with `access_pos` only can checkout; Jest **266/266**
+
 ### Sales sidebar granular permission keys — 2026-09-23
 
 - **New keys (4):** `access_pos`, `view_abandoned_carts`, `access_live_chat`, `manage_tickets` — `view_customers` / `view_reviews` unchanged (already in catalog)

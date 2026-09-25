@@ -1,6 +1,6 @@
 # ORDERS & CHECKOUT AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (Safe Mongo order lookup for PG read cutover fallbacks)  
+**Last updated:** 2026-09-24 (Phase 3 Part 3 POS offline batch sync)  
 **Scope:** Order lifecycle, checkout, tracking, returns, refunds, POS, couriers, invoices  
 **Status:** ✅ COMPLETE
 
@@ -16,6 +16,8 @@
 | `backend/src/services/invoiceService.js` | Branded PDF invoice generation |
 | `backend/src/utils/orderStatusHistory.js` | Status history append + PG mirror |
 | `backend/src/controllers/orderAdminController.js` | Admin order CRUD, status, POS, assign, returns |
+| `backend/src/controllers/admin/posOfflineSyncController.js` | Offline POS batch order sync |
+| `backend/src/services/posOfflineSyncService.js` | Idempotent offline order replay + inventory/shift updates |
 | `backend/src/controllers/orderPaymentProofController.js` | Payment proof upload |
 | `backend/src/controllers/admin/courierController.js` | Courier book/sync |
 | `backend/src/models/order.js` | Order schema (10 statuses, `returnRequest`, `pointsRedeemed`, `loyaltyDiscount`) |
@@ -59,6 +61,7 @@
 - [x] Admin order list + status update — `GET/PUT /api/orders`
 - [x] Bulk order status update — `PUT /api/admin/orders/bulk-status`; `orders-actions.js` bulk Apply
 - [x] Admin manual POS orders — `orders-pos.js`, `createManualOrder`
+- [x] POS offline batch sync — `POST /api/admin/pos/orders/batch-sync` (`access_pos` / `manage_orders`); idempotent `offlineOrderId`
 - [x] Order assignment to staff — `assignedStaffId` on order; `PATCH /assign` accepts `update_order_status`
 - [x] Staff-scoped order UI gates — delete/bulk-delete `manage_orders`; status/assign `update_order_status`; no background 403 fetches
 - [x] Courier Book & Sync (Steadfast/Pathao/RedX) — `courierSyncService.js`
@@ -92,6 +95,43 @@
 ---
 
 ## Change Log
+
+### Phase 3 Part 3 — POS offline batch sync — 2026-09-24
+
+- `posOfflineSyncService.js`: accepts `orders[]` with `offlineOrderId`, items, customer, payments, `posShiftId`; skips duplicates in Mongo/PG; deducts stock; records shift sales
+- `posOfflineSyncController.js`: returns `{ syncedCount, skippedCount, errors }`
+- `order.js`: `offlineOrderId` sparse unique index; `orderSource: offline_pos`
+- `adminRoutes.js`: `POST /api/admin/pos/orders/batch-sync`
+- Tests: `tests/services/phase3Part3.test.js` — Jest **280/280**
+
+### Phase 3 Part 2 — POS shifts + split payments + wallet on manual order — 2026-09-24
+
+- `posShiftService.js` + `posShiftController.js`: open/current/close/list shift register with cash reconciliation
+- `orderAdminController.createManualOrder`: accepts `payments[]` split array; validates total; links `posShiftId`; WALLET line deducts customer balance
+- `order.js`: `posShiftId`, `splitPayments[]` fields
+- Tests: `tests/services/phase3Part2.test.js` — Jest **277/277**
+
+### Phase 3 Part 1 — COD risk scoring, courier webhooks, export PG stats — 2026-09-24
+
+- `riskScoringService.js`: return/cancel rate + pending COD heuristics → `riskScore` (LOW/MEDIUM/HIGH) + `riskReason`
+- `orderAdminController.getOrders`: enriches every order with risk fields for admin fraud screening
+- `exportController.exportCustomersCSV`: uses `fetchCustomerOrderStatsMap` (respects `READ_PG_ORDER`)
+- `courierWebhookController.js` + `webhookRoutes.js`: real-time Steadfast/Pathao/RedX status → dual-write order update + statusHistory
+- `courierSyncService.applyCourierWebhookStatusUpdate`: shared webhook/poll status engine
+- Tests: `tests/services/phase3Part1.test.js` — Jest **274/274**
+
+### Phase 2 — Customer order stats PG read cutover — 2026-09-24
+
+- `userReadService.js`: `fetchCustomerOrderStatsMap`, `fetchCustomerOrderCount`, `fetchCustomerDeliveredSpend`, `fetchCustomerOrderHistory` via `routedRead('order')` — PG `groupBy`/`orderRepository.findAllDetailed` with Mongo aggregate fallback
+- `customerAdminController.js`: list enrichment, detail stats, order history, POS quick-add order count wired to routed reads; segment badges (VIP, Frequent Buyer) use active DB stats
+- Tests: `tests/services/phase2ReadCutover.test.js` — Jest **270/270**
+
+### POS access_pos permission alignment — 2026-09-24
+
+- `adminRoutes.js`: `POST /orders/manual` accepts `access_pos` OR `manage_orders`; `POST /customers/quick` accepts `access_pos` OR `manage_customers`
+- `permissions.js`: `access_pos` implies `view_customers` for POS customer lookup
+- `tests/pos.test.js`: staff with `access_pos` only can create manual orders
+- Tests: Jest **266/266** passing
 
 ### Safe Mongo order lookup for PG cutover fallbacks — 2026-09-24
 

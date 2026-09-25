@@ -4,6 +4,7 @@ const Cart = require('../models/cart');
 const Product = require('../models/product');
 const { dualWrite } = require('../services/dualWriteService');
 const { fetchCartItemsForResponse } = require('../services/userReadService');
+const { restoreCartFromToken } = require('../services/cartRestoreService');
 
 function getCartRepository() {
     return require('../repositories/cartRepository');
@@ -468,6 +469,37 @@ exports.clearOrderedItems = async (req, res) => {
     }
 };
 
+exports.restoreCart = async (req, res) => {
+    try {
+        const result = await restoreCartFromToken(req.params.token);
+        if (!result.success) {
+            return res.status(result.status || 400).json({
+                success: false,
+                message: result.message,
+                skippedItems: result.skippedItems || []
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: result.message,
+            data: {
+                itemsRestored: result.itemsRestored,
+                skippedItems: result.skippedItems,
+                redirectUrl: result.redirectUrl,
+                checkoutUrl: result.checkoutUrl,
+                restoreToken: result.restoreToken
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to restore cart.',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     mergeCart: exports.mergeCart,
     getCart: exports.getCart,
@@ -476,5 +508,6 @@ module.exports = {
     deleteCartItem: exports.deleteCartItem,
     toggleSelection: exports.toggleSelection,
     clearOrderedItems: exports.clearOrderedItems,
-    clearCart: exports.clearCart
+    clearCart: exports.clearCart,
+    restoreCart: exports.restoreCart
 };

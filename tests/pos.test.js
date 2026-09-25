@@ -7,6 +7,19 @@ const Product = require('../backend/src/models/product');
 const Order = require('../backend/src/models/order');
 const { getApp, createTestAdmin } = require('./setup');
 
+async function posStaffToken() {
+    const { username, password } = await createTestAdmin({
+        role: 'staff',
+        permissions: ['access_pos', 'view_customers']
+    });
+    const app = getApp();
+    const res = await request(app)
+        .post('/admin/api/login')
+        .send({ username, password });
+    expect(res.status).toBe(200);
+    return res.body.token;
+}
+
 describe('ERP POS — Manual Orders', () => {
     const app = getApp();
 
@@ -77,5 +90,25 @@ describe('ERP POS — Manual Orders', () => {
             });
 
         expect(res.status).toBe(400);
+    });
+
+    test('allows manual POS checkout for staff with access_pos only', async () => {
+        const token = await posStaffToken();
+        const product = await createProduct();
+
+        const res = await request(app)
+            .post('/api/admin/orders/manual')
+            .set(auth(token))
+            .send({
+                customerName: 'POS Staff Customer',
+                customerPhone: '01722223333',
+                customerAddress: 'Counter pickup',
+                items: [{ productId: product._id, quantity: 1 }],
+                paymentType: 'COD'
+            });
+
+        expect(res.status).toBe(201);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.orderSource).toBe('manual');
     });
 });

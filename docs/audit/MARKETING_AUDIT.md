@@ -1,6 +1,6 @@
 # MARKETING AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-23 (abandoned cart notify test — mailer mock)  
+**Last updated:** 2026-09-24 (Phase 3 Part 3 multi-stage abandoned cart recovery)  
 **Scope:** Newsletter, coupons, email campaigns, loyalty tiers, referrals, abandoned carts, reviews, WhatsApp broadcasts  
 **Status:** ⚠️ PARTIAL
 
@@ -21,7 +21,9 @@
 | `backend/src/controllers/referralController.js` | Referral rewards |
 | `backend/src/controllers/admin/crmController.js` | Abandoned carts + CRM KPIs |
 | `backend/src/controllers/admin/supportSlaController.js` | Support ticket SLA |
-| `backend/src/jobs/abandonedCartJob.js` | 24h+ cart recovery cron |
+| `backend/src/jobs/abandonedCartJob.js` | Hourly multi-stage cart recovery cron |
+| `backend/src/services/abandonedCartService.js` | Stage 1/2/3 recovery sequence + coupon generation |
+| `backend/src/services/rfmSegmentationService.js` | RFM customer segmentation for CRM |
 | `backend/src/services/whatsappService.js` | WhatsApp gateway + broadcasts (suspended-safe) |
 | `backend/src/services/gatewayStatusService.js` | Cached gateway health for admin UI |
 | `backend/src/controllers/settingsController.js` | `GET /settings/gateway-status` |
@@ -52,12 +54,15 @@
 - [x] Email campaign broadcast — `newsletterAdminController.js`
 - [x] Customer referral codes + wallet rewards — `referralController.js`
 - [x] Loyalty tiers (Silver/Gold/Platinum) — Settings loyalty fields, monthly cron
-- [x] Abandoned cart recovery (24h email/SMS) — `abandonedCartJob.js`
+- [x] Abandoned cart recovery (multi-stage 1h/24h/48h) — `abandonedCartJob.js`, `abandonedCartService.js`
+- [x] RFM customer segmentation — `rfmSegmentationService.js`, CRM `/crm/rfm-segments` endpoints
 - [x] Multi-channel segmented campaigns — CRM campaign tools
 - [x] Review moderation — `reviewAdminController.js`, `view-reviews.html`
 - [x] Support ticket lifecycle + SLA — `ContactMessage.js`, `messages-inbox.js`, `supportSlaController.js`
 - [x] PG repositories — coupon, newsletter, emailCampaign, review
-- [x] PG CRM read cutover — `READ_PG_CRM`, `READ_PG_COUPON`, `READ_PG_NEWSLETTER`, `READ_PG_EMAILCAMPAIGN`, `READ_PG_REVIEW`
+- [x] PG CRM read cutover — `READ_PG_CRM` via `routedRead('crm')` with Mongo fallback; KPI `count`/`value` use aggregated queries (not unbounded `findMany`)
+- [x] Abandoned cart notify — hybrid PG/Mongo lookup + PG `abandonedNotifiedAt` mirror
+- [x] PG marketing reads — `READ_PG_COUPON`, `READ_PG_NEWSLETTER`, `READ_PG_EMAILCAMPAIGN`, `READ_PG_REVIEW`
 - [ ] WhatsApp marketing broadcasts | UltraMsg account suspended — service stopped
 
 ---
@@ -66,6 +71,7 @@
 
 | Issue | Severity | Status | Notes |
 |-------|----------|--------|-------|
+| Abandoned cart list HTTP 500 under load | High | Fixed | 2026-09-24 — unbounded KPI query replaced with `count` + aggregate; `routedRead('crm')` failover |
 | UltraMsg WhatsApp subscription suspended | High | Mitigated | Gateway status endpoint + UI banner; Send disabled when suspended; server no longer crashes |
 | OpenAI API quota (chat AI overlap) | Medium | Open | AI chatbot credit exhausted; affects support automation |
 
@@ -80,6 +86,36 @@
 ---
 
 ## Change Log
+
+### Phase 3 Part 3 — Multi-stage abandoned cart recovery + RFM segmentation — 2026-09-24
+
+- `abandonedCartService.js`: Stage 1 (1h) SMS/WhatsApp restore link; Stage 2 (24h) email + single-use 5% coupon; Stage 3 (48h) final expiry reminder; `recoveryStage` 0→3 with dedup timestamps
+- `cart.js`: `recoveryStage`, `recoveryCouponCode`, `recoveryStage1At/2At/3At`; reset on cart item change
+- `abandonedCartJob.js`: hourly cron delegates to `processMultiStageAbandonedCarts()`
+- `rfmSegmentationService.js`: CHAMPION/LOYAL/AT_RISK/LOST/NEW/STANDARD from delivered order history
+- `crmController.js`: `GET /api/admin/crm/rfm-segments`, `POST /api/admin/crm/rfm-segments/recalculate`
+- `user.js`: persisted `rfmSegment` + metric fields for CRM views
+- Tests: `tests/services/phase3Part3.test.js` — Jest **280/280**
+
+### Phase 3 Part 1 — One-click abandoned cart restore links — 2026-09-24
+
+- `cartRestoreService.js`: signed JWT restore tokens (72h default), stock-checked cart recovery
+- `GET /api/cart/restore/:token`: public restore endpoint → checkout redirect payload
+- `crmController.notifyAbandonedCart` + `abandonedCartJob.js`: recovery emails/SMS link to `/checkout.html?restoreToken=...`
+- Tests: `tests/services/phase3Part1.test.js` — Jest **274/274**
+
+### Phase 2 — Support inbox unread + review product PG enrichment — 2026-09-24
+
+- `contactMessageRepository.js`: `countUnreadInbox()` counts `isRead: false` on PG (was hardcoded `0`); circuit-breaker fallback via `routedRead('contactmessage')`
+- `marketingSupportReadService.js`: Mongo unread count aligned to `isRead: false`
+- `reviewAdminController.js`: product name/image enrichment via `fetchProductsForAdminReviews` + `routedRead('product')`
+- Tests: `tests/services/phase2ReadCutover.test.js` — Jest **270/270**
+
+### Abandoned cart PG read cutover + 500 fix — 2026-09-24
+
+- `crmController.js`: KPI uses `count` + `$aggregate` / `$queryRaw` SUM; list paginated (max 100); `routedRead('crm')` with Mongo fallback; notify uses hybrid PG/Mongo lookup
+- `abandonedCartJob.js`: `.populate('userId')` (was invalid `user` path)
+- `tests/abandonedCart.test.js`: READ_PG_CRM failover, pagination, aggregation tests — Jest **266/266**
 
 ### Abandoned cart notify test flake — 2026-09-23
 

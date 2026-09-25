@@ -46,7 +46,21 @@ const cartSchema = new mongoose.Schema({
     abandonedNotifiedAt: {
         type: Date,
         default: null
-    }
+    },
+    recoveryStage: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 3
+    },
+    recoveryCouponCode: {
+        type: String,
+        default: null,
+        trim: true
+    },
+    recoveryStage1At: { type: Date, default: null },
+    recoveryStage2At: { type: Date, default: null },
+    recoveryStage3At: { type: Date, default: null }
 }, { timestamps: true });
 
 // Every save is a cart change — keep lastActivityAt fresh and re-arm the
@@ -56,6 +70,11 @@ cartSchema.pre('save', function markCartActivity() {
     if (this.isModified('items')) {
         this.lastActivityAt = new Date();
         this.abandonedNotifiedAt = null;
+        this.recoveryStage = 0;
+        this.recoveryCouponCode = null;
+        this.recoveryStage1At = null;
+        this.recoveryStage2At = null;
+        this.recoveryStage3At = null;
     }
 });
 

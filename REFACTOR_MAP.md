@@ -2824,3 +2824,120 @@ tests/services/readRouter.test.js [MOD] PG-FALLBACK + circuit-open tests
 docs/audit/DEVOPS_AUDIT.md [MOD] fail-fast + circuit breaker changelog
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] PG resilience section
 README.md [MOD] test count 261/261
+
+# Abandoned Cart PG Cutover + POS access_pos Alignment — 2026-09-24
+backend/src/controllers/admin/crmController.js [MOD] routedRead('crm'); KPI count+aggregate; paginated list (max 100); hybrid notify lookup; PG notify stamp
+backend/src/jobs/abandonedCartJob.js [MOD] populate userId only (removed invalid user path)
+backend/src/routes/adminRoutes.js [MOD] POST /orders/manual + POST /customers/quick accept access_pos
+backend/src/config/permissions.js [MOD] access_pos → view_customers implication
+tests/abandonedCart.test.js [MOD] READ_PG_CRM failover, pagination, aggregation tests (+4)
+tests/pos.test.js [MOD] access_pos-only staff checkout test
+docs/audit/MARKETING_AUDIT.md [MOD] abandoned cart 500 fix changelog
+docs/audit/ORDERS_AUDIT.md [MOD] POS permission alignment changelog
+docs/audit/HRM_AUDIT.md [MOD] access_pos route + implication changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Phase 1 Sales & Orders fix section
+README.md [MOD] test count 266/266
+
+# Phase 2 — Customer/Ticket/Review PG Read Cutover — 2026-09-24
+backend/src/services/userReadService.js [MOD] fetchCustomerOrderStatsMap, fetchCustomerOrderCount, fetchCustomerDeliveredSpend, fetchCustomerOrderHistory, fetchProductsForAdminReviews
+backend/src/controllers/admin/customerAdminController.js [MOD] routed order stats + history for list/detail/POS quick-add
+backend/src/controllers/reviewAdminController.js [MOD] product enrichment via routedRead('product')
+backend/src/repositories/contactMessageRepository.js [MOD] countUnreadInbox uses isRead:false (was hardcoded 0)
+backend/src/services/marketingSupportReadService.js [MOD] Mongo inbox unread aligned to isRead:false
+tests/services/phase2ReadCutover.test.js [NEW] READ_PG_ORDER/CONTACTMESSAGE/PRODUCT failover tests
+docs/audit/MARKETING_AUDIT.md [MOD] Phase 2 changelog
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD] admin customer PG order stats
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Phase 2 section
+README.md [MOD] test count 270/270
+
+# Phase 3 Part 1 — COD Risk, Cart Restore, Courier Webhooks — 2026-09-24
+backend/src/controllers/admin/exportController.js [MOD] customer export stats via fetchCustomerOrderStatsMap (READ_PG_ORDER)
+backend/src/services/riskScoringService.js [NEW] COD return-rate risk scoring (LOW/MEDIUM/HIGH)
+backend/src/controllers/orderAdminController.js [MOD] getOrders enriched with riskScore + riskReason
+backend/src/services/cartRestoreService.js [NEW] JWT cart restore tokens + stock-checked restore
+backend/src/controllers/cartController.js [MOD] GET restoreCart handler
+backend/src/routes/cartRoutes.js [MOD] GET /api/cart/restore/:token (public)
+backend/src/controllers/admin/crmController.js [MOD] notify uses one-click checkout restore URL
+backend/src/jobs/abandonedCartJob.js [MOD] recovery email/SMS uses restore checkout URL
+backend/src/controllers/webhook/courierWebhookController.js [NEW] Steadfast/Pathao/RedX webhook handlers
+backend/src/routes/webhookRoutes.js [NEW] POST /api/webhooks/courier/*
+backend/src/services/courierSyncService.js [MOD] applyCourierWebhookStatusUpdate + in_transit/returned maps
+backend/src/server.js [MOD] mount /api/webhooks with rawBody for HMAC auth
+tests/services/phase3Part1.test.js [NEW] risk, restore, webhook integration tests
+tests/app.js [MOD] webhook routes for Jest app
+docs/audit/ORDERS_AUDIT.md [MOD] Phase 3 Part 1 changelog
+docs/audit/MARKETING_AUDIT.md [MOD] cart restore link changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Phase 3 Part 1 section
+README.md [MOD] test count 274/274
+
+# Phase 3 Part 2 — Wallet, POS Shifts, Split Payments — 2026-09-24
+backend/src/services/walletService.js [MOD] getWalletBalance, getWalletTransactions, creditWallet, debitWallet
+backend/src/controllers/admin/walletAdminController.js [MOD] creditCustomerWallet, getCustomerWalletTransactions
+backend/src/controllers/walletCustomerController.js [NEW] customer wallet balance + transactions
+backend/src/models/posShift.js [NEW] POS register shift schema
+backend/src/services/posShiftService.js [NEW] open/current/close/list + recordShiftSale
+backend/src/controllers/admin/posShiftController.js [NEW] POS shift HTTP handlers
+backend/src/controllers/orderAdminController.js [MOD] split payments, wallet on manual order, posShiftId linkage
+backend/src/models/order.js [MOD] posShiftId + splitPayments fields
+backend/src/routes/adminRoutes.js [MOD] wallet credit/transactions + POS shift routes
+backend/src/routes/userRoutes.js [MOD] GET /wallet/balance, /wallet/transactions
+backend/src/server.js [MOD] /api/user alias mount
+tests/services/phase3Part2.test.js [NEW] wallet, shift, split payment tests
+tests/app.js [MOD] /api/user mount
+docs/audit/ORDERS_AUDIT.md [MOD] Phase 3 Part 2 changelog
+docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD] wallet + POS shift changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Phase 3 Part 2 section
+README.md [MOD] test count 277/277
+
+# Phase 3 Part 3 — RFM Segmentation, Multi-Stage Cart Recovery, POS Offline Sync — 2026-09-24
+backend/src/services/rfmSegmentationService.js [NEW] RFM metrics + segment rules + recalculate
+backend/src/services/abandonedCartService.js [NEW] multi-stage recovery (1h/24h/48h) + coupon generation
+backend/src/services/posOfflineSyncService.js [NEW] idempotent offline POS batch order sync
+backend/src/controllers/admin/posOfflineSyncController.js [NEW] POST batch-sync handler
+backend/src/controllers/admin/crmController.js [MOD] GET/POST RFM segment endpoints
+backend/src/jobs/abandonedCartJob.js [MOD] hourly multi-stage cron via abandonedCartService
+backend/src/models/user.js [MOD] rfmSegment, rfmUpdatedAt, rfmRecencyDays, rfmFrequency, rfmMonetary
+backend/src/models/cart.js [MOD] recoveryStage, recoveryCouponCode, recoveryStage*At timestamps
+backend/src/models/order.js [MOD] offlineOrderId sparse unique index; orderSource offline_pos
+backend/src/routes/adminRoutes.js [MOD] RFM + POST /pos/orders/batch-sync routes
+tests/services/phase3Part3.test.js [NEW] RFM, recovery stages, offline sync idempotency tests
+docs/audit/MARKETING_AUDIT.md [MOD] Phase 3 Part 3 multi-stage abandoned cart changelog
+docs/audit/ORDERS_AUDIT.md [MOD] Phase 3 Part 3 offline batch sync changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Phase 3 Part 3 section
+README.md [MOD] test count 280/280
+
+# Phase 3 Admin UI — Backend API Integration — 2026-09-25
+client/js/admin/modules/pos-shift-ui.js [NEW] POS shift register + offline sync queue UI
+client/js/admin/admin-orders.js [MOD] import pos-shift-ui barrel
+client/js/admin/modules/orders-pos.js [MOD] multi-line split payments, wallet at POS, offline queue on network error
+client/js/admin/modules/core-nav.js [MOD] RFM filter, recalculateRfmSegments, getRfmSegmentBadge
+client/js/admin/modules/core-state.js [MOD] customerRfmFilter state
+client/js/admin/modules/customers-table.js [MOD] RFM badge on name, COD risk + courier panels in order expand
+client/js/admin/modules/customers-modals.js [MOD] RFM segment + wallet transaction history
+client/js/admin/modules/orders-table.js [MOD] COD risk badge in order rows
+client/js/admin/modules/orders-actions.js [MOD] courier live status chip on booked parcels
+client/js/admin/modules/crm-abandoned-carts.js [MOD] recovery stage column + copy restore link
+client/admin/partials/view-pos.html [MOD] shift bar, offline sync, split payment lines, shift modals
+client/admin/partials/view-customers.html [MOD] RFM filter + recalculate button
+client/admin/partials/modals-customers.html [MOD] RFM field + wallet history table
+client/admin/partials/view-crm-abandoned.html [MOD] recovery stage column
+client/css/admin/_pos.css [MOD] shift, split payment, offline sync styles
+client/css/admin/_customers.css [MOD] RFM badges, wallet history, recovery stage badges
+client/css/admin/_orders.css [MOD] COD risk badge + courier status chip
+backend/src/controllers/admin/crmController.js [MOD] abandoned cart API returns recoveryStage + restoreUrl
+backend/src/services/cartRestoreService.js [MOD] expired token detection robustness
+tests/services/phase3Part1.test.js [MOD] expired token test uses restoreSecret + past exp claim
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] Phase 3 admin UI changelog
+
+# Phase 3 Admin UI Verification Pass — 2026-09-25
+client/js/admin/modules/core-helpers.js [MOD] window.escapeHtml + escHtml
+client/js/admin/modules/pos-shift-ui.js [MOD] shift state hooks updatePosShiftCheckoutUi; isPosShiftOpen export
+client/js/admin/modules/orders-pos.js [MOD] updatePosShiftCheckoutUi reveals split payment on shift open
+client/admin/partials/view-pos.html [MOD] shift-closed checkout hint banner
+client/js/admin/modules/customers-table.js [MOD] COD risk panel for all COD orders; window.getRfmSegmentBadge
+client/js/admin/modules/customers-modals.js [MOD] window.getRfmSegmentBadge; export loadCustomerWalletHistory
+client/js/admin/modules/orders-table.js [MOD] COD badge inline under order ID only
+client/css/admin/_pos.css [MOD] shift checkout hint + customer badge flex
+client/css/admin/_orders.css [MOD] order-risk-inline spacing
+backend/src/controllers/admin/customerAdminController.js [MOD] Mongo RFM overlay on customer list + detail
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD] verification pass changelog

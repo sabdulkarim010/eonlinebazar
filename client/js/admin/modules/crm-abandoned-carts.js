@@ -1,5 +1,5 @@
 /**
- * Project: EOnlineBazar — CRM Abandoned Cart Recovery
+ * Project: EonlineBazar — CRM Abandoned Cart Recovery
  * File: js/admin/modules/crm-abandoned-carts.js
  */
 import '../admin-core.js';
@@ -32,6 +32,22 @@ function formatRelativeTime(dateInput) {
     return `${days}d ago`;
 }
 
+function renderRecoveryStageBadge(cart = {}) {
+    const stage = Number(cart.recoveryStage) || 0;
+    const label = cart.recoveryStageLabel || (stage >= 3
+        ? 'Stage 3 — Expiry Notice'
+        : stage === 2
+            ? 'Stage 2 — Email + 5% Coupon'
+            : stage === 1
+                ? 'Stage 1 — SMS/WhatsApp'
+                : 'Not started');
+    const cls = stage >= 3 ? 'recovery-stage--3' : stage === 2 ? 'recovery-stage--2' : stage === 1 ? 'recovery-stage--1' : 'recovery-stage--0';
+    const coupon = cart.recoveryCouponCode
+        ? `<br><small>Coupon: ${escapeCell(cart.recoveryCouponCode)}</small>`
+        : '';
+    return `<span class="recovery-stage-badge ${cls}">${escapeCell(label)}</span>${coupon}`;
+}
+
 function renderAbandonedCartStats(data = {}) {
     const countEl = document.getElementById('abandonedCartCount');
     const valueEl = document.getElementById('abandonedCartValue');
@@ -51,25 +67,34 @@ function renderCartsTable(carts = []) {
     if (!tbody) return;
 
     if (!carts.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="table-status-empty">No abandoned carts match this filter.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="table-status-empty">No abandoned carts match this filter.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = carts.map((cart) => {
+    tbody.innerHTML = carts.map((cart, index) => {
         const userId = cart.userId;
         const phoneLine = cart.phone ? `<br><small>${escapeCell(cart.phone)}</small>` : '';
         const notifiedBadge = cart.notified
             ? '<span class="status-badge status-verified">Yes</span>'
             : '<span class="status-badge status-pending">No</span>';
+        const restoreUrl = String(cart.restoreUrl || '').trim();
+        const restoreBtn = restoreUrl
+            ? `<button type="button" class="btn-secondary" style="font-size:11px;padding:4px 8px;"
+                    data-restore-index="${index}" onclick="copyAbandonedCartRestoreLink(Number(this.dataset.restoreIndex))" title="Copy 1-click restore link">
+                    <i class="fa-solid fa-link"></i> Copy Restore Link
+               </button>`
+            : '';
 
         return `
             <tr>
                 <td><strong>${escapeCell(cart.customerName)}</strong>${phoneLine}</td>
                 <td>${cart.itemCount} item(s)<br><strong>${formatBdt(cart.value)}</strong></td>
                 <td>${formatRelativeTime(cart.lastActivityAt)}</td>
+                <td>${renderRecoveryStageBadge(cart)}</td>
                 <td>${notifiedBadge}</td>
                 <td>
                     <div class="catalog-actions" style="flex-wrap:wrap;gap:4px;">
+                        ${restoreBtn}
                         <button type="button" class="btn-secondary" style="font-size:11px;padding:4px 8px;"
                                 onclick="sendRecoveryNotification('${userId}', 'email')" title="Send Recovery Email">
                             <i class="fa-solid fa-envelope"></i> Email
@@ -84,11 +109,27 @@ function renderCartsTable(carts = []) {
     }).join('');
 }
 
+window.copyAbandonedCartRestoreLink = function copyAbandonedCartRestoreLink(indexOrUrl) {
+    const fromCache = Number.isFinite(Number(indexOrUrl))
+        ? String(abandonedCartsCache[Number(indexOrUrl)]?.restoreUrl || '').trim()
+        : '';
+    const value = fromCache || String(indexOrUrl || '').trim();
+    if (!value) return showToast('Restore link unavailable.', 'warning');
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(value).then(
+            () => showToast('Restore link copied to clipboard.', 'success'),
+            () => showToast('Could not copy link.', 'error')
+        );
+        return;
+    }
+    showToast(value, 'info');
+};
+
 async function loadAbandonedCarts(filter = abandonedCartFilter) {
     abandonedCartFilter = filter || 'all';
     const tbody = document.getElementById('abandonedCartsTableBody');
     if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading abandoned carts…</p></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading abandoned carts…</p></td></tr>';
     }
 
     try {
@@ -109,7 +150,7 @@ async function loadAbandonedCarts(filter = abandonedCartFilter) {
     } catch (err) {
         console.error('loadAbandonedCarts:', err);
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="5" class="table-status-error">Failed to load abandoned carts.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="table-status-error">Failed to load abandoned carts.</td></tr>';
         }
         showToast('Failed to load abandoned carts.', 'error');
     }

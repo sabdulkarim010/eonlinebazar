@@ -190,6 +190,17 @@ const userSchema = new mongoose.Schema({
         default: 0
     },
 
+    // 📊 RFM segmentation (rfmSegmentationService.js)
+    rfmSegment: {
+        type: String,
+        enum: ['CHAMPION', 'LOYAL', 'AT_RISK', 'LOST', 'NEW', 'STANDARD'],
+        default: null
+    },
+    rfmUpdatedAt: { type: Date, default: null },
+    rfmRecencyDays: { type: Number, default: null },
+    rfmFrequency: { type: Number, default: 0 },
+    rfmMonetary: { type: Number, default: 0 },
+
     // নোট: অ্যাক্টিভ লগইন সেশন এখন আলাদা UserSession কালেকশনে রাখা হয়
     // (models/userSession.js) — পুরোনো এম্বেডেড sessions অ্যারে সরিয়ে ফেলা হয়েছে।
 

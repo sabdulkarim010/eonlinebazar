@@ -81,10 +81,12 @@ async function count(filters = {}) {
 /**
  * Mirrors listContactMessages inbox badge — NOT ticket stats unread.
  * Mongo: $or: [{ status: 'unread' }, { status: { $exists: false }, isRead: false }]
- * Postgres rows always have enum status; legacy `unread` is not stored after backfill.
+ * Postgres rows use enum ticket status; unread inbox state is tracked on isRead.
  */
 async function countUnreadInbox() {
-  return 0;
+  return prisma.contactMessage.count({
+    where: { isRead: false }
+  });
 }
 
 async function aggregateTicketStats() {

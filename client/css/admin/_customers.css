@@ -1103,3 +1103,65 @@
 
 .ticket-assign-btn { white-space: nowrap; }
 
+.rfm-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.rfm-badge--champion { background: #fef3c7; color: #92400e; }
+.rfm-badge--loyal { background: #dbeafe; color: #1e40af; }
+.rfm-badge--at-risk { background: #ffedd5; color: #c2410c; }
+.rfm-badge--lost { background: #fee2e2; color: #991b1b; }
+.rfm-badge--new { background: #dcfce7; color: #166534; }
+.rfm-badge--standard { background: #f1f5f9; color: #475569; }
+
+.cv-wallet-history {
+    margin-top: 16px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 12px;
+}
+
+.cv-wallet-history-title {
+    margin: 0 0 8px;
+    font-size: 14px;
+}
+
+.cv-wallet-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.cv-wallet-history-table th,
+.cv-wallet-history-table td {
+    border-bottom: 1px solid #e2e8f0;
+    padding: 6px 8px;
+    text-align: left;
+}
+
+.cv-wallet-history-empty {
+    color: #64748b;
+    font-size: 12px;
+}
+
+.recovery-stage-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.recovery-stage--0 { background: #f1f5f9; color: #475569; }
+.recovery-stage--1 { background: #dbeafe; color: #1d4ed8; }
+.recovery-stage--2 { background: #fef3c7; color: #92400e; }
+.recovery-stage--3 { background: #fee2e2; color: #991b1b; }
+

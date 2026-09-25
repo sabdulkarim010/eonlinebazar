@@ -322,7 +322,7 @@ Restart Expo after changing env vars (`npx expo start -c`).
 
 | ERP — inventory, orders, POs, suppliers, warehouses | ✅ |
 
-| CRM — customers, campaigns, abandoned carts, tickets, chat, reviews, loyalty | ✅ |
+| CRM — customers, RFM segmentation, multi-stage abandoned carts, campaigns, tickets, chat, reviews, loyalty | ✅ |
 
 | HRM — staff, RBAC, audit, security logs, sessions | ✅ |
 

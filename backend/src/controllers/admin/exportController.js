@@ -12,6 +12,7 @@ const PDFDocument = require('pdfkit');
 const Order = require('../../models/order');
 const Product = require('../../models/product');
 const User = require('../../models/user');
+const { fetchCustomerOrderStatsMap } = require('../../services/userReadService');
 const Employee = require('../../models/employee');
 const Settings = require('../../models/Settings');
 const { computeProfitLoss } = require('./profitLossController');
@@ -443,38 +444,10 @@ const exportCustomersCSV = async (req, res) => {
             Settings.getOrCreate()
         ]);
 
-        const customerIds = customers.map((c) => c._id);
-        const orderStats = customerIds.length
-            ? await Order.aggregate([
-                {
-                    $match: {
-                        user: { $in: customerIds },
-                        status: { $nin: ['Cancelled', 'Canceled'] }
-                    }
-                },
-                {
-                    $group: {
-                        _id: '$user',
-                        orderCount: { $sum: 1 },
-                        totalSpent: {
-                            $sum: {
-                                $add: [
-                                    { $ifNull: ['$grandTotal', 0] },
-                                    { $ifNull: ['$walletApplied', 0] }
-                                ]
-                            }
-                        }
-                    }
-                }
-            ])
-            : [];
-
-        const statsMap = new Map(
-            orderStats.map((row) => [String(row._id), {
-                orderCount: row.orderCount || 0,
-                totalSpent: Math.round(Number(row.totalSpent) || 0)
-            }])
-        );
+        const customerIds = customers.map((c) => String(c._id));
+        const statsMap = customerIds.length
+            ? await fetchCustomerOrderStatsMap(customerIds)
+            : new Map();
 
         const thresholds = {
             vipMinTotalSpent: masterSettings.vipMinTotalSpent,

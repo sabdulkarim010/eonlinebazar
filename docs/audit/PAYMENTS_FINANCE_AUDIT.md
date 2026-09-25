@@ -1,6 +1,6 @@
 # PAYMENTS & FINANCE AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20 (Group 3 — unified finance export)  
+**Last updated:** 2026-09-24 (Phase 3 Part 2 wallet routes + POS shift register)  
 **Scope:** Payment gateways, reconciliation, wallet, expenses, P&L, finance analytics, accounts summary, VAT  
 **Status:** ✅ COMPLETE
 
@@ -23,9 +23,13 @@
 | `backend/src/controllers/admin/accountsSummaryController.js` | Accounts overview API |
 | `backend/src/controllers/admin/expenseController.js` | Expense ledger CRUD |
 | `backend/src/controllers/admin/expenseCategoryController.js` | Expense category catalog |
-| `backend/src/controllers/admin/walletAdminController.js` | Admin wallet operations |
+| `backend/src/controllers/admin/walletAdminController.js` | Admin wallet credit + transaction history |
+| `backend/src/controllers/walletCustomerController.js` | Customer wallet balance + transactions |
+| `backend/src/models/posShift.js` | POS cash register shift schema |
+| `backend/src/services/posShiftService.js` | Shift open/close/reconcile + sale tracking |
+| `backend/src/controllers/admin/posShiftController.js` | POS shift admin API |
 | `backend/src/services/paymentGatewayService.js` | Gateway adapter orchestration |
-| `backend/src/services/walletService.js` | Wallet + loyalty point conversions |
+| `backend/src/services/walletService.js` | Wallet balance, credit/debit, transaction logs |
 | `backend/src/repositories/paymentMethodRepository.js` | PG payment methods |
 | `backend/src/repositories/expenseRepository.js` | PG expenses |
 | `backend/src/repositories/expenseCategoryRepository.js` | PG expense categories |
@@ -84,6 +88,14 @@
 ---
 
 ## Change Log
+
+### Phase 3 Part 2 — Wallet API + POS shift register — 2026-09-24
+
+- `walletService.js`: `getWalletBalance`, `getWalletTransactions`, `creditWallet`, `debitWallet` (dual-write to PG wallet transactions)
+- Admin routes: `POST /customers/:id/wallet/credit`, `GET /customers/:id/wallet/transactions`
+- Customer routes: `GET /api/user/wallet/balance`, `GET /api/user/wallet/transactions`
+- POS shift lifecycle: open → track cash/digital sales → close with `cashDiscrepancy`
+- Tests: `tests/services/phase3Part2.test.js` — Jest **277/277**
 
 ### Group 3 — Unified finance export — 2026-09-20
 

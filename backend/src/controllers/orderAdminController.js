@@ -11,6 +11,7 @@ const Order = require('../models/order');
 const { dualWrite } = require('../services/dualWriteService');
 const { routedRead } = require('../services/readRouter');
 const { mongoLeanToListSummary } = require('../services/orderListShapeHelpers');
+const { enrichOrdersWithRiskScores } = require('../services/riskScoringService');
 
 function getOrderDualWriteHelpers() {
     return require('../utils/orderDualWriteHelpers');
@@ -49,7 +50,13 @@ const { sendSms, isCustomerSmsEnabled } = require('../services/smsService');
 const { sendReturnStatusEmail, sendOrderShippedEmail } = require('../services/mailer');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { findVariantIndex } = require('../utils/variantHelpers');
-const { creditWalletForUser, reverseWalletCredit } = require('../services/walletService');
+const {
+    creditWalletForUser,
+    reverseWalletCredit,
+    deductWalletForOrder,
+    getWalletBalance
+} = require('../services/walletService');
+const { getCurrentShift, recordShiftSale } = require('../services/posShiftService');
 const { upgradeTierIfNeeded } = require('../services/loyaltyTierService');
 const { loadFlashSaleSettings } = require('../services/flashSaleService');
 const { invalidate, CACHE_KEYS } = require('../services/cacheService');
@@ -75,6 +82,62 @@ const {
 } = require('./orderControllerHelpers');
 
 const ITEM_EDIT_BLOCKED_STATUSES = ['cancelled', 'canceled', 'returned', 'refunded', 'return requested'];
+
+function resolveManualOrderPayments(body = {}, grandTotal = 0) {
+    const payments = Array.isArray(body.payments) ? body.payments : null;
+    const orderTotal = roundMoney(grandTotal);
+
+    if (payments && payments.length) {
+        const normalized = payments
+            .map((line) => ({
+                method: String(line.method || line.paymentMethod || '').trim().toUpperCase(),
+                amount: roundMoney(Number(line.amount))
+            }))
+            .filter((line) => line.method && line.amount > 0);
+
+        if (!normalized.length) {
+            return { error: 'Split payments must include at least one valid payment line.' };
+        }
+
+        const totalPaid = roundMoney(normalized.reduce((sum, line) => sum + line.amount, 0));
+        if (totalPaid !== orderTotal) {
+            return {
+                error: `Split payments total ৳${totalPaid} must equal order total ৳${orderTotal}.`
+            };
+        }
+
+        const walletApplied = roundMoney(
+            normalized
+                .filter((line) => line.method === 'WALLET')
+                .reduce((sum, line) => sum + line.amount, 0)
+        );
+        const hasCodOnly = normalized.length === 1 && normalized[0].method === 'COD';
+        const isPaid = !hasCodOnly;
+        const paymentMethod = normalized.length > 1 ? 'Split' : normalized[0].method;
+
+        return {
+            splitPayments: normalized,
+            walletApplied,
+            paymentMethod,
+            isPaid,
+            paymentStatus: isPaid ? 'Paid' : 'COD'
+        };
+    }
+
+    const paymentType = String(body.paymentType || body.paymentStatus || body.paymentMethod || 'COD').trim();
+    const paymentStatus = paymentType.toLowerCase() === 'cod' ? 'COD' : 'Paid';
+    const isPaid = paymentStatus.toLowerCase() === 'paid';
+    const paymentMethod = isPaid ? (paymentType !== 'Paid' ? paymentType : 'Paid') : 'COD';
+    const walletApplied = roundMoney(Number(body.walletApplied) || 0);
+
+    return {
+        splitPayments: [],
+        walletApplied,
+        paymentMethod,
+        isPaid,
+        paymentStatus
+    };
+}
 
 function toPlainOrderItem(item) {
     if (!item) return {};
@@ -236,8 +299,6 @@ const createManualOrder = async (req, res) => {
         const manualDiscountType = String(req.body.manualDiscountType || 'flat').trim().toLowerCase();
         const manualDiscountPercent = Math.min(100, Math.max(0, Number(req.body.manualDiscountPercent) || 0));
         const shippingFee = roundMoney(Number(req.body.shippingFee ?? req.body.deliveryCharge) || 0);
-        const paymentType = String(req.body.paymentType || req.body.paymentStatus || req.body.paymentMethod || 'COD').trim();
-        const paymentStatus = paymentType.toLowerCase() === 'cod' ? 'COD' : 'Paid';
         const customerUserId = req.body.customerUserId || req.body.userId || null;
         const deliveryAreaRaw = String(
             req.body.deliveryArea || req.body.shippingLocationType || req.body.deliveryLocationType || 'inside'
@@ -396,14 +457,45 @@ const createManualOrder = async (req, res) => {
             merchandisePayable
         } = lockedTotals;
 
-        const isPaid = paymentStatus.toLowerCase() === 'paid';
-        const paymentMethod = isPaid ? (paymentType !== 'Paid' ? paymentType : 'Paid') : 'COD';
+        const paymentResolution = resolveManualOrderPayments(req.body, grandTotal);
+        if (paymentResolution.error) {
+            return res.status(400).json({ success: false, message: paymentResolution.error });
+        }
+
+        const {
+            splitPayments,
+            walletApplied,
+            paymentMethod,
+            isPaid
+        } = paymentResolution;
         const status = isPaid ? 'Processing' : 'Pending';
 
         let linkedUser = null;
         if (customerUserId && mongoose.Types.ObjectId.isValid(customerUserId)) {
             linkedUser = customerUserId;
         }
+
+        if (walletApplied > 0) {
+            if (!linkedUser) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Wallet payment requires a linked customer account.'
+                });
+            }
+            const availableWallet = await getWalletBalance(linkedUser);
+            if (availableWallet < walletApplied) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Insufficient wallet balance. Available: ৳${availableWallet}, requested: ৳${walletApplied}.`
+                });
+            }
+        }
+
+        const activeShift = await getCurrentShift({
+            cashierId: req.adminId || req.adminAccount?._id,
+            registerName: req.body.registerName
+        });
+        const posShiftId = activeShift?._id || null;
 
         // POS অর্ডারেও একই পেমেন্ট স্ন্যাপশট রাখা হয় (paymentMethodId পাঠানো
         // হলে), যাতে অনলাইন ও কাউন্টার — দুই চ্যানেলের লেজার একই কাঠামোয় থাকে।
@@ -437,8 +529,11 @@ const createManualOrder = async (req, res) => {
             shippingFee: lockedDeliveryCharge,
             estimatedDelivery: deliveryEstimate.label,
             totalBuyingPrice: Math.round(totalBuyingPrice),
+            walletApplied,
             paymentMethod,
             payment: posPaymentSnapshot,
+            splitPayments,
+            posShiftId,
             items: normalizedItems,
             note: staffNote,
             status,
@@ -463,6 +558,29 @@ const createManualOrder = async (req, res) => {
             }
         );
         await deductOrderStock(normalizedItems);
+
+        if (walletApplied > 0 && linkedUser) {
+            const walletAfter = await deductWalletForOrder(
+                linkedUser,
+                walletApplied,
+                newOrder.orderId,
+                'Used for POS / manual order'
+            );
+            if (!walletAfter) {
+                await Order.findByIdAndDelete(newOrder._id);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Wallet deduction failed. Order was not created.'
+                });
+            }
+        }
+
+        if (posShiftId) {
+            const shiftPayments = splitPayments.length
+                ? splitPayments
+                : [{ method: paymentMethod, amount: grandTotal }];
+            await recordShiftSale(posShiftId, shiftPayments, grandTotal);
+        }
 
         emitToAdmins('new_order', {
             orderId: newOrder.orderId,
@@ -528,7 +646,8 @@ const getOrders = async (req, res) => {
                 return repo.findAllDetailed({ sort: 'createdAt' });
             }
         );
-        res.json({ success: true, data: orders });
+        const enriched = await enrichOrdersWithRiskScores(orders);
+        res.json({ success: true, data: enriched });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

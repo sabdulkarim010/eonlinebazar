@@ -42,6 +42,7 @@ const { mountViewRoutes } = require('./routes/viewRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const storeRoutes = require('./routes/storeRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const inquiryRoutes = require('./routes/inquiryRoutes');
 const newsletterRoutes = require('./routes/newsletterRoutes');
@@ -333,6 +334,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/customer', userRoutes);
+app.use('/api/user', userRoutes);
 app.use('/api/users', userRoutes); // alias — chat microservice + legacy clients (GET /api/users/profile)
 app.use('/api/auth', authRoutes);
 app.use('/api/cart', cartRoutes);
@@ -346,6 +348,11 @@ app.use('/api/finance', financeRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/store', storeRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/webhooks', express.json({
+    verify: (req, _res, buf) => {
+        req.rawBody = buf;
+    }
+}), webhookRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/inquiries', inquiryRoutes);
 app.use('/api/newsletter', newsletterRoutes);

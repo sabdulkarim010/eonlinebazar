@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-24 (PG fail-fast 3s timeout, circuit breaker, clean fallback logs)
+**Last updated:** 2026-09-24 (Phase 3 Part 3 — RFM segmentation, multi-stage cart recovery, POS offline sync)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-261%2F261-brightgreen" alt="261/261 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-280%2F280-brightgreen" alt="280/280 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -159,12 +159,12 @@ Each domain has a dedicated audit file with **File Inventory**, **Feature Checkl
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 261 / 261 tests** across **32 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, Resend, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 280 / 280 tests** across **36 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, Resend, or Cloudinary calls are required.
 
 PostgreSQL repository integration tests (241 tests, real Neon) run separately:
 
 ```bash
-npm test                  # 32 suites, 261 tests — MongoDB in-memory
+npm test                  # 36 suites, 280 tests — MongoDB in-memory
 npm run test:repositories # 32 files, 241 tests — Neon PostgreSQL (serial concurrency)
 cd backend && npx prisma migrate deploy  # apply PG schema (production)
 
@@ -191,8 +191,12 @@ cd backend && npx prisma migrate deploy  # apply PG schema (production)
 | Expenses | `tests/expense.test.js` | 3 | Expense ledger create, list, summary, RBAC |
 | Expense categories | `tests/expenseCategory.test.js` | 6 | Dynamic category CRUD, toggle, Other custom input, delete guards |
 | Profit & Loss | `tests/profitLoss.test.js` | 2 | P&amp;L report shape and empty-range zero case |
-| POS | `tests/pos.test.js` | 2 | Manual counter order creation |
-| Abandoned carts | `tests/abandonedCart.test.js` | 3 | CRM list KPIs and recovery notify |
+| POS | `tests/pos.test.js` | 3 | Manual counter order creation; access_pos-only staff checkout |
+| Abandoned carts | `tests/abandonedCart.test.js` | 7 | CRM KPI aggregation, READ_PG_CRM failover, notify |
+| Phase 2 PG cutover | `tests/services/phase2ReadCutover.test.js` | 4 | Customer order stats, inbox unread, review product enrichment failover |
+| Phase 3 Part 1 | `tests/services/phase3Part1.test.js` | 4 | COD risk scoring, cart restore tokens, courier webhook status sync |
+| Phase 3 Part 2 | `tests/services/phase3Part2.test.js` | 3 | Wallet credit/debit, POS shift lifecycle, split payment validation |
+| Phase 3 Part 3 | `tests/services/phase3Part3.test.js` | 3 | RFM segmentation, multi-stage abandoned cart recovery, POS offline batch sync idempotency |
 | Dual-write service | `tests/services/dualWriteService.test.js` | 3 | Mongo-first dual-write failure isolation (Category + catalog/ERP + CMS/settings models) |
 | Read router | `tests/services/readRouter.test.js` | 5 | Stage 4 read-cutover flags + Postgres→Mongo fallback |
 | Read shape helpers | `tests/services/readShapeHelpers.test.js` | 10 | Postgres row → Mongo `.lean()` shape parity (group 1 + CMS/Settings) |

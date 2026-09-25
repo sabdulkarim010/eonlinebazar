@@ -24,9 +24,11 @@ const COURIER_BLOCKED_STATUSES = window.COURIER_BLOCKED_STATUSES;
 /* shared state: manualOrderLines lives on window (admin-core) */
 
 let posLinkedCustomerId = null;
+let posCustomerWalletBalance = 0;
 let posCustomerLookupTimer = null;
 let posActiveCategory = '';
 let posCategoryOptions = [];
+const POS_SPLIT_METHODS = ['CASH', 'BKASH', 'NAGAD', 'CARD', 'WALLET', 'COD'];
 
 function getManualOrderProductId(product) {
     return String(product?._id || product?.productId || product?.id || '');
@@ -39,6 +41,7 @@ function formatManualMoney(value) {
 function resetManualOrderForm() {
     manualOrderLines = [];
     posLinkedCustomerId = null;
+    posCustomerWalletBalance = 0;
     const form = document.getElementById('manualOrderForm');
     if (form) form.reset();
     document.getElementById('manualItemQuantity').value = '1';
@@ -50,10 +53,12 @@ function resetManualOrderForm() {
     if (discountType) discountType.value = 'flat';
     const paymentType = document.getElementById('posPaymentType');
     if (paymentType) paymentType.value = 'Cash';
-    ['posSplitCashAmount', 'posSplitDigitalAmount', 'posCashTendered'].forEach((id) => {
+    ['posCashTendered'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.value = '0';
     });
+    resetPosSplitPaymentLines();
+    hidePosCustomerWalletUi();
     hidePosQuickAddCustomer();
     hidePosCustomerLookupUi();
     togglePosOrderDiscountFields();
@@ -141,6 +146,12 @@ async function initPosSession() {
 
     await loadPosCategoryFilters();
     loadPosQuickGrid();
+    if (typeof initPosShiftUi === 'function') {
+        await initPosShiftUi();
+    }
+    if (typeof updatePosShiftCheckoutUi === 'function') {
+        updatePosShiftCheckoutUi();
+    }
 
     const barcodeInput = document.getElementById('manualBarcodeInput');
     if (barcodeInput) barcodeInput.focus();
@@ -1006,6 +1017,42 @@ function showPosCustomerLookupStatus(message, level = 'info') {
     status.hidden = !message;
 }
 
+function hidePosCustomerWalletUi() {
+    const badge = document.getElementById('posCustomerWalletBadge');
+    const walletBtn = document.getElementById('posApplyWalletBtn');
+    if (badge) badge.hidden = true;
+    if (walletBtn) walletBtn.hidden = true;
+}
+
+function showPosCustomerWalletUi(balance) {
+    posCustomerWalletBalance = Math.max(0, Number(balance) || 0);
+    const badge = document.getElementById('posCustomerWalletBadge');
+    const walletBtn = document.getElementById('posApplyWalletBtn');
+    if (badge) {
+        badge.textContent = `Wallet ${formatManualMoney(posCustomerWalletBalance)}`;
+        badge.hidden = false;
+    }
+    if (walletBtn) {
+        walletBtn.hidden = !(posLinkedCustomerId && posCustomerWalletBalance > 0);
+    }
+}
+
+async function fetchPosCustomerWalletBalance(userId) {
+    if (!userId) return 0;
+    try {
+        const res = await fetch(`/api/admin/customers/${encodeURIComponent(userId)}/wallet/transactions?limit=1`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+            return Math.max(0, Number(data.data.balance) || 0);
+        }
+    } catch (err) {
+        console.warn('POS wallet balance fetch failed:', err);
+    }
+    return 0;
+}
+
 function fillPosCustomerFromRecord(customer) {
     if (!customer) return;
     const nameEl = document.getElementById('manualCustomerName');
@@ -1026,6 +1073,16 @@ function fillPosCustomerFromRecord(customer) {
         badge.textContent = `${orderCount} previous order${orderCount !== 1 ? 's' : ''}`;
         badge.hidden = false;
     }
+
+    const walletFromRecord = Number(customer.walletBalance);
+    if (Number.isFinite(walletFromRecord)) {
+        showPosCustomerWalletUi(walletFromRecord);
+    } else if (posLinkedCustomerId) {
+        fetchPosCustomerWalletBalance(posLinkedCustomerId).then(showPosCustomerWalletUi);
+    } else {
+        hidePosCustomerWalletUi();
+    }
+
     showPosCustomerLookupStatus('Customer found — details auto-filled.', 'success');
     hidePosQuickAddCustomer();
 }
@@ -1059,6 +1116,8 @@ async function lookupPosCustomerByPhone(phone) {
         }
 
         posLinkedCustomerId = null;
+        posCustomerWalletBalance = 0;
+        hidePosCustomerWalletUi();
         const badge = document.getElementById('posCustomerOrdersBadge');
         if (badge) badge.hidden = true;
         showPosCustomerLookupStatus('No customer found for this phone.', 'warning');
@@ -1143,15 +1202,126 @@ window.savePosQuickAddCustomer = async function savePosQuickAddCustomer() {
    POS · PAYMENT TYPE / SPLIT / CHANGE
    ========================================================================== */
 
+function resetPosSplitPaymentLines(includeWalletLine = false) {
+    const host = document.getElementById('posSplitPaymentLines');
+    if (!host) return;
+    host.innerHTML = '';
+    addPosSplitPaymentLine('CASH', 0);
+    addPosSplitPaymentLine('BKASH', 0);
+    if (includeWalletLine) addPosSplitPaymentLine('WALLET', 0);
+}
+
+function revealPosSplitPaymentPanel() {
+    const paymentType = document.getElementById('posPaymentType');
+    if (paymentType) paymentType.value = 'Split';
+    const splitFields = document.getElementById('posSplitPaymentFields');
+    if (splitFields) splitFields.hidden = false;
+    resetPosSplitPaymentLines(false);
+    updatePosPaymentUI();
+}
+
+window.updatePosShiftCheckoutUi = function updatePosShiftCheckoutUi() {
+    const shiftOpen = typeof window.isPosShiftOpen === 'function'
+        ? window.isPosShiftOpen()
+        : !!(typeof getPosActiveShiftId === 'function' && getPosActiveShiftId());
+    const checkoutCard = document.querySelector('.pos-checkout-card');
+    const shiftHint = document.getElementById('posShiftCheckoutHint');
+
+    if (checkoutCard) {
+        checkoutCard.classList.toggle('pos-checkout--shift-open', shiftOpen);
+        checkoutCard.classList.toggle('pos-checkout--shift-closed', !shiftOpen);
+    }
+
+    if (shiftHint) {
+        shiftHint.hidden = shiftOpen;
+    }
+
+    if (shiftOpen) {
+        revealPosSplitPaymentPanel();
+    }
+};
+
+function addPosSplitPaymentLine(method = 'CASH', amount = 0) {
+    const host = document.getElementById('posSplitPaymentLines');
+    if (!host) return;
+
+    const row = document.createElement('div');
+    row.className = 'pos-split-line';
+    const options = POS_SPLIT_METHODS.map((m) =>
+        `<option value="${m}" ${m === method ? 'selected' : ''}>${m}</option>`
+    ).join('');
+    row.innerHTML = `
+        <select class="pos-split-method">${options}</select>
+        <input type="number" class="pos-split-amount" min="0" step="1" value="${Number(amount) || 0}" placeholder="Amount">
+        <button type="button" class="pos-split-remove" title="Remove line"><i class="fa-solid fa-xmark"></i></button>`;
+    row.querySelector('.pos-split-remove')?.addEventListener('click', () => {
+        row.remove();
+        updatePosPaymentUI();
+    });
+    row.querySelectorAll('select, input').forEach((el) => {
+        el.addEventListener('input', () => updatePosPaymentUI());
+        el.addEventListener('change', () => updatePosPaymentUI());
+    });
+    host.appendChild(row);
+    updatePosPaymentUI();
+}
+
+window.addPosSplitPaymentLine = addPosSplitPaymentLine;
+
+function collectPosSplitPayments() {
+    const host = document.getElementById('posSplitPaymentLines');
+    if (!host) return [];
+    return Array.from(host.querySelectorAll('.pos-split-line')).map((row) => ({
+        method: row.querySelector('.pos-split-method')?.value || 'CASH',
+        amount: Math.max(0, Number(row.querySelector('.pos-split-amount')?.value) || 0)
+    })).filter((line) => line.amount > 0);
+}
+
+window.applyPosWalletToSplit = function applyPosWalletToSplit() {
+    if (!posLinkedCustomerId || posCustomerWalletBalance <= 0) {
+        return showToast('Link a customer with wallet balance first.', 'warning');
+    }
+    const paymentType = document.getElementById('posPaymentType');
+    if (paymentType) paymentType.value = 'Split';
+    const splitFields = document.getElementById('posSplitPaymentFields');
+    if (splitFields) splitFields.hidden = false;
+
+    const { effectiveSubtotal } = computePosSubtotals();
+    const orderDiscount = computeOrderDiscountAmount(effectiveSubtotal);
+    const shipping = Math.max(0, Number(document.getElementById('manualShippingFee')?.value) || 0);
+    const grandTotal = Math.max(0, effectiveSubtotal - orderDiscount + shipping);
+    const walletUse = Math.min(posCustomerWalletBalance, grandTotal);
+
+    const host = document.getElementById('posSplitPaymentLines');
+    if (host && !host.querySelector('.pos-split-line')) {
+        resetPosSplitPaymentLines();
+    }
+
+    const existingWallet = host?.querySelector('.pos-split-line .pos-split-method');
+    let walletRow = Array.from(host?.querySelectorAll('.pos-split-line') || []).find(
+        (row) => row.querySelector('.pos-split-method')?.value === 'WALLET'
+    );
+    if (!walletRow) {
+        addPosSplitPaymentLine('WALLET', walletUse);
+    } else {
+        const amountEl = walletRow.querySelector('.pos-split-amount');
+        if (amountEl) amountEl.value = String(walletUse);
+    }
+    updatePosPaymentUI(grandTotal);
+    showToast(`Wallet ${formatManualMoney(walletUse)} applied to split payment.`, 'success');
+};
+
 function buildPosPaymentDetails(grandTotal) {
     const paymentType = document.getElementById('posPaymentType')?.value || 'Cash';
     const total = Number(grandTotal) || 0;
     const details = { type: paymentType, grandTotal: total };
 
     if (paymentType === 'Split') {
-        details.cashAmount = Math.max(0, Number(document.getElementById('posSplitCashAmount')?.value) || 0);
-        details.digitalAmount = Math.max(0, Number(document.getElementById('posSplitDigitalAmount')?.value) || 0);
-        details.totalPaid = details.cashAmount + details.digitalAmount;
+        const lines = collectPosSplitPayments();
+        details.lines = lines;
+        details.totalPaid = lines.reduce((sum, line) => sum + line.amount, 0);
+        details.cashAmount = lines.filter((l) => l.method === 'CASH').reduce((s, l) => s + l.amount, 0);
+        details.digitalAmount = lines.filter((l) => l.method !== 'CASH' && l.method !== 'COD' && l.method !== 'WALLET').reduce((s, l) => s + l.amount, 0);
     } else if (paymentType === 'Cash') {
         details.tendered = Math.max(0, Number(document.getElementById('posCashTendered')?.value) || 0);
         details.change = Math.max(0, details.tendered - total);
@@ -1165,7 +1335,11 @@ function formatPosPaymentNote(details) {
     const parts = [`Payment: ${details.type}`];
 
     if (details.type === 'Split') {
-        parts.push(`Cash ${formatManualMoney(details.cashAmount || 0)} + Digital ${formatManualMoney(details.digitalAmount || 0)}`);
+        if (Array.isArray(details.lines) && details.lines.length) {
+            parts.push(details.lines.map((l) => `${l.method} ${formatManualMoney(l.amount)}`).join(' + '));
+        } else {
+            parts.push(`Cash ${formatManualMoney(details.cashAmount || 0)} + Digital ${formatManualMoney(details.digitalAmount || 0)}`);
+        }
         if (details.totalPaid !== details.grandTotal) {
             parts.push(`Paid ${formatManualMoney(details.totalPaid)} / Due ${formatManualMoney(details.grandTotal)}`);
         }
@@ -1184,7 +1358,15 @@ window.updatePosPaymentUI = function updatePosPaymentUI(grandTotalOverride) {
     const changeWrap = document.getElementById('posChangeAmountWrap');
     const changeEl = document.getElementById('posChangeAmount');
 
-    if (splitFields) splitFields.hidden = paymentType !== 'Split';
+    if (splitFields) {
+        splitFields.hidden = paymentType !== 'Split';
+        if (paymentType === 'Split') {
+            const host = document.getElementById('posSplitPaymentLines');
+            if (host && !host.querySelector('.pos-split-line')) {
+                resetPosSplitPaymentLines();
+            }
+        }
+    }
     if (cashWrap) cashWrap.hidden = paymentType !== 'Cash';
 
     const { effectiveSubtotal } = computePosSubtotals();
@@ -1205,12 +1387,21 @@ window.updatePosPaymentUI = function updatePosPaymentUI(grandTotalOverride) {
                 : 'Exact amount — no change';
             changeEl.dataset.level = details.change > 0 ? 'success' : 'info';
         } else if (showChange && paymentType === 'Split') {
-            const diff = (details.totalPaid || 0) - grandTotal;
+            const diff = Math.round(((details.totalPaid || 0) - grandTotal) * 100) / 100;
             changeWrap.hidden = false;
-            changeEl.textContent = diff >= 0
-                ? `Split total: ${formatManualMoney(details.totalPaid)} (${diff > 0 ? `over by ${formatManualMoney(diff)}` : 'balanced'})`
-                : `Split total ${formatManualMoney(details.totalPaid || 0)} — ${formatManualMoney(Math.abs(diff))} remaining`;
-            changeEl.dataset.level = diff >= 0 ? 'success' : 'warning';
+            changeEl.textContent = diff === 0
+                ? `Split total ${formatManualMoney(details.totalPaid)} — balanced`
+                : (diff > 0
+                    ? `Split total ${formatManualMoney(details.totalPaid)} — over by ${formatManualMoney(diff)}`
+                    : `Split total ${formatManualMoney(details.totalPaid || 0)} — ${formatManualMoney(Math.abs(diff))} remaining`);
+            changeEl.dataset.level = diff === 0 ? 'success' : 'warning';
+            const hint = document.getElementById('posSplitPaymentHint');
+            if (hint) {
+                hint.dataset.level = diff === 0 ? 'success' : 'warning';
+                hint.textContent = diff === 0
+                    ? 'Split payment balanced with grand total.'
+                    : 'Adjust split lines until they equal the grand total.';
+            }
         } else {
             changeWrap.hidden = true;
             changeEl.textContent = '';
@@ -1233,11 +1424,25 @@ async function submitManualOrder(event) {
     const isCod = paymentType === 'COD';
     const posPaymentDetails = buildPosPaymentDetails(grandTotal);
 
+    let splitPaymentsPayload = null;
     if (paymentType === 'Split') {
-        const paid = (posPaymentDetails.cashAmount || 0) + (posPaymentDetails.digitalAmount || 0);
-        if (paid < grandTotal) {
-            return showToast(`Split payment total (${formatManualMoney(paid)}) is less than grand total (${formatManualMoney(grandTotal)}).`, 'warning');
+        const lines = collectPosSplitPayments();
+        const paid = Math.round(lines.reduce((sum, line) => sum + line.amount, 0) * 100) / 100;
+        const due = Math.round(grandTotal * 100) / 100;
+        if (!lines.length) {
+            return showToast('Add at least one split payment line.', 'warning');
         }
+        if (paid !== due) {
+            return showToast(`Split payment total (${formatManualMoney(paid)}) must equal grand total (${formatManualMoney(due)}).`, 'warning');
+        }
+        const walletLine = lines.find((l) => l.method === 'WALLET');
+        if (walletLine && !posLinkedCustomerId) {
+            return showToast('Wallet payment requires a linked customer account.', 'warning');
+        }
+        if (walletLine && walletLine.amount > posCustomerWalletBalance) {
+            return showToast(`Insufficient wallet balance (${formatManualMoney(posCustomerWalletBalance)}).`, 'warning');
+        }
+        splitPaymentsPayload = lines;
     }
 
     const staffNote = document.getElementById('manualOrderNote')?.value?.trim() || '';
@@ -1276,6 +1481,15 @@ async function submitManualOrder(event) {
         }))
     };
 
+    if (splitPaymentsPayload) {
+        payload.payments = splitPaymentsPayload;
+    }
+
+    if (typeof getPosActiveShiftId === 'function') {
+        const shiftId = getPosActiveShiftId();
+        if (shiftId) payload.posShiftId = shiftId;
+    }
+
     const submitBtn = document.getElementById('manualOrderSubmitBtn');
     const restore = setButtonLoading(submitBtn, 'Creating…');
 
@@ -1311,7 +1525,24 @@ async function submitManualOrder(event) {
         }
     } catch (err) {
         console.error('Manual order submit error:', err);
-        showToast('Could not reach the server. Please try again.', 'error');
+        if (typeof queuePosOfflineOrder === 'function') {
+            const offlinePayload = {
+                offlineOrderId: `OFFLINE-${Date.now()}`,
+                totalAmount: grandTotal,
+                customer: {
+                    name: payload.customerName,
+                    phone: payload.customerPhone,
+                    address: payload.customerAddress
+                },
+                items: payload.items,
+                payments: splitPaymentsPayload || [{ method: paymentType === 'COD' ? 'COD' : 'CASH', amount: grandTotal }],
+                posShiftId: payload.posShiftId || undefined
+            };
+            queuePosOfflineOrder(offlinePayload);
+            showToast('Network error — order queued for offline sync.', 'warning');
+        } else {
+            showToast('Could not reach the server. Please try again.', 'error');
+        }
     } finally {
         restore();
     }
@@ -1591,6 +1822,8 @@ function setupManualOrderEngine() {
 
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
+    applyPosWalletToSplit,
+    addPosSplitPaymentLine,
     addManualOrderLine,
     addProductFromBarcode,
     addProductToCart,
@@ -1625,6 +1858,8 @@ Object.assign(window, {
     togglePosOrderDiscountFields,
     updateManualOrderTotals,
     updateManualVariantStockHint,
-    updatePosPaymentUI
+    updatePosPaymentUI,
+    updatePosShiftCheckoutUi,
+    revealPosSplitPaymentPanel
 });
 

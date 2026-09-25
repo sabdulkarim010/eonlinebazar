@@ -3231,6 +3231,70 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | `prismaClient.js` fallback | ✅ | `DATABASE_URL_POOLED \|\| DATABASE_URL` |
 | Warehouse repo Neon HTTP flake | ✅ | `setDefault`/`create` return post-write rows; test assertions scoped |
 
+## Phase 3 Part 3 — RFM Segmentation, Multi-Stage Cart Recovery, POS Offline Sync — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| RFM customer segmentation engine | ✅ | `rfmSegmentationService.js` — CHAMPION/LOYAL/AT_RISK/LOST/NEW/STANDARD from delivered orders |
+| RFM CRM endpoints | ✅ | `GET /api/admin/crm/rfm-segments`, `POST .../recalculate` (`manage_customers`) |
+| Multi-stage abandoned cart recovery | ✅ | Stage 1 (1h SMS/WhatsApp), Stage 2 (24h email + 5% coupon), Stage 3 (48h final reminder) |
+| Recovery stage deduplication | ✅ | `recoveryStage` 0→3 on cart; timestamps prevent duplicate stage sends |
+| POS offline batch sync | ✅ | `POST /api/admin/pos/orders/batch-sync` — idempotent via `offlineOrderId`; inventory + shift sales |
+| Jest regression suite | ✅ | **280/280** passing |
+
+## Phase 3 Part 2 — Wallet, POS Shifts, Split Payments — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Wallet balance + credit/debit + transactions | ✅ | Admin + customer routes; dual-write via existing walletService |
+| POS shift open/current/close/history | ✅ | `posShiftService` + `access_pos` / `manage_orders` routes |
+| Split payment manual/POS checkout | ✅ | `payments[]` validated against order total; WALLET line deducts balance |
+| Shift sales linkage | ✅ | Manual orders attach `posShiftId` and update shift cash/digital totals |
+| Jest regression suite | ✅ | **277/277** passing |
+
+## Phase 3 Part 1 — COD Risk, Cart Restore, Courier Webhooks — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Customer export PG order stats | ✅ | `exportController.exportCustomersCSV` uses `fetchCustomerOrderStatsMap` |
+| COD fraud risk scoring | ✅ | `riskScoringService` — LOW/MEDIUM/HIGH on admin order list |
+| One-click cart restore | ✅ | `GET /api/cart/restore/:token` + checkout restore URLs in CRM notify |
+| Courier webhook sync | ✅ | `POST /api/webhooks/courier/{steadfast,pathao,redx}` — dual-write + audit log |
+| Jest regression suite | ✅ | **274/274** passing |
+
+## Phase 2 — Customer/Ticket/Review PG Read Cutover — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Customer list segment stats | ✅ | `fetchCustomerOrderStatsMap` via `routedRead('order')` — PG `groupBy` + Mongo aggregate fallback |
+| Customer detail order count/spend | ✅ | `fetchCustomerOrderCount` + `fetchCustomerDeliveredSpend` |
+| Customer order history | ✅ | `fetchCustomerOrderHistory` → `orderRepository.findAllDetailed` on PG |
+| Support inbox unread badge | ✅ | `countUnreadInbox()` counts `isRead: false`; Mongo path aligned |
+| Review product enrichment | ✅ | `fetchProductsForAdminReviews` via `routedRead('product')` |
+| Jest regression suite | ✅ | **270/270** passing |
+
+## Phase 1 — Abandoned Cart 500 Fix + POS Permission Alignment — 2026-09-24
+
+**Status:** ✅ Fixed
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Abandoned cart HTTP 500 | ✅ | Unbounded KPI `findMany` replaced with `count` + aggregate SUM; list capped at 100/page |
+| READ_PG_CRM cutover | ✅ | `routedRead('crm')` with circuit-breaker Mongo fallback (matches other Sales modules) |
+| Abandoned cart notify | ✅ | Hybrid PG/Mongo cart lookup; PG `abandonedNotifiedAt` mirror on notify |
+| Abandoned cart cron populate | ✅ | `abandonedCartJob.js` uses `.populate('userId')` only |
+| POS checkout 403 | ✅ | `POST /orders/manual` accepts `access_pos` |
+| POS quick customer 403 | ✅ | `POST /customers/quick` accepts `access_pos`; `access_pos` → `view_customers` |
+| Jest regression suite | ✅ | **266/266** passing |
+
 ## Abandoned Cart Notify Test — 2026-09-23
 
 **Status:** ✅ Fixed

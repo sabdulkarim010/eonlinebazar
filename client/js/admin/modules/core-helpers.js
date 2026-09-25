@@ -75,6 +75,19 @@
 
 /* shared state: adminRewardSettings lives on window (admin-core) */
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[ch]));
+}
+
+/** Alias used by POS/catalog modules */
+const escHtml = escapeHtml;
+
 /** Format a monetary amount using the admin-configured currency symbol */
 function formatAdminPrice(amount) {
     const sym = adminCurrencySymbol || '৳';
@@ -187,6 +200,8 @@ function buildProductTablePriceCells(product) {
 
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
+    escapeHtml,
+    escHtml,
     formatAdminPrice,
     getOrderGrandTotal,
     cacheAdminRewardSettings,

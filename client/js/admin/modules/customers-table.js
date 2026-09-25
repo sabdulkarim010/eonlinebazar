@@ -206,6 +206,57 @@ function buildOrderProductsSummary(items) {
     return `<span class="order-products-primary">${firstName}</span> <span class="order-products-more">(+${extra} more)</span>`;
 }
 
+function buildCodRiskBadge(order) {
+    const isCod = String(order.paymentMethod || '').toUpperCase() === 'COD'
+        || String(order.payment?.status || '').toLowerCase() === 'cod';
+    const score = String(order.riskScore || '').toUpperCase();
+    if (!isCod && !score) return '';
+    const cls = score === 'HIGH' ? 'cod-risk-badge--high'
+        : score === 'MEDIUM' ? 'cod-risk-badge--medium'
+            : 'cod-risk-badge--low';
+    const label = score || 'LOW';
+    const title = escapeHtml(order.riskReason || 'COD risk assessment');
+    return `<span class="cod-risk-badge ${cls}" title="${title}">COD ${label}</span>`;
+}
+
+function buildCourierStatusPanel(order) {
+    const provider = escapeHtml(order.courierProvider || order.courierName || '—');
+    const tracking = escapeHtml(order.courierTrackingId || '—');
+    const status = escapeHtml(order.courierStatus || 'unbooked');
+    const consignment = escapeHtml(order.courierConsignmentId || '—');
+    const synced = order.courierSyncedAt
+        ? new Date(order.courierSyncedAt).toLocaleString('en-GB')
+        : '—';
+
+    return `
+        <div class="order-expanded-section">
+            <h4>Courier Status</h4>
+            <dl class="order-expanded-payment">
+                <div><dt>Provider</dt><dd>${provider}</dd></div>
+                <div><dt>Tracking ID</dt><dd>${tracking}</dd></div>
+                <div><dt>Consignment</dt><dd>${consignment}</dd></div>
+                <div><dt>Live Status</dt><dd><span class="courier-live-status">${status}</span></dd></div>
+                <div><dt>Last Sync</dt><dd>${escapeHtml(synced)}</dd></div>
+            </dl>
+        </div>`;
+}
+
+function isCodOrder(order) {
+    return String(order?.paymentMethod || '').toUpperCase() === 'COD'
+        || String(order?.payment?.status || '').toLowerCase() === 'cod';
+}
+
+function buildOrderRiskPanel(order) {
+    const badge = buildCodRiskBadge(order);
+    if (!badge) return '';
+    return `
+        <div class="order-expanded-section order-expanded-section--risk">
+            <h4>COD Risk Assessment</h4>
+            <p class="order-risk-summary">${badge}</p>
+            <p class="order-risk-reason">${escapeHtml(order.riskReason || (isCodOrder(order) ? 'Standard COD order — no elevated risk flags.' : 'No additional risk factors.'))}</p>
+        </div>`;
+}
+
 function buildOrderExpandedPanel(order) {
     const address = escapeHtml(order.customerAddress || '—');
     const items = Array.isArray(order.items) ? order.items : [];
@@ -244,6 +295,8 @@ function buildOrderExpandedPanel(order) {
                     <h4>All Products</h4>
                     ${productsHtml}
                 </div>
+                ${buildOrderRiskPanel(order)}
+                ${buildCourierStatusPanel(order)}
                 <div class="order-expanded-section">
                     <h4>Payment Details</h4>
                     <dl class="order-expanded-payment">
@@ -420,7 +473,7 @@ function renderCustomerTable(customers, totalFiltered) {
                     <input type="checkbox" class="customer-row-checkbox" value="${uid}" ${isChecked} onchange="toggleCustomerSelection(this)">
                 </td>
                 <td class="customers-td customers-td--id">${buildCustomerCopyCell(`<b>#${escapeHtml(displayId)}</b>`, userIdCopy)}</td>
-                <td class="customers-td customers-td--name"><span class="customers-name">${escapeHtml(getCustomerDisplayName(user))}${user.isVip ? ' <span class="customers-vip-crown" aria-hidden="true">👑</span>' : ''}</span></td>
+                <td class="customers-td customers-td--name"><span class="customers-name">${escapeHtml(getCustomerDisplayName(user))}${user.isVip ? ' <span class="customers-vip-crown" aria-hidden="true">👑</span>' : ''}${typeof window.getRfmSegmentBadge === 'function' ? window.getRfmSegmentBadge(user) : ''}</span></td>
                 <td class="customers-td customers-td--email">${emailDisplay !== 'N/A' ? buildCustomerCopyCell(escapeHtml(emailDisplay), emailDisplay) : 'N/A'}</td>
                 <td class="customers-td customers-td--mobile">${mobileDisplay !== 'N/A' ? buildCustomerCopyCell(escapeHtml(mobileDisplay), mobileDisplay) : 'N/A'}</td>
                 <td class="customers-td customers-td--num">${getOrderCountBadge(user.orderCount)}</td>
@@ -533,6 +586,7 @@ Object.assign(window, {
     buildCustomerCopyCell,
     buildOrderAddressCopyField,
     buildOrderCopyField,
+    buildCodRiskBadge,
     buildOrderExpandedPanel,
     buildOrderProductsSummary,
     getCustomerDisplayName,

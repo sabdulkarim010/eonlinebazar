@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (Settings export/import + Ctrl+S — Phase 3 Step 2)  
+**Last updated:** 2026-09-25 (Phase 3 backend API admin UI integration)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -34,7 +34,8 @@
 | `client/js/admin/modules/core-breadcrumb.js` | Dashboard > Group > Section breadcrumbs |
 | `client/js/admin/modules/settings-hub.js` | Settings tab routing |
 | `client/js/admin/modules/settings-utils.js` | Shared `settingsFetchJson` (15s timeout) |
-| `client/js/admin/modules/orders-pos.js` | POS checkout, barcode, split payment |
+| `client/js/admin/modules/orders-pos.js` | POS checkout, barcode, multi-line split payment, wallet |
+| `client/js/admin/modules/pos-shift-ui.js` | POS shift open/close + offline batch sync queue |
 | `client/js/admin/modules/notifications.js` | In-app notification center |
 | `client/js/admin/modules/adminSidebar.js` | Sidebar profile — merged Admin + linked Employee via `/api/admin/profile/me/full` |
 | `client/js/admin/modules/admin-stock-alerts.js` | Dashboard inventory alerts client-side pagination |
@@ -171,6 +172,22 @@
 - `settings-dirty-tracker.js`: dirty/pristine tracking, tab-switch confirm, `beforeunload`, save-state chips
 - Wired across branding, general, security, notifications, embedded shipping forms
 - Tests: **237/237** pass
+
+### Phase 3 Admin UI Verification Pass — 2026-09-25
+
+- **POS:** Shift open now auto-reveals Split Payment panel (Cash + bKash lines); shift-closed hint banner; wallet/`applyPosWalletToSplit` exposed on window
+- **Customers:** RFM segments merged from Mongo on PG customer reads; badges render in list + profile modal
+- **Orders:** COD risk panel shows for all COD orders; badge layout cleaned in order ID column
+- **Shared:** `escapeHtml`/`escHtml` on window via core-helpers (no admin-staff load-order dependency)
+- Tests: **280/280** pass
+
+### Phase 3 Backend API UI Integration — 2026-09-25
+
+- **POS:** Shift status bar + open/close modals; multi-line split payments (`payments[]`); wallet balance badge + Use Wallet; offline queue + Sync button → `POST /api/admin/pos/orders/batch-sync`
+- **Customers:** RFM segment badges, filter dropdown, Recalculate RFM button; wallet transaction history in profile modal
+- **Orders:** COD risk badges (LOW/MEDIUM/HIGH); courier live status chip + expanded courier panel
+- **Abandoned carts:** Recovery stage column + copy restore link
+- Tests: **280/280** pass
 
 ### Settings Hub Design System Standardization — 2026-09-24
 

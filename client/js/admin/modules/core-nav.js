@@ -104,6 +104,48 @@ function getCustomerSegmentBadge(user) {
     return '<span class="segment-badge segment-badge--standard">Standard</span>';
 }
 
+function getRfmSegmentBadge(user = {}) {
+    const segment = String(user.rfmSegment || '').trim().toUpperCase();
+    if (!segment) return '';
+    const labels = {
+        CHAMPION: { cls: 'rfm-badge--champion', icon: 'fa-trophy', text: 'Champion' },
+        LOYAL: { cls: 'rfm-badge--loyal', icon: 'fa-heart', text: 'Loyal' },
+        AT_RISK: { cls: 'rfm-badge--at-risk', icon: 'fa-triangle-exclamation', text: 'At Risk' },
+        LOST: { cls: 'rfm-badge--lost', icon: 'fa-user-slash', text: 'Lost' },
+        NEW: { cls: 'rfm-badge--new', icon: 'fa-seedling', text: 'New' },
+        STANDARD: { cls: 'rfm-badge--standard', icon: 'fa-user', text: 'Standard' }
+    };
+    const meta = labels[segment] || labels.STANDARD;
+    return `<span class="rfm-badge ${meta.cls}" title="RFM: ${segment}"><i class="fa-solid ${meta.icon}"></i> ${meta.text}</span>`;
+}
+
+window.recalculateRfmSegments = async function recalculateRfmSegments() {
+    const btn = document.getElementById('recalculateRfmBtn');
+    const restore = setButtonLoading(btn, 'Recalculating…');
+    try {
+        const res = await fetch('/api/admin/crm/rfm-segments/recalculate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({})
+        });
+        const data = await res.json();
+        if (!data.success) {
+            return showToast(data.message || 'RFM recalculation failed.', 'error');
+        }
+        showAdminSuccess('RFM Updated', data.message || 'Customer RFM segments recalculated.');
+        customersSegmentCacheLoaded = false;
+        await fetchCustomers(true);
+    } catch (err) {
+        console.error('RFM recalculate error:', err);
+        showToast('Could not recalculate RFM segments.', 'error');
+    } finally {
+        restore();
+    }
+};
+
 /* shared state: customerSegmentFilter lives on window (admin-core) */
 
 /* shared state: customerSegmentThresholds lives on window (admin-core) */
@@ -347,11 +389,15 @@ window.fetchCustomers = async function fetchCustomers(pageOrReset = 1, limitArg)
 };
 
 function filterCustomersBySegment(customers, segment = customerSegmentFilter) {
-    const list = Array.isArray(customers) ? customers : [];
-    if (segment === 'vip') return list.filter((user) => user.isVip);
-    if (segment === 'frequent') return list.filter((user) => user.isFrequentBuyer);
-    if (segment === 'inactive') {
-        return list.filter((user) => user.isInactive || user.segment === 'inactive' || Number(user.orderCount) === 0);
+    let list = Array.isArray(customers) ? customers : [];
+    if (segment === 'vip') list = list.filter((user) => user.isVip);
+    else if (segment === 'frequent') list = list.filter((user) => user.isFrequentBuyer);
+    else if (segment === 'inactive') {
+        list = list.filter((user) => user.isInactive || user.segment === 'inactive' || Number(user.orderCount) === 0);
+    }
+    if (customerRfmFilter) {
+        const needle = String(customerRfmFilter).toUpperCase();
+        list = list.filter((user) => String(user.rfmSegment || '').toUpperCase() === needle);
     }
     return list;
 }
@@ -390,6 +436,17 @@ function setupCustomerSegmentTabs() {
         tierFilter.addEventListener('change', () => {
             customerTierFilter = tierFilter.value || '';
             customersSegmentCacheLoaded = false;
+            fetchCustomers(true);
+        });
+    }
+
+    const rfmFilter = document.getElementById('customerRfmFilter');
+    if (rfmFilter && !rfmFilter.dataset.bound) {
+        rfmFilter.dataset.bound = '1';
+        rfmFilter.addEventListener('change', () => {
+            customerRfmFilter = rfmFilter.value || '';
+            customersSegmentCacheLoaded = false;
+            ensureCustomerPagination()?.resetPage();
             fetchCustomers(true);
         });
     }
@@ -1041,6 +1098,7 @@ Object.assign(window, {
     updateAdminPageHeader,
     getOrderCountBadge,
     getCustomerSegmentBadge,
+    getRfmSegmentBadge,
     initAdminPaginationInstances,
     filterCustomersBySegment,
     setupCustomerSegmentTabs,

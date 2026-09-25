@@ -2,12 +2,11 @@
  * Admin review listing and moderation.
  ********************************************************************/
 
-const mongoose = require('mongoose');
 const Review = require('../models/review');
-const Product = require('../models/product');
 const { syncProductRating } = require('./reviewController');
 const { dualWrite } = require('../services/dualWriteService');
 const { fetchAdminReviewsPage } = require('../services/marketingSupportReadService');
+const { fetchProductsForAdminReviews } = require('../services/userReadService');
 
 function getReviewRepository() {
     return require('../repositories/reviewRepository');
@@ -33,20 +32,9 @@ const getAllReviews = async (req, res) => {
         });
 
         const productIds = [...new Set(reviews.map((r) => String(r.productId || '')).filter(Boolean))];
-        const products = productIds.length
-            ? await Product.find({
-                $or: [
-                    { productId: { $in: productIds } },
-                    ...(productIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => ({ _id: id })))
-                ]
-            }).select('name images image productId').lean()
-            : [];
-
-        const productMap = new Map();
-        products.forEach((p) => {
-            productMap.set(String(p._id), p);
-            if (p.productId) productMap.set(String(p.productId), p);
-        });
+        const productMap = productIds.length
+            ? await fetchProductsForAdminReviews(productIds)
+            : new Map();
 
         const enriched = reviews.map((review) => ({
             ...review,

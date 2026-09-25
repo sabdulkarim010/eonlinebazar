@@ -361,6 +361,12 @@ window.viewCustomerDetails = async function(userId) {
         set('cvVerified', u.isVerified ? 'Verified' : 'Pending');
         set('cvAccountStatus', (u.accountStatus || 'active').charAt(0).toUpperCase() + (u.accountStatus || 'active').slice(1));
         set('cvWallet', formatAdminPrice(u.walletBalance || 0));
+        const rfmEl = document.getElementById('cvRfmSegment');
+        if (rfmEl) {
+            rfmEl.innerHTML = typeof window.getRfmSegmentBadge === 'function'
+                ? (window.getRfmSegmentBadge(u) || '—')
+                : (u.rfmSegment || '—');
+        }
         set('cvPoints', Number(u.loyaltyPoints || 0).toLocaleString());
         const tierEl = document.getElementById('cvTier');
         if (tierEl) {
@@ -378,6 +384,7 @@ window.viewCustomerDetails = async function(userId) {
         set('cvJoined', u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—');
 
         renderCustomerWalletAdjust(u);
+        await loadCustomerWalletHistory(resolvedId || userId);
 
         const editFromView = document.getElementById('cvEditFromViewBtn');
         if (editFromView) {
@@ -753,6 +760,59 @@ window.closeCustomerOrdersModal = function() {
     if (modal) modal.style.display = 'none';
 };
 
+async function loadCustomerWalletHistory(userId) {
+    const host = document.getElementById('cvWalletHistoryBody');
+    if (!host) return;
+    host.innerHTML = '<p class="cv-wallet-history-empty">Loading transactions…</p>';
+
+    const path = customerApiPath(userId, 'wallet/transactions');
+    if (!path) {
+        host.innerHTML = '<p class="cv-wallet-history-empty">Invalid customer ID.</p>';
+        return;
+    }
+
+    try {
+        const res = await fetch(`${path}?limit=20`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!data.success || !data.data) {
+            host.innerHTML = '<p class="cv-wallet-history-empty">Could not load wallet history.</p>';
+            return;
+        }
+
+        const rows = Array.isArray(data.data.transactions) ? data.data.transactions : [];
+        if (!rows.length) {
+            host.innerHTML = '<p class="cv-wallet-history-empty">No wallet transactions yet.</p>';
+            return;
+        }
+
+        host.innerHTML = `
+            <table class="cv-wallet-history-table">
+                <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Note</th></tr></thead>
+                <tbody>
+                    ${rows.map((row) => {
+                        const type = String(row.type || row.direction || 'credit').toLowerCase();
+                        const amount = Number(row.amount) || 0;
+                        const when = row.createdAt || row.date
+                            ? new Date(row.createdAt || row.date).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : '—';
+                        const sign = type.includes('debit') || amount < 0 ? '-' : '+';
+                        return `<tr>
+                            <td>${escapeHtml(when)}</td>
+                            <td>${escapeHtml(type)}</td>
+                            <td>${sign}৳${Math.abs(amount).toLocaleString('en-US')}</td>
+                            <td>${escapeHtml(row.description || row.note || row.reason || '—')}</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>`;
+    } catch (err) {
+        console.error('wallet history load failed:', err);
+        host.innerHTML = '<p class="cv-wallet-history-empty">Failed to load wallet history.</p>';
+    }
+}
+
 function renderCustomerWalletAdjust(customer) {
     const host = document.getElementById('cvWalletAdjustHost');
     const customerKey = resolveCustomerActionId(customer?._id, customer);
@@ -812,6 +872,10 @@ window.adjustWalletBalance = async function adjustWalletBalance(userId) {
                 viewedCustomer.walletBalance = data.newBalance;
                 const walletEl = document.getElementById('cvWallet');
                 if (walletEl) walletEl.textContent = formatAdminPrice(data.newBalance || 0);
+                if (viewedCustomer) {
+                    viewedCustomer.walletBalance = data.newBalance;
+                    loadCustomerWalletHistory(resolvedId);
+                }
                 renderCustomerWalletAdjust(viewedCustomer);
             }
             await refreshCustomerListAfterChange();
@@ -828,6 +892,7 @@ window.adjustWalletBalance = async function adjustWalletBalance(userId) {
 Object.assign(window, {
     adjustWalletBalance: window.adjustWalletBalance,
     bindAdminDistrictUpazilaHandlers,
+    loadCustomerWalletHistory,
     parseCompositeAddressParts,
     populateAdminUpazilaSelect,
     renderCustomerWalletAdjust

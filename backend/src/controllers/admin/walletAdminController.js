@@ -1,11 +1,13 @@
 /********************************************************************
- * Admin wallet balance adjustments (manual credit / debit).
+ * Admin wallet balance adjustments and transaction history.
  ********************************************************************/
 
 const User = require('../../models/user');
 const {
-    creditWalletForUser,
-    debitWalletForAdmin
+    creditWallet,
+    debitWallet,
+    getWalletBalance,
+    getWalletTransactions
 } = require('../../services/walletService');
 const { roundMoney } = require('../../services/deliveryChargeService');
 
@@ -40,7 +42,7 @@ const adjustCustomerWallet = async (req, res) => {
         const note = String(description || 'Admin adjustment').trim() || 'Admin adjustment';
 
         if (normalizedType === 'credit') {
-            const updated = await creditWalletForUser(userId, value, '', note);
+            const updated = await creditWallet(userId, value, note);
             if (!updated) {
                 return res.status(400).json({
                     success: false,
@@ -48,7 +50,7 @@ const adjustCustomerWallet = async (req, res) => {
                 });
             }
         } else {
-            const updated = await debitWalletForAdmin(userId, value, note);
+            const updated = await debitWallet(userId, value, note);
             if (!updated) {
                 return res.status(400).json({
                     success: false,
@@ -75,6 +77,52 @@ const adjustCustomerWallet = async (req, res) => {
     }
 };
 
+const creditCustomerWallet = async (req, res) => {
+    try {
+        const userId = req.params.id || req.params.userId;
+        const value = roundMoney(Number(req.body?.amount));
+        const reason = String(req.body?.reason || req.body?.description || 'Admin wallet credit').trim();
+
+        if (value <= 0) {
+            return res.status(400).json({ success: false, message: 'Amount must be greater than zero.' });
+        }
+
+        const updated = await creditWallet(userId, value, reason || 'Admin wallet credit');
+        if (!updated) {
+            return res.status(400).json({ success: false, message: 'Could not credit wallet.' });
+        }
+
+        const balance = await getWalletBalance(userId);
+        return res.json({
+            success: true,
+            message: `Wallet credited by ৳${value.toLocaleString()}`,
+            data: { balance, credited: value, reason }
+        });
+    } catch (err) {
+        console.error('creditCustomerWallet error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+const getCustomerWalletTransactions = async (req, res) => {
+    try {
+        const userId = req.params.id || req.params.userId;
+        const limit = Math.min(100, Math.max(1, parseInt(req.query?.limit, 10) || 50));
+        const payload = await getWalletTransactions(userId, { limit });
+
+        if (!payload) {
+            return res.status(404).json({ success: false, message: 'Customer not found.' });
+        }
+
+        return res.json({ success: true, data: payload });
+    } catch (err) {
+        console.error('getCustomerWalletTransactions error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
 module.exports = {
-    adjustCustomerWallet
+    adjustCustomerWallet,
+    creditCustomerWallet,
+    getCustomerWalletTransactions
 };

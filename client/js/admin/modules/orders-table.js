@@ -327,10 +327,11 @@ window.renderOrderTable = function() {
         const displayIdSafe = escapeHtml(displayId);
         const customerName = order.customerName || '—';
         const customerPhone = order.customerPhone || '—';
+        const riskBadgeHtml = typeof window.buildCodRiskBadge === 'function' ? window.buildCodRiskBadge(order) : '';
         const orderIdCellHtml = `
             <button type="button" class="order-id-link" onclick="event.stopPropagation(); viewInvoice('${orderId}')" title="View invoice">
                 #${displayIdSafe}
-            </button>${order.isSandbox ? '<span class="sandbox-badge">TEST</span>' : ''}${buildAdminPaymentProofPendingBadge(order)}`;
+            </button>${order.isSandbox ? '<span class="sandbox-badge">TEST</span>' : ''}${buildAdminPaymentProofPendingBadge(order)}${riskBadgeHtml ? `<div class="order-risk-inline">${riskBadgeHtml}</div>` : ''}`;
         const customerNameHtml = `<span class="order-customer-name">${escapeHtml(customerName)}</span>`;
         const customerPhoneHtml = `<span class="order-customer-phone-sub">${escapeHtml(customerPhone)}</span>`;
         const customerAddress = order.customerAddress || '—';

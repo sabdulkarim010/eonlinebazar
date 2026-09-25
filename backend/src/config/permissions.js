@@ -435,6 +435,7 @@ const PERMISSION_IMPLICATIONS = Object.freeze({
         'apply_leave_for_staff', 'manage_payroll', 'manage_leave'
     ],
     manage_orders: [],
+    access_pos: ['view_customers'],
     manage_support_tickets: ['manage_tickets'],
     manage_inventory: [
         'view_products', 'edit_products', 'manage_stock', 'manage_catalog',

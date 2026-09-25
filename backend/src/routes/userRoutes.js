@@ -13,6 +13,7 @@ const authController = require('../controllers/authController');
 const userProfileController = require('../controllers/userProfileController');
 const userWishlistController = require('../controllers/userWishlistController');
 const referralController = require('../controllers/referralController');
+const walletCustomerController = require('../controllers/walletCustomerController');
 
 // সিকিউরিটির জন্য মিডলওয়্যার ইমপোর্ট করা হলো
 const { verifyUser } = require('../middlewares/authMiddleware'); 
@@ -52,6 +53,8 @@ router.put('/addresses/:addressId', verifyUser, userProfileController.updateAddr
 router.delete('/addresses/:addressId', verifyUser, userProfileController.deleteAddress);
 
 // ================== ওয়ালেট ও পয়েন্ট (Wallet & Loyalty Points) ==================
+router.get('/wallet/balance', verifyUser, walletCustomerController.getCustomerWalletBalance);
+router.get('/wallet/transactions', verifyUser, walletCustomerController.getCustomerWalletTransactions);
 router.post('/convert-points', verifyUser, userProfileController.convertPoints);
 
 // ================== রেফারেল প্রোগ্রাম (Referral Program) ==================

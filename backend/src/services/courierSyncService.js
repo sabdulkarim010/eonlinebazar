@@ -36,6 +36,7 @@ const { creditOrderDeliveryRewards } = require('../utils/rewardSettings');
 const { upgradeTierIfNeeded } = require('./loyaltyTierService');
 const { logSecurityEvent } = require('../utils/securityLogger');
 const { notifyAdminsWithPermission } = require('./notificationService');
+const { appendStatusHistory } = require('../utils/orderStatusHistory');
 
 const SHIPPED_STATUS = 'Shipped';
 
@@ -53,9 +54,12 @@ const STATUS_MAP = Object.freeze({
         partial_delivered: 'Out for Delivery',
         partial_delivery: 'Out for Delivery',
         in_review: 'Shipped',
+        in_transit: 'Shipped',
         pending: 'Shipped',
         hold: 'Shipped',
-        cancelled: 'Cancelled'
+        cancelled: 'Cancelled',
+        canceled: 'Cancelled',
+        returned: 'Returned'
     },
     pathao: {
         delivered: 'Delivered',
@@ -63,6 +67,8 @@ const STATUS_MAP = Object.freeze({
         in_transit: 'Shipped',
         pickup: 'Shipped',
         pending: 'Shipped',
+        cancelled: 'Cancelled',
+        canceled: 'Cancelled',
         returned: 'Returned'
     },
     redx: {
@@ -70,7 +76,10 @@ const STATUS_MAP = Object.freeze({
         'in transit': 'Shipped',
         'delivery in progress': 'Out for Delivery',
         in_transit: 'Shipped',
-        pending: 'Shipped'
+        pending: 'Shipped',
+        cancelled: 'Cancelled',
+        canceled: 'Cancelled',
+        returned: 'Returned'
     }
 });
 
@@ -267,6 +276,87 @@ async function syncOrderWithCourier(orderId, courierCode) {
     }
 }
 
+async function applyCourierWebhookStatusUpdate(orderDoc, {
+    provider,
+    rawStatus,
+    actor = 'courier-webhook',
+    note = ''
+} = {}) {
+    const order = orderDoc;
+    const previousStatus = String(order.status || '');
+    const mappedStatus = mapCourierStatusToOrderStatus(provider || order.courierProvider, rawStatus);
+
+    order.courierStatus = rawStatus || order.courierStatus;
+    order.courierSyncedAt = new Date();
+
+    let changed = false;
+    if (
+        mappedStatus
+        && mappedStatus !== previousStatus
+        && !KEEP_STATUS_AS_IS.includes(previousStatus.trim().toLowerCase())
+    ) {
+        order.status = mappedStatus;
+        appendStatusHistory(order, {
+            status: mappedStatus,
+            changedBy: actor,
+            note: note || `Courier status: ${rawStatus}`
+        });
+        if (mappedStatus === 'Delivered') {
+            order.isDelivered = true;
+            order.deliveredAt = new Date();
+        }
+        changed = true;
+    }
+
+    await dualWrite(
+        () => order.save(),
+        async (saved) => {
+            await getOrderDualWriteHelpers().mirrorOrderStatusUpdate(saved);
+            if (changed) {
+                await getOrderDualWriteHelpers().mirrorOrderStatusHistory(saved);
+            }
+        },
+        {
+            model: 'Order',
+            operation: 'courierWebhook',
+            mongoId: (saved) => String(saved._id)
+        }
+    );
+
+    if (changed && order.status === 'Delivered') {
+        try {
+            await creditOrderDeliveryRewards(order);
+        } catch (rewardErr) {
+            console.warn('[CourierSync] Reward credit on delivery failed:', rewardErr.message);
+        }
+        if (order.user) {
+            try {
+                await upgradeTierIfNeeded(order.user);
+            } catch (tierErr) {
+                console.warn('[CourierSync] Tier upgrade on delivery failed:', tierErr.message);
+            }
+        }
+        notifyAdminsWithPermission(
+            'manage_orders',
+            'order',
+            'Order delivered',
+            `Order #${order.orderId || order._id} marked Delivered by courier webhook`,
+            'view-orders'
+        ).catch((err) => {
+            console.warn('[CourierSync] In-app notification failed:', err.message);
+        });
+    }
+
+    return {
+        success: true,
+        changed,
+        from: previousStatus,
+        to: order.status,
+        newStatus: order.status,
+        rawStatus
+    };
+}
+
 /**
  * autoSyncCourierStatus(orderId)
  * Poll the courier status, map + persist any change, and credit delivery
@@ -288,73 +378,23 @@ async function autoSyncCourierStatus(orderId) {
             return { success: false, changed: false, orderId, reason: statusResult.reason };
         }
 
-        const rawStatus = statusResult.rawStatus;
-        const previousStatus = String(order.status || '');
-        const mappedStatus = mapCourierStatusToOrderStatus(order.courierProvider, rawStatus);
-
-        order.courierStatus = rawStatus || order.courierStatus;
-        order.courierSyncedAt = new Date();
-
-        let changed = false;
-        // Never downgrade a delivered order; only move forward on real mapping.
-        if (
-            mappedStatus
-            && mappedStatus !== previousStatus
-            && !KEEP_STATUS_AS_IS.includes(previousStatus.trim().toLowerCase())
-        ) {
-            order.status = mappedStatus;
-            if (mappedStatus === 'Delivered') {
-                order.isDelivered = true;
-                order.deliveredAt = new Date();
-            }
-            changed = true;
-        }
-
-        await dualWrite(
-            () => order.save(),
-            async (saved) => { await getOrderDualWriteHelpers().mirrorOrderStatusUpdate(saved); },
-            {
-                model: 'Order',
-                operation: 'courierStatusSync',
-                mongoId: (saved) => String(saved._id)
-            }
-        );
-
-        // On delivery, credit wallet cashback rewards (existing engine).
-        if (changed && order.status === 'Delivered') {
-            try {
-                await creditOrderDeliveryRewards(order);
-            } catch (rewardErr) {
-                console.warn('[CourierSync] Reward credit on delivery failed:', rewardErr.message);
-            }
-            if (order.user) {
-                try {
-                    await upgradeTierIfNeeded(order.user);
-                } catch (tierErr) {
-                    console.warn('[CourierSync] Tier upgrade on delivery failed:', tierErr.message);
-                }
-            }
-            notifyAdminsWithPermission(
-                'manage_orders',
-                'order',
-                'Order delivered',
-                `Order #${order.orderId || order._id} marked Delivered by courier`,
-                'view-orders'
-            ).catch((err) => {
-                console.warn('[CourierSync] In-app notification failed:', err.message);
-            });
-        }
+        const result = await applyCourierWebhookStatusUpdate(order, {
+            provider: order.courierProvider,
+            rawStatus: statusResult.rawStatus,
+            actor: 'courier-sync',
+            note: `Courier poll status: ${statusResult.rawStatus}`
+        });
 
         return {
             success: true,
-            changed,
+            changed: result.changed,
             orderId: String(order._id),
             orderNumber: order.orderId || '',
-            from: previousStatus,
-            to: order.status,
-            oldStatus: previousStatus,
-            newStatus: order.status,
-            rawStatus
+            from: result.from,
+            to: result.to,
+            oldStatus: result.from,
+            newStatus: result.to,
+            rawStatus: statusResult.rawStatus
         };
     } catch (err) {
         console.error('[CourierSync] autoSyncCourierStatus error:', err);
@@ -367,5 +407,6 @@ module.exports = {
     mapCourierStatusToOrderStatus,
     fetchCourierDeliveryStatus,
     syncOrderWithCourier,
+    applyCourierWebhookStatusUpdate,
     autoSyncCourierStatus
 };

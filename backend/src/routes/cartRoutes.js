@@ -16,8 +16,11 @@ const cartController = require('../controllers/cartController');
 const { verifyUser } = require('../middlewares/authMiddleware'); 
 
 // ==========================================
-// ROUTES DEFINITIONS (ALL SECURED WITH verifyUser)
+// ROUTES DEFINITIONS
 // ==========================================
+
+// Public one-click abandoned-cart restore (signed token — no login required)
+router.get('/restore/:token', cartController.restoreCart);
 
 // ১. গেস্ট কার্ট এবং ডাটাবেজ কার্ট মার্জ করার রাউট
 router.post('/merge', verifyUser, cartController.mergeCart);

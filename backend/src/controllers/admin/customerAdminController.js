@@ -28,7 +28,11 @@ const {
     fetchAdminCustomersPage,
     fetchAdminCustomersOffsetPage,
     countAdminCustomers,
-    fetchCustomerById
+    fetchCustomerById,
+    fetchCustomerOrderStatsMap,
+    fetchCustomerOrderCount,
+    fetchCustomerDeliveredSpend,
+    fetchCustomerOrderHistory
 } = require('../../services/userReadService');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -276,40 +280,34 @@ function serializeCustomerAvatarResponse(user) {
     };
 }
 
+async function attachRfmSegmentsFromMongo(customers = []) {
+    const ids = customers.map((c) => c?._id).filter(Boolean);
+    if (!ids.length) return customers;
+
+    const rfmRows = await User.find({ _id: { $in: ids } })
+        .select('rfmSegment rfmUpdatedAt rfmRecencyDays rfmFrequency rfmMonetary')
+        .lean();
+    const rfmMap = new Map(rfmRows.map((row) => [String(row._id), row]));
+
+    return customers.map((customer) => {
+        const rfm = rfmMap.get(String(customer._id));
+        if (!rfm?.rfmSegment && customer.rfmSegment) return customer;
+        return {
+            ...customer,
+            rfmSegment: rfm?.rfmSegment ?? customer.rfmSegment ?? null,
+            rfmUpdatedAt: rfm?.rfmUpdatedAt ?? customer.rfmUpdatedAt ?? null,
+            rfmRecencyDays: rfm?.rfmRecencyDays ?? customer.rfmRecencyDays ?? null,
+            rfmFrequency: rfm?.rfmFrequency ?? customer.rfmFrequency ?? null,
+            rfmMonetary: rfm?.rfmMonetary ?? customer.rfmMonetary ?? null
+        };
+    });
+}
+
 async function enrichCustomersWithOrderStats(pageCustomers, masterSettings) {
     const customerIds = pageCustomers.map((c) => c._id);
-
-    const orderStats = customerIds.length
-        ? await Order.aggregate([
-            {
-                $match: {
-                    user: { $in: customerIds },
-                    status: { $nin: ['Cancelled', 'Canceled'] }
-                }
-            },
-            {
-                $group: {
-                    _id: '$user',
-                    orderCount: { $sum: 1 },
-                    totalSpent: {
-                        $sum: {
-                            $add: [
-                                { $ifNull: ['$grandTotal', 0] },
-                                { $ifNull: ['$walletApplied', 0] }
-                            ]
-                        }
-                    }
-                }
-            }
-        ])
-        : [];
-
-    const statsMap = new Map(
-        orderStats.map((row) => [String(row._id), {
-            orderCount: row.orderCount || 0,
-            totalSpent: Math.round(Number(row.totalSpent) || 0)
-        }])
-    );
+    const statsMap = customerIds.length
+        ? await fetchCustomerOrderStatsMap(customerIds)
+        : new Map();
 
     const thresholds = {
         vipMinTotalSpent: masterSettings.vipMinTotalSpent,
@@ -332,7 +330,8 @@ async function enrichCustomersWithOrderStats(pageCustomers, masterSettings) {
         };
     });
 
-    return { enriched, thresholds };
+    const withRfm = await attachRfmSegmentsFromMongo(enriched);
+    return { enriched: withRfm, thresholds };
 }
 
 // ==============================================================
@@ -407,29 +406,13 @@ const getCustomerById = async (req, res) => {
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
         }
-        const [orderCount, spendRow] = await Promise.all([
-            Order.countDocuments({ user: customer._id }),
-            Order.aggregate([
-                {
-                    $match: {
-                        user: customer._id,
-                        $or: [{ status: 'Delivered' }, { isDelivered: true }]
-                    }
-                },
-                {
-                    $group: {
-                        _id: null,
-                        total: {
-                            $sum: {
-                                $add: [
-                                    { $ifNull: ['$grandTotal', 0] },
-                                    { $ifNull: ['$walletApplied', 0] }
-                                ]
-                            }
-                        }
-                    }
-                }
-            ])
+        const customerRef = customer._id;
+        const [orderCount, deliveredSpend, rfmOverlay] = await Promise.all([
+            fetchCustomerOrderCount(customerRef),
+            fetchCustomerDeliveredSpend(customerRef),
+            User.findById(customerRef)
+                .select('rfmSegment rfmUpdatedAt rfmRecencyDays rfmFrequency rfmMonetary')
+                .lean()
         ]);
 
         res.status(200).json({
@@ -438,10 +421,15 @@ const getCustomerById = async (req, res) => {
                 ...customer,
                 name: hydrateCustomerName(customer),
                 orderCount,
-                lifetimeSpend: Number(customer.lifetimeSpend ?? spendRow[0]?.total) || 0,
+                lifetimeSpend: Number(customer.lifetimeSpend ?? deliveredSpend) || 0,
                 loyaltyTier: customer.loyaltyTier || 'none',
                 tierCashbackRate: Number(customer.tierCashbackRate) || 0,
-                tierUpgradedAt: customer.tierUpgradedAt || null
+                tierUpgradedAt: customer.tierUpgradedAt || null,
+                rfmSegment: rfmOverlay?.rfmSegment ?? customer.rfmSegment ?? null,
+                rfmUpdatedAt: rfmOverlay?.rfmUpdatedAt ?? customer.rfmUpdatedAt ?? null,
+                rfmRecencyDays: rfmOverlay?.rfmRecencyDays ?? customer.rfmRecencyDays ?? null,
+                rfmFrequency: rfmOverlay?.rfmFrequency ?? customer.rfmFrequency ?? null,
+                rfmMonetary: rfmOverlay?.rfmMonetary ?? customer.rfmMonetary ?? null
             }
         });
     } catch (error) {
@@ -857,9 +845,7 @@ const createQuickCustomer = async (req, res) => {
 
         const existing = await User.findOne({ mobile: phone }).select('-password').lean();
         if (existing) {
-            const [orderCount] = await Promise.all([
-                Order.countDocuments({ user: existing._id })
-            ]);
+            const orderCount = await fetchCustomerOrderCount(existing._id);
             return res.status(200).json({
                 success: true,
                 message: 'Customer already exists — linked to POS.',
@@ -932,9 +918,7 @@ const getCustomerOrders = async (req, res) => {
         }
 
         const { customer, mongoId } = resolved;
-        const orders = mongoId
-            ? await Order.find({ user: mongoId }).sort({ createdAt: -1 }).lean()
-            : [];
+        const orders = mongoId ? await fetchCustomerOrderHistory(mongoId) : [];
 
         res.status(200).json({
             success: true,

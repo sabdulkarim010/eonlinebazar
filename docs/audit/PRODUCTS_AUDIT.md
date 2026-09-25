@@ -1,6 +1,6 @@
 # PRODUCTS & CATALOG AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-20 (Product SEO persistence)  
+**Last updated:** 2026-09-24 (Phase 2 admin review product enrichment PG cutover)  
 **Scope:** Products, categories, brands, attributes, inventory, suppliers, warehouses, purchase orders  
 **Status:** ✅ COMPLETE
 
@@ -83,6 +83,12 @@
 ---
 
 ## Change Log
+
+### Phase 2 — Admin review product enrichment PG cutover — 2026-09-24
+
+- `userReadService.js`: `fetchProductsForAdminReviews` — PG `prisma.product.findMany` when `READ_PG_PRODUCT=true`, Mongo `Product.find` fallback
+- `reviewAdminController.js`: `getAllReviews` uses routed product lookup for name/image enrichment
+- Tests: `tests/services/phase2ReadCutover.test.js` — Jest **270/270**
 
 ### Product SEO persistence — 2026-09-20
 

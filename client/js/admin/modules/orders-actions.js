@@ -238,10 +238,15 @@ function buildCourierActionHtml(order) {
     const provider = normalizeAdminCourierSlug(order.courierProvider || adminCourierConfig.provider || 'steadfast');
     const safeProvider = escapeToastText(COURIER_PROVIDER_LABELS[provider] || order.courierName || provider);
 
+    const liveStatus = String(order.courierStatus || '').trim();
+    const statusChip = liveStatus && liveStatus !== 'unbooked'
+        ? `<span class="courier-live-status-chip" title="Courier webhook status">${escapeHtml(liveStatus)}</span>`
+        : '';
+
     if (trackingId) {
         const safeTracking = escapeToastText(trackingId);
         const trackingUrl = getCourierTrackingUrl(provider, trackingId);
-        const badgeLabel = `<span class="order-courier-sent-text">Sent ${safeTracking}</span>`;
+        const badgeLabel = `<span class="order-courier-sent-text">Sent ${safeTracking}</span>${statusChip}`;
         const badge = trackingUrl
             ? `<a href="${trackingUrl}" target="_blank" rel="noopener noreferrer" class="${ORDER_COURIER_SENT_CLASSES} courier-tracking-badge" title="Track ${safeTracking} on ${safeProvider}">${badgeLabel}</a>`
             : `<span class="${ORDER_COURIER_SENT_CLASSES} courier-tracking-badge" title="${safeTracking} · ${safeProvider}">${badgeLabel}</span>`;

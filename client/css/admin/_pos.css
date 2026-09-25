@@ -184,3 +184,183 @@
 #view-pos.pos-overlay-active .pos-checkout-card {
     top: 72px;
 }
+
+.pos-shift-status-bar {
+    margin-bottom: 10px;
+}
+
+.pos-shift-checkout-hint {
+    margin: 0 0 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pos-checkout--shift-open .pos-shift-checkout-hint {
+    display: none;
+}
+
+.pos-checkout--shift-open #posSplitPaymentFields {
+    border-color: #86efac;
+    background: #f0fdf4;
+}
+
+.pos-customer-section-head {
+    flex-wrap: wrap;
+}
+
+.pos-customer-section-head h4 {
+    flex: 1 1 auto;
+}
+
+.pos-customer-orders-badge,
+.pos-customer-wallet-badge {
+    flex-shrink: 0;
+}
+
+.pos-shift-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+}
+
+.pos-shift-status--open {
+    border-color: #86efac;
+    background: #f0fdf4;
+}
+
+.pos-shift-status--closed {
+    background: #fff7ed;
+    border-color: #fed7aa;
+}
+
+.pos-shift-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+}
+
+.pos-shift-pill--open {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.pos-shift-meta,
+.pos-shift-totals {
+    font-size: 12px;
+    color: #475569;
+}
+
+.pos-offline-sync-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    font-size: 13px;
+}
+
+.pos-customer-wallet-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f766e;
+    background: #ecfdf5;
+    border: 1px solid #99f6e4;
+    padding: 3px 8px;
+    border-radius: 999px;
+}
+
+.pos-split-payment-panel {
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    padding: 10px;
+    background: #f8fafc;
+}
+
+.pos-split-payment-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.pos-split-payment-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pos-split-line {
+    display: grid;
+    grid-template-columns: 120px 1fr auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.pos-split-line select,
+.pos-split-line input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+}
+
+.pos-split-remove {
+    border: none;
+    background: #fee2e2;
+    color: #b91c1c;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+}
+
+.pos-split-payment-hint {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.pos-split-payment-hint[data-level="success"] { color: #15803d; }
+.pos-split-payment-hint[data-level="warning"] { color: #b45309; }
+
+.pos-close-shift-summary {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.pos-close-discrepancy {
+    margin: 8px 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.pos-close-discrepancy[data-level="success"] { color: #15803d; }
+.pos-close-discrepancy[data-level="warning"] { color: #b45309; }
+.pos-close-discrepancy[data-level="error"] { color: #b91c1c; }

@@ -31,7 +31,18 @@ const {
 const financeExportController = require('../controllers/admin/financeExportController');
 const staffAuditController = require('../controllers/admin/staffAuditController');
 const activityFeedController = require('../controllers/admin/activityFeedController');
-const { adjustCustomerWallet } = require('../controllers/admin/walletAdminController');
+const {
+    adjustCustomerWallet,
+    creditCustomerWallet,
+    getCustomerWalletTransactions
+} = require('../controllers/admin/walletAdminController');
+const {
+    openPosShift,
+    getCurrentPosShift,
+    closePosShift,
+    listPosShifts
+} = require('../controllers/admin/posShiftController');
+const { batchSyncOfflineOrders } = require('../controllers/admin/posOfflineSyncController');
 const {
     getAllReviews,
     moderateReview,
@@ -186,7 +197,7 @@ router.get('/customers/export', verifyAdmin, checkPermission('manage_customers',
 router.get('/customers', verifyAdmin, checkPermission('manage_customers', 'view_customers'), adminController.getAllCustomers);
 
 // POS quick-add customer (must be before /customers/:id)
-router.post('/customers/quick', verifyAdmin, checkPermission('manage_customers'), adminController.createQuickCustomer);
+router.post('/customers/quick', verifyAdmin, checkPermission('manage_customers', 'access_pos'), adminController.createQuickCustomer);
 
 // Enterprise ERP + CRM + HRM summary widgets (GET)
 router.get('/enterprise-summary', verifyAdmin, checkPermission('view_analytics'), enterpriseSummaryController.getEnterpriseSummary);
@@ -228,6 +239,15 @@ router.delete('/customers/:id', verifyAdmin, checkPermission('manage_customers')
 // Manual wallet credit/debit for a customer
 // URL: POST /api/admin/customers/:userId/wallet
 router.post('/customers/:userId/wallet', verifyAdmin, checkPermission('manage_customers'), adjustCustomerWallet);
+router.post('/customers/:id/wallet/credit', verifyAdmin, checkPermission('manage_customers'), creditCustomerWallet);
+router.get('/customers/:id/wallet/transactions', verifyAdmin, checkPermission('manage_customers', 'view_customers'), getCustomerWalletTransactions);
+
+// POS shift register management
+router.post('/pos/shifts/open', verifyAdmin, checkPermission('manage_orders', 'access_pos'), openPosShift);
+router.get('/pos/shifts/current', verifyAdmin, checkPermission('manage_orders', 'access_pos'), getCurrentPosShift);
+router.post('/pos/shifts/close', verifyAdmin, checkPermission('manage_orders', 'access_pos'), closePosShift);
+router.get('/pos/shifts', verifyAdmin, checkPermission('manage_orders', 'access_pos'), listPosShifts);
+router.post('/pos/orders/batch-sync', verifyAdmin, checkPermission('manage_orders', 'access_pos'), batchSyncOfflineOrders);
 
 // Admin review moderation
 // URL: GET /api/admin/reviews
@@ -249,7 +269,7 @@ router.patch('/orders/:id/refund', verifyAdmin, checkPermission('manage_orders',
 router.post('/orders/:id/undo-refund', verifyAdmin, checkPermission('manage_orders'), undoOrderRefund);
 
 // URL: POST /api/admin/orders/manual — staff POS / phone order entry
-router.post('/orders/manual', verifyAdmin, checkPermission('manage_orders'), createManualOrder);
+router.post('/orders/manual', verifyAdmin, checkPermission('manage_orders', 'access_pos'), createManualOrder);
 
 // URL: GET /api/admin/orders/pending-payment-proof — manual payment proofs awaiting review
 router.get('/orders/pending-payment-proof', verifyAdmin, checkPermission('manage_orders'), getPendingPaymentProofOrders);
@@ -518,6 +538,8 @@ router.patch('/tickets/:id/status', verifyAdmin, checkPermission('manage_custome
  ********************************************************************/
 router.get('/crm/abandoned-carts', verifyAdmin, checkPermission('manage_marketing', 'view_abandoned_carts', 'manage_orders'), crmController.getAbandonedCartStats);
 router.post('/crm/abandoned-carts/:userId/notify', verifyAdmin, checkPermission('manage_marketing', 'view_abandoned_carts', 'manage_orders'), crmController.notifyAbandonedCart);
+router.get('/crm/rfm-segments', verifyAdmin, checkPermission('manage_customers', 'view_customers'), crmController.getRfmSegments);
+router.post('/crm/rfm-segments/recalculate', verifyAdmin, checkPermission('manage_customers'), crmController.recalculateRfmSegments);
 
 /********************************************************************
  # ERP Finance — Expense Ledger (for advanced P&L)

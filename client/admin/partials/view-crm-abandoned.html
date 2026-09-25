@@ -12,7 +12,7 @@
         </button>
     </div>
     <p class="section-subtitle" style="margin:0 0 18px;">
-        Carts left idle for 24h+ that still hold items. Send manual recovery emails or SMS, or let the daily job handle it.
+        Multi-stage recovery: Stage 1 (1h SMS/WhatsApp), Stage 2 (24h email + 5% coupon), Stage 3 (48h expiry notice). Manual notify still available below.
     </p>
 
     <div class="metrics-grid sales-metrics-grid">
@@ -60,12 +60,13 @@
                     <th>Customer</th>
                     <th>Items / Value</th>
                     <th>Last Activity</th>
+                    <th>Recovery Stage</th>
                     <th>Notified?</th>
                     <th class="customers-th--actions">Actions</th>
                 </tr>
             </thead>
             <tbody id="abandonedCartsTableBody">
-                <tr><td colspan="5" class="loading-container"><div class="spinner"></div><p>Loading abandoned carts…</p></td></tr>
+                <tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading abandoned carts…</p></td></tr>
             </tbody>
         </table>
     </div>

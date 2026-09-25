@@ -9,6 +9,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/user');
 const Product = require('../models/product');
+const Order = require('../models/order');
 const Cart = require('../models/cart');
 const { routedRead } = require('./readRouter');
 const {
@@ -30,9 +31,17 @@ function getCartRepository() {
   return require('../repositories/cartRepository');
 }
 
+function getOrderRepository() {
+  return require('../repositories/orderRepository');
+}
+
 function getPrisma() {
   return require('../config/prismaClient');
 }
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SEGMENT_EXCLUDED_STATUSES = ['Cancelled', 'Canceled'];
+const REVIEW_PRODUCT_SELECT = 'name images image productId';
 
 function stripEmbeddedArrays(userObj) {
   if (!userObj || typeof userObj !== 'object') return userObj;
@@ -442,6 +451,228 @@ async function fetchCartItemsForResponse(mongoUserId, formatCartItemsForResponse
   );
 }
 
+function buildProductLookupMap(products = []) {
+  const map = new Map();
+  products.forEach((product) => {
+    map.set(String(product._id), product);
+    if (product.productId) map.set(String(product.productId), product);
+  });
+  return map;
+}
+
+async function aggregateMongoCustomerOrderStats(customerIds = []) {
+  const ids = [...new Set(customerIds.map((id) => String(id)).filter(Boolean))];
+  const objectIds = ids
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+  if (!objectIds.length) return new Map();
+
+  const rows = await Order.aggregate([
+    {
+      $match: {
+        user: { $in: objectIds },
+        status: { $nin: SEGMENT_EXCLUDED_STATUSES }
+      }
+    },
+    {
+      $group: {
+        _id: '$user',
+        orderCount: { $sum: 1 },
+        totalSpent: {
+          $sum: {
+            $add: [
+              { $ifNull: ['$grandTotal', 0] },
+              { $ifNull: ['$walletApplied', 0] }
+            ]
+          }
+        }
+      }
+    }
+  ]);
+
+  return new Map(
+    rows.map((row) => [String(row._id), {
+      orderCount: row.orderCount || 0,
+      totalSpent: Math.round(Number(row.totalSpent) || 0)
+    }])
+  );
+}
+
+async function aggregatePgCustomerOrderStats(customerIds = []) {
+  const ids = [...new Set(customerIds.map((id) => String(id)).filter(Boolean))];
+  if (!ids.length) return new Map();
+
+  const userRepo = getUserRepository();
+  const pgUserIds = [];
+  const pgToMongo = new Map();
+
+  for (const id of ids) {
+    // eslint-disable-next-line no-await-in-loop
+    const pgUserId = await userRepo.resolvePostgresUserId(id);
+    if (pgUserId) {
+      pgUserIds.push(pgUserId);
+      pgToMongo.set(pgUserId, id);
+    }
+  }
+
+  if (!pgUserIds.length) return new Map();
+
+  const prisma = getPrisma();
+  const groups = await prisma.order.groupBy({
+    by: ['userId'],
+    where: {
+      userId: { in: pgUserIds },
+      status: { not: 'CANCELLED' }
+    },
+    _count: { _all: true },
+    _sum: { grandTotal: true, walletApplied: true }
+  });
+
+  const statsMap = new Map();
+  groups.forEach((row) => {
+    const mongoKey = pgToMongo.get(row.userId);
+    if (!mongoKey) return;
+    statsMap.set(mongoKey, {
+      orderCount: row._count?._all || 0,
+      totalSpent: Math.round(
+        Number(row._sum?.grandTotal || 0) + Number(row._sum?.walletApplied || 0)
+      )
+    });
+  });
+
+  return statsMap;
+}
+
+async function fetchCustomerOrderStatsMap(customerIds = []) {
+  return routedRead(
+    'order',
+    () => aggregateMongoCustomerOrderStats(customerIds),
+    () => aggregatePgCustomerOrderStats(customerIds)
+  );
+}
+
+async function fetchCustomerOrderCount(mongoUserId) {
+  if (!mongoUserId) return 0;
+
+  return routedRead(
+    'order',
+    () => Order.countDocuments({ user: mongoUserId }),
+    async () => {
+      const pgUserId = await resolvePgUserId(mongoUserId);
+      if (!pgUserId) return 0;
+      return getPrisma().order.count({ where: { userId: pgUserId } });
+    }
+  );
+}
+
+async function fetchCustomerDeliveredSpend(mongoUserId) {
+  if (!mongoUserId) return 0;
+
+  return routedRead(
+    'order',
+    async () => {
+      const rows = await Order.aggregate([
+        {
+          $match: {
+            user: new mongoose.Types.ObjectId(String(mongoUserId)),
+            $or: [{ status: 'Delivered' }, { isDelivered: true }]
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: {
+                $add: [
+                  { $ifNull: ['$grandTotal', 0] },
+                  { $ifNull: ['$walletApplied', 0] }
+                ]
+              }
+            }
+          }
+        }
+      ]);
+      return Math.round(Number(rows[0]?.total) || 0);
+    },
+    async () => {
+      const pgUserId = await resolvePgUserId(mongoUserId);
+      if (!pgUserId) return 0;
+
+      const result = await getPrisma().order.aggregate({
+        where: {
+          userId: pgUserId,
+          OR: [{ status: 'DELIVERED' }, { isDelivered: true }]
+        },
+        _sum: { grandTotal: true, walletApplied: true }
+      });
+
+      return Math.round(
+        Number(result._sum?.grandTotal || 0) + Number(result._sum?.walletApplied || 0)
+      );
+    }
+  );
+}
+
+async function fetchCustomerOrderHistory(mongoUserId) {
+  if (!mongoUserId) return [];
+
+  return routedRead(
+    'order',
+    () => Order.find({ user: mongoUserId }).sort({ createdAt: -1 }).lean(),
+    () => getOrderRepository().findAllDetailed({ userId: String(mongoUserId), sort: 'createdAt' })
+  );
+}
+
+async function fetchProductsForAdminReviews(productIds = []) {
+  const ids = [...new Set(productIds.map((id) => String(id)).filter(Boolean))];
+  if (!ids.length) return new Map();
+
+  return routedRead(
+    'product',
+    async () => {
+      const mongoIds = ids.filter((id) => mongoose.Types.ObjectId.isValid(id));
+      const products = await Product.find({
+        $or: [
+          { productId: { $in: ids } },
+          ...(mongoIds.length ? [{ _id: { $in: mongoIds } }] : [])
+        ]
+      }).select(REVIEW_PRODUCT_SELECT).lean();
+      return buildProductLookupMap(products);
+    },
+    async () => {
+      const prisma = getPrisma();
+      const uuidIds = ids.filter((id) => UUID_PATTERN.test(id));
+      const rows = await prisma.product.findMany({
+        where: {
+          OR: [
+            { legacyId: { in: ids } },
+            { productId: { in: ids } },
+            ...(uuidIds.length ? [{ id: { in: uuidIds } }] : [])
+          ]
+        },
+        select: {
+          id: true,
+          legacyId: true,
+          productId: true,
+          name: true,
+          images: true,
+          image: true
+        }
+      });
+
+      const shaped = rows.map((row) => ({
+        _id: row.legacyId || row.id,
+        productId: row.productId,
+        name: row.name,
+        images: row.images,
+        image: row.image || (Array.isArray(row.images) ? row.images[0] : '')
+      }));
+
+      return buildProductLookupMap(shaped);
+    }
+  );
+}
+
 module.exports = {
   fetchUserProfileDocument,
   fetchUserAddressesList,
@@ -455,5 +686,12 @@ module.exports = {
   countAdminCustomers,
   fetchCustomerById,
   fetchCartItemsForResponse,
-  enrichWishlistItems
+  enrichWishlistItems,
+  fetchCustomerOrderStatsMap,
+  fetchCustomerOrderCount,
+  fetchCustomerDeliveredSpend,
+  fetchCustomerOrderHistory,
+  fetchProductsForAdminReviews,
+  aggregateMongoCustomerOrderStats,
+  buildProductLookupMap
 };

@@ -4,6 +4,7 @@
  * Description: Orders barrel — table, actions, invoice, master editor, and manual POS.
  */
 import './admin-core.js';
+import './modules/pos-shift-ui.js';
 import './modules/orders-pos.js';
 import './modules/orders-editor.js';
 import './modules/orders-invoice.js';

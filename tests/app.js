@@ -29,6 +29,7 @@ const financeRoutes = require('../backend/src/routes/financeRoutes');
 const couponRoutes = require('../backend/src/routes/couponRoutes');
 const storeRoutes = require('../backend/src/routes/storeRoutes');
 const paymentRoutes = require('../backend/src/routes/paymentRoutes');
+const webhookRoutes = require('../backend/src/routes/webhookRoutes');
 const contactRoutes = require('../backend/src/routes/contactRoutes');
 const inquiryRoutes = require('../backend/src/routes/inquiryRoutes');
 const noteRoutes = require('../backend/src/routes/noteRoutes');
@@ -47,6 +48,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/customer', userRoutes);
+app.use('/api/user', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/wishlist', wishlistRoutes);
@@ -58,6 +60,11 @@ app.use('/api/finance', financeRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/store', storeRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/webhooks', express.json({
+    verify: (req, _res, buf) => {
+        req.rawBody = buf;
+    }
+}), webhookRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/inquiries', inquiryRoutes);
 app.use('/api/notes', noteRoutes);

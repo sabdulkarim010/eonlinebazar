@@ -6,6 +6,13 @@ const User = require('../models/user');
 const { roundMoney } = require('./deliveryChargeService');
 const { resolveEffectiveCashbackRate } = require('./loyaltyTierService');
 const { dualWrite } = require('./dualWriteService');
+const { fetchWalletBalance } = require('./userReadService');
+const { routedRead } = require('./readRouter');
+const { mapWalletTransactionsToMongo } = require('./readShapeHelpers');
+
+function getUserRepository() {
+    return require('../repositories/userRepository');
+}
 
 function mirrorWallet(updated) {
     if (!updated) return Promise.resolve();
@@ -134,6 +141,50 @@ async function resolveOrderCashbackRate(userId, rewardSettings) {
     return resolveEffectiveCashbackRate(userId, rewardSettings);
 }
 
+async function getWalletBalance(userId) {
+    if (!userId) return 0;
+    return fetchWalletBalance(userId);
+}
+
+async function getWalletTransactions(userId, { limit = 50 } = {}) {
+    if (!userId) return null;
+
+    const safeLimit = Math.min(100, Math.max(1, Number(limit) || 50));
+    const balance = await getWalletBalance(userId);
+
+    const transactions = await routedRead(
+        'wallet',
+        async () => {
+            const user = await User.findById(userId).select('walletHistory');
+            if (!user) return null;
+            return (user.walletHistory || [])
+                .slice(0, safeLimit)
+                .map((row) => (row && typeof row.toObject === 'function' ? row.toObject() : { ...row }));
+        },
+        async () => {
+            const pgUserId = await getUserRepository().resolvePostgresUserId(userId);
+            if (!pgUserId) return null;
+            const rows = await getUserRepository().listWalletTransactions(pgUserId);
+            return mapWalletTransactionsToMongo(rows).slice(0, safeLimit);
+        }
+    );
+
+    if (transactions === null) return null;
+
+    return {
+        balance,
+        transactions
+    };
+}
+
+async function creditWallet(userId, amount, reason = 'Wallet credit', referenceOrder = '') {
+    return creditWalletForUser(userId, amount, referenceOrder, reason);
+}
+
+async function debitWallet(userId, amount, reason = 'Wallet debit') {
+    return debitWalletForAdmin(userId, amount, reason);
+}
+
 module.exports = {
     buildWalletHistoryEntry,
     deductWalletForOrder,
@@ -141,5 +192,9 @@ module.exports = {
     creditWalletForUser,
     reverseWalletCredit,
     normalizeWalletType,
-    resolveOrderCashbackRate
+    resolveOrderCashbackRate,
+    getWalletBalance,
+    getWalletTransactions,
+    creditWallet,
+    debitWallet
 };

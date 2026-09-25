@@ -261,12 +261,7 @@ async function fetchContactMessagesInbox() {
     'contactmessage',
     async () => {
       const messages = await ContactMessage.find().sort({ createdAt: -1 }).limit(500);
-      const unreadCount = await ContactMessage.countDocuments({
-        $or: [
-          { status: 'unread' },
-          { status: { $exists: false }, isRead: false }
-        ]
-      });
+      const unreadCount = await ContactMessage.countDocuments({ isRead: false });
       return {
         data: messages.map((m) => m.toAdminObject()),
         unreadCount

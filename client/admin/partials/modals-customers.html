@@ -19,6 +19,7 @@
                 <div class="cv-item"><span class="cv-label">Phone</span><strong id="cvPhone">—</strong></div>
                 <div class="cv-item"><span class="cv-label">Verification</span><strong id="cvVerified">—</strong></div>
                 <div class="cv-item"><span class="cv-label">Account Status</span><strong id="cvAccountStatus">—</strong></div>
+                <div class="cv-item"><span class="cv-label">RFM Segment</span><strong id="cvRfmSegment">—</strong></div>
                 <div class="cv-item"><span class="cv-label">Wallet Balance</span><strong id="cvWallet">—</strong></div>
                 <div class="cv-item"><span class="cv-label">Loyalty Points</span><strong id="cvPoints">—</strong></div>
                 <div class="cv-item"><span class="cv-label">Loyalty Tier</span><strong id="cvTier">—</strong></div>
@@ -30,6 +31,12 @@
                 <div class="cv-item cv-full"><span class="cv-label">Member Since</span><strong id="cvJoined">—</strong></div>
             </div>
             <div id="cvWalletAdjustHost"></div>
+            <div class="cv-wallet-history" id="cvWalletHistoryHost">
+                <h4 class="cv-wallet-history-title"><i class="fa-solid fa-clock-rotate-left"></i> Wallet Transaction History</h4>
+                <div id="cvWalletHistoryBody" class="cv-wallet-history-body">
+                    <p class="cv-wallet-history-empty">Open a customer profile to load transactions.</p>
+                </div>
+            </div>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn-secondary" onclick="closeCustomerViewModal()">Close</button>

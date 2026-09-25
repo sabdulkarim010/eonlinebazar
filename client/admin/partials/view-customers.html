@@ -19,6 +19,18 @@
                                     <option value="platinum">Platinum</option>
                                     <option value="none">None</option>
                                 </select>
+                                <select id="customerRfmFilter" class="customers-tier-filter" aria-label="Filter by RFM segment">
+                                    <option value="">All RFM segments</option>
+                                    <option value="CHAMPION">Champion</option>
+                                    <option value="LOYAL">Loyal</option>
+                                    <option value="AT_RISK">At Risk</option>
+                                    <option value="LOST">Lost</option>
+                                    <option value="NEW">New</option>
+                                    <option value="STANDARD">Standard</option>
+                                </select>
+                                <button type="button" class="customers-export-btn" id="recalculateRfmBtn" data-permission="manage_customers" onclick="recalculateRfmSegments()" title="Recalculate RFM tags from order history">
+                                    <i class="fa-solid fa-chart-pie"></i> Recalculate RFM
+                                </button>
                                 <div class="customer-segment-tabs" id="customerSegmentTabs">
                                     <button type="button" class="segment-tab active" data-segment="all">All Customers</button>
                                     <button type="button" class="segment-tab" data-segment="vip">👑 VIP / Top Buyers</button>

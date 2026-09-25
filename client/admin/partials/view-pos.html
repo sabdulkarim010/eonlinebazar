@@ -1,4 +1,13 @@
 <section id="view-pos" class="admin-section admin-section--pos" style="display: none;">
+    <div id="posShiftStatusBar" class="pos-shift-status-bar" aria-live="polite"></div>
+
+    <div class="pos-offline-sync-bar" id="posOfflineSyncBar">
+        <span><i class="fa-solid fa-cloud-arrow-up"></i> Offline pending: <strong id="posOfflinePendingCount">0</strong></span>
+        <button type="button" class="btn-secondary btn-sm" id="posOfflineSyncBtn" onclick="syncPosOfflineOrders()" disabled>
+            <i class="fa-solid fa-rotate"></i> Sync Offline Orders
+        </button>
+    </div>
+
     <div class="section-header-box pos-page-header">
         <div>
             <h3><i class="fa-solid fa-calculator"></i> POS System</h3>
@@ -101,6 +110,7 @@
                     <div class="pos-customer-section-head">
                         <h4><i class="fa-solid fa-user"></i> Customer</h4>
                         <span id="posCustomerOrdersBadge" class="pos-customer-orders-badge" hidden></span>
+                        <span id="posCustomerWalletBadge" class="pos-customer-wallet-badge" hidden></span>
                     </div>
                     <div class="manual-order-grid">
                         <div class="form-group">
@@ -179,7 +189,10 @@
                     </div>
                 </div>
 
-                <div class="pos-page-card pos-checkout-card">
+                <div class="pos-page-card pos-checkout-card pos-checkout--shift-closed">
+                    <p class="pos-shift-checkout-hint" id="posShiftCheckoutHint">
+                        <i class="fa-solid fa-cash-register"></i> Open a shift to enable split payments (Cash, bKash, Wallet).
+                    </p>
                     <div class="manual-order-pricing-grid">
                         <div class="form-group">
                             <label for="manualDiscountType">Order Discount Type</label>
@@ -210,15 +223,20 @@
                                 <option value="COD">COD (Delivery)</option>
                             </select>
                         </div>
-                        <div class="form-group form-group-full pos-split-payment-grid" id="posSplitPaymentFields" hidden>
-                            <div class="form-group">
-                                <label for="posSplitCashAmount">Cash Amount (৳)</label>
-                                <input type="number" id="posSplitCashAmount" min="0" step="1" value="0" oninput="updatePosPaymentUI()">
+                        <div class="form-group form-group-full pos-split-payment-panel" id="posSplitPaymentFields" hidden>
+                            <div class="pos-split-payment-head">
+                                <label>Split Payment Lines</label>
+                                <div class="pos-split-payment-actions">
+                                    <button type="button" class="btn-secondary btn-sm" id="posApplyWalletBtn" onclick="applyPosWalletToSplit()" hidden>
+                                        <i class="fa-solid fa-wallet"></i> Use Wallet
+                                    </button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="addPosSplitPaymentLine()">
+                                        <i class="fa-solid fa-plus"></i> Add Line
+                                    </button>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label for="posSplitDigitalAmount">Digital / bKash (৳)</label>
-                                <input type="number" id="posSplitDigitalAmount" min="0" step="1" value="0" oninput="updatePosPaymentUI()">
-                            </div>
+                            <div id="posSplitPaymentLines" class="pos-split-payment-lines"></div>
+                            <p class="pos-split-payment-hint" id="posSplitPaymentHint">Split lines must equal the grand total.</p>
                         </div>
                         <div class="form-group" id="posCashTenderedWrap" hidden>
                             <label for="posCashTendered">Cash Tendered (৳)</label>
@@ -247,3 +265,61 @@
         </div>
     </form>
 </section>
+
+<!-- POS Shift Open Modal -->
+<div id="posShiftOpenModal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box pos-shift-modal">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-play"></i> Open Shift</h3>
+            <button type="button" class="close-icon-btn" onclick="closePosShiftOpenModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="modal-body" onsubmit="submitOpenPosShift(event)">
+            <div class="form-group">
+                <label for="posShiftRegisterName">Register</label>
+                <input type="text" id="posShiftRegisterName" value="Main Register" placeholder="Main Register">
+            </div>
+            <div class="form-group">
+                <label for="posShiftStartingCash">Opening Cash Balance (৳)</label>
+                <input type="number" id="posShiftStartingCash" min="0" step="1" value="0" required>
+            </div>
+            <div class="form-group">
+                <label for="posShiftOpenNotes">Notes (optional)</label>
+                <input type="text" id="posShiftOpenNotes" placeholder="Float, handover notes…">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closePosShiftOpenModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="posShiftOpenSubmitBtn">Open Shift</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- POS Shift Close Modal -->
+<div id="posShiftCloseModal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box pos-shift-modal">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-stop"></i> Close Shift</h3>
+            <button type="button" class="close-icon-btn" onclick="closePosCloseShiftModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="modal-body" onsubmit="submitClosePosShift(event)">
+            <div class="pos-close-shift-summary">
+                <p>Expected cash in drawer: <strong id="posCloseExpectedCash">৳0</strong></p>
+                <p>Expected digital total: <strong id="posCloseExpectedDigital">৳0</strong></p>
+                <p>Orders this shift: <strong id="posCloseOrderCount">0</strong></p>
+            </div>
+            <div class="form-group">
+                <label for="posCloseActualCash">Actual Cash Counted (৳)</label>
+                <input type="number" id="posCloseActualCash" min="0" step="1" required oninput="updatePosCloseDiscrepancy()">
+            </div>
+            <div id="posCloseDiscrepancy" class="pos-close-discrepancy" data-level="info">Enter counted cash to see discrepancy.</div>
+            <div class="form-group">
+                <label for="posCloseNotes">Closing Notes (optional)</label>
+                <input type="text" id="posCloseNotes" placeholder="Variance explanation…">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closePosCloseShiftModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="posShiftCloseSubmitBtn">Close Shift</button>
+            </div>
+        </form>
+    </div>
+</div>
