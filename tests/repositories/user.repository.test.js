@@ -104,7 +104,8 @@ describe('User repository — referral codes', () => {
   });
 
   test('create() passes through explicit referralCode from Mongo (no regeneration)', async () => {
-    const mongoCode = `U${String(Date.now()).slice(-7)}`;
+    // Must be exactly 8 chars from REFERRAL_CODE_ALPHABET (no 0/1/I/O).
+    const mongoCode = generateReferralCode();
     expect(isValidReferralCode(mongoCode)).toBe(true);
 
     const record = track(await create(baseUser({ referralCode: mongoCode })));
@@ -129,8 +130,13 @@ describe('User repository — referral codes', () => {
   });
 
   test('resolveUniqueReferralCode() retries on collision and picks next candidate', async () => {
-    const takenCode = 'ABCDEFGH';
+    const takenCode = generateReferralCode();
     expect(isValidReferralCode(takenCode)).toBe(true);
+
+    let fallbackCode = generateReferralCode();
+    while (fallbackCode === takenCode) {
+      fallbackCode = generateReferralCode();
+    }
 
     const pre = await prisma.user.create({
       data: {
@@ -145,12 +151,12 @@ describe('User repository — referral codes', () => {
     let calls = 0;
     const picker = () => {
       calls += 1;
-      return calls === 1 ? takenCode : 'JKLMNPQR';
+      return calls === 1 ? takenCode : fallbackCode;
     };
 
     const code = await resolveUniqueReferralCode(picker);
     expect(calls).toBe(2);
-    expect(code).toBe('JKLMNPQR');
+    expect(code).toBe(fallbackCode);
     expect(code).not.toBe(takenCode);
   });
 

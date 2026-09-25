@@ -3825,3 +3825,5 @@ Full **HTTP-level** verification via supertest against `tests/app`, toggling `RE
 
 **Note:** Repository tests use Node's native test runner (not Jest) — `jest.setTimeout` is provided by `jestCompat.js` for API parity.
 
+**Follow-up (referralCode assertion):** Explicit-code test now uses `generateReferralCode()` (alphabet excludes `0`/`1`/`I`/`O`); collision test uses dynamic codes instead of hardcoded `ABCDEFGH` to avoid cross-test unique constraint clashes. **13/13** pass in `user.repository.test.js`.
+
