@@ -93,9 +93,9 @@ describe('routedRead', () => {
   test('circuit open → skips Postgres and reads Mongo directly', async () => {
     process.env.READ_PG_CATEGORY = 'true';
     const now = Date.now();
-    recordPgTimeout(now);
-    recordPgTimeout(now);
-    recordPgTimeout(now);
+    for (let i = 0; i < 10; i++) {
+      recordPgTimeout(now);
+    }
 
     const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const mongoFn = jest.fn().mockResolvedValue([{ _id: 'mongo-only' }]);
@@ -111,3 +111,7 @@ describe('routedRead', () => {
     consoleWarnSpy.mockRestore();
   });
 });
+
+
+
+
