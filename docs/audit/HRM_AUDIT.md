@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-26 (Leave approve/reject id resolution fix)  
+**Last updated:** 2026-09-26 (HRM performance, Super Admin sheets, leave race guard, empId PATCH)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -278,6 +278,24 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### HRM performance, Super Admin mapping, leave UX, empId edit — 2026-09-26
+
+- **Performance:** `hrmReadService.batchEnrichLinkedAdminIds` replaces per-row Mongo lookups; attendance `bulkMarkAttendance` uses `Promise.all`; `linkedAdminId` index on Employee; frontend `Promise.all` for staff/employee fetches and leave section loads.
+- **Super Admin HRM:** Daily sheet (Mongo + PG) includes linked Super Admin employee; `?all=true` lists include them; assignment pickers use `forStaffPicker=true` to exclude; `resolveLinkedEmployeeFromAdmin` prefers `linkedAdminId`; `ensureSuperAdminBidirectionalEmployeeLink` on apply-own leave.
+- **Leave pending UI:** Row-level busy state + duplicate click guard before confirm/API (`hrm-leaves.js`).
+- **Employee ID:** PATCH allows `employeeId` with duplicate check (409); editable `#employeeDisplayId` on edit.
+- Tests: **338/338** Jest (one suite-order flake in `phase3Part3_3` on full run — isolated pass).
+
+### HRM frontend UI/UX master fix — 2026-09-26
+
+- Shared helpers in `hrm-api.js`: `hrmRunModalOpen`, `hrmWithButtonElement`, `hrmWithSubmitButton`, soft table loading (`hrmTableLoadingRow`, `hrmBeginSoftTableLoad`).
+- Modal lifecycle: immediate overlay + `hrm-modal-preparing`; form/searchable-select reset on close; opening guard via `dataset.opening` on triggers.
+- Table actions: delegated clicks on `#view-hrm-leaves`, `#view-hrm-payroll`, `#view-hrm-employees`, `#view-hrm-attendance`, `#view-staff` with in-row loading spinners; soft refresh after row actions.
+- Leaves: both Apply My Leave + Apply for Staff when permitted; `applyLeaveSelfMode` honors self click; `/apply-own` vs `/apply`.
+- Attendance: employee shortcut pre-select via `hrmSetStaffSearchValue` after searchable mount; daily sheet mark buttons delegated.
+- CSS: `_hrm.css` `.hrm-table-busy`, `.hrm-modal-preparing`.
+- Tests: **338/338** unchanged (frontend-only).
 
 ### Leave approve/reject 400 fix — 2026-09-26
 

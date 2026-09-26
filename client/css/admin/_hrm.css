@@ -1273,6 +1273,52 @@
     cursor: wait;
 }
 
+.table-container.hrm-table-busy {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.72;
+}
+
+.table-container.hrm-table-busy::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.35);
+    pointer-events: none;
+}
+
+#hrmLeavePendingTableBody tr.hrm-leave-row-busy {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+#hrmLeavePendingTableBody tr.hrm-leave-row-busy .catalog-action-btn {
+    cursor: not-allowed;
+}
+
+.custom-modal-overlay.hrm-modal-preparing .modal-body {
+    min-height: 120px;
+    position: relative;
+}
+
+.custom-modal-overlay.hrm-modal-preparing .modal-body::after {
+    content: 'Loading…';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    color: #6b7280;
+    background: rgba(255, 255, 255, 0.85);
+    z-index: 2;
+}
+
+.catalog-action-btn.is-loading {
+    opacity: 0.65;
+    cursor: wait;
+}
+
 .btn-outline-sm {
     padding: 5px 12px !important;
     font-size: 12px !important;

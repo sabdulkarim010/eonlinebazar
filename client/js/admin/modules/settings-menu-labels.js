@@ -16,8 +16,22 @@ function isMenuLabelsSuperAdmin() {
     return role === 'superadmin' || role === 'super_admin' || role === 'super admin';
 }
 
-function collectDefaultMenuLabels() {
+function collectDefaultNavSectionLabels() {
     const defaults = {};
+    document.querySelectorAll('#adminSidebarMenu li.menu-group[data-nav-section]').forEach((group) => {
+        const sectionKey = group.getAttribute('data-nav-section');
+        const labelWrap = group.querySelector('.catalog-toggle-label');
+        if (!sectionKey || !labelWrap) return;
+        const clone = labelWrap.cloneNode(true);
+        clone.querySelectorAll('.nav-emoji').forEach((el) => el.remove());
+        const text = clone.textContent.replace(/\s+/g, ' ').trim();
+        defaults[`nav-section:${sectionKey}`] = text;
+    });
+    return defaults;
+}
+
+function collectDefaultMenuLabels() {
+    const defaults = collectDefaultNavSectionLabels();
     document.querySelectorAll('#adminSidebarMenu li[data-target]').forEach((item) => {
         const key = item.getAttribute('data-target');
         if (!key) return;
@@ -35,7 +49,12 @@ function renderMenuLabelsTable(defaults, customLabels = {}) {
     const tbody = document.getElementById('menuLabelsTableBody');
     if (!tbody) return;
 
-    const keys = Object.keys(defaults).sort((a, b) => defaults[a].localeCompare(defaults[b]));
+    const keys = Object.keys(defaults).sort((a, b) => {
+        const aSection = a.startsWith('nav-section:');
+        const bSection = b.startsWith('nav-section:');
+        if (aSection !== bSection) return aSection ? -1 : 1;
+        return defaults[a].localeCompare(defaults[b]);
+    });
     if (!keys.length) {
         tbody.innerHTML = '<tr><td colspan="2" class="table-status-empty">No sidebar menu items found.</td></tr>';
         return;
@@ -44,11 +63,13 @@ function renderMenuLabelsTable(defaults, customLabels = {}) {
     tbody.innerHTML = keys.map((key) => {
         const defaultLabel = defaults[key];
         const value = customLabels[key] ?? defaultLabel;
+        const isSection = key.startsWith('nav-section:');
+        const typeHint = isSection ? 'Section header' : 'Menu item';
         return `
             <tr data-menu-key="${key}">
                 <td>
                     <strong>${defaultLabel}</strong>
-                    <div class="table-subtext"><code>${key}</code></div>
+                    <div class="table-subtext"><code>${key}</code> · ${typeHint}</div>
                 </td>
                 <td>
                     <input type="text" class="menu-label-input" data-menu-key="${key}"

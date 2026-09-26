@@ -14,7 +14,10 @@ import {
     hrmHandleLoadError,
     hrmTableErrorRow,
     hrmSanitizeStaffFields,
-    hrmParseStaffSelect
+    hrmParseStaffSelect,
+    hrmWithSubmitButton,
+    hrmRunModalOpen,
+    hrmEscapeInline
 } from './hrm-api.js';
 
 const PAYROLL_STATUS_CLASSES = {
@@ -61,8 +64,9 @@ function renderPayrollSummary(summary) {
 
 /** Only a draft can be approved, and only an approved run can be paid. */
 function payrollRowActions(row) {
+    const rowId = hrmEscapeInline(String(row._id ?? ''));
     const buttons = [`
-        <button type="button" class="catalog-action-btn" onclick="downloadPaySlip('${row._id}')" title="View Pay Slip">
+        <button type="button" class="catalog-action-btn" data-payroll-action="payslip" data-payroll-id="${rowId}" title="View Pay Slip">
             <i class="fa-solid fa-file-pdf"></i>
         </button>
     `];
@@ -74,7 +78,7 @@ function payrollRowActions(row) {
 
     if (canProcess && row.status === 'draft') {
         buttons.push(`
-            <button type="button" class="catalog-action-btn" onclick="approvePayroll('${row._id}')" title="Approve" style="color:#2563eb;">
+            <button type="button" class="catalog-action-btn" data-payroll-action="approve" data-payroll-id="${rowId}" title="Approve" style="color:#2563eb;">
                 <i class="fa-solid fa-circle-check"></i>
             </button>
         `);
@@ -82,7 +86,7 @@ function payrollRowActions(row) {
 
     if (canProcess && row.status === 'approved') {
         buttons.push(`
-            <button type="button" class="catalog-action-btn" onclick="markPayrollPaid('${row._id}')" title="Mark Paid" style="color:#10b981;">
+            <button type="button" class="catalog-action-btn" data-payroll-action="paid" data-payroll-id="${rowId}" title="Mark Paid" style="color:#10b981;">
                 <i class="fa-solid fa-money-bill-wave"></i>
             </button>
         `);
@@ -97,11 +101,14 @@ function applyPayrollFilters() {
     loadPayrollList();
 }
 
-async function loadPayrollList() {
+async function loadPayrollList(options = {}) {
+    const { soft = false } = options;
     const tbody = document.getElementById('hrmPayrollTableBody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="10" class="loading-container"><div class="spinner"></div><p>Loading payroll…</p></td></tr>';
+    const loadMarker = soft
+        ? window.hrmBeginSoftTableLoad?.(tbody) || { end() {} }
+        : window.hrmTableLoadingRow?.(tbody, 10, 'Loading payroll…') || { end() {} };
 
     const params = new URLSearchParams();
     params.set('page', String(payrollPgState.page));
@@ -134,7 +141,7 @@ async function loadPayrollList() {
         }
 
         tbody.innerHTML = rows.map((row) => `
-            <tr>
+            <tr data-hrm-row="1">
                 <td>
                     <strong>${window.hrmEscape(row.staffName || row.staffUsername || '—')}</strong>
                     <div class="table-subtext">${window.hrmEscape(row.staffUsername || '')}</div>
@@ -154,6 +161,8 @@ async function loadPayrollList() {
     } catch (err) {
         hrmHandleLoadError(err, { context: 'loadPayrollList' });
         tbody.innerHTML = hrmTableErrorRow(10);
+    } finally {
+        loadMarker.end?.();
     }
 }
 
@@ -161,21 +170,36 @@ async function loadPayrollList() {
    GENERATE PAYROLL
    ================================================================== */
 
+function resetGeneratePayrollForm() {
+    window.hrmResetFormById?.('generatePayrollForm');
+    window.hrmClearStaffSearchSelect?.('generatePayrollStaff', { placeholder: 'Select staff member' });
+    window.hrmFillMonthSelect('generatePayrollMonth', currentMonth());
+    const yearInput = document.getElementById('generatePayrollYear');
+    if (yearInput) yearInput.value = currentYear();
+}
+
 function closeGeneratePayrollModal() {
     const modal = document.getElementById('generatePayrollModal');
     if (modal) modal.style.display = 'none';
+    resetGeneratePayrollForm();
 }
 
-async function openGeneratePayrollModal() {
-    await window.hrmLoadStaffOptions(['generatePayrollStaff'], { placeholder: 'Select staff member' });
-    window.hrmMountStaffSearchSelect('generatePayrollStaff', { placeholder: 'Search staff by name or ID…' });
-    window.hrmFillMonthSelect('generatePayrollMonth', currentMonth());
-
-    const yearInput = document.getElementById('generatePayrollYear');
-    if (yearInput) yearInput.value = currentYear();
-
-    const modal = document.getElementById('generatePayrollModal');
-    if (modal) modal.style.display = 'flex';
+async function openGeneratePayrollModal(triggerBtn = null) {
+    await hrmRunModalOpen({
+        triggerBtn,
+        modalId: 'generatePayrollModal',
+        onReset: resetGeneratePayrollForm,
+        prepare: async () => {
+            await window.hrmLoadStaffOptions(['generatePayrollStaff'], {
+                placeholder: 'Select staff member',
+                forStaffPicker: true
+            });
+            window.hrmMountStaffSearchSelect('generatePayrollStaff', { placeholder: 'Search staff by name or ID…' });
+            window.hrmFillMonthSelect('generatePayrollMonth', currentMonth());
+            const yearInput = document.getElementById('generatePayrollYear');
+            if (yearInput) yearInput.value = currentYear();
+        }
+    });
 }
 
 function readGeneratePayrollPayload() {
@@ -225,9 +249,9 @@ async function calculatePayrollFromAttendance() {
     }
 
     const btn = document.getElementById('calculatePayrollBtn');
-    if (btn) btn.disabled = true;
 
     try {
+        await window.hrmWithButtonElement(btn, async () => {
         const params = new URLSearchParams({
             employeeId: payload.staffId || payload.employeeId || payload.staffUsername || hrmParseStaffSelect(payload.staffValue).employeeId,
             month: String(payload.month),
@@ -244,19 +268,25 @@ async function calculatePayrollFromAttendance() {
         renderPayrollBreakdown(result.data);
         const modal = document.getElementById('payrollBreakdownModal');
         if (modal) modal.style.display = 'flex';
+        }, { loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i> Calculating…' });
     } catch (err) {
         showToast(err.message || 'Server error while calculating payroll.', 'error');
-    } finally {
-        if (btn) btn.disabled = false;
     }
 }
 
 async function confirmGeneratePayrollFromBreakdown() {
-    closePayrollBreakdownModal();
-    await submitGeneratePayroll();
+    const confirmBtn = document.getElementById('confirmPayrollSaveBtn');
+    try {
+        await hrmWithSubmitButton(confirmBtn, 'Confirm & Save', async () => {
+            closePayrollBreakdownModal();
+            await submitGeneratePayroll({ skipButtonUi: true });
+        });
+    } catch (err) {
+        showToast(err.message || 'Server error while generating payroll.', 'error');
+    }
 }
 
-async function submitGeneratePayroll() {
+async function submitGeneratePayroll({ skipButtonUi = false } = {}) {
     const payload = readGeneratePayrollPayload();
 
     if (!payload.staffValue || !payload.month || !payload.year) {
@@ -265,9 +295,7 @@ async function submitGeneratePayroll() {
     }
 
     const saveBtn = document.getElementById('generatePayrollSaveBtn');
-    if (saveBtn) saveBtn.disabled = true;
-
-    try {
+    const run = async () => {
         const { staffValue: _omit, ...generateBody } = payload;
         const { result } = await hrmFetchJson('/api/admin/hrm/payroll/generate', {
             method: 'POST',
@@ -280,11 +308,17 @@ async function submitGeneratePayroll() {
             `Net payable ${window.hrmFormatMoney(result.data?.totalSalary)} from ${result.attendanceRecords || 0} attendance record(s).`
         );
         closeGeneratePayrollModal();
-        await loadPayrollList();
+        await loadPayrollList({ soft: true });
+    };
+
+    try {
+        if (skipButtonUi) {
+            await run();
+        } else {
+            await hrmWithSubmitButton(saveBtn, 'Generate', run);
+        }
     } catch (err) {
         showToast(err.message || 'Server error while generating payroll.', 'error');
-    } finally {
-        if (saveBtn) saveBtn.disabled = false;
     }
 }
 
@@ -292,9 +326,9 @@ async function submitGeneratePayroll() {
    APPROVE / PAY / PAY SLIP
    ================================================================== */
 
-function approvePayroll(id) {
+function approvePayroll(id, triggerBtn = null) {
     showCustomConfirm('Approve Payroll', 'Approve this salary run? It can no longer be regenerated afterwards.', async () => {
-        try {
+        const run = async () => {
             const { result } = await hrmFetchJson(`/api/admin/hrm/payroll/${id}/approve`, {
                 method: 'PATCH',
                 headers: window.hrmAuthHeaders(true),
@@ -302,16 +336,25 @@ function approvePayroll(id) {
             });
 
             showAdminSuccess('Payroll Approved', result.message || 'Approved.');
-            await loadPayrollList();
+            await loadPayrollList({ soft: true });
+        };
+        try {
+            if (triggerBtn && window.hrmWithButtonElement) {
+                await window.hrmWithButtonElement(triggerBtn, run, {
+                    loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i>'
+                });
+            } else {
+                await run();
+            }
         } catch (err) {
             showToast(err.message || 'Failed to approve payroll.', 'error');
         }
     });
 }
 
-function markPayrollPaid(id) {
+function markPayrollPaid(id, triggerBtn = null) {
     showCustomConfirm('Mark as Paid', 'Confirm that this salary has been paid out?', async () => {
-        try {
+        const run = async () => {
             const { result } = await hrmFetchJson(`/api/admin/hrm/payroll/${id}/paid`, {
                 method: 'PATCH',
                 headers: window.hrmAuthHeaders(true),
@@ -319,7 +362,16 @@ function markPayrollPaid(id) {
             });
 
             showAdminSuccess('Payroll Paid', result.message || 'Marked paid.');
-            await loadPayrollList();
+            await loadPayrollList({ soft: true });
+        };
+        try {
+            if (triggerBtn && window.hrmWithButtonElement) {
+                await window.hrmWithButtonElement(triggerBtn, run, {
+                    loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i>'
+                });
+            } else {
+                await run();
+            }
         } catch (err) {
             showToast(err.message || 'Failed to mark payroll paid.', 'error');
         }
@@ -330,8 +382,8 @@ function markPayrollPaid(id) {
  * The pay slip route is token-authenticated, so it cannot be opened as a
  * plain link — fetch the PDF and hand the browser a blob download instead.
  */
-async function downloadPaySlip(id) {
-    try {
+async function downloadPaySlip(id, triggerBtn = null) {
+    const run = async () => {
         const blob = await hrmFetchBlob(`/api/admin/hrm/payroll/${id}/payslip`, {
             headers: window.hrmAuthHeaders()
         });
@@ -343,26 +395,66 @@ async function downloadPaySlip(id) {
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
+    };
+
+    try {
+        if (triggerBtn && window.hrmWithButtonElement) {
+            await window.hrmWithButtonElement(triggerBtn, run, {
+                loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i>'
+            });
+        } else {
+            await run();
+        }
     } catch (err) {
         showToast(err.message || 'Failed to download pay slip.', 'error');
     }
+}
+
+function setupPayrollTableDelegation() {
+    const root = document.getElementById('view-hrm-payroll');
+    if (!root || root.dataset.payrollActionDeleg) return;
+    root.dataset.payrollActionDeleg = '1';
+
+    root.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-payroll-action]');
+        if (!btn) return;
+        e.preventDefault();
+        const id = btn.dataset.payrollId || '';
+        const action = btn.dataset.payrollAction;
+        if (action === 'approve') approvePayroll(id, btn);
+        else if (action === 'paid') markPayrollPaid(id, btn);
+        else if (action === 'payslip') downloadPaySlip(id, btn);
+    });
 }
 
 /* ==================================================================
    SALARY CONFIG
    ================================================================== */
 
+function resetSalaryConfigForm() {
+    window.hrmResetFormById?.('salaryConfigForm');
+    window.hrmClearStaffSearchSelect?.('salaryConfigStaff', { placeholder: 'Select staff member' });
+}
+
 function closeSalaryConfigModal() {
     const modal = document.getElementById('salaryConfigModal');
     if (modal) modal.style.display = 'none';
+    resetSalaryConfigForm();
 }
 
-async function openSalaryConfigModal() {
-    await window.hrmLoadStaffOptions(['salaryConfigStaff'], { placeholder: 'Select staff member' });
-    window.hrmMountStaffSearchSelect('salaryConfigStaff', { placeholder: 'Search staff by name or ID…' });
-
-    const modal = document.getElementById('salaryConfigModal');
-    if (modal) modal.style.display = 'flex';
+async function openSalaryConfigModal(triggerBtn = null) {
+    await hrmRunModalOpen({
+        triggerBtn,
+        modalId: 'salaryConfigModal',
+        onReset: resetSalaryConfigForm,
+        prepare: async () => {
+            await window.hrmLoadStaffOptions(['salaryConfigStaff'], {
+                placeholder: 'Select staff member',
+                forStaffPicker: true
+            });
+            window.hrmMountStaffSearchSelect('salaryConfigStaff', { placeholder: 'Search staff by name or ID…' });
+        }
+    });
 }
 
 /** Fill the form from the cached roster so the current values are visible. */
@@ -406,25 +498,24 @@ async function saveSalaryConfig() {
     }
 
     const saveBtn = document.getElementById('salaryConfigSaveBtn');
-    if (saveBtn) saveBtn.disabled = true;
 
     try {
-        const { result } = await hrmFetchJson('/api/admin/hrm/payroll/salary-config', {
-            method: 'POST',
-            headers: window.hrmAuthHeaders(true),
-            body: JSON.stringify(payload)
+        await hrmWithSubmitButton(saveBtn, 'Save Configuration', async () => {
+            const { result } = await hrmFetchJson('/api/admin/hrm/payroll/salary-config', {
+                method: 'POST',
+                headers: window.hrmAuthHeaders(true),
+                body: JSON.stringify(payload)
+            });
+
+            showAdminSuccess('Salary Saved', result.message || 'Salary configuration saved.');
+
+            const cached = window.hrmFindStaff(payload.staffUsername || payload.staffId);
+            if (cached) Object.assign(cached, result.data || {});
+
+            closeSalaryConfigModal();
         });
-
-        showAdminSuccess('Salary Saved', result.message || 'Salary configuration saved.');
-
-        const cached = window.hrmFindStaff(payload.staffUsername || payload.staffId);
-        if (cached) Object.assign(cached, result.data || {});
-
-        closeSalaryConfigModal();
     } catch (err) {
         showToast(err.message || 'Server error while saving salary configuration.', 'error');
-    } finally {
-        if (saveBtn) saveBtn.disabled = false;
     }
 }
 
@@ -445,6 +536,10 @@ async function loadHrmPayrollSection() {
     window.hrmFillMonthSelect('hrmPayrollMonth', currentMonth());
     window.hrmFillYearInput('hrmPayrollYear', currentYear());
 
+    if (typeof window.hrmLoadStaffOptions === 'function') {
+        window.hrmLoadStaffOptions([]).catch(() => {});
+    }
+
     const canViewPayroll = typeof window.hasAdminPermission === 'function'
         && (window.hasAdminPermission('view_payroll')
             || window.hasAdminPermission('view_own_payslip')
@@ -455,10 +550,20 @@ async function loadHrmPayrollSection() {
 }
 
 function setupHrmPayrollSection() {
+    setupPayrollTableDelegation();
+
     const refreshBtn = document.getElementById('payrollRefreshBtn');
     if (refreshBtn && !refreshBtn.dataset.bound) {
         refreshBtn.dataset.bound = '1';
-        refreshBtn.addEventListener('click', loadPayrollList);
+        refreshBtn.addEventListener('click', () => {
+            if (window.hrmWithButtonElement) {
+                window.hrmWithButtonElement(refreshBtn, () => loadPayrollList({ soft: true }), {
+                    loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i> Refreshing…'
+                });
+            } else {
+                loadPayrollList({ soft: true });
+            }
+        });
     }
 }
 

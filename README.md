@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-26 (staffHelpers + Neon cold-start retry tuning)
+**Last updated:** 2026-09-26 (HRM performance, Super Admin sheets, leave guards, empId edit, sidebar section labels)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 

@@ -67,6 +67,7 @@ function initDailySheetPg() {
 /** Staff roster is read by all three HRM sections — fetched once per page load. */
 let hrmStaffCache = [];
 let hrmEmployeeCache = [];
+let hrmEmployeePickerCache = [];
 
 let attendancePg = null;
 const attendancePgState = { page: 1, limit: 10 };
@@ -179,29 +180,53 @@ function hrmFillYearInput(inputId, year) {
 
 function hrmInvalidateEmployeeCache() {
     hrmEmployeeCache = [];
+    hrmEmployeePickerCache = [];
 }
 
 /** Load admin staff + operational employees into grouped optgroups. */
-async function hrmLoadStaffOptions(selectIds = [], { placeholder = 'All staff', includeEmployees = true } = {}) {
-    if (!hrmStaffCache.length) {
-        try {
-            const { result } = await hrmFetchJson('/api/admin/hrm/staff', { headers: hrmAuthHeaders() });
-            hrmStaffCache = Array.isArray(result.data) ? result.data : [];
-        } catch (err) {
-            hrmHandleLoadError(err, { context: 'hrmLoadStaffOptions (staff)' });
-            hrmStaffCache = [];
+async function hrmLoadStaffOptions(selectIds = [], {
+    placeholder = 'All staff',
+    includeEmployees = true,
+    forStaffPicker = false
+} = {}) {
+    const employeeListRef = forStaffPicker ? hrmEmployeePickerCache : hrmEmployeeCache;
+    const staffNeeded = !hrmStaffCache.length;
+    const employeesNeeded = includeEmployees && !employeeListRef.length;
+
+    if (staffNeeded || employeesNeeded) {
+        const tasks = [];
+        if (staffNeeded) {
+            tasks.push(
+                hrmFetchJson('/api/admin/hrm/staff', { headers: hrmAuthHeaders() })
+                    .then(({ result }) => {
+                        hrmStaffCache = Array.isArray(result.data) ? result.data : [];
+                    })
+                    .catch((err) => {
+                        hrmHandleLoadError(err, { context: 'hrmLoadStaffOptions (staff)' });
+                        hrmStaffCache = [];
+                    })
+            );
         }
+        if (employeesNeeded) {
+            const qs = forStaffPicker ? '?all=true&forStaffPicker=true' : '?all=true';
+            tasks.push(
+                hrmFetchJson(`/api/admin/hrm/employees${qs}`, { headers: hrmAuthHeaders() })
+                    .then(({ result }) => {
+                        const rows = Array.isArray(result.data) ? result.data : [];
+                        if (forStaffPicker) hrmEmployeePickerCache = rows;
+                        else hrmEmployeeCache = rows;
+                    })
+                    .catch((err) => {
+                        hrmHandleLoadError(err, { context: 'hrmLoadStaffOptions (employees)' });
+                        if (forStaffPicker) hrmEmployeePickerCache = [];
+                        else hrmEmployeeCache = [];
+                    })
+            );
+        }
+        await Promise.all(tasks);
     }
 
-    if (includeEmployees && !hrmEmployeeCache.length) {
-        try {
-            const { result } = await hrmFetchJson('/api/admin/hrm/employees?all=true', { headers: hrmAuthHeaders() });
-            hrmEmployeeCache = Array.isArray(result.data) ? result.data : [];
-        } catch (err) {
-            hrmHandleLoadError(err, { context: 'hrmLoadStaffOptions (employees)' });
-            hrmEmployeeCache = [];
-        }
-    }
+    const activeEmployeeCache = forStaffPicker ? hrmEmployeePickerCache : hrmEmployeeCache;
 
     selectIds.forEach((selectId) => {
         const select = document.getElementById(selectId);
@@ -221,9 +246,9 @@ async function hrmLoadStaffOptions(selectIds = [], { placeholder = 'All staff', 
             html += `</optgroup>`;
         }
 
-        if (includeEmployees && hrmEmployeeCache.length) {
+        if (includeEmployees && activeEmployeeCache.length) {
             html += `<optgroup label="Operational Employees">`;
-            html += hrmEmployeeCache
+            html += activeEmployeeCache
                 .map((e) => {
                     const designation = e.designation || e.role || 'Employee';
                     return `<option value="employee:${hrmEscape(e.employeeId)}">${hrmEscape(e.fullName)} — ${hrmEscape(designation)}</option>`;
@@ -236,7 +261,7 @@ async function hrmLoadStaffOptions(selectIds = [], { placeholder = 'All staff', 
         if (previous) select.value = previous;
     });
 
-    return { staff: hrmStaffCache, employees: hrmEmployeeCache };
+    return { staff: hrmStaffCache, employees: activeEmployeeCache };
 }
 
 const hrmStaffSearchInstances = {};
@@ -270,6 +295,31 @@ function hrmGetStaffSearchValue(selectId) {
     return hrmStaffSearchInstances[selectId]?.getValue?.()
         || document.getElementById(selectId)?.value
         || '';
+}
+
+function hrmSetStaffSearchValue(selectId, value) {
+    const val = String(value ?? '').trim();
+    const instance = hrmStaffSearchInstances[selectId];
+    if (instance?.setValue) {
+        instance.setValue(val);
+        return;
+    }
+    const select = document.getElementById(selectId);
+    if (select) {
+        select.value = val;
+    }
+}
+
+function hrmClearStaffSearchSelect(selectId, { placeholder = 'Select staff member' } = {}) {
+    if (hrmStaffSearchInstances[selectId]?.destroy) {
+        hrmStaffSearchInstances[selectId].destroy();
+        delete hrmStaffSearchInstances[selectId];
+    }
+    const select = document.getElementById(selectId);
+    if (select) {
+        select.innerHTML = `<option value="">${hrmEscape(placeholder)}</option>`;
+        select.value = '';
+    }
 }
 
 function hrmFindStaff(username) {
@@ -491,7 +541,7 @@ function renderDailySheetMenuOptions(employeeId) {
     const eid = hrmEscape(employeeId);
     return DAILY_SHEET_MENU_OPTIONS.map((option) => {
         const divider = option.dividerBefore ? '<div class="att-split-menu__divider" aria-hidden="true"></div>' : '';
-        return `${divider}<button type="button" class="att-split-menu__item" onclick="markDailySheetStatus('${eid}','${option.status}', this)"><span class="att-split-dot ${option.dotClass}" aria-hidden="true"></span>${option.label}</button>`;
+        return `${divider}<button type="button" class="att-split-menu__item" data-daily-mark="${eid}" data-daily-status="${option.status}"><span class="att-split-dot ${option.dotClass}" aria-hidden="true"></span>${option.label}</button>`;
     }).join('');
 }
 
@@ -515,8 +565,8 @@ function renderDailySheetActionCell(row) {
         <div class="att-action-cell">
             <div class="att-action-row">
                 <div class="att-split-btn" data-employee-id="${eid}">
-                    <button type="button" class="att-split-btn__main" onclick="markDailySheetStatus('${eid}','present', this)">✓ Present</button>
-                    <button type="button" class="att-split-btn__toggle" onclick="toggleDailySheetMenu(this)" aria-label="More statuses">▾</button>
+                    <button type="button" class="att-split-btn__main" data-daily-mark="${eid}" data-daily-status="present">✓ Present</button>
+                    <button type="button" class="att-split-btn__toggle" data-daily-menu-toggle="1" aria-label="More statuses">▾</button>
                     <div class="att-split-menu" hidden>
                         ${renderDailySheetMenuOptions(row.employeeId)}
                     </div>
@@ -1182,9 +1232,9 @@ async function saveManualEntry() {
     }
 
     const saveBtn = document.getElementById('manualEntrySaveBtn');
-    if (saveBtn) saveBtn.disabled = true;
 
     try {
+        await window.hrmWithSubmitButton(saveBtn, 'Save Entry', async () => {
         const { res, result } = await hrmFetchJson('/api/admin/hrm/attendance/manual-entry', {
             method: 'POST',
             headers: hrmAuthHeaders(true),
@@ -1209,12 +1259,49 @@ async function saveManualEntry() {
         await loadManualEntries();
         await loadDailySheet();
         await invalidateHrmAttendanceMetrics();
+        });
     } catch (err) {
         console.error('saveManualEntry:', err);
         showToast('Server error while saving entry.', 'error');
-    } finally {
-        if (saveBtn) saveBtn.disabled = false;
     }
+}
+
+function setupHrmAttendanceActionDelegation() {
+    const root = document.getElementById('view-hrm-attendance');
+    if (!root || root.dataset.hrmAttActionDeleg) return;
+    root.dataset.hrmAttActionDeleg = '1';
+
+    root.addEventListener('click', (e) => {
+        const clockOut = e.target.closest('[data-att-action="clock-out"]');
+        if (clockOut) {
+            e.preventDefault();
+            clockOutFromRegister(
+                clockOut.dataset.staffId || '',
+                clockOut.dataset.staffUsername || '',
+                clockOut.dataset.attDate || '',
+                clockOut.dataset.staffType || 'admin',
+                clockOut
+            );
+            return;
+        }
+
+        const menuToggle = e.target.closest('[data-daily-menu-toggle]');
+        if (menuToggle) {
+            e.preventDefault();
+            toggleDailySheetMenu(menuToggle);
+            return;
+        }
+
+        const markBtn = e.target.closest('[data-daily-mark]');
+        if (markBtn) {
+            e.preventDefault();
+            markDailySheetStatus(
+                markBtn.dataset.dailyMark,
+                markBtn.dataset.dailyStatus,
+                markBtn
+            );
+        }
+    });
 }
 
 function setupDailySheetSection() {
@@ -1276,7 +1363,7 @@ function renderAttendanceRegisterActions(row) {
         const staffUsername = hrmEscape(row.staffUsername || '');
         const staffType = hrmEscape(row.staffType || 'admin');
         const dateKey = row.date ? new Date(row.date).toISOString().slice(0, 10) : '';
-        return `<button type="button" class="btn-secondary btn-sm att-clock-out-btn" onclick="clockOutFromRegister('${staffId}','${staffUsername}','${dateKey}','${staffType}')">Clock Out Now</button>`;
+        return `<button type="button" class="btn-secondary btn-sm att-clock-out-btn" data-att-action="clock-out" data-staff-id="${staffId}" data-staff-username="${staffUsername}" data-att-date="${dateKey}" data-staff-type="${staffType}">Clock Out Now</button>`;
     }
     return '—';
 }
@@ -1395,11 +1482,14 @@ function applyAttendanceFilters() {
     loadAttendanceList();
 }
 
-async function loadAttendanceList() {
+async function loadAttendanceList(options = {}) {
+    const { soft = false } = options;
     const tbody = document.getElementById('hrmAttendanceTableBody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="8" class="loading-container"><div class="spinner"></div><p>Loading attendance…</p></td></tr>';
+    const loadMarker = soft
+        ? window.hrmBeginSoftTableLoad?.(tbody) || { end() {} }
+        : window.hrmTableLoadingRow?.(tbody, 8, 'Loading attendance…') || { end() {} };
 
     const params = new URLSearchParams({
         page: String(attendancePgState.page),
@@ -1428,7 +1518,7 @@ async function loadAttendanceList() {
         }
 
         tbody.innerHTML = rows.map((row) => `
-            <tr>
+            <tr data-hrm-row="1">
                 <td><strong>${hrmEscape(row.staffUsername || '—')}</strong></td>
                 <td>${hrmFormatDate(row.date)}</td>
                 <td>${hrmFormatTime(row.clockIn)}</td>
@@ -1446,17 +1536,19 @@ async function loadAttendanceList() {
     } catch (err) {
         hrmHandleLoadError(err, { context: 'loadAttendanceList' });
         tbody.innerHTML = hrmRegisterErrorRow();
+    } finally {
+        loadMarker.end?.();
     }
 }
 
-async function clockOutFromRegister(staffId, staffUsername, date, staffType = 'admin') {
+async function clockOutFromRegister(staffId, staffUsername, date, staffType = 'admin', triggerBtn = null) {
     const payload = {};
     if (staffId) payload.staffId = staffId;
     else if (staffUsername) payload.staffUsername = staffUsername;
     if (date) payload.date = date;
     if (staffType) payload.staffType = staffType;
 
-    try {
+    const run = async () => {
         const { result } = await hrmFetchJson('/api/admin/hrm/attendance/clock-out', {
             method: 'POST',
             headers: hrmAuthHeaders(true),
@@ -1465,10 +1557,20 @@ async function clockOutFromRegister(staffId, staffUsername, date, staffType = 'a
 
         if (result.success) {
             showHrmToast(result.message || 'Clocked out successfully.', 'success');
-            await loadAttendanceList();
+            await loadAttendanceList({ soft: true });
             await invalidateHrmAttendanceMetrics();
         } else {
             showHrmToast(result.message || 'Failed to clock out.', 'error');
+        }
+    };
+
+    try {
+        if (triggerBtn && window.hrmWithButtonElement) {
+            await window.hrmWithButtonElement(triggerBtn, run, {
+                loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i>'
+            });
+        } else {
+            await run();
         }
     } catch (err) {
         console.error('clockOutFromRegister:', err);
@@ -1488,20 +1590,41 @@ function resetAttendanceFilters() {
     loadAttendanceList();
 }
 
+function resetMarkAttendanceForm() {
+    window.hrmResetFormById?.('markAttendanceForm');
+    hrmClearStaffSearchSelect('markAttendanceStaff', { placeholder: 'Select staff member' });
+    const dateInput = document.getElementById('markAttendanceDate');
+    if (dateInput) {
+        dateInput.value = hrmTodayInputValue();
+    }
+}
+
 function closeMarkAttendanceModal() {
     const modal = document.getElementById('markAttendanceModal');
     if (modal) modal.style.display = 'none';
+    resetMarkAttendanceForm();
 }
 
-async function openMarkAttendanceModal() {
-    await hrmLoadStaffOptions(['markAttendanceStaff'], { placeholder: 'Select staff member' });
-    hrmMountStaffSearchSelect('markAttendanceStaff', { placeholder: 'Search staff by name or ID…' });
-
-    const dateInput = document.getElementById('markAttendanceDate');
-    if (dateInput && !dateInput.value) dateInput.value = hrmTodayInputValue();
-
-    const modal = document.getElementById('markAttendanceModal');
-    if (modal) modal.style.display = 'flex';
+async function openMarkAttendanceModal(triggerBtn = null, { preselectStaff = null, skipReset = false } = {}) {
+    await window.hrmRunModalOpen({
+        triggerBtn,
+        modalId: 'markAttendanceModal',
+        onReset: skipReset ? null : resetMarkAttendanceForm,
+        prepare: async () => {
+            await hrmLoadStaffOptions(['markAttendanceStaff'], {
+                placeholder: 'Select staff member',
+                forStaffPicker: true
+            });
+            hrmMountStaffSearchSelect('markAttendanceStaff', { placeholder: 'Search staff by name or ID…' });
+            if (preselectStaff) {
+                hrmSetStaffSearchValue('markAttendanceStaff', preselectStaff);
+            }
+            const dateInput = document.getElementById('markAttendanceDate');
+            if (dateInput && !dateInput.value) {
+                dateInput.value = hrmTodayInputValue();
+            }
+        }
+    });
 }
 
 async function saveAttendance() {
@@ -1521,23 +1644,21 @@ async function saveAttendance() {
     }
 
     const saveBtn = document.getElementById('markAttendanceSaveBtn');
-    if (saveBtn) saveBtn.disabled = true;
-
     try {
-        const { result } = await hrmFetchJson('/api/admin/hrm/attendance/mark', {
-            method: 'POST',
-            headers: hrmAuthHeaders(true),
-            body: JSON.stringify(payload)
-        });
+        await window.hrmWithSubmitButton(saveBtn, 'Save Attendance', async () => {
+            const { result } = await hrmFetchJson('/api/admin/hrm/attendance/mark', {
+                method: 'POST',
+                headers: hrmAuthHeaders(true),
+                body: JSON.stringify(payload)
+            });
 
-        showAdminSuccess('Attendance Saved', result.message || 'Attendance recorded.');
-        closeMarkAttendanceModal();
-        await loadAttendanceList();
-        await invalidateHrmAttendanceMetrics();
+            showAdminSuccess('Attendance Saved', result.message || 'Attendance recorded.');
+            closeMarkAttendanceModal();
+            await loadAttendanceList({ soft: true });
+            await invalidateHrmAttendanceMetrics();
+        });
     } catch (err) {
         showToast(err.message || 'Server error while saving attendance.', 'error');
-    } finally {
-        if (saveBtn) saveBtn.disabled = false;
     }
 }
 
@@ -1717,7 +1838,7 @@ function resetShiftForm() {
 }
 
 async function openAddShiftModal() {
-    await hrmLoadStaffOptions(['shiftAssignedStaff']);
+    await hrmLoadStaffOptions(['shiftAssignedStaff'], { forStaffPicker: true });
     resetShiftForm();
 
     const modal = document.getElementById('shiftModal');
@@ -1725,7 +1846,7 @@ async function openAddShiftModal() {
 }
 
 async function openEditShiftModal(id) {
-    await hrmLoadStaffOptions(['shiftAssignedStaff']);
+    await hrmLoadStaffOptions(['shiftAssignedStaff'], { forStaffPicker: true });
 
     const shift = hrmShiftCache.find((s) => String(s._id) === String(id));
     if (!shift) {
@@ -1877,9 +1998,7 @@ async function loadHrmAttendanceSection() {
         const filter = document.getElementById('hrmAttendanceStaffFilter');
         if (filter) filter.value = pendingStaff;
         await loadAttendanceList();
-        await openMarkAttendanceModal();
-        const markSelect = document.getElementById('markAttendanceStaff');
-        if (markSelect) markSelect.value = pendingStaff;
+        await openMarkAttendanceModal(null, { preselectStaff: pendingStaff, skipReset: false });
         return;
     }
 
@@ -1895,6 +2014,7 @@ async function loadHrmAttendanceSection() {
 
 function setupHrmAttendanceSection() {
     setupDailySheetSection();
+    setupHrmAttendanceActionDelegation();
 
     hrmSetupTabs('hrmAttendanceTabs', (panelId) => {
         if (panelId === 'hrm-tab-daily-sheet') loadDailySheet();
@@ -1942,6 +2062,8 @@ Object.assign(window, {
     hrmLoadStaffOptions,
     hrmMountStaffSearchSelect,
     hrmGetStaffSearchValue,
+    hrmSetStaffSearchValue,
+    hrmClearStaffSearchSelect,
     hrmParseStaffSelect,
     hrmInvalidateEmployeeCache,
     hrmFindStaff,

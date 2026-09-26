@@ -3270,3 +3270,41 @@ client/js/admin/modules/hrm-leaves.js [MOD] resolveLeaveRowId, leaveActionPath, 
 tests/services/leaveRecordResolver.test.js [NEW]
 docs/audit/HRM_AUDIT.md [MOD]
 README.md [MOD] test count 338
+
+# HRM frontend UI/UX master fix — 2026-09-26
+client/js/admin/modules/hrm-api.js [MOD] modal/table/button UX helpers
+client/js/admin/modules/hrm-leaves.js [MOD] delegation, modals, self/staff leave, soft refresh
+client/js/admin/modules/hrm-payroll.js [MOD] delegation, modal lifecycle, submit loading
+client/js/admin/modules/hrm-attendance.js [MOD] staff search set/clear, delegation, mark modal
+client/js/admin/modules/hrm-employees.js [MOD] delegation, modal lifecycle, soft refresh
+client/js/admin-staff.js [MOD] staff table delegation, soft refresh, modal open guard
+client/css/admin/_hrm.css [MOD] hrm-table-busy, hrm-modal-preparing
+client/admin/partials/view-hrm-leaves.html [MOD] modal trigger guards (this)
+client/admin/partials/view-hrm-payroll.html [MOD] modal trigger guards (this)
+client/admin/partials/view-hrm-attendance.html [MOD] modal trigger guards (this)
+client/admin/partials/view-hrm-employees.html [MOD] modal trigger guards (this)
+docs/audit/HRM_AUDIT.md [MOD]
+README.md [MOD] last updated
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+
+# HRM master fix — performance, Super Admin, leave UX, empId, sidebar sections — 2026-09-26
+backend/src/services/hrmReadService.js [MOD] batch linkedAdmin enrich; forStaffPicker super-admin exclude
+backend/src/controllers/admin/attendanceController.js [MOD] daily sheet include super admin; parallel bulk mark
+backend/src/repositories/attendanceRepository.js [MOD] daily sheet include super admin employee
+backend/src/utils/hrmStaffResolver.js [MOD] linkedAdminId-first employee resolution
+backend/src/utils/superAdminEmployee.js [MOD] ensureSuperAdminBidirectionalEmployeeLink
+backend/src/controllers/admin/leaveController.js [MOD] repair super-admin link before apply-own
+backend/src/models/employee.js [MOD] linkedAdminId index
+backend/src/controllers/admin/employeeController.js [MOD] PATCH employeeId + 409 duplicate
+client/js/admin/modules/hrm-leaves.js [MOD] leave action busy guard; parallel refresh
+client/js/admin/modules/hrm-attendance.js [MOD] Promise.all staff load; forStaffPicker cache
+client/js/admin/modules/hrm-payroll.js [MOD] forStaffPicker on modals
+client/js/admin/modules/hrm-employees.js [MOD] submit employeeId on save
+client/js/admin/modules/sidebarLabels.js [MOD] nav-section:* category labels
+client/js/admin/modules/settings-menu-labels.js [MOD] section header inputs in settings
+client/admin/partials/view-hrm-employees.html [MOD] editable employee display id
+client/css/admin/_hrm.css [MOD] hrm-leave-row-busy
+docs/audit/HRM_AUDIT.md [MOD]
+docs/audit/SETTINGS_AUDIT.md [MOD]
+README.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]

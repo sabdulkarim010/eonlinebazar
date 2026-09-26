@@ -100,6 +100,7 @@ employeeSchema.index({ status: 1 });
 employeeSchema.index({ department: 1 });
 employeeSchema.index({ designation: 1 });
 employeeSchema.index({ employeeType: 1 });
+employeeSchema.index({ linkedAdminId: 1 });
 // employeeId unique index is declared on the field (`unique: true`).
 
 /**

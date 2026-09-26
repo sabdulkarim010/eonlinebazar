@@ -1,6 +1,6 @@
 # SETTINGS MODULE AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24  
+**Last updated:** 2026-09-26  
 **Scope:** System Settings hub (`view-settings.html`), Settings Hub routing, Sidebar Labels, Finance/Security/Notifications/Utilities tabs, and all related backend APIs (`/api/admin/settings*`, `/api/admin/platform-settings`, `/api/admin/master-settings`, `/api/admin/sidebar-labels`, `/api/admin/settings-history`, footer/payment/expense settings).  
 **Status:** ✅ COMPLETE — Phase 1–3 enterprise settings suite complete (history, export/import, Ctrl+S quick save)
 
@@ -278,6 +278,11 @@ Repository tests **pass locally** against Neon (`tests/repositories/sidebarLabel
 ---
 
 ## Change Log
+
+### Sidebar category section labels — 2026-09-26
+
+- Menu label keys extended with `nav-section:{catalog|marketing|hrm|finance|settings}` for accordion headers.
+- `settings-menu-labels.js` renders section headers in Customize Menu Labels; `sidebarLabels.js` applies to `.catalog-toggle-label`.
 
 ### Comprehensive Settings Module A-Z Audit — 2026-09-24
 

@@ -8,10 +8,10 @@
             <button type="button" class="btn-secondary" id="leavesRefreshBtn">
                 <i class="fa-solid fa-rotate"></i> Refresh
             </button>
-            <button type="button" class="btn-primary" id="applyLeaveForStaffBtn" data-permission="apply_leave_for_staff" onclick="openApplyLeaveModal(false)">
+            <button type="button" class="btn-primary" id="applyLeaveForStaffBtn" data-permission="apply_leave_for_staff" onclick="openApplyLeaveModal(false, this)">
                 <i class="fa-solid fa-plus"></i> Apply Leave for Staff
             </button>
-            <button type="button" class="btn-primary" id="applyOwnLeaveBtn" data-permission="apply_own_leave" onclick="openApplyLeaveModal(true)" style="display:none">
+            <button type="button" class="btn-primary" id="applyOwnLeaveBtn" data-permission="apply_own_leave" onclick="openApplyLeaveModal(true, this)" style="display:none">
                 <i class="fa-solid fa-plane"></i> Apply My Leave
             </button>
         </div>

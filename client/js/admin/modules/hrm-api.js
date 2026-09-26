@@ -191,6 +191,140 @@ export async function hrmApi(url, options = {}, config = {}) {
     return result;
 }
 
+/**
+ * Disable a button (or row action) and show loading HTML while `fn` runs.
+ * No-op when `btn` is missing. Skips re-entry when `btn.dataset.loading === '1'`.
+ */
+export async function hrmWithButtonElement(
+    btn,
+    fn,
+    { loadingHtml = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>', blockDouble = true } = {}
+) {
+    if (!btn) {
+        return fn();
+    }
+    if (blockDouble && btn.dataset.loading === '1') {
+        return undefined;
+    }
+
+    const originalHtml = btn.innerHTML;
+    const wasDisabled = btn.disabled;
+    btn.dataset.loading = '1';
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+    btn.innerHTML = loadingHtml;
+
+    try {
+        return await fn();
+    } finally {
+        btn.disabled = wasDisabled;
+        btn.dataset.loading = '0';
+        btn.classList.remove('is-loading');
+        btn.innerHTML = originalHtml;
+    }
+}
+
+/** Standard submit control — "Submitting…" + spinner. */
+export async function hrmWithSubmitButton(btn, defaultLabel, fn) {
+    if (!btn) {
+        return fn();
+    }
+    const label = defaultLabel || btn.textContent?.trim() || 'Submit';
+    try {
+        return await hrmWithButtonElement(btn, fn, {
+            loadingHtml: '<span class="spinner spinner-sm"></span> Submitting…',
+            blockDouble: true
+        });
+    } finally {
+        if (btn && btn.dataset.loading !== '1') {
+            btn.textContent = label;
+        }
+    }
+}
+
+/**
+ * Show modal immediately, run async setup, guard double-click on trigger.
+ */
+export async function hrmRunModalOpen({
+    triggerBtn = null,
+    modalId = null,
+    onReset = null,
+    prepare = null
+} = {}) {
+    if (triggerBtn?.dataset.opening === '1') {
+        return;
+    }
+    if (triggerBtn) {
+        triggerBtn.dataset.opening = '1';
+    }
+
+    const modal = modalId ? document.getElementById(modalId) : null;
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('hrm-modal-preparing');
+    }
+
+    try {
+        if (typeof onReset === 'function') {
+            onReset();
+        }
+        if (typeof prepare === 'function') {
+            await prepare();
+        }
+    } finally {
+        if (modal) {
+            modal.classList.remove('hrm-modal-preparing');
+        }
+        if (triggerBtn) {
+            triggerBtn.dataset.opening = '0';
+        }
+    }
+}
+
+export function hrmResetFormById(formId) {
+    const form = formId ? document.getElementById(formId) : null;
+    if (form && typeof form.reset === 'function') {
+        form.reset();
+    }
+}
+
+/** Mark table busy without clearing rows (refresh after row action). */
+export function hrmBeginSoftTableLoad(tbody) {
+    const container = tbody?.closest('.table-container');
+    if (!container) {
+        return { active: false, end() {} };
+    }
+    container.classList.add('hrm-table-busy');
+    return {
+        active: true,
+        end() {
+            container.classList.remove('hrm-table-busy');
+        }
+    };
+}
+
+/** Full-table spinner only when tbody has no data rows yet. */
+export function hrmTableLoadingRow(tbody, colspan, message = 'Loading…') {
+    const hasData = tbody?.querySelector('tr[data-hrm-row]');
+    const isEmptyState = tbody?.querySelector('.table-status-empty, .table-status-error');
+    if (hasData && !isEmptyState) {
+        return hrmBeginSoftTableLoad(tbody);
+    }
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="${colspan}" class="loading-container"><div class="spinner"></div><p>${hrmEscapeInline(message)}</p></td></tr>`;
+    }
+    return { active: false, end() {} };
+}
+
+/** One delegated click handler per root element. */
+export function hrmBindTableDelegation(root, key, handler) {
+    if (!root || root.dataset[key]) {
+        return;
+    }
+    root.dataset[key] = '1';
+    root.addEventListener('click', handler);
+}
+
 /** Binary download with shared timeout (CSV, PDF, etc.). */
 export async function hrmFetchBlob(url, options = {}, config = {}) {
     url = hrmNormalizeApiPath(url);
@@ -236,5 +370,12 @@ Object.assign(window, {
     hrmNormalizeApiPath,
     hrmStripStaffPrefix,
     hrmParseStaffSelect,
-    hrmSanitizeStaffFields
+    hrmSanitizeStaffFields,
+    hrmWithButtonElement,
+    hrmWithSubmitButton,
+    hrmRunModalOpen,
+    hrmResetFormById,
+    hrmBeginSoftTableLoad,
+    hrmTableLoadingRow,
+    hrmBindTableDelegation
 });

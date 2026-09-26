@@ -700,7 +700,7 @@ function renderStaffTable() {
             : `<span class="staff-avatar">${escapeHtml(initial)}</span>`;
 
         return `
-            <tr class="${blocked ? 'staff-row-blocked' : ''}">
+            <tr class="${blocked ? 'staff-row-blocked' : ''}" data-hrm-row="1">
                 <td>
                     <div class="staff-identity staff-identity--directory">
                         ${avatarHtml}
@@ -744,33 +744,31 @@ function renderStaffTable() {
                 </td>
             </tr>`;
     }).join('');
-
-    bindStaffRowActions();
 }
 
-function bindStaffRowActions() {
-    document.querySelectorAll('#staffTableBody .edit-perm-btn').forEach((btn) => {
-        if (btn.dataset.bound === 'true') return;
-        btn.dataset.bound = 'true';
-        btn.addEventListener('click', () => {
-            if (btn.dataset.id) openStaffEditModal(btn.dataset.id);
-        });
-    });
+function setupStaffTableDelegation() {
+    const root = document.getElementById('view-staff');
+    if (!root || root.dataset.staffActionDeleg) return;
+    root.dataset.staffActionDeleg = '1';
 
-    document.querySelectorAll('#staffTableBody .suspend-btn').forEach((btn) => {
-        if (btn.dataset.bound === 'true') return;
-        btn.dataset.bound = 'true';
-        btn.addEventListener('click', () => {
-            if (btn.dataset.id) toggleStaffStatus(btn.dataset.id);
-        });
-    });
-
-    document.querySelectorAll('#staffTableBody .revoke-btn').forEach((btn) => {
-        if (btn.dataset.bound === 'true') return;
-        btn.dataset.bound = 'true';
-        btn.addEventListener('click', () => {
-            if (btn.dataset.id) revokeStaffAccess(btn.dataset.id);
-        });
+    root.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('.edit-perm-btn');
+        if (editBtn?.dataset.id) {
+            e.preventDefault();
+            openStaffEditModal(editBtn.dataset.id, editBtn);
+            return;
+        }
+        const suspendBtn = e.target.closest('.suspend-btn');
+        if (suspendBtn?.dataset.id) {
+            e.preventDefault();
+            toggleStaffStatus(suspendBtn.dataset.id, suspendBtn);
+            return;
+        }
+        const revokeBtn = e.target.closest('.revoke-btn');
+        if (revokeBtn?.dataset.id) {
+            e.preventDefault();
+            revokeStaffAccess(revokeBtn.dataset.id, revokeBtn);
+        }
     });
 }
 
@@ -807,11 +805,18 @@ function renderStaffSummary(summary) {
 }
 
 async function fetchStaffAccounts(options = {}) {
-    const { bustCache = false, showTableLoading = true } = options;
+    const { bustCache = false, showTableLoading = true, soft = false } = options;
     const body = document.getElementById('staffTableBody');
 
+    let loadEnd = () => {};
     if (body && showTableLoading) {
-        body.innerHTML = '<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading staff accounts...</p></td></tr>';
+        if (soft && typeof window.hrmBeginSoftTableLoad === 'function') {
+            loadEnd = window.hrmBeginSoftTableLoad(body).end || (() => {});
+        } else if (typeof window.hrmTableLoadingRow === 'function') {
+            loadEnd = window.hrmTableLoadingRow(body, 6, 'Loading staff accounts…').end || (() => {});
+        } else {
+            body.innerHTML = '<tr><td colspan="6" class="loading-container"><div class="spinner"></div><p>Loading staff accounts...</p></td></tr>';
+        }
     }
 
     const url = bustCache
@@ -833,6 +838,8 @@ async function fetchStaffAccounts(options = {}) {
             notify(error.message, 'error');
         }
         return false;
+    } finally {
+        loadEnd();
     }
 }
 window.fetchStaffAccounts = fetchStaffAccounts;
@@ -1690,30 +1697,45 @@ function setupCleanupOrphansButton() {
    EDIT / STATUS / RESET / DELETE
    ========================================================================== */
 
-window.openStaffEditModal = async function openStaffEditModal(staffId) {
-    let staff = staffAccounts.find(s => String(s.id) === String(staffId));
-    if (!staff) {
-        await fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
-        staff = staffAccounts.find(s => String(s.id) === String(staffId));
+window.openStaffEditModal = async function openStaffEditModal(staffId, triggerBtn = null) {
+    const runOpen = window.hrmRunModalOpen;
+    const openFn = async () => {
+        let staff = staffAccounts.find(s => String(s.id) === String(staffId));
+        if (!staff) {
+            await fetchStaffAccounts({ showTableLoading: false, suppressErrorToast: true });
+            staff = staffAccounts.find(s => String(s.id) === String(staffId));
+        }
+        if (!staff) {
+            notify('Staff account not found. Try refreshing.', 'error');
+            throw new Error('Staff not found');
+        }
+
+        document.getElementById('editStaffId').value = staff.id;
+        const roleBadge = deriveStaffRoleBadge(staff);
+        const titleEl = document.getElementById('staffEditPermissionsTitle');
+        const subtitleEl = document.getElementById('staffEditPermissionsSubtitle');
+        const roleEl = document.getElementById('staffEditRoleLabel');
+        const empCode = staff.linkedEmployeeCode || staff.employeeId || staff.username;
+
+        if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-user-pen"></i> Edit Permissions: ${escapeHtml(staff.name || staff.username)}`;
+        if (subtitleEl) subtitleEl.textContent = `${empCode} · changes apply on next login`;
+        if (roleEl) roleEl.textContent = roleBadge.label;
+
+        const grid = document.getElementById('editStaffPermissionGrid');
+        renderPermissionCheckboxes(grid, staff.permissions || []);
+        setupPermissionPresets(document.querySelector('[data-permission-presets="edit"]'), grid);
+    };
+
+    if (typeof runOpen === 'function') {
+        await runOpen({
+            triggerBtn,
+            modalId: 'staffEditPermissionsModal',
+            prepare: openFn
+        });
+    } else {
+        await openFn();
+        document.getElementById('staffEditPermissionsModal').style.display = 'flex';
     }
-    if (!staff) return notify('Staff account not found. Try refreshing.', 'error');
-
-    document.getElementById('editStaffId').value = staff.id;
-    const roleBadge = deriveStaffRoleBadge(staff);
-    const titleEl = document.getElementById('staffEditPermissionsTitle');
-    const subtitleEl = document.getElementById('staffEditPermissionsSubtitle');
-    const roleEl = document.getElementById('staffEditRoleLabel');
-    const empCode = staff.linkedEmployeeCode || staff.employeeId || staff.username;
-
-    if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-user-pen"></i> Edit Permissions: ${escapeHtml(staff.name || staff.username)}`;
-    if (subtitleEl) subtitleEl.textContent = `${empCode} · changes apply on next login`;
-    if (roleEl) roleEl.textContent = roleBadge.label;
-
-    const grid = document.getElementById('editStaffPermissionGrid');
-    renderPermissionCheckboxes(grid, staff.permissions || []);
-    setupPermissionPresets(document.querySelector('[data-permission-presets="edit"]'), grid);
-
-    document.getElementById('staffEditPermissionsModal').style.display = 'flex';
 };
 
 function closeStaffEditModal() {
@@ -1786,7 +1808,7 @@ function setupEditStaffForm() {
     });
 }
 
-window.toggleStaffStatus = function toggleStaffStatus(staffId) {
+window.toggleStaffStatus = function toggleStaffStatus(staffId, triggerBtn = null) {
     const staff = staffAccounts.find(s => String(s.id) === String(staffId));
     if (!staff) return notify('Staff account not found. Try refreshing.', 'error');
 
@@ -1798,13 +1820,22 @@ window.toggleStaffStatus = function toggleStaffStatus(staffId) {
             ? `Block "${staff.username}"? They will be signed out of every device immediately and cannot log back in.`
             : `Restore access for "${staff.username}"? They will be able to sign in again with their existing password.`,
         async () => {
-            try {
+            const run = async () => {
                 const result = await staffApi(`/api/admin/staff/${staffId}/status`, {
                     method: 'PATCH',
                     body: JSON.stringify({ status: blocking ? 'blocked' : 'active' })
                 });
                 notify(result.message, 'success');
-                await fetchStaffAccounts();
+                await fetchStaffAccounts({ soft: true });
+            };
+            try {
+                if (triggerBtn && typeof window.hrmWithButtonElement === 'function') {
+                    await window.hrmWithButtonElement(triggerBtn, run, {
+                        loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i>'
+                    });
+                } else {
+                    await run();
+                }
             } catch (error) {
                 notify(error.message, 'error');
             }
@@ -1864,7 +1895,7 @@ window.resetStaffPassword = function resetStaffPassword(staffId) {
     });
 };
 
-window.revokeStaffAccess = function revokeStaffAccess(staffId) {
+window.revokeStaffAccess = function revokeStaffAccess(staffId, triggerBtn = null) {
     const staff = staffAccounts.find(s => String(s.id) === String(staffId));
     if (!staff) return notify('Staff account not found. Try refreshing.', 'error');
 
@@ -1872,11 +1903,20 @@ window.revokeStaffAccess = function revokeStaffAccess(staffId) {
         'Revoke System Access',
         `Remove admin access for ${staff.name || staff.username}? They will be logged out immediately.`,
         async () => {
-            try {
+            const run = async () => {
                 const result = await staffApi(`/api/admin/staff/${staffId}/access`, { method: 'DELETE' });
                 notify(result.message, 'success');
-                await fetchStaffAccounts();
+                await fetchStaffAccounts({ soft: true });
                 await refreshStaffAssignCandidates();
+            };
+            try {
+                if (triggerBtn && typeof window.hrmWithButtonElement === 'function') {
+                    await window.hrmWithButtonElement(triggerBtn, run, {
+                        loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i>'
+                    });
+                } else {
+                    await run();
+                }
             } catch (error) {
                 notify(error.message, 'error');
             }
@@ -1941,6 +1981,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupStaffAssignModal();
     setupEditStaffForm();
     setupStaffRefreshButton();
+    setupStaffTableDelegation();
     setupCleanupOrphansButton();
 
     if (isSuperAdmin()) {

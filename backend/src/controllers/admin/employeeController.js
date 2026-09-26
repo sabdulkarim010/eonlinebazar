@@ -116,6 +116,7 @@ function pickEmployeeFields(body, { partial = false } = {}) {
     };
 
     // Identity
+    assign('employeeId', (v) => String(v || '').trim());
     assign('fullName', (v) => String(v || '').trim());
     assign('religion', (v) => String(v || '').trim());
     assign('nationalId', (v) => String(v || '').trim());
@@ -553,6 +554,20 @@ exports.updateEmployee = async (req, res) => {
         if (fields.designation !== undefined && !fields.designation && !fields.role) {
             return res.status(400).json({ success: false, message: 'Designation cannot be empty.' });
         }
+        if (fields.employeeId !== undefined) {
+            const nextEmployeeId = String(fields.employeeId || '').trim();
+            if (!nextEmployeeId) {
+                return res.status(400).json({ success: false, message: 'Employee ID cannot be empty.' });
+            }
+            fields.employeeId = nextEmployeeId;
+            const duplicate = await Employee.findOne({
+                employeeId: nextEmployeeId,
+                _id: { $ne: employee._id }
+            }).select('_id').lean();
+            if (duplicate) {
+                return res.status(409).json({ success: false, message: 'Employee ID already exists.' });
+            }
+        }
 
         const previousSnapshot = {};
         for (const key of Object.keys(fields)) {
@@ -621,6 +636,9 @@ exports.updateEmployee = async (req, res) => {
 
         res.status(200).json({ success: true, message: 'Employee updated.', data: employee });
     } catch (error) {
+        if (error.code === 11000) {
+            return res.status(409).json({ success: false, message: 'Employee ID already exists.' });
+        }
         console.error('updateEmployee Error:', error);
         res.status(500).json({ success: false, message: 'Failed to update employee.' });
     }

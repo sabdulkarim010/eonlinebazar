@@ -167,10 +167,6 @@ async function getDailySheetMongo(dateInput, department = '', page = 1, limit = 
     const dept = String(department || '').trim();
     if (dept && dept.toLowerCase() !== 'all') query.department = dept;
 
-    const { getSuperAdminLinkedEmployeeLegacyIds, buildMongoExcludeSuperAdminClause } = require('../../utils/superAdminEmployee');
-    const excludeSuperAdmin = buildMongoExcludeSuperAdminClause(await getSuperAdminLinkedEmployeeLegacyIds());
-    if (excludeSuperAdmin) Object.assign(query, excludeSuperAdmin);
-
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
     const total = await Employee.countDocuments(query);
@@ -946,29 +942,36 @@ exports.bulkMarkAttendance = async (req, res) => {
             });
         }
 
-        let success = 0;
-        let failed = 0;
+        const markResults = await Promise.all(
+            ids.map(async (employeeId) => {
+                try {
+                    await persistAttendanceMark(req, {
+                        employeeId,
+                        date,
+                        status: normalizedStatus,
+                        isManualEntry: false
+                    });
+                    return { ok: true };
+                } catch (err) {
+                    return { ok: false, err };
+                }
+            })
+        );
 
-        for (const employeeId of ids) {
-            try {
-                // eslint-disable-next-line no-await-in-loop
-                await persistAttendanceMark(req, {
-                    employeeId,
-                    date,
-                    status: normalizedStatus,
-                    isManualEntry: false
-                });
-                success += 1;
-            } catch (err) {
-                if (err.code === 'LOCKED') {
-                    return res.status(423).json({ success: false, message: err.message });
-                }
-                if (err.code === 'PAST_DATE_FORBIDDEN') {
-                    return res.status(err.httpStatus || 403).json({ success: false, message: err.message });
-                }
-                failed += 1;
-            }
+        const locked = markResults.find((row) => !row.ok && row.err?.code === 'LOCKED');
+        if (locked) {
+            return res.status(423).json({ success: false, message: locked.err.message });
         }
+        const pastBlock = markResults.find((row) => !row.ok && row.err?.code === 'PAST_DATE_FORBIDDEN');
+        if (pastBlock) {
+            return res.status(pastBlock.err.httpStatus || 403).json({
+                success: false,
+                message: pastBlock.err.message
+            });
+        }
+
+        let success = markResults.filter((row) => row.ok).length;
+        let failed = markResults.length - success;
 
         res.status(200).json({
             success: true,

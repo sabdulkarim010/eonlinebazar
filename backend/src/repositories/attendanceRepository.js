@@ -612,21 +612,6 @@ async function getDailySheet(dateInput, department = '', page = 1, limit = 10) {
     employeeWhere.department = dept;
   }
 
-  const { getSuperAdminLinkedEmployeeLegacyIds } = require('../utils/superAdminEmployee');
-  const excludeLegacyIds = await getSuperAdminLinkedEmployeeLegacyIds();
-  if (excludeLegacyIds.length) {
-    // legacyId notIn alone drops NULL legacyId rows (SQL three-valued logic).
-    employeeWhere.AND = [
-      {
-        OR: [
-          { legacyId: null },
-          { legacyId: { notIn: excludeLegacyIds } }
-        ]
-      },
-      { id: { notIn: excludeLegacyIds } }
-    ];
-  }
-
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
   const total = await prisma.employee.count({ where: employeeWhere });

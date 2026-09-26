@@ -233,6 +233,14 @@ async function stampLeaveOnAttendance(leave) {
 /** POST /api/admin/hrm/leaves/apply-own — submit leave for the logged-in staff member only. */
 exports.applyOwnLeave = async (req, res) => {
     try {
+        const Admin = require('../../models/admin');
+        const { ensureSuperAdminBidirectionalEmployeeLink } = require('../../utils/superAdminEmployee');
+        if (req.adminAccount?._id) {
+            await ensureSuperAdminBidirectionalEmployeeLink(req.adminAccount);
+            const refreshed = await Admin.findById(req.adminAccount._id);
+            if (refreshed) req.adminAccount = refreshed;
+        }
+
         const { resolveSelfServiceStaffSubject } = require('../../utils/hrmStaffResolver');
         const subject = await resolveSelfServiceStaffSubject(req.adminAccount);
         if (!subject) {

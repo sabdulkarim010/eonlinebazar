@@ -128,8 +128,47 @@ function buildMongoExcludeSuperAdminClause(excludeIds = []) {
   return { _id: { $nin: objectIds } };
 }
 
+/**
+ * Prefer Employee.linkedAdminId as source of truth; repair Admin.employeeRef when mismatched.
+ */
+async function ensureSuperAdminBidirectionalEmployeeLink(adminAccount) {
+  if (!adminAccount || adminAccount.role !== ROLES.SUPER_ADMIN) return null;
+
+  const adminId = String(adminAccount._id || '');
+  if (!adminId) return null;
+
+  let canonical = await Employee.findOne({ linkedAdminId: adminId });
+  if (canonical) {
+    const ref = adminAccount.employeeRef ? String(adminAccount.employeeRef) : '';
+    if (ref !== String(canonical._id)) {
+      await Admin.updateOne({ _id: adminAccount._id }, { $set: { employeeRef: String(canonical._id) } });
+      adminAccount.employeeRef = String(canonical._id);
+    }
+    return canonical;
+  }
+
+  if (adminAccount.employeeRef) {
+    const byRef = await Employee.findById(adminAccount.employeeRef);
+    if (byRef) {
+      const linked = byRef.linkedAdminId ? String(byRef.linkedAdminId) : '';
+      if (!linked || linked === adminId) {
+        if (!linked) {
+          byRef.linkedAdminId = adminId;
+          await byRef.save();
+        }
+        return byRef;
+      }
+    }
+    await Admin.updateOne({ _id: adminAccount._id }, { $unset: { employeeRef: 1 } });
+    adminAccount.employeeRef = undefined;
+  }
+
+  return null;
+}
+
 module.exports = {
   getSuperAdminLinkedEmployeeLegacyIds,
   isSuperAdminLinkedEmployee,
-  buildMongoExcludeSuperAdminClause
+  buildMongoExcludeSuperAdminClause,
+  ensureSuperAdminBidirectionalEmployeeLink
 };

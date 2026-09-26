@@ -157,30 +157,49 @@ function buildEmployeeListFilters(query = {}) {
   return filters;
 }
 
-/** When PG linkedAdminId is null, check Mongo employeeRef / linkedAdminId before listing as unlinked. */
-async function resolveLinkedAdminIdForEmployeeShape(employee) {
-  if (!employee || employee.linkedAdminId) return employee;
+/** Batch-resolve linkedAdminId for PG rows missing the field (avoids N+1 per employee). */
+async function batchEnrichLinkedAdminIds(employees) {
+  const list = (employees || []).map((row) => ({ ...row }));
+  const needsLink = list
+    .filter((row) => !row.linkedAdminId)
+    .map((row) => String(row._id))
+    .filter(Boolean);
+  if (!needsLink.length) return list;
 
-  const mongoEmp = await Employee.findById(employee._id).select('linkedAdminId').lean();
-  if (mongoEmp?.linkedAdminId) {
-    employee.linkedAdminId = String(mongoEmp.linkedAdminId);
-    return employee;
-  }
+  const [mongoEmps, admins] = await Promise.all([
+    Employee.find({ _id: { $in: needsLink } }).select('_id linkedAdminId').lean(),
+    Admin.find({ employeeRef: { $in: needsLink } }).select('_id employeeRef').lean()
+  ]);
 
-  const admin = await Admin.findOne({ employeeRef: String(employee._id) }).select('_id').lean();
-  if (admin) {
-    employee.linkedAdminId = String(admin._id);
-  }
-  return employee;
+  const linkByEmpId = new Map(
+    mongoEmps
+      .filter((row) => row.linkedAdminId)
+      .map((row) => [String(row._id), String(row.linkedAdminId)])
+  );
+  const adminByEmpRef = new Map(
+    admins.map((row) => [String(row.employeeRef), String(row._id)])
+  );
+
+  list.forEach((row) => {
+    if (row.linkedAdminId) return;
+    const id = String(row._id);
+    const fromMongo = linkByEmpId.get(id);
+    if (fromMongo) {
+      row.linkedAdminId = fromMongo;
+      return;
+    }
+    const adminId = adminByEmpRef.get(id);
+    if (adminId) row.linkedAdminId = adminId;
+  });
+
+  return list;
 }
 
 async function filterEmployeesWithoutLinkedAccess(employees, { assignableOnly = false } = {}) {
   if (assignableOnly) {
     return (employees || []).filter((row) => !row.linkedAdminId);
   }
-  const resolved = await Promise.all(
-    (employees || []).map((row) => resolveLinkedAdminIdForEmployeeShape({ ...row }))
-  );
+  const resolved = await batchEnrichLinkedAdminIds(employees);
   return resolved.filter((row) => !row.linkedAdminId);
 }
 
@@ -253,7 +272,8 @@ async function fetchAllActiveEmployees(query = {}) {
   filters.orderByFullName = true;
   const assignableOnly = String(query.assignable || '').toLowerCase() === 'true'
     || (filters.hasAccess === false && String(query.all || '').toLowerCase() === 'true');
-  const excludeSuperAdmin = String(query.all || '').toLowerCase() === 'true'
+  const forStaffPicker = String(query.forStaffPicker || query.assignable || '').toLowerCase() === 'true';
+  const excludeSuperAdmin = forStaffPicker
     && String(query.includeSuperAdmin || '').toLowerCase() !== 'true';
 
   return routedRead(

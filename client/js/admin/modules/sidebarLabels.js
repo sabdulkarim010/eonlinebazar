@@ -49,7 +49,34 @@ function wrapSidebarLabelText(item) {
     }
 }
 
+function extractNavSectionLabelBase(labelWrap) {
+    if (labelWrap.dataset.navSectionLabelBase) return labelWrap.dataset.navSectionLabelBase;
+    const clone = labelWrap.cloneNode(true);
+    clone.querySelectorAll('.nav-emoji').forEach((el) => el.remove());
+    const text = clone.textContent.replace(/\s+/g, ' ').trim();
+    labelWrap.dataset.navSectionLabelBase = text;
+    return text;
+}
+
+function applySidebarNavSectionLabels(labels = {}) {
+    document.querySelectorAll('#adminSidebarMenu li.menu-group[data-nav-section]').forEach((group) => {
+        const sectionKey = group.getAttribute('data-nav-section');
+        const labelWrap = group.querySelector('.catalog-toggle-label');
+        if (!sectionKey || !labelWrap) return;
+
+        const storageKey = `nav-section:${sectionKey}`;
+        const base = extractNavSectionLabelBase(labelWrap);
+        const custom = labels[storageKey];
+        const text = custom || base;
+        const emoji = labelWrap.querySelector('.nav-emoji');
+        labelWrap.textContent = '';
+        if (emoji) labelWrap.appendChild(emoji);
+        labelWrap.append(` ${text}`);
+    });
+}
+
 function applySidebarLabels(labels = {}) {
+    applySidebarNavSectionLabels(labels);
     document.querySelectorAll('#adminSidebarMenu li[data-target]').forEach((item) => {
         wrapSidebarLabelText(item);
         const key = item.getAttribute('data-target');

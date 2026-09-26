@@ -3818,5 +3818,35 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Outbox dispatcher | ✅ | Unchanged — `outboxDispatcherJob.js` |
 | Tests | ✅ | **335/335** Jest |
 
+---
+
+## HRM Frontend UI/UX Master Fix — 2026-09-26
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Modal open guard + instant overlay | ✅ | `hrmRunModalOpen`, `dataset.opening` on triggers |
+| Form/searchable reset on modal close | ✅ | All HRM + staff assign/edit flows |
+| Table action event delegation | ✅ | Leaves, payroll, employees, attendance register, staff directory |
+| In-row action loading spinners | ✅ | `hrmWithButtonElement` after confirm where applicable |
+| Soft table refresh (no blank wipe) | ✅ | `hrmTableLoadingRow` / `hrmBeginSoftTableLoad` |
+| Apply My Leave vs Apply for Staff | ✅ | Both buttons when permitted; `/apply-own` vs `/apply` |
+| Attendance shortcut pre-select | ✅ | `hrmSetStaffSearchValue` after mount |
+| Tests | ✅ | **338/338** Jest (frontend-only) |
+
+---
+
+## HRM Master Fix — Performance, Super Admin, Leave UX, empId, Sidebar Sections — 2026-09-26
+
+| Item | Status | Notes |
+|------|--------|-------|
+| N+1 employee linked-admin resolution | ✅ | Batch `$in` in `hrmReadService` |
+| Bulk attendance mark parallelism | ✅ | `Promise.all` in `bulkMarkAttendance` |
+| Super Admin on daily sheet / balances lists | ✅ | Removed sheet exclusion; picker-only exclude via `forStaffPicker` |
+| Self-service leave staff resolution | ✅ | `linkedAdminId` first + bidirectional link repair |
+| Leave approve/reject duplicate clicks | ✅ | Client row busy + in-flight set |
+| PATCH `employeeId` | ✅ | Unique validation + editable admin UI |
+| Sidebar category label keys | ✅ | `nav-section:*` in labels API + settings |
+| Tests | ✅ | **338/338** Jest |
+
 
 

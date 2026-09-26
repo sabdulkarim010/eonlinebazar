@@ -5,7 +5,16 @@
 // STANDARD: Use Swal.fire() for ALL confirmations.
 // Never use confirm(), alert(), or window.confirm().
 import '../admin-core.js';
-import { hrmFetchJson, hrmFetchBlob, hrmHandleLoadError, hrmTableErrorRow } from './hrm-api.js';
+import {
+    hrmFetchJson,
+    hrmFetchBlob,
+    hrmHandleLoadError,
+    hrmTableErrorRow,
+    hrmEscapeInline,
+    hrmRunModalOpen,
+    hrmWithSubmitButton,
+    hrmWithButtonElement
+} from './hrm-api.js';
 
 const EMPLOYEE_STATUS_CLASSES = {
     active: 'status-verified',
@@ -183,7 +192,7 @@ function renderEmployeeTable(rows) {
         const terminateStyle = isSuperAdminEmp ? 'opacity:0.4;cursor:not-allowed;' : '';
 
         return `
-        <tr>
+        <tr data-hrm-row="1">
             <td>${employeePhotoCell(e.photo, e.fullName)}</td>
             <td><code>${employeeEscape(e.employeeId || '—')}</code></td>
             <td><strong>${employeeEscape(e.fullName)}</strong></td>
@@ -195,13 +204,13 @@ function renderEmployeeTable(rows) {
             <td><span class="status-badge ${EMPLOYEE_STATUS_CLASSES[e.status] || 'status-pending'}">${employeeEscape(e.status || 'active')}</span></td>
             <td>
                 <div class="catalog-actions">
-                    <button type="button" class="catalog-action-btn" onclick="openEmployeeProfile('${e._id}')" title="View Details">
+                    <button type="button" class="catalog-action-btn" data-emp-action="profile" data-emp-id="${hrmEscapeInline(e._id)}" title="View Details">
                         <i class="fa-solid fa-id-card"></i>
                     </button>
-                    ${canEdit ? `<button type="button" class="catalog-action-btn edit" onclick="openEditEmployeeModal('${e._id}')" title="Edit">
+                    ${canEdit ? `<button type="button" class="catalog-action-btn edit" data-emp-action="edit" data-emp-id="${hrmEscapeInline(e._id)}" title="Edit">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>` : ''}
-                    <button type="button" class="catalog-action-btn terminate-btn ${e.status === 'terminated' ? 'activate' : 'delete'}" ${terminateDisabled} style="${terminateStyle}" onclick="toggleEmployeeStatus('${e._id}', '${employeeEscape(e.status || 'active')}')" title="${terminateTitle}">
+                    <button type="button" class="catalog-action-btn terminate-btn ${e.status === 'terminated' ? 'activate' : 'delete'}" ${terminateDisabled} style="${terminateStyle}" data-emp-action="status" data-emp-id="${hrmEscapeInline(e._id)}" data-emp-status="${employeeEscape(e.status || 'active')}" title="${terminateTitle}">
                         <i class="fa-solid ${e.status === 'terminated' ? 'fa-user-check' : 'fa-user-slash'}"></i>
                     </button>
                 </div>
@@ -444,11 +453,14 @@ function applyEmployeeFilters() {
     loadEmployees();
 }
 
-async function loadEmployees() {
+async function loadEmployees(options = {}) {
+    const { soft = false } = options;
     const tbody = document.getElementById('employeeTableBody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="10" class="loading-container"><div class="spinner"></div><p>Loading employees…</p></td></tr>';
+    const loadMarker = soft
+        ? window.hrmBeginSoftTableLoad?.(tbody) || { end() {} }
+        : window.hrmTableLoadingRow?.(tbody, 10, 'Loading employees…') || { end() {} };
 
     const params = new URLSearchParams();
     params.set('page', String(employeePgState.page));
@@ -472,7 +484,26 @@ async function loadEmployees() {
     } catch (err) {
         hrmHandleLoadError(err, { context: 'loadEmployees' });
         tbody.innerHTML = hrmTableErrorRow(10);
+    } finally {
+        loadMarker.end?.();
     }
+}
+
+function setupEmployeeTableDelegation() {
+    const root = document.getElementById('view-hrm-employees');
+    if (!root || root.dataset.empActionDeleg) return;
+    root.dataset.empActionDeleg = '1';
+
+    root.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-emp-action]');
+        if (!btn || btn.disabled) return;
+        e.preventDefault();
+        const id = btn.dataset.empId || '';
+        const action = btn.dataset.empAction;
+        if (action === 'profile') openEmployeeProfile(id);
+        else if (action === 'edit') openEditEmployeeModal(id, btn);
+        else if (action === 'status') toggleEmployeeStatus(id, btn.dataset.empStatus || 'active', btn);
+    });
 }
 
 /* ==================================================================
@@ -833,8 +864,10 @@ function buildEmployeePayload() {
 
     const present = document.getElementById('employeePresentAddress')?.value?.trim() || '';
     const designation = document.getElementById('employeeDesignation')?.value?.trim();
+    const editId = document.getElementById('employeeEditId')?.value?.trim();
+    const displayId = document.getElementById('employeeDisplayId')?.value?.trim();
 
-    return {
+    const payload = {
         fullName: document.getElementById('employeeFullName')?.value?.trim(),
         phone: document.getElementById('employeePhone')?.value?.trim(),
         alternatePhone: document.getElementById('employeeAlternatePhone')?.value?.trim() || '',
@@ -868,41 +901,53 @@ function buildEmployeePayload() {
         notes: document.getElementById('employeeNotes')?.value?.trim() || '',
         status: document.getElementById('employeeStatus')?.value || 'active'
     };
+
+    if (displayId && (editId || displayId)) {
+        payload.employeeId = displayId;
+    }
+
+    return payload;
 }
 
 function closeEmployeeModal() {
     const modal = document.getElementById('employeeModal');
     if (modal) modal.style.display = 'none';
     pendingPhotoFile = null;
-}
-
-async function openAddEmployeeModal() {
     resetEmployeeForm();
-    await Promise.all([loadDesignationsDropdown(), loadShiftsDropdown()]);
-    document.getElementById('employeeModal').style.display = 'flex';
 }
 
-async function openEditEmployeeModal(id) {
-    closeEmployeeProfileModal();
-    try {
-        const { result } = await hrmFetchJson(`/api/admin/hrm/employees/${id}`, { headers: employeeAuthHeaders() });
-        if (!result.data) {
-            showToast(result.message || 'Employee not found.', 'error');
-            return;
+async function openAddEmployeeModal(triggerBtn = null) {
+    await hrmRunModalOpen({
+        triggerBtn,
+        modalId: 'employeeModal',
+        onReset: resetEmployeeForm,
+        prepare: async () => {
+            await Promise.all([loadDesignationsDropdown(), loadShiftsDropdown()]);
         }
+    });
+}
 
-        resetEmployeeForm();
-        await Promise.all([loadDesignationsDropdown(), loadShiftsDropdown()]);
-        fillEmployeeForm(result.data);
+async function openEditEmployeeModal(id, triggerBtn = null) {
+    await hrmRunModalOpen({
+        triggerBtn,
+        modalId: 'employeeModal',
+        onReset: resetEmployeeForm,
+        prepare: async () => {
+            closeEmployeeProfileModal();
+            const { result } = await hrmFetchJson(`/api/admin/hrm/employees/${id}`, { headers: employeeAuthHeaders() });
+            if (!result.data) {
+                showToast(result.message || 'Employee not found.', 'error');
+                throw new Error(result.message || 'Employee not found.');
+            }
 
-        const title = document.getElementById('employeeModalTitle');
-        if (title) title.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit Employee';
+            resetEmployeeForm();
+            await Promise.all([loadDesignationsDropdown(), loadShiftsDropdown()]);
+            fillEmployeeForm(result.data);
 
-        document.getElementById('employeeModal').style.display = 'flex';
-    } catch (err) {
-        console.error('openEditEmployeeModal:', err);
-        showToast('Failed to load employee.', 'error');
-    }
+            const title = document.getElementById('employeeModalTitle');
+            if (title) title.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Edit Employee';
+        }
+    });
 }
 
 function handleEmployeePhotoPick(event) {
@@ -1370,7 +1415,7 @@ async function deleteDocument(employeeId, docId) {
    TERMINATE & ATTENDANCE SHORTCUT
    ================================================================== */
 
-async function toggleEmployeeStatus(id, currentStatus) {
+async function toggleEmployeeStatus(id, currentStatus, triggerBtn = null) {
     const reactivating = currentStatus === 'terminated';
     const title = reactivating ? 'Reactivate this employee?' : 'Terminate this employee?';
     const text = reactivating
@@ -1390,7 +1435,7 @@ async function toggleEmployeeStatus(id, currentStatus) {
 
     if (!proceed) return;
 
-    try {
+    const run = async () => {
         const { result } = await hrmFetchJson(`/api/admin/hrm/employees/${id}`, {
             method: 'PATCH',
             headers: employeeAuthHeaders(true),
@@ -1412,9 +1457,19 @@ async function toggleEmployeeStatus(id, currentStatus) {
             closeEmployeeProfileModal();
             if (window.hrmInvalidateEmployeeCache) window.hrmInvalidateEmployeeCache();
             await loadEmployeeStats();
-            await loadEmployees();
+            await loadEmployees({ soft: true });
         } else {
             showToast(result.message || 'Failed to update status.', 'error');
+        }
+    };
+
+    try {
+        if (triggerBtn && hrmWithButtonElement) {
+            await hrmWithButtonElement(triggerBtn, run, {
+                loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i>'
+            });
+        } else {
+            await run();
         }
     } catch (err) {
         console.error('toggleEmployeeStatus:', err);
@@ -1476,12 +1531,21 @@ async function loadHrmEmployeesSection() {
 }
 
 function setupHrmEmployeesSection() {
+    setupEmployeeTableDelegation();
+
     const refreshBtn = document.getElementById('employeesRefreshBtn');
     if (refreshBtn && !refreshBtn.dataset.bound) {
         refreshBtn.dataset.bound = '1';
         refreshBtn.addEventListener('click', async () => {
-            await loadEmployeeStats();
-            await loadEmployees();
+            if (hrmWithButtonElement) {
+                await hrmWithButtonElement(refreshBtn, async () => {
+                    await loadEmployeeStats();
+                    await loadEmployees({ soft: true });
+                }, { loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i> Refreshing…' });
+            } else {
+                await loadEmployeeStats();
+                await loadEmployees({ soft: true });
+            }
         });
     }
 

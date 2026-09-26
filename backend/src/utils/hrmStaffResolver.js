@@ -97,14 +97,19 @@ async function resolveHrmSubject(input = {}) {
 async function resolveLinkedEmployeeFromAdmin(account) {
     if (!account) return null;
 
-    if (account.employeeRef) {
-        const byRef = await findEmployeeRecord(account.employeeRef);
-        if (byRef) return byRef;
+    const adminId = account._id ? String(account._id) : '';
+
+    if (adminId) {
+        const byLink = await Employee.findOne({ linkedAdminId: adminId });
+        if (byLink) return byLink;
     }
 
-    if (account._id) {
-        const byLink = await Employee.findOne({ linkedAdminId: String(account._id) });
-        if (byLink) return byLink;
+    if (account.employeeRef) {
+        const byRef = await findEmployeeRecord(account.employeeRef);
+        if (byRef) {
+            const linked = byRef.linkedAdminId ? String(byRef.linkedAdminId) : '';
+            if (!linked || linked === adminId) return byRef;
+        }
     }
 
     return null;
