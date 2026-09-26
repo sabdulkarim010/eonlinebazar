@@ -109,10 +109,34 @@ function buildNotDeletedMongoClause() {
   return { isDeleted: { $ne: true } };
 }
 
+function parseIncludeTerminatedFlag(query = {}) {
+  return String(query.includeTerminated || '').trim().toLowerCase() === 'true';
+}
+
+/**
+ * Default employee list visibility — mirrors Mongo soft-delete + terminated handling.
+ * Terminated rows are hidden unless `includeTerminated=true` or status=terminated.
+ */
+function appendOperationalEmployeeMongoClauses(mongoClauses, filters = {}) {
+  if (filters.includeTerminated) {
+    return;
+  }
+  if (filters.status === 'terminated') {
+    mongoClauses.push({ status: 'terminated' });
+    return;
+  }
+  mongoClauses.push(buildNotDeletedMongoClause());
+  mongoClauses.push({ status: { $ne: 'terminated' } });
+}
+
 function buildEmployeeListFilters(query = {}) {
   const filters = {};
   const status = String(query.status || '').trim().toLowerCase();
   if (Employee.EMPLOYEE_STATUSES.includes(status)) filters.status = status;
+
+  if (parseIncludeTerminatedFlag(query)) {
+    filters.includeTerminated = true;
+  }
 
   const department = String(query.department || '').trim();
   if (department) filters.department = department;
@@ -168,9 +192,10 @@ async function fetchEmployeesPage({ query, skip, limit }) {
   return routedRead(
     'employee',
     async () => {
-      const mongoClauses = [buildNotDeletedMongoClause()];
+      const mongoClauses = [];
+      appendOperationalEmployeeMongoClauses(mongoClauses, filters);
       const mongoFilter = {};
-      if (filters.status) mongoFilter.status = filters.status;
+      if (filters.status && filters.status !== 'terminated') mongoFilter.status = filters.status;
       if (filters.department) mongoFilter.department = filters.department;
       if (filters.designation) mongoFilter.designation = filters.designation;
       if (filters.employeeType) mongoFilter.employeeType = filters.employeeType;
@@ -234,7 +259,10 @@ async function fetchAllActiveEmployees(query = {}) {
   return routedRead(
     'employee',
     async () => {
-      const clauses = [{ status: 'active' }, buildNotDeletedMongoClause()];
+      const clauses = [{ status: 'active' }];
+      if (!filters.includeTerminated) {
+        clauses.push(buildNotDeletedMongoClause());
+      }
       if (excludeSuperAdmin) {
         const { getSuperAdminLinkedEmployeeLegacyIds, buildMongoExcludeSuperAdminClause } = require('../utils/superAdminEmployee');
         const excludeClause = buildMongoExcludeSuperAdminClause(await getSuperAdminLinkedEmployeeLegacyIds());
@@ -281,17 +309,24 @@ async function fetchEmployeeStats() {
   return routedRead(
     'employee',
     async () => {
-      const notDeletedMatch = { $match: buildNotDeletedMongoClause() };
+      const operationalMatch = {
+        $match: {
+          $and: [
+            buildNotDeletedMongoClause(),
+            { status: { $ne: 'terminated' } }
+          ]
+        }
+      };
       const [totals, byDepartment, byDesignation] = await Promise.all([
-        Employee.aggregate([notDeletedMatch, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+        Employee.aggregate([operationalMatch, { $group: { _id: '$status', count: { $sum: 1 } } }]),
         Employee.aggregate([
-          notDeletedMatch,
+          operationalMatch,
           { $match: { status: 'active' } },
           { $group: { _id: '$department', count: { $sum: 1 } } },
           { $sort: { _id: 1 } }
         ]),
         Employee.aggregate([
-          notDeletedMatch,
+          operationalMatch,
           { $match: { status: 'active' } },
           { $group: { _id: '$designation', count: { $sum: 1 } } },
           { $sort: { count: -1, _id: 1 } }
@@ -317,6 +352,18 @@ async function fetchEmployeeStats() {
       };
     }
   );
+}
+
+async function fetchEmployeesForExport(query = {}, limit = 10000) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 10000, 1), 10000);
+  const { employees } = await fetchEmployeesPage({ query, skip: 0, limit: safeLimit });
+  return employees;
+}
+
+async function fetchPayrollsForExport(query = {}, limit = 10000) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 10000, 1), 10000);
+  const { records } = await fetchPayrollsPage({ query, skip: 0, limit: safeLimit });
+  return records;
 }
 
 async function fetchEmployeeByIdentifier(id) {
@@ -873,6 +920,7 @@ async function fetchLeaveCalendar({ month, year, statusQuery }) {
 
 module.exports = {
   fetchEmployeesPage,
+  fetchEmployeesForExport,
   fetchAllActiveEmployees,
   fetchEmployeeStats,
   fetchEmployeeByIdentifier,
@@ -881,6 +929,7 @@ module.exports = {
   fetchTodayAttendanceStats,
   fetchAttendanceSummary,
   fetchPayrollsPage,
+  fetchPayrollsForExport,
   decoratePayrollDesignations,
   fetchLeavesPage,
   fetchLeaveBalance,

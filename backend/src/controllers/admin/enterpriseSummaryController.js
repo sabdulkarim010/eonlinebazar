@@ -12,20 +12,17 @@ const Cart = require('../../models/cart');
 const ContactMessage = require('../../models/ContactMessage');
 const User = require('../../models/user');
 const Admin = require('../../models/admin');
-const Attendance = require('../../models/attendance');
-const Payroll = require('../../models/payroll');
-const Leave = require('../../models/leave');
-const Employee = require('../../models/employee');
+const {
+    fetchHrmDashboardMetricsMongo,
+    fetchHrmDashboardMetricsPg,
+    getCachedHrmDashboardMetrics
+} = require('../../services/hrmDashboardMetricsService');
 const { ABANDON_THRESHOLD_MS } = require('../../jobs/abandonedCartJob');
 const { isPgReadEnabled } = require('../../config/readCutoverFlags');
 const prisma = require('../../config/prismaClient');
 const { countOpenPurchaseOrdersFromPG } = require('../../repositories/purchaseOrderRepository');
-const attendanceRepository = require('../../repositories/attendanceRepository');
-const payrollRepository = require('../../repositories/payrollRepository');
-const leaveRepository = require('../../repositories/leaveRepository');
-const employeeRepository = require('../../repositories/employeeRepository');
 const securityLogRepository = require('../../repositories/securityLogRepository');
-const { normalizeAttendanceDate, getPlatformDayBounds } = require('../../utils/attendanceDate');
+const { normalizeAttendanceDate } = require('../../utils/attendanceDate');
 const {
     isNeonTimeoutError,
     logPgFallback
@@ -59,17 +56,6 @@ async function safeMetric(label, fn, fallback = 0) {
         }
         return { value: fallback, error: err.message };
     }
-}
-
-async function countTodayStatsMongo() {
-    const { start, end } = getPlatformDayBounds(new Date());
-    const dayFilter = { date: { $gte: start, $lt: end } };
-    const [present, absent, late] = await Promise.all([
-        Attendance.countDocuments({ ...dayFilter, status: { $in: ['present', 'half-day'] } }),
-        Attendance.countDocuments({ ...dayFilter, status: 'absent' }),
-        Attendance.countDocuments({ ...dayFilter, isLate: true })
-    ]);
-    return { present, absent, late };
 }
 
 /**
@@ -183,36 +169,20 @@ async function loadEnterpriseSummaryMetrics(todayStart, abandonCutoff, securityS
         status: { $ne: 'blocked' }
     });
 
-    const pgEmployeeCount = () => employeeRepository.count({ status: 'active' });
-    const mongoEmployeeCount = () => Employee.countDocuments({ status: 'active' });
-
     const pgSecurityEvents = () => securityLogRepository.count({ dateFrom: securitySince });
     const mongoSecurityEvents = () => countSecurityLogs({ dateFrom: securitySince });
 
-    const pgAttendanceToday = () => attendanceRepository.countTodayStats();
-    const mongoAttendanceToday = () => countTodayStatsMongo();
-
-    const pgPendingLeave = () => leaveRepository.countPending();
-    const mongoPendingLeave = () => Leave.countDocuments({ status: 'pending' });
-
-    const pgPayrollPaid = () => payrollRepository.count({
-        month: currentMonth,
-        year: currentYear,
-        status: 'paid'
+    const pgHrmDashboard = () => getCachedHrmDashboardMetrics({
+        currentMonth,
+        currentYear,
+        preferPg: true,
+        fetchFn: fetchHrmDashboardMetricsPg
     });
-    const mongoPayrollPaid = () => Payroll.countDocuments({
-        month: currentMonth,
-        year: currentYear,
-        status: 'paid'
-    });
-
-    const pgPayrollPending = () => prisma.payroll.count({
-        where: { month: currentMonth, year: currentYear, status: { not: 'PAID' } }
-    });
-    const mongoPayrollPending = () => Payroll.countDocuments({
-        month: currentMonth,
-        year: currentYear,
-        status: { $ne: 'paid' }
+    const mongoHrmDashboard = () => getCachedHrmDashboardMetrics({
+        currentMonth,
+        currentYear,
+        preferPg: false,
+        fetchFn: fetchHrmDashboardMetricsMongo
     });
 
     const pgSilver = () => prisma.user.count({ where: { loyaltyTier: 'SILVER', isDeleted: false } });
@@ -232,12 +202,8 @@ async function loadEnterpriseSummaryMetrics(todayStart, abandonCutoff, securityS
         openTicketCount,
         newCustomersToday,
         staffCount,
-        employeeCount,
+        hrmDashboard,
         recentSecurityEvents,
-        attendanceToday,
-        pendingLeaveCount,
-        payrollPaidThisMonth,
-        payrollPendingThisMonth,
         silverCount,
         goldCount,
         platinumCount
@@ -249,20 +215,37 @@ async function loadEnterpriseSummaryMetrics(todayStart, abandonCutoff, securityS
         collectMetric('openTicketCount', pgOpenTickets, mongoOpenTickets, 0, errors, { preferPg }),
         collectMetric('newCustomersToday', pgNewCustomers, mongoNewCustomers, 0, errors, { preferPg }),
         collectMetric('staffCount', pgStaffCount, mongoStaffCount, 0, errors, { preferPg }),
-        collectMetric('employeeCount', pgEmployeeCount, mongoEmployeeCount, 0, errors, { preferPg }),
+        collectMetric(
+            'hrmDashboard',
+            pgHrmDashboard,
+            mongoHrmDashboard,
+            {
+                employeeCount: 0,
+                pendingLeaveCount: 0,
+                presentToday: 0,
+                absentToday: 0,
+                lateToday: 0,
+                payrollPaidThisMonth: 0,
+                payrollPendingThisMonth: 0,
+                estimatedPayrollCostThisMonth: 0
+            },
+            errors,
+            { preferPg }
+        ),
         collectMetric('recentSecurityEvents', pgSecurityEvents, mongoSecurityEvents, 0, errors, { preferPg }),
-        collectMetric('attendanceToday', pgAttendanceToday, mongoAttendanceToday, { present: 0, absent: 0, late: 0 }, errors, { preferPg }),
-        collectMetric('pendingLeaveCount', pgPendingLeave, mongoPendingLeave, 0, errors, { preferPg }),
-        collectMetric('payrollPaidThisMonth', pgPayrollPaid, mongoPayrollPaid, 0, errors, { preferPg }),
-        collectMetric('payrollPendingThisMonth', pgPayrollPending, mongoPayrollPending, 0, errors, { preferPg }),
         collectMetric('silverCount', pgSilver, mongoSilver, 0, errors, { preferPg }),
         collectMetric('goldCount', pgGold, mongoGold, 0, errors, { preferPg }),
         collectMetric('platinumCount', pgPlatinum, mongoPlatinum, 0, errors, { preferPg })
     ]);
 
-    const presentToday = Number(attendanceToday?.present) || 0;
-    const absentToday = Number(attendanceToday?.absent) || 0;
-    const lateToday = Number(attendanceToday?.late) || 0;
+    const employeeCount = Number(hrmDashboard?.employeeCount) || 0;
+    const presentToday = Number(hrmDashboard?.presentToday) || 0;
+    const absentToday = Number(hrmDashboard?.absentToday) || 0;
+    const lateToday = Number(hrmDashboard?.lateToday) || 0;
+    const pendingLeaveCount = Number(hrmDashboard?.pendingLeaveCount) || 0;
+    const payrollPaidThisMonth = Number(hrmDashboard?.payrollPaidThisMonth) || 0;
+    const payrollPendingThisMonth = Number(hrmDashboard?.payrollPendingThisMonth) || 0;
+    const estimatedPayrollCostThisMonth = Number(hrmDashboard?.estimatedPayrollCostThisMonth) || 0;
 
     return {
         stats: {
@@ -281,6 +264,7 @@ async function loadEnterpriseSummaryMetrics(todayStart, abandonCutoff, securityS
             pendingLeaveCount,
             payrollPaidThisMonth,
             payrollPendingThisMonth,
+            estimatedPayrollCostThisMonth,
             silverCount,
             goldCount,
             platinumCount
@@ -339,6 +323,7 @@ exports.getEnterpriseSummary = async (req, res) => {
                 pendingLeaveCount: 0,
                 payrollPaidThisMonth: 0,
                 payrollPendingThisMonth: 0,
+                estimatedPayrollCostThisMonth: 0,
                 silverCount: 0,
                 goldCount: 0,
                 platinumCount: 0
@@ -373,7 +358,8 @@ exports.getEnterpriseSummary = async (req, res) => {
                     lateToday: stats.lateToday,
                     pendingLeaveCount: stats.pendingLeaveCount,
                     payrollPaidThisMonth: stats.payrollPaidThisMonth,
-                    payrollPendingThisMonth: stats.payrollPendingThisMonth
+                    payrollPendingThisMonth: stats.payrollPendingThisMonth,
+                    estimatedPayrollCostThisMonth: stats.estimatedPayrollCostThisMonth
                 }
             }
         });

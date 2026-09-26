@@ -59,6 +59,10 @@ function toShape(record) {
   return { ...record, _id: record.id };
 }
 
+function escapeContainsFragment(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 function buildWhere(filters = {}) {
   const where = {};
   if (filters.actorType) {
@@ -74,6 +78,36 @@ function buildWhere(filters = {}) {
     where.createdAt = {};
     if (filters.dateFrom) where.createdAt.gte = new Date(filters.dateFrom);
     if (filters.dateTo) where.createdAt.lte = new Date(filters.dateTo);
+  }
+  if (filters.hrmActionType) {
+    where.details = { contains: `"hrmActionType":"${escapeContainsFragment(filters.hrmActionType)}"` };
+  }
+  if (filters.targetStaffId) {
+    const sid = escapeContainsFragment(filters.targetStaffId);
+    const staffClause = {
+      OR: [
+        { resourceId: String(filters.targetStaffId).trim() },
+        { details: { contains: `"targetStaffId":"${sid}"` } }
+      ]
+    };
+    if (where.details) {
+      where.AND = [{ details: where.details }, staffClause];
+      delete where.details;
+    } else {
+      Object.assign(where, staffClause);
+    }
+  }
+  if (filters.hrmResourceTypesOnly) {
+    const hrmTypes = ['EMPLOYEE', 'PAYROLL', 'LEAVE'];
+    const typeClause = { resourceType: { in: hrmTypes } };
+    if (where.AND) {
+      where.AND.push(typeClause);
+    } else if (where.OR) {
+      where.AND = [{ OR: where.OR }, typeClause];
+      delete where.OR;
+    } else {
+      where.resourceType = typeClause.resourceType;
+    }
   }
   return where;
 }

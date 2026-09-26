@@ -12,8 +12,8 @@ const mongoose = require('mongoose');
 const Leave = require('../../models/leave');
 const Attendance = require('../../models/attendance');
 const { iteratePlatformDateKeys, normalizeAttendanceDate } = require('../../utils/attendanceDate');
-const Admin = require('../../models/admin');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { logHrmAuditEvent, HRM_ACTION_TYPES } = require('../../services/hrmAuditService');
 const { dualWrite } = require('../../services/dualWriteService');
 
 function getLeaveRepository() {
@@ -34,7 +34,12 @@ const {
     fetchLeaveCalendar
 } = require('../../services/hrmReadService');
 
-const { LEAVE_TYPES, LEAVE_STATUSES, LEAVE_ALLOWANCES } = Leave;
+const {
+    LEAVE_TYPES,
+    LEAVE_STATUSES,
+    LEAVE_ALLOWANCES,
+    countLeaveDays
+} = Leave;
 
 function parsePagination(query) {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -50,16 +55,104 @@ function sanitizeLeaveString(str, maxLen = 1000) {
     return typeof str === 'string' ? str.trim().slice(0, maxLen) : str;
 }
 
-async function findStaff(identifier) {
-    const value = String(identifier || '').trim();
-    if (!value) return null;
+async function resolveLeaveApplySubject(body, req) {
+    const { resolveHrmSubject, resolveSelfServiceStaffSubject } = require('../../utils/hrmStaffResolver');
+    const payload = body || {};
 
-    if (mongoose.Types.ObjectId.isValid(value)) {
-        const byId = await Admin.findById(value);
-        if (byId) return byId;
+    if (payload.staffId || payload.staffUsername || payload.employeeId) {
+        const staffType = String(payload.staffType || '').trim().toLowerCase();
+        if (staffType === 'employee') {
+            return resolveHrmSubject({
+                staffType: 'employee',
+                staffId: payload.staffId || payload.employeeId,
+                employeeId: payload.employeeId || payload.staffId
+            });
+        }
+        if (staffType === 'admin') {
+            return resolveHrmSubject({
+                staffType: 'admin',
+                staffId: payload.staffId,
+                staffUsername: payload.staffUsername
+            });
+        }
+
+        const asAdmin = await resolveHrmSubject({
+            staffType: 'admin',
+            staffId: payload.staffId,
+            staffUsername: payload.staffUsername
+        });
+        if (asAdmin) return asAdmin;
+
+        return resolveHrmSubject({
+            staffType: 'employee',
+            staffId: payload.staffId || payload.employeeId,
+            employeeId: payload.employeeId || payload.staffId
+        });
     }
 
-    return Admin.findOne({ username: value });
+    return resolveSelfServiceStaffSubject(req.adminAccount);
+}
+
+function parseLeaveDates(body) {
+    const startDate = new Date(body.startDate);
+    const endDate = new Date(body.endDate);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        return { error: { status: 400, message: 'Start and end dates are required.' } };
+    }
+    if (endDate < startDate) {
+        return { error: { status: 400, message: 'End date cannot be before the start date.' } };
+    }
+    return { startDate, endDate };
+}
+
+async function assertLeaveApplicationAllowed({ staffId, leaveType, startDate, endDate }) {
+    const overlap = await Leave.findOverlappingApplication(staffId, startDate, endDate);
+    if (overlap) {
+        return {
+            status: 400,
+            message: 'A leave application already exists within the selected date range'
+        };
+    }
+
+    const allowed = LEAVE_ALLOWANCES[leaveType] || 0;
+    if (leaveType === 'unpaid' || allowed <= 0) {
+        return null;
+    }
+
+    const requestedDays = countLeaveDays(startDate, endDate);
+    const year = startDate.getFullYear();
+    const { approvedDays, pendingDays } = await Leave.getCommittedDaysForType(staffId, leaveType, year);
+
+    if (approvedDays + pendingDays + requestedDays > allowed) {
+        return {
+            status: 400,
+            message: 'Insufficient leave balance for the requested leave type'
+        };
+    }
+
+    return null;
+}
+
+async function createLeaveApplication(subject, fields) {
+    return dualWrite(
+        () => Leave.create({
+            staffId: subject.staffId,
+            staffType: subject.staffType || 'admin',
+            staffUsername: subject.staffUsername,
+            staffName: subject.staffName || subject.staffUsername,
+            leaveType: fields.leaveType,
+            startDate: fields.startDate,
+            endDate: fields.endDate,
+            reason: fields.reason,
+            attachmentUrl: fields.attachmentUrl
+        }),
+        async (saved) => { await mirrorLeaveApply(saved); },
+        {
+            model: 'Leave',
+            operation: 'create',
+            mongoId: (saved) => String(saved._id)
+        }
+    );
 }
 
 /**
@@ -128,33 +221,29 @@ exports.applyOwnLeave = async (req, res) => {
             });
         }
 
-        const startDate = new Date(body.startDate);
-        const endDate = new Date(body.endDate);
-        if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-            return res.status(400).json({ success: false, message: 'Start and end dates are required.' });
+        const dates = parseLeaveDates(body);
+        if (dates.error) {
+            return res.status(dates.error.status).json({ success: false, message: dates.error.message });
         }
-        if (endDate < startDate) {
-            return res.status(400).json({ success: false, message: 'End date cannot be before the start date.' });
+        const { startDate, endDate } = dates;
+
+        const blocked = await assertLeaveApplicationAllowed({
+            staffId: subject.staffId,
+            leaveType,
+            startDate,
+            endDate
+        });
+        if (blocked) {
+            return res.status(blocked.status).json({ success: false, message: blocked.message });
         }
 
-        const leave = await dualWrite(
-            () => Leave.create({
-                staffId: subject.staffId,
-                staffUsername: subject.staffUsername,
-                staffName: subject.staffName || subject.staffUsername,
-                leaveType,
-                startDate,
-                endDate,
-                reason: sanitizeLeaveString(body.reason || ''),
-                attachmentUrl: sanitizeLeaveString(body.attachmentUrl || '', 2048)
-            }),
-            async (saved) => { await mirrorLeaveApply(saved); },
-            {
-                model: 'Leave',
-                operation: 'create',
-                mongoId: (saved) => String(saved._id)
-            }
-        );
+        const leave = await createLeaveApplication(subject, {
+            leaveType,
+            startDate,
+            endDate,
+            reason: sanitizeLeaveString(body.reason || ''),
+            attachmentUrl: sanitizeLeaveString(body.attachmentUrl || '', 2048)
+        });
 
         await logSecurityEvent({
             action: 'Own Leave Applied',
@@ -208,11 +297,8 @@ exports.applyLeave = async (req, res) => {
         const body = req.body || {};
         if (body.reason) body.reason = sanitizeLeaveString(body.reason);
 
-        const account = body.staffId || body.staffUsername
-            ? await findStaff(body.staffId || body.staffUsername)
-            : req.adminAccount;
-
-        if (!account) {
+        const subject = await resolveLeaveApplySubject(body, req);
+        if (!subject) {
             return res.status(404).json({ success: false, message: 'Staff member not found.' });
         }
 
@@ -224,40 +310,36 @@ exports.applyLeave = async (req, res) => {
             });
         }
 
-        const startDate = new Date(body.startDate);
-        const endDate = new Date(body.endDate);
-        if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-            return res.status(400).json({ success: false, message: 'Start and end dates are required.' });
+        const dates = parseLeaveDates(body);
+        if (dates.error) {
+            return res.status(dates.error.status).json({ success: false, message: dates.error.message });
         }
-        if (endDate < startDate) {
-            return res.status(400).json({ success: false, message: 'End date cannot be before the start date.' });
+        const { startDate, endDate } = dates;
+
+        const blocked = await assertLeaveApplicationAllowed({
+            staffId: subject.staffId,
+            leaveType,
+            startDate,
+            endDate
+        });
+        if (blocked) {
+            return res.status(blocked.status).json({ success: false, message: blocked.message });
         }
 
-        const leave = await dualWrite(
-            () => Leave.create({
-                staffId: String(account._id),
-                staffUsername: account.username,
-                staffName: account.name || account.displayName || account.username,
-                leaveType,
-                startDate,
-                endDate,
-                reason: sanitizeLeaveString(body.reason || ''),
-                attachmentUrl: sanitizeLeaveString(body.attachmentUrl || '', 2048)
-            }),
-            async (saved) => { await mirrorLeaveApply(saved); },
-            {
-                model: 'Leave',
-                operation: 'create',
-                mongoId: (saved) => String(saved._id)
-            }
-        );
+        const leave = await createLeaveApplication(subject, {
+            leaveType,
+            startDate,
+            endDate,
+            reason: sanitizeLeaveString(body.reason || ''),
+            attachmentUrl: sanitizeLeaveString(body.attachmentUrl || '', 2048)
+        });
 
         await logSecurityEvent({
             action: 'Leave Applied',
             actor: actorName(req),
             actorType: 'admin',
             ipAddress: getClientIp(req),
-            details: `${account.username} — ${leaveType}, ${leave.totalDays} day(s)`,
+            details: `${subject.staffUsername} — ${leaveType}, ${leave.totalDays} day(s)`,
             resourceType: 'leave',
             resourceId: String(leave._id)
         });
@@ -266,7 +348,7 @@ exports.applyLeave = async (req, res) => {
             'manage_staff',
             'leave',
             'Leave application submitted',
-            `${account.username} applied for ${leaveType} leave (${leave.totalDays} day(s))`,
+            `${subject.staffUsername} applied for ${leaveType} leave (${leave.totalDays} day(s))`,
             'view-hrm-leaves'
         ).catch((err) => {
             console.warn('[Leave] In-app notification failed:', err.message);
@@ -310,37 +392,70 @@ exports.approveLeave = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid leave id.' });
         }
 
-        const leave = await Leave.findById(id);
-        if (!leave) {
-            return res.status(404).json({ success: false, message: 'Leave application not found.' });
-        }
-        if (leave.status !== 'pending') {
-            return res.status(409).json({
-                success: false,
-                message: `This application was already ${leave.status}.`
-            });
-        }
+        const approvedBy = actorName(req);
+        const note = String(req.body?.note || '').trim();
 
-        leave.status = 'approved';
-        leave.approvedBy = actorName(req);
-        leave.approvedAt = new Date();
-        leave.rejectionReason = '';
-        if (req.body?.note) leave.reason = `${leave.reason} — ${String(req.body.note).trim()}`.trim();
-        await dualWrite(
-            () => leave.save(),
-            async (saved) => {
-                const repo = getLeaveRepository();
-                const pgRow = await repo.findByLegacyId(String(saved._id));
-                if (pgRow) await repo.approve(pgRow.id, saved.approvedBy);
-            },
-            {
-                model: 'Leave',
-                operation: 'update',
-                mongoId: (saved) => String(saved._id)
+        let leave;
+        try {
+            leave = await dualWrite(
+                async () => {
+                    const updated = await Leave.findOneAndUpdate(
+                        { _id: id, status: 'pending' },
+                        {
+                            $set: {
+                                status: 'approved',
+                                approvedBy,
+                                approvedAt: new Date(),
+                                rejectionReason: ''
+                            }
+                        },
+                        { new: true, runValidators: true }
+                    );
+                    if (!updated) {
+                        const err = new Error('Leave request has already been processed');
+                        err.status = 400;
+                        throw err;
+                    }
+                    if (note) {
+                        updated.reason = `${updated.reason} — ${note}`.trim();
+                        await updated.save();
+                    }
+                    return updated;
+                },
+                async (saved) => {
+                    const repo = getLeaveRepository();
+                    const pgRow = await repo.findByLegacyId(String(saved._id));
+                    if (pgRow) await repo.approve(pgRow.id, saved.approvedBy);
+                },
+                {
+                    model: 'Leave',
+                    operation: 'update',
+                    mongoId: (saved) => String(saved._id)
+                }
+            );
+        } catch (error) {
+            if (error.status === 400 || error.code === 'ALREADY_PROCESSED') {
+                return res.status(400).json({
+                    success: false,
+                    message: error.message || 'Leave request has already been processed'
+                });
             }
-        );
+            throw error;
+        }
 
         const stamped = await stampLeaveOnAttendance(leave);
+
+        await logHrmAuditEvent({
+            req,
+            action: 'Leave Approved',
+            actionType: HRM_ACTION_TYPES.LEAVE_STATUS,
+            targetStaffId: leave.staffId,
+            resourceType: 'leave',
+            resourceId: String(leave._id),
+            previousValue: { status: 'pending' },
+            newValue: { status: 'approved', leaveType: leave.leaveType },
+            summary: `${leave.staffUsername} — ${leave.leaveType}, ${leave.totalDays} day(s)`
+        });
 
         await logSecurityEvent({
             action: 'Leave Approved',
@@ -377,34 +492,63 @@ exports.rejectLeave = async (req, res) => {
             return res.status(400).json({ success: false, message: 'A rejection reason is required.' });
         }
 
-        const leave = await Leave.findById(id);
-        if (!leave) {
-            return res.status(404).json({ success: false, message: 'Leave application not found.' });
-        }
-        if (leave.status !== 'pending') {
-            return res.status(409).json({
-                success: false,
-                message: `This application was already ${leave.status}.`
-            });
+        const approvedBy = actorName(req);
+
+        let leave;
+        try {
+            leave = await dualWrite(
+                async () => {
+                    const updated = await Leave.findOneAndUpdate(
+                        { _id: id, status: 'pending' },
+                        {
+                            $set: {
+                                status: 'rejected',
+                                rejectionReason: reason,
+                                approvedBy,
+                                approvedAt: new Date()
+                            }
+                        },
+                        { new: true, runValidators: true }
+                    );
+                    if (!updated) {
+                        const err = new Error('Leave request has already been processed');
+                        err.status = 400;
+                        throw err;
+                    }
+                    return updated;
+                },
+                async (saved) => {
+                    const repo = getLeaveRepository();
+                    const pgRow = await repo.findByLegacyId(String(saved._id));
+                    if (pgRow) await repo.reject(pgRow.id, saved.approvedBy, saved.rejectionReason);
+                },
+                {
+                    model: 'Leave',
+                    operation: 'update',
+                    mongoId: (saved) => String(saved._id)
+                }
+            );
+        } catch (error) {
+            if (error.status === 400 || error.code === 'ALREADY_PROCESSED') {
+                return res.status(400).json({
+                    success: false,
+                    message: error.message || 'Leave request has already been processed'
+                });
+            }
+            throw error;
         }
 
-        leave.status = 'rejected';
-        leave.rejectionReason = reason;
-        leave.approvedBy = actorName(req);
-        leave.approvedAt = new Date();
-        await dualWrite(
-            () => leave.save(),
-            async (saved) => {
-                const repo = getLeaveRepository();
-                const pgRow = await repo.findByLegacyId(String(saved._id));
-                if (pgRow) await repo.reject(pgRow.id, saved.approvedBy, saved.rejectionReason);
-            },
-            {
-                model: 'Leave',
-                operation: 'update',
-                mongoId: (saved) => String(saved._id)
-            }
-        );
+        await logHrmAuditEvent({
+            req,
+            action: 'Leave Rejected',
+            actionType: HRM_ACTION_TYPES.LEAVE_STATUS,
+            targetStaffId: leave.staffId,
+            resourceType: 'leave',
+            resourceId: String(leave._id),
+            previousValue: { status: 'pending' },
+            newValue: { status: 'rejected', reason },
+            summary: `${leave.staffUsername} — ${leave.leaveType}: ${reason}`
+        });
 
         await logSecurityEvent({
             action: 'Leave Rejected',

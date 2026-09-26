@@ -3695,5 +3695,104 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Admin banner CTR | ✅ | Computed in admin list API |
 | Tests | ✅ | **313/313** — full Jest suite pass |
 
+---
+
+## HRM Security Hotfixes — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Employee PII masking on GET by id | ✅ | Bank/bKash/NID masked for `view_employees` without `manage_staff`/HR/Super Admin |
+| Payslip IDOR guard | ✅ | Own payslip via linked staff; any payslip requires `manage_staff`/HR/Super Admin |
+| Self-service clock-in/out routes | ✅ | `mark_attendance_today` + `view_own_attendance` accepted on clock API routes |
+| HRM tests | ✅ | `tests/hrm.test.js` **36/36** passing |
+
+---
+
+## Leave Validation & Atomic Approval — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Leave balance on apply | ✅ | Approved + pending + requested vs allowance; unpaid uncapped |
+| Overlapping leave blocked | ✅ | Pending/approved date-range overlap → HTTP 400 |
+| Atomic approve/reject | ✅ | Mongo conditional update + PG `updateMany` on `PENDING` |
+| Apply for Employee-only staff | ✅ | `resolveLeaveApplySubject` (admin or employee resolver) |
+| Tests | ✅ | HRM + leave repository suites passing |
+
+---
+
+## Payroll Calculation Core Fixes — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Dynamic weekend days | ✅ | From `attendanceSettingsService.weekendDays` (not hardcoded Friday) |
+| Mid-month joining pro-rate | ✅ | Calendar-day factor; Admin + linked Employee `joiningDate` / `baseSalary` |
+| Absent double-deduction | ✅ | `earnedSalary` from attendance; absent line item informational only |
+| Shared payroll math | ✅ | `backend/src/services/payrollService.js` |
+| Tests | ✅ | `tests/hrm.test.js` **36/36**; payroll repository **6/6** |
+
+---
+
+## Attendance Timezone & Clock Hardening — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Asia/Dhaka date boundaries | ✅ | `attendanceDate` + clock routes default to platform calendar day |
+| Late / present from settings + shift | ✅ | `calculateLateMinutes`, office start + grace from attendance settings |
+| Duplicate clock-in prevention | ✅ | Conditional `findOneAndUpdate` + unique `{ staffId, date }` index |
+| Accurate hours on clock-out | ✅ | `computeHoursWorked` + atomic clock-out update |
+| Tests | ✅ | **316/316** Jest (+ `tests/services/attendanceClock.test.js`) |
+
+---
+
+## Employee Read Parity & CSV Export — 2026-09-25
+
+| Item | Status | Notes |
+|------|--------|-------|
+| PG employee list excludes terminated | ✅ | `status: { not: 'TERMINATED' }` unless `includeTerminated` or `status=terminated` |
+| Mongo list parity | ✅ | `isDeleted` + `status !== terminated` aligned with PG |
+| Employee CSV fields | ✅ | `joiningDate`, `baseSalary` via routed `fetchEmployeesForExport` |
+| Payroll CSV export | ✅ | `GET /api/admin/hrm/payroll/export` with `baseSalary` / net pay columns |
+| Tests | ✅ | **320/320** Jest |
+
+---
+
+## Attendance Unique Index & Employee HRM Cascade — 2026-09-26
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Unique staffId + date (Mongo) | ✅ | Compound unique index on attendance model |
+| Unique staffId + date (Postgres) | ✅ | Prisma `@@unique` + migration |
+| Duplicate insert → HTTP 409 | ✅ | Mark/clock paths + PG P2002 handling |
+| Terminate/deactivate cascade | ✅ | Attendance removed; draft payroll removed (Mongo + PG) |
+| Permanent delete cascade | ✅ | Attendance, payroll, leave + employee row |
+| Tests | ✅ | **321/321** Jest |
+
+---
+
+## Bulk Attendance Import & Async HRM Jobs — 2026-09-26
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Bulk attendance CSV/Excel import | ✅ | `POST /hrm/attendance/bulk-import` with row-level error report |
+| Asia/Dhaka date + upsert | ✅ | `bulkAttendanceService` + unique `(staffId, date)` |
+| Async bulk payroll generate | ✅ | `POST /hrm/payroll/generate-bulk?async=true` |
+| Async employee/payroll export | ✅ | `?async=true` on export routes; job poll/download under `/hrm/jobs` |
+| Queue fallback | ✅ | BullMQ when Redis available; inline `setImmediate` in tests |
+| Tests | ✅ | **323/323** Jest |
+
+---
+
+## Granular HRM Audit & Dashboard KPI Aggregation (Task 4.3 / 4.4) — 2026-09-26
+
+| Item | Status | Notes |
+|------|--------|-------|
+| HRM audit events (salary, status, payroll, leave) | ✅ | `hrmAuditService.js` → SecurityLog dual-write |
+| Audit fields (actor/target/previous/new/IP) | ✅ | Mongo indexed fields + JSON details for PG reads |
+| Filterable audit API | ✅ | `GET /api/admin/staff-audit/hrm` (`staffId`, `actionType`, date range) |
+| Enterprise HRM KPI bundle | ✅ | `hrmDashboardMetricsService.js` — Mongo `$group` + Prisma `groupBy` / raw attendance counts |
+| Estimated payroll cost (current month) | ✅ | `data.hrm.estimatedPayrollCostThisMonth` on enterprise summary |
+| Short TTL cache | ✅ | Redis `enterprise:hrm:*` (30s default) |
+| Tests | ✅ | **328/328** Jest (`tests/hrmAudit.test.js`) |
+
 
 

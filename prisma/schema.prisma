@@ -1052,7 +1052,7 @@ model Attendance {
   admin    Admin?    @relation(fields: [adminId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  @@index([staffId, date])
+  @@unique([staffId, date])
   @@index([date, employeeId])
   @@index([date, status])
   @@index([adminId])

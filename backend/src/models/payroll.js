@@ -59,10 +59,16 @@ function computeTotalSalary(doc) {
     const base = Number(doc.baseSalary) || 0;
     const workingDays = Number(doc.workingDays) || 0;
     const presentDays = Number(doc.presentDays) || 0;
+    const presetEarned = doc.earnedSalary;
 
-    const earnedBase = workingDays > 0
-        ? base * Math.min(presentDays / workingDays, 1)
-        : base;
+    let earnedBase;
+    if (presetEarned != null && Number.isFinite(Number(presetEarned))) {
+        earnedBase = Number(presetEarned);
+    } else if (workingDays > 0) {
+        earnedBase = base * Math.min(presentDays / workingDays, 1);
+    } else {
+        earnedBase = base;
+    }
 
     const overtimeAmount = (Number(doc.overtime) || 0) * (Number(doc.overtimeRate) || 0);
     const total = earnedBase + overtimeAmount + (Number(doc.bonus) || 0) - (Number(doc.deductions) || 0);

@@ -9,6 +9,7 @@
  * grace window is on time by policy rather than by rounding.
  ********************************************************************/
 
+const fs = require('fs').promises;
 const mongoose = require('mongoose');
 const Attendance = require('../../models/attendance');
 const AttendanceLock = require('../../models/attendanceLock');
@@ -49,7 +50,9 @@ const { isHrOrSuperAdmin } = require('../../middlewares/rbac');
 const { accountHasPermission } = require('../../config/permissions');
 const {
     getAttendanceSettings,
-    isCheckInLate
+    isCheckInLate,
+    deriveClockInLateStatus,
+    formatPlatformWallClockTime
 } = require('../../services/attendanceSettingsService');
 const { findAdmin, parseStaffSelector, resolveHrmSubject, resolveClockStaff } = require('../../utils/hrmStaffResolver');
 const {
@@ -59,6 +62,14 @@ const {
 } = require('../../services/hrmReadService');
 
 const { ATTENDANCE_STATUSES, SHIFT_TYPES } = Attendance;
+const {
+    isMongoDuplicateKeyError,
+    duplicateAttendanceError
+} = require('../../utils/attendanceDuplicate');
+const {
+    processBulkAttendanceImport,
+    parseAttendanceImportFile
+} = require('../../services/bulkAttendanceService');
 
 function parsePagination(query) {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -256,31 +267,29 @@ async function findStaff(identifier) {
  * default shift, then to 09:00–18:00 so attendance still works before any
  * shift has been configured.
  */
-async function resolveShiftFor(username) {
+async function resolveShiftFor(username, attendanceSettings = null) {
+    const settings = attendanceSettings || await getAttendanceSettings();
     const assigned = await Shift.findOne({ assignedStaff: username }).lean();
     const shift = assigned || await Shift.findOne({ isDefault: true }).lean();
+    const graceFromShift = Number(shift?.gracePeriodMinutes);
 
     return {
         name: shift?.name || 'Default',
-        startTime: shift?.startTime || '09:00',
-        endTime: shift?.endTime || '18:00',
-        gracePeriodMinutes: Number.isFinite(shift?.gracePeriodMinutes) ? shift.gracePeriodMinutes : 15
+        startTime: shift?.startTime || settings.officeStart,
+        endTime: shift?.endTime || settings.officeEnd,
+        gracePeriodMinutes: Number.isFinite(graceFromShift)
+            ? graceFromShift
+            : settings.gracePeriodMinutes
     };
 }
 
-/**
- * Minutes past the allowed arrival time, or 0 when on time. Returns 0 when
- * the shift start cannot be parsed rather than flagging a false positive.
- */
-function calculateLateness(clockInAt, shiftStart, graceMinutes) {
-    const startMinutes = Attendance.parseShiftMinutes(shiftStart);
-    if (startMinutes === null) return 0;
-
-    const arrival = new Date(clockInAt);
-    const arrivalMinutes = arrival.getHours() * 60 + arrival.getMinutes();
-    const allowed = startMinutes + (Number(graceMinutes) || 0);
-
-    return arrivalMinutes > allowed ? arrivalMinutes - allowed : 0;
+/** Platform-TZ calendar day for clock routes when the client omits `date`. */
+function resolveClockAttendanceDate(body) {
+    const raw = body?.date;
+    if (raw === null || raw === undefined || raw === '') {
+        return Attendance.normalizeDate();
+    }
+    return Attendance.normalizeDate(raw);
 }
 
 /**
@@ -397,7 +406,7 @@ async function persistAttendanceMark(req, body) {
 
     const attendanceSettings = await getAttendanceSettings();
 
-    const record = await Attendance.findOne({ staffId: subject.staffId, date })
+    let record = await Attendance.findOne({ staffId: subject.staffId, date })
         || new Attendance({ staffId: subject.staffId, date });
 
     record.staffType = subject.staffType;
@@ -438,10 +447,7 @@ async function persistAttendanceMark(req, body) {
 
     let resolvedCheckIn = checkInTimeStr;
     if (!resolvedCheckIn && record.clockIn) {
-        const d = new Date(record.clockIn);
-        if (!Number.isNaN(d.getTime())) {
-            resolvedCheckIn = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-        }
+        resolvedCheckIn = formatPlatformWallClockTime(record.clockIn);
     }
 
     if ((status === 'present' || status === 'late') && resolvedCheckIn && isCheckInLate(resolvedCheckIn, attendanceSettings)) {
@@ -464,8 +470,40 @@ async function persistAttendanceMark(req, body) {
         record.lateMinutes = 0;
     }
 
-    await dualWrite(
-        () => record.save(),
+    const wasNew = record.isNew;
+
+    async function saveMarkedRecord(doc) {
+        try {
+            return await doc.save();
+        } catch (err) {
+            if (!isMongoDuplicateKeyError(err)) throw err;
+            if (!wasNew) throw duplicateAttendanceError();
+            const existing = await Attendance.findOne({ staffId: subject.staffId, date });
+            if (!existing) throw duplicateAttendanceError();
+            existing.set({
+                staffType: doc.staffType,
+                staffUsername: doc.staffUsername,
+                status: doc.status,
+                shift: doc.shift,
+                shiftStart: doc.shiftStart,
+                shiftEnd: doc.shiftEnd,
+                notes: doc.notes,
+                markedBy: doc.markedBy,
+                modifiedBy: doc.modifiedBy,
+                modifiedAt: doc.modifiedAt,
+                isManualEntry: doc.isManualEntry,
+                clockIn: doc.clockIn,
+                clockOut: doc.clockOut,
+                isLate: doc.isLate,
+                lateMinutes: doc.lateMinutes,
+                hoursWorked: doc.hoursWorked
+            });
+            return existing.save();
+        }
+    }
+
+    record = await dualWrite(
+        () => saveMarkedRecord(record),
         async (saved) => { await mirrorAttendanceDoc(saved); },
         {
             model: 'Attendance',
@@ -509,6 +547,9 @@ exports.markAttendance = async (req, res) => {
         if (error.code === 'PAST_DATE_FORBIDDEN') {
             return res.status(error.httpStatus || 403).json({ success: false, message: error.message });
         }
+        if (error.code === 'DUPLICATE_ATTENDANCE') {
+            return res.status(409).json({ success: false, message: error.message });
+        }
         console.error('markAttendance Error:', error);
         res.status(500).json({ success: false, message: 'Failed to save attendance.' });
     }
@@ -528,7 +569,11 @@ exports.clockIn = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Staff member not found.' });
         }
 
-        const date = Attendance.normalizeDate(body.date);
+        const date = resolveClockAttendanceDate(body);
+        if (!date) {
+            return res.status(400).json({ success: false, message: 'Invalid attendance date.' });
+        }
+
         const pastDateBlock = assertStaffAttendanceDateAllowed(req, date);
         if (pastDateBlock) {
             return res.status(pastDateBlock.status).json(pastDateBlock.body);
@@ -540,45 +585,78 @@ exports.clockIn = async (req, res) => {
         }
 
         const now = new Date();
+        const attendanceSettings = await getAttendanceSettings();
+        const shiftWindow = await resolveShiftFor(
+            subject.shiftKey || subject.staffUsername,
+            attendanceSettings
+        );
+        const { lateMinutes, isLate, status } = deriveClockInLateStatus(
+            now,
+            shiftWindow.startTime,
+            shiftWindow.gracePeriodMinutes
+        );
 
-        let record = await Attendance.findOne({ staffId: subject.staffId, date });
-        if (record?.clockIn) {
-            return res.status(409).json({
-                success: false,
-                message: 'Already clocked in for today.',
-                data: record
-            });
-        }
-
-        if (!record) {
-            record = new Attendance({
-                staffId: subject.staffId,
-                staffType: subject.staffType,
-                date
-            });
-        }
-
-        const shiftWindow = await resolveShiftFor(subject.shiftKey || subject.staffUsername);
-        const lateMinutes = calculateLateness(now, shiftWindow.startTime, shiftWindow.gracePeriodMinutes);
-
-        record.staffUsername = subject.staffUsername;
-        record.staffType = subject.staffType;
-        record.clockIn = now;
-        record.shiftStart = shiftWindow.startTime;
-        record.shiftEnd = shiftWindow.endTime;
-        record.lateMinutes = lateMinutes;
-        record.isLate = lateMinutes > 0;
-        record.status = lateMinutes > 0 ? 'late' : 'present';
-        record.markedBy = 'self';
+        const clockUpdate = {
+            staffUsername: subject.staffUsername,
+            staffType: subject.staffType,
+            clockIn: now,
+            shiftStart: shiftWindow.startTime,
+            shiftEnd: shiftWindow.endTime,
+            lateMinutes,
+            isLate,
+            status,
+            markedBy: 'self'
+        };
 
         const lat = Number(body.lat ?? body.gpsLocation?.lat);
         const lng = Number(body.lng ?? body.gpsLocation?.lng);
         if (Number.isFinite(lat) && Number.isFinite(lng)) {
-            record.gpsLocation = { lat, lng };
+            clockUpdate.gpsLocation = { lat, lng };
+        }
+
+        let record;
+        try {
+            record = await Attendance.findOneAndUpdate(
+                {
+                    staffId: subject.staffId,
+                    date,
+                    $or: [{ clockIn: null }, { clockIn: { $exists: false } }]
+                },
+                {
+                    $set: clockUpdate,
+                    $setOnInsert: {
+                        staffId: subject.staffId,
+                        date
+                    }
+                },
+                { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+            );
+        } catch (err) {
+            if (err.code !== 11000) throw err;
+            record = null;
+        }
+
+        if (!record?.clockIn) {
+            const existing = await Attendance.findOne({ staffId: subject.staffId, date });
+            if (existing?.clockIn) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Already clocked in for today.',
+                    data: existing
+                });
+            }
+            if (existing) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Attendance already exists for this staff member on this date.',
+                    data: existing
+                });
+            }
+            throw new Error('Clock-in could not be recorded.');
         }
 
         await dualWrite(
-            () => record.save(),
+            async () => record,
             async (saved) => { await mirrorAttendanceDoc(saved); },
             {
                 model: 'Attendance',
@@ -612,7 +690,11 @@ exports.clockOut = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Staff member not found.' });
         }
 
-        const date = Attendance.normalizeDate(body.date);
+        const date = resolveClockAttendanceDate(body);
+        if (!date) {
+            return res.status(400).json({ success: false, message: 'Invalid attendance date.' });
+        }
+
         const pastDateBlock = assertStaffAttendanceDateAllowed(req, date);
         if (pastDateBlock) {
             return res.status(pastDateBlock.status).json(pastDateBlock.body);
@@ -623,23 +705,41 @@ exports.clockOut = async (req, res) => {
             return res.status(423).json({ success: false, message: 'Date is locked' });
         }
 
-        const record = await Attendance.findOne({ staffId: subject.staffId, date });
+        const clockOutAt = new Date();
 
-        if (!record || !record.clockIn) {
-            return res.status(400).json({ success: false, message: 'No clock-in found for today.' });
-        }
-        if (record.clockOut) {
-            return res.status(409).json({ success: false, message: 'Already clocked out for today.', data: record });
+        let record = await Attendance.findOneAndUpdate(
+            {
+                staffId: subject.staffId,
+                date,
+                clockIn: { $ne: null },
+                $or: [{ clockOut: null }, { clockOut: { $exists: false } }]
+            },
+            { $set: { clockOut: clockOutAt } },
+            { new: true, runValidators: true }
+        );
+
+        if (!record) {
+            const existing = await Attendance.findOne({ staffId: subject.staffId, date });
+            if (!existing || !existing.clockIn) {
+                return res.status(400).json({ success: false, message: 'No clock-in found for today.' });
+            }
+            if (existing.clockOut) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Already clocked out for today.',
+                    data: existing
+                });
+            }
+            return res.status(500).json({ success: false, message: 'Failed to clock out.' });
         }
 
-        record.clockOut = new Date();
+        record.hoursWorked = Attendance.computeHoursWorked(record.clockIn, record.clockOut);
 
         const startMinutes = Attendance.parseShiftMinutes(record.shiftStart);
         const endMinutes = Attendance.parseShiftMinutes(record.shiftEnd);
         if (startMinutes !== null && endMinutes !== null && endMinutes > startMinutes) {
             const shiftHours = (endMinutes - startMinutes) / 60;
-            const workedMs = record.clockOut.getTime() - new Date(record.clockIn).getTime();
-            if (workedMs / 3600000 < shiftHours / 2) {
+            if (record.hoursWorked < shiftHours / 2) {
                 record.status = 'half-day';
             }
         }
@@ -763,6 +863,54 @@ exports.getDailySheet = async (req, res) => {
     } catch (error) {
         console.error('getDailySheet Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load daily sheet.' });
+    }
+};
+
+/**
+ * POST /api/admin/hrm/attendance/bulk-import
+ * CSV/Excel file (field `importFile`) or JSON body `{ rows: [...] }`.
+ */
+exports.bulkImportAttendance = async (req, res) => {
+    try {
+        let rows = [];
+        if (req.file) {
+            rows = await parseAttendanceImportFile(req.file.path, req.file.mimetype);
+            await fs.unlink(req.file.path).catch(() => {});
+        } else if (Array.isArray(req.body?.rows)) {
+            rows = req.body.rows;
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'Upload importFile (CSV/Excel) or provide rows[] in JSON body.'
+            });
+        }
+
+        const summary = await processBulkAttendanceImport(rows, {
+            markedBy: actorName(req),
+            mirrorFn: (saved) => mirrorAttendanceDoc(saved)
+        });
+
+        await logSecurityEvent({
+            action: 'Attendance Bulk Import',
+            actor: actorName(req),
+            actorType: 'admin',
+            ipAddress: getClientIp(req),
+            details: `${summary.successCount}/${summary.totalProcessed} rows imported`,
+            resourceType: 'attendance',
+            resourceId: 'bulk-import'
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Bulk attendance import finished.',
+            data: summary
+        });
+    } catch (error) {
+        if (error.code === 'TOO_MANY_ROWS') {
+            return res.status(400).json({ success: false, message: error.message });
+        }
+        console.error('bulkImportAttendance Error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to import attendance.' });
     }
 };
 

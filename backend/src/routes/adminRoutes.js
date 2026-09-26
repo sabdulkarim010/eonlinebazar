@@ -120,6 +120,7 @@ router.use('/staff', staffRoutes);
 
 // Staff activity audit — who changed what (SecurityLog grouped by admin actor)
 router.get('/staff-audit', verifyAdmin, checkPermission('manage_security'), staffAuditController.getStaffActivity);
+router.get('/staff-audit/hrm', verifyAdmin, checkPermission('manage_security'), staffAuditController.getHrmAuditEvents);
 router.get('/staff-audit/:username', verifyAdmin, checkPermission('manage_security'), staffAuditController.getStaffActivityDetail);
 
 // Unified activity feed — chronological SecurityLog timeline
@@ -739,6 +740,7 @@ router.delete('/hrm/designations/:id', verifyAdmin, checkPermission('manage_staf
 // before the bare /:id routes so they are never read as a record id.
 router.get('/hrm/employees/stats', verifyAdmin, checkPermission('manage_staff', 'view_employees'), employeeController.getEmployeeStats);
 router.get('/hrm/employees/export', verifyAdmin, checkPermission('manage_staff'), exportController.exportEmployeesCSV);
+router.get('/hrm/payroll/export', verifyAdmin, checkPermission('view_payroll', 'manage_payroll'), exportController.exportPayrollsCSV);
 router.get('/hrm/employees', verifyAdmin, checkPermission('view_employees', 'manage_staff'), employeeController.getAllEmployees);
 router.get('/hrm/employees/:id/profile', verifyAdmin, checkPermission('manage_staff'), employeeController.getEmployeeProfile);
 router.get('/hrm/employees/:id/access-info', verifyAdmin, checkPermission('manage_staff'), employeeController.getAccessInfo);
@@ -767,6 +769,13 @@ router.get('/hrm/attendance/late-report', verifyAdmin, checkPermission('view_lat
 router.post('/hrm/attendance/mark', verifyAdmin, checkPermission('mark_attendance_today', 'mark_attendance_any_date', 'manage_staff'), attendanceController.markAttendance);
 router.post('/hrm/attendance/bulk-mark', verifyAdmin, checkPermission('manage_staff', 'mark_attendance_today', 'mark_attendance_any_date'), attendanceController.bulkMarkAttendance);
 router.post(
+    '/hrm/attendance/bulk-import',
+    verifyAdmin,
+    checkPermission('manual_attendance', 'mark_attendance_any_date', 'manage_staff'),
+    importFileUpload,
+    attendanceController.bulkImportAttendance
+);
+router.post(
     '/hrm/attendance/manual-entry',
     verifyAdmin,
     checkPermission('manual_attendance', 'manage_staff'),
@@ -776,8 +785,18 @@ router.post('/hrm/attendance/lock', verifyAdmin, checkPermission('lock_attendanc
 router.delete('/hrm/attendance/lock', verifyAdmin, checkPermission('manage_staff', 'lock_attendance_dates'), attendanceController.unlockAttendanceDate);
 router.put('/hrm/attendance/update', verifyAdmin, checkPermission('manage_staff', 'mark_attendance_today', 'mark_attendance_any_date'), attendanceController.updateAttendanceDetails);
 router.delete('/hrm/attendance/remove', verifyAdmin, checkPermission('manage_staff', 'manual_attendance'), attendanceController.removeAttendanceRecord);
-router.post('/hrm/attendance/clock-in', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockIn);
-router.post('/hrm/attendance/clock-out', verifyAdmin, checkPermission('manage_staff'), attendanceController.clockOut);
+router.post(
+    '/hrm/attendance/clock-in',
+    verifyAdmin,
+    checkPermission('mark_attendance_today', 'view_own_attendance', 'manage_staff'),
+    attendanceController.clockIn
+);
+router.post(
+    '/hrm/attendance/clock-out',
+    verifyAdmin,
+    checkPermission('mark_attendance_today', 'view_own_attendance', 'manage_staff'),
+    attendanceController.clockOut
+);
 router.get('/hrm/attendance/my', verifyAdmin, checkPermission('view_attendance', 'view_own_attendance', 'manage_staff'), attendanceController.getMyAttendance);
 router.get('/hrm/attendance', verifyAdmin, checkPermission('view_attendance_register', 'view_attendance', 'manage_staff'), attendanceController.getAttendanceList);
 
@@ -792,8 +811,16 @@ router.get('/hrm/payroll/my-payslips', verifyAdmin, checkPermission('view_own_pa
 router.get('/hrm/payroll', verifyAdmin, checkPermission('view_payroll', 'manage_payroll', 'manage_staff'), payrollController.getAllPayrolls);
 router.get('/hrm/payroll/calculate', verifyAdmin, checkPermission('manage_staff'), payrollController.previewPayrollFromAttendance);
 router.post('/hrm/payroll/generate', verifyAdmin, checkPermission('manage_staff', 'process_payroll', 'manage_payroll'), payrollController.generatePayroll);
+router.post('/hrm/payroll/generate-bulk', verifyAdmin, checkPermission('manage_staff', 'process_payroll', 'manage_payroll'), payrollController.generatePayrollBulk);
+router.get('/hrm/jobs/:jobId', verifyAdmin, checkPermission('manage_staff', 'view_payroll', 'manage_payroll'), payrollController.getHrmJobStatus);
+router.get('/hrm/jobs/:jobId/download', verifyAdmin, checkPermission('manage_staff', 'view_payroll', 'manage_payroll'), payrollController.downloadHrmJobResult);
 router.post('/hrm/payroll/salary-config', verifyAdmin, checkPermission('manage_staff'), payrollController.updateSalaryConfig);
-router.get('/hrm/payroll/:id/payslip', verifyAdmin, checkPermission('manage_staff'), payrollController.generatePaySlip);
+router.get(
+    '/hrm/payroll/:id/payslip',
+    verifyAdmin,
+    checkPermission('view_own_payslip', 'manage_staff', 'manage_payroll', 'view_payroll'),
+    payrollController.generatePaySlip
+);
 router.patch('/hrm/payroll/:id/approve', verifyAdmin, checkPermission('manage_staff', 'process_payroll', 'manage_payroll'), payrollController.approvePayroll);
 router.patch('/hrm/payroll/:id/paid', verifyAdmin, checkPermission('manage_staff', 'process_payroll', 'manage_payroll'), payrollController.markPaid);
 

@@ -32,6 +32,11 @@ async function logSecurityEvent({
     details = '',
     resourceType = null,
     resourceId = null,
+    actorId = null,
+    targetStaffId = null,
+    hrmActionType = null,
+    previousValue = null,
+    newValue = null,
     source = 'api'
 }) {
     try {
@@ -43,7 +48,12 @@ async function logSecurityEvent({
                 ipAddress: ipAddress || 'Unknown',
                 details,
                 resourceType: resourceType || undefined,
-                resourceId: resourceId != null && resourceId !== '' ? String(resourceId) : undefined
+                resourceId: resourceId != null && resourceId !== '' ? String(resourceId) : undefined,
+                actorId: actorId != null && actorId !== '' ? String(actorId) : undefined,
+                targetStaffId: targetStaffId != null && targetStaffId !== '' ? String(targetStaffId) : undefined,
+                hrmActionType: hrmActionType || undefined,
+                previousValue: previousValue === undefined ? undefined : previousValue,
+                newValue: newValue === undefined ? undefined : newValue
             }),
             async (saved) => {
                 await getSecurityLogRepository().create(mapMongoSecurityLogToPostgresWrite(saved));

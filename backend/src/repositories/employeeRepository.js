@@ -160,6 +160,28 @@ function toReferenceShape(record) {
   return { ...record, _id: record.id };
 }
 
+function parseIncludeTerminated(filters = {}) {
+  return filters.includeTerminated === true
+    || String(filters.includeTerminated || '').toLowerCase() === 'true';
+}
+
+/** Match Mongo default lists: hide terminated unless explicitly requested. */
+function shouldExcludeTerminatedEmployees(filters = {}) {
+  if (parseIncludeTerminated(filters)) return false;
+  const status = filters.status !== undefined ? String(filters.status).toLowerCase() : '';
+  if (status === 'terminated') return false;
+  return true;
+}
+
+function mergeOperationalEmployeeWhere(baseWhere = {}, filters = {}) {
+  if (!shouldExcludeTerminatedEmployees(filters)) {
+    return baseWhere && Object.keys(baseWhere).length ? baseWhere : {};
+  }
+  const exclusion = { status: { not: 'TERMINATED' } };
+  if (!baseWhere || Object.keys(baseWhere).length === 0) return exclusion;
+  return { AND: [baseWhere, exclusion] };
+}
+
 // ── findAll ──────────────────────────────────────────────────────────────────
 // filters: { status?, department?, designation?, employeeType?, search?, page?, limit? }
 async function findAll(filters = {}) {
@@ -190,7 +212,7 @@ async function findAll(filters = {}) {
   }
 
   const query = {
-    where,
+    where: mergeOperationalEmployeeWhere(where, filters),
     orderBy: { createdAt: 'desc' }
   };
 
@@ -248,24 +270,30 @@ function buildEmployeeWhere(filters = {}) {
 }
 
 async function count(filters = {}) {
-  return prisma.employee.count({ where: buildEmployeeWhere(filters) });
+  return prisma.employee.count({
+    where: mergeOperationalEmployeeWhere(buildEmployeeWhere(filters), filters)
+  });
 }
 
-async function aggregateStats() {
+async function aggregateStats(filters = {}) {
+  const operationalWhere = mergeOperationalEmployeeWhere({}, filters);
+  const activeWhere = mergeOperationalEmployeeWhere({ status: 'ACTIVE' }, filters);
+
   const [statusGroups, deptGroups, desGroupsRaw] = await Promise.all([
     prisma.employee.groupBy({
       by: ['status'],
+      where: operationalWhere,
       _count: { _all: true }
     }),
     prisma.employee.groupBy({
       by: ['department'],
-      where: { status: 'ACTIVE' },
+      where: activeWhere,
       _count: { _all: true },
       orderBy: { department: 'asc' }
     }),
     prisma.employee.groupBy({
       by: ['designation'],
-      where: { status: 'ACTIVE' },
+      where: activeWhere,
       _count: { _all: true }
     })
   ]);
@@ -528,6 +556,10 @@ async function terminate(id) {
     throw err;
   }
 
+  const legacyStaffId = existing.legacyId || String(existing.id);
+  const { cascadePostgresEmployeeHrm } = require('../services/employeeHrmCascadeService');
+  await cascadePostgresEmployeeHrm(legacyStaffId, { draftsOnlyPayroll: true });
+
   const record = await prisma.employee.update({
     where: { id },
     data: { status: 'TERMINATED' }
@@ -551,6 +583,10 @@ async function remove(id) {
     err.code = 'NOT_FOUND';
     throw err;
   }
+
+  const legacyStaffId = employee.legacyId || String(employee.id);
+  const { cascadePostgresEmployeeHrm } = require('../services/employeeHrmCascadeService');
+  await cascadePostgresEmployeeHrm(legacyStaffId, { includeLeave: true });
 
   await prisma.employee.delete({ where: { id } });
   return { deleted: true, employeeId: employee.employeeId };
@@ -723,6 +759,8 @@ async function unlinkAdminAccount(employeeId) {
 module.exports = {
   generateEmployeeId,
   syncEmployeeAliases,
+  mergeOperationalEmployeeWhere,
+  shouldExcludeTerminatedEmployees,
   findAll,
   count,
   aggregateStats,

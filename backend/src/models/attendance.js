@@ -46,6 +46,7 @@ const attendanceSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 attendanceSchema.index({ staffId: 1, date: -1 });
+attendanceSchema.index({ staffId: 1, date: 1 }, { unique: true });
 attendanceSchema.index({ date: 1, staffId: 1 });
 attendanceSchema.index({ date: -1, status: 1 });
 attendanceSchema.index({ status: 1 });
@@ -53,6 +54,10 @@ attendanceSchema.index({ status: 1 });
 /** Midnight of the given day in platform TZ — canonical key for one attendance row. */
 attendanceSchema.statics.normalizeDate = function normalizeDate(input) {
     return normalizeAttendanceDate(input);
+};
+
+attendanceSchema.statics.isDuplicateKeyError = function isDuplicateKeyError(err) {
+    return Boolean(err && (err.code === 11000 || err.code === 11001));
 };
 
 /** Minutes since midnight for a "HH:MM" string, or null when unparseable. */
@@ -68,10 +73,15 @@ attendanceSchema.statics.parseShiftMinutes = function parseShiftMinutes(value) {
 // Clock times are the source of truth when both exist. An open shift (clocked
 // in, not yet out) has no hours to report. A row with no clock times at all was
 // marked by hand, so whatever hours the admin entered stand.
-attendanceSchema.pre('save', function computeHoursWorked() {
+attendanceSchema.statics.computeHoursWorked = function computeHoursWorkedStatic(clockIn, clockOut) {
+    if (!clockIn || !clockOut) return 0;
+    const ms = new Date(clockOut).getTime() - new Date(clockIn).getTime();
+    return ms > 0 ? Math.round((ms / 3600000) * 100) / 100 : 0;
+};
+
+attendanceSchema.pre('save', function computeHoursWorkedHook() {
     if (this.clockIn && this.clockOut) {
-        const ms = new Date(this.clockOut).getTime() - new Date(this.clockIn).getTime();
-        this.hoursWorked = ms > 0 ? Math.round((ms / 3600000) * 100) / 100 : 0;
+        this.hoursWorked = this.constructor.computeHoursWorked(this.clockIn, this.clockOut);
     } else if (this.clockIn && !this.clockOut) {
         this.hoursWorked = 0;
     }

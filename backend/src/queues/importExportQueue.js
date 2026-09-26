@@ -86,6 +86,50 @@ async function processBulkImportJob(jobDoc) {
     }
 }
 
+async function processHrmBulkPayrollJob(jobDoc) {
+    const { runBulkPayrollGeneration } = require('../services/hrmAsyncJobService');
+    await updateJob(jobDoc._id, { status: 'processing', progress: 10, startedAt: new Date() });
+    const result = await runBulkPayrollGeneration(jobDoc.payload || {});
+    await updateJob(jobDoc._id, {
+        status: 'completed',
+        progress: 100,
+        completedAt: new Date(),
+        result
+    });
+}
+
+async function processHrmEmployeeExportJob(jobDoc) {
+    const { buildEmployeeExportCsv, writeExportCsv } = require('../services/hrmAsyncJobService');
+    await updateJob(jobDoc._id, { status: 'processing', progress: 10, startedAt: new Date() });
+    const { rows, rowCount } = await buildEmployeeExportCsv(jobDoc.payload?.query || {});
+    await updateJob(jobDoc._id, { progress: 70 });
+    const filename = `employees-export-${jobDoc._id}-${Date.now()}.csv`;
+    const absolutePath = await writeExportCsv(filename, rows);
+    await updateJob(jobDoc._id, {
+        status: 'completed',
+        progress: 100,
+        completedAt: new Date(),
+        resultUrl: `/api/admin/hrm/jobs/${jobDoc._id}/download`,
+        result: { rowCount, filename, absolutePath }
+    });
+}
+
+async function processHrmPayrollExportJob(jobDoc) {
+    const { buildPayrollExportCsv, writeExportCsv } = require('../services/hrmAsyncJobService');
+    await updateJob(jobDoc._id, { status: 'processing', progress: 10, startedAt: new Date() });
+    const { rows, rowCount } = await buildPayrollExportCsv(jobDoc.payload?.query || {});
+    await updateJob(jobDoc._id, { progress: 70 });
+    const filename = `payroll-export-${jobDoc._id}-${Date.now()}.csv`;
+    const absolutePath = await writeExportCsv(filename, rows);
+    await updateJob(jobDoc._id, {
+        status: 'completed',
+        progress: 100,
+        completedAt: new Date(),
+        resultUrl: `/api/admin/hrm/jobs/${jobDoc._id}/download`,
+        result: { rowCount, filename, absolutePath }
+    });
+}
+
 async function processProductExportJob(jobDoc) {
     await updateJob(jobDoc._id, { status: 'processing', progress: 10, startedAt: new Date() });
     await ensureExportDir();
@@ -141,6 +185,12 @@ async function executeJob(jobId) {
             await processBulkImportJob(jobDoc);
         } else if (jobDoc.type === 'PRODUCT_EXPORT_CSV') {
             await processProductExportJob(jobDoc);
+        } else if (jobDoc.type === 'HRM_BULK_PAYROLL_GENERATE') {
+            await processHrmBulkPayrollJob(jobDoc);
+        } else if (jobDoc.type === 'HRM_EMPLOYEE_EXPORT_CSV') {
+            await processHrmEmployeeExportJob(jobDoc);
+        } else if (jobDoc.type === 'HRM_PAYROLL_EXPORT_CSV') {
+            await processHrmPayrollExportJob(jobDoc);
         } else {
             await updateJob(jobId, {
                 status: 'failed',

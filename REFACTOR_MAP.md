@@ -3134,3 +3134,105 @@ client/css/admin/_banners.css [MOD] light/dark theme tokens via html[data-theme=
 client/js/admin-banner.js [MOD] CTR/status badges, preview transitions, settings save UX
 client/admin/partials/view-banners.html [MOD] preview frame classes, drawer close cleanup
 docs/audit/CMS_AUDIT.md [MOD] theme UI changelog
+
+# HRM security hotfixes — 2026-09-25
+backend/src/controllers/admin/employeeController.js [MOD] PII masking on GET by id for non-HR callers
+backend/src/controllers/admin/payrollController.js [MOD] payslip ownership guard (IDOR fix)
+backend/src/routes/adminRoutes.js [MOD] clock-in/out + payslip route permission keys
+docs/audit/HRM_AUDIT.md [MOD] security hotfix changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] HRM security hotfixes section
+README.md [MOD] last updated date
+
+# Leave balance, overlap, atomic approval — 2026-09-25
+backend/src/controllers/admin/leaveController.js [MOD] balance/overlap validation; employee apply subject; atomic approve/reject
+backend/src/models/leave.js [MOD] findOverlappingApplication + getCommittedDaysForType statics
+backend/src/repositories/leaveRepository.js [MOD] atomic approve/reject via updateMany
+tests/hrm.test.js [MOD] double-approve expects HTTP 400
+docs/audit/HRM_AUDIT.md [MOD] leave validation changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] leave validation section
+README.md [MOD] last updated date
+
+# Payroll calculation core fixes — 2026-09-25
+backend/src/services/payrollService.js [NEW] dynamic weekends, joining pro-rate, earnedSalary net formula
+backend/src/controllers/admin/payrollController.js [MOD] delegate calc to payrollService; Admin import; earnedSalary on generate
+backend/src/models/payroll.js [MOD] computeTotalSalary prefers earnedSalary when set
+backend/src/repositories/payrollRepository.js [MOD] countWorkingDays with weekendDays; shared computeTotalSalary import
+tests/hrm.test.js [MOD] countWorkingDays + earnedSalary expectations
+docs/audit/HRM_AUDIT.md [MOD] payroll calc changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] payroll calc section
+README.md [MOD] last updated date
+ARCHITECTURE.md [MOD] payrollService reference
+
+# Attendance timezone, late math & atomic clock — 2026-09-25
+backend/src/services/attendanceSettingsService.js [MOD] platform TZ late minutes + deriveClockInLateStatus; weekend from date key
+backend/src/controllers/admin/attendanceController.js [MOD] atomic clock-in/out; settings-backed shifts; Dhaka today date
+backend/src/models/attendance.js [MOD] unique staffId+date; computeHoursWorked static
+backend/src/repositories/attendanceRepository.js [MOD] combineDateAndTime via platformLocalToUtc
+tests/services/attendanceClock.test.js [NEW] Dhaka lateness unit tests
+docs/audit/HRM_AUDIT.md [MOD] attendance TZ changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] attendance TZ section
+README.md [MOD] test count 316
+
+# Employee read parity & CSV export — 2026-09-25
+backend/src/repositories/employeeRepository.js [MOD] mergeOperationalEmployeeWhere; TERMINATED excluded by default
+backend/src/services/hrmReadService.js [MOD] operational Mongo clauses; fetchEmployeesForExport / fetchPayrollsForExport
+backend/src/controllers/admin/exportController.js [MOD] joiningDate/baseSalary CSV; exportPayrollsCSV
+backend/src/routes/adminRoutes.js [MOD] GET /hrm/payroll/export
+tests/services/employeeReadParity.test.js [NEW]
+tests/services/employeeExportCsv.test.js [NEW]
+docs/audit/HRM_AUDIT.md [MOD] read parity changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] employee read parity section
+README.md [MOD] test count 320
+
+# Attendance unique index & employee HRM cascade — 2026-09-26
+backend/src/models/attendance.js [MOD] isDuplicateKeyError static
+backend/src/utils/attendanceDuplicate.js [NEW] Mongo/P2002 duplicate helpers
+backend/src/services/employeeHrmCascadeService.js [NEW] Mongo+PG attendance/payroll/leave cleanup
+backend/src/controllers/admin/attendanceController.js [MOD] mark save retry; 409 duplicate
+backend/src/controllers/admin/employeeController.js [MOD] cascade on deactivate/permanent delete
+backend/src/repositories/attendanceRepository.js [MOD] deleteAllForStaff; P2002 handling
+backend/src/repositories/payrollRepository.js [MOD] deleteAllForStaff
+backend/src/repositories/leaveRepository.js [MOD] deleteAllForStaff
+backend/src/repositories/employeeRepository.js [MOD] terminate/remove PG cascade
+prisma/schema.prisma [MOD] attendance @@unique([staffId, date])
+prisma/migrations/20260926140000_attendance_staff_date_unique/migration.sql [NEW]
+tests/services/employeeHrmCascade.test.js [NEW]
+tests/hrm.test.js [MOD] deactivate cascade assertions
+docs/audit/HRM_AUDIT.md [MOD] cascade changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] cascade section
+README.md [MOD] test count 321
+
+# Bulk attendance import & async HRM jobs — 2026-09-26
+backend/src/services/bulkAttendanceService.js [NEW] CSV/Excel parse, validate, upsert import rows
+backend/src/services/hrmAsyncJobService.js [NEW] bulk payroll + CSV export builders
+backend/src/controllers/admin/attendanceController.js [MOD] bulkImportAttendance
+backend/src/controllers/admin/payrollController.js [MOD] generatePayrollBulk, HRM job status/download
+backend/src/controllers/admin/exportController.js [MOD] async query on employee/payroll export
+backend/src/queues/importExportQueue.js [MOD] HRM job processors
+backend/src/models/BackgroundJob.js [MOD] HRM job types enum
+backend/src/routes/adminRoutes.js [MOD] bulk-import, generate-bulk, hrm/jobs routes
+tests/services/bulkAttendanceService.test.js [NEW]
+docs/audit/HRM_AUDIT.md [MOD] bulk import changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] bulk import section
+README.md [MOD] test count 323
+
+# Granular HRM audit logging & dashboard aggregation — 2026-09-26
+backend/src/services/hrmAuditService.js [NEW] logHrmAuditEvent + HRM_ACTION_TYPES
+backend/src/services/hrmDashboardMetricsService.js [NEW] batched HRM KPI queries + cache
+backend/src/models/securityLog.js [MOD] actorId, targetStaffId, hrmActionType, previous/new value fields
+backend/src/utils/securityLogger.js [MOD] pass-through HRM audit fields; JSON details for PG
+backend/src/services/securityAuditReadService.js [MOD] fetchHrmAuditLogsPage + mongo/pg filters
+backend/src/repositories/securityLogRepository.js [MOD] HRM filter on details/resourceId
+backend/src/services/readShapeHelpers.js [MOD] parse HRM JSON from PG security log details
+backend/src/controllers/admin/staffAuditController.js [MOD] GET getHrmAuditEvents
+backend/src/controllers/admin/enterpriseSummaryController.js [MOD] hrmDashboard bundle + estimatedPayrollCostThisMonth
+backend/src/controllers/admin/payrollController.js [MOD] granular audit on salary/payroll/batch
+backend/src/controllers/admin/employeeController.js [MOD] status/salary audit on update/deactivate
+backend/src/controllers/admin/leaveController.js [MOD] leave status audit enrich
+backend/src/services/cacheService.js [MOD] HRM_ENTERPRISE_SUMMARY cache key
+backend/src/routes/adminRoutes.js [MOD] GET /staff-audit/hrm
+tests/hrmAudit.test.js [NEW]
+docs/audit/HRM_AUDIT.md [MOD] audit + dashboard changelog
+SYSTEM_ENTERPRISE_AUDIT.md [MOD] Task 4.3/4.4 section
+README.md [MOD] test count 328
+ARCHITECTURE.md [MOD] hrmAudit + hrmDashboardMetrics entries

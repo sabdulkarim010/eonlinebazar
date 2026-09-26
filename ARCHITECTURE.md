@@ -179,12 +179,17 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 
 | Employee | `backend/src/models/employee.js` | Non-login operational staff — full profile, documents, references |
 | Designation | `backend/src/models/designation.js` | Job title catalog (Manager, Delivery Man, …) seeded on bootstrap |
-| Attendance | `backend/src/models/attendance.js` | One row per staff per day (clock in/out, late, shift, manual-entry audit) |
+| Attendance | `backend/src/models/attendance.js` | One row per staff per day (unique `staffId`+`date`); clock in/out in platform TZ (`attendanceDate.js`) |
 | AttendanceLock | `backend/src/models/attendanceLock.js` | Per-date attendance lock (Super Admin); blocks writes with HTTP 423 |
 
 | Shift | `backend/src/models/shift.js` | Named working windows + late grace period |
 
 | Payroll | `backend/src/models/payroll.js` | Monthly salary run, draft → approved → paid |
+| Payroll math | `backend/src/services/payrollService.js` | Weekend-aware working days, joining pro-rate, earned salary + net pay |
+| Bulk attendance import | `backend/src/services/bulkAttendanceService.js` | CSV/Excel row validate + upsert (Asia/Dhaka dates) |
+| HRM async jobs | `backend/src/services/hrmAsyncJobService.js` + `queues/importExportQueue.js` | Bulk payroll + large CSV exports (BullMQ / inline fallback) |
+| HRM audit trail | `backend/src/services/hrmAuditService.js` | Structured SecurityLog events (salary/status/payroll/leave) + `GET /staff-audit/hrm` filters |
+| HRM dashboard KPIs | `backend/src/services/hrmDashboardMetricsService.js` | Batched Mongo `$group` / Prisma aggregates for enterprise summary (30s Redis cache) |
 
 | Leave | `backend/src/models/leave.js` | Leave applications, approvals, balances |
 

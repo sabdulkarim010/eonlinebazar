@@ -62,6 +62,61 @@ leaveSchema.pre('save', function applyTotalDays() {
     this.totalDays = countLeaveDays(this.startDate, this.endDate);
 });
 
+/** Pending or approved leave overlapping [startDate, endDate] (inclusive). */
+leaveSchema.statics.findOverlappingApplication = function findOverlappingApplication(
+    staffId,
+    startDate,
+    endDate,
+    excludeId = null
+) {
+    const query = {
+        staffId: String(staffId),
+        status: { $in: ['pending', 'approved'] },
+        startDate: { $lte: endDate },
+        endDate: { $gte: startDate }
+    };
+    if (excludeId) query._id = { $ne: excludeId };
+    return this.findOne(query).select('_id status startDate endDate').lean();
+};
+
+/** Approved + pending day totals for one leave type within a calendar year. */
+leaveSchema.statics.getCommittedDaysForType = async function getCommittedDaysForType(
+    staffId,
+    leaveType,
+    year
+) {
+    const y = Number(year) || new Date().getFullYear();
+    const rows = await this.aggregate([
+        {
+            $match: {
+                staffId: String(staffId),
+                leaveType: String(leaveType).toLowerCase(),
+                status: { $in: ['pending', 'approved'] },
+                startDate: {
+                    $gte: new Date(y, 0, 1, 0, 0, 0, 0),
+                    $lte: new Date(y, 11, 31, 23, 59, 59, 999)
+                }
+            }
+        },
+        {
+            $group: {
+                _id: null,
+                approvedDays: {
+                    $sum: { $cond: [{ $eq: ['$status', 'approved'] }, '$totalDays', 0] }
+                },
+                pendingDays: {
+                    $sum: { $cond: [{ $eq: ['$status', 'pending'] }, '$totalDays', 0] }
+                }
+            }
+        }
+    ]);
+
+    return {
+        approvedDays: rows[0]?.approvedDays || 0,
+        pendingDays: rows[0]?.pendingDays || 0
+    };
+};
+
 module.exports = mongoose.models.Leave || mongoose.model('Leave', leaveSchema);
 module.exports.LEAVE_TYPES = LEAVE_TYPES;
 module.exports.LEAVE_STATUSES = LEAVE_STATUSES;

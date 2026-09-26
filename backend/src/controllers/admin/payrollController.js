@@ -10,12 +10,10 @@
  ********************************************************************/
 
 const mongoose = require('mongoose');
-const Attendance = require('../../models/attendance');
-const Payroll = require('../../models/payroll');
 const Admin = require('../../models/admin');
-const Employee = require('../../models/employee');
+const Payroll = require('../../models/payroll');
 const { generatePaySlipPdf } = require('../../utils/paySlipPdf');
-const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { logHrmAuditEvent, HRM_ACTION_TYPES } = require('../../services/hrmAuditService');
 const { dualWrite } = require('../../services/dualWriteService');
 
 function getPayrollRepository() {
@@ -26,17 +24,23 @@ function mirrorPayrollDoc(saved) {
     return require('../../utils/hrmDualWriteHelpers').mirrorPayrollDoc(saved);
 }
 
+const { accountHasPermission } = require('../../config/permissions');
+const { isHrOrSuperAdmin } = require('../../middlewares/rbac');
 const { adminDualWrite, mirrorAdminUpdate } = require('../../utils/adminDualWriteHelpers');
-const { findAdmin, parseStaffSelector, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
+const { findAdmin, resolveHrmSubject } = require('../../utils/hrmStaffResolver');
 const { fetchPayrollsPage, decoratePayrollDesignations } = require('../../services/hrmReadService');
-const { getAttendanceSettings } = require('../../services/attendanceSettingsService');
-const { computeTotalSalary } = require('../../models/payroll');
-
-/** Bangladesh weekend — Friday (Date#getDay() === 5) is not a working day. */
-const WEEKEND_DAY = 5;
-
-/** Nominal shift length used to price an overtime hour from a monthly salary. */
-const STANDARD_SHIFT_HOURS = 8;
+const {
+    countWorkingDays,
+    summarizeAttendance,
+    calculatePayrollFromAttendance
+} = require('../../services/payrollService');
+const { runBulkPayrollGeneration } = require('../../services/hrmAsyncJobService');
+const {
+    enqueueJob,
+    getJobStatus,
+    resolveJobDownloadPath
+} = require('../../queues/importExportQueue');
+const path = require('path');
 
 function parsePagination(query) {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -48,161 +52,38 @@ function actorName(req) {
     return req.adminAccount?.username || req.admin?.username || 'admin';
 }
 
+function actorCanAccessAnyPayslip(req) {
+    const account = req.adminAccount;
+    if (!account) return false;
+    if (typeof account.isSuperAdmin === 'function' && account.isSuperAdmin()) return true;
+    if (isHrOrSuperAdmin(account)) return true;
+    return accountHasPermission(account, 'manage_staff');
+}
+
+async function assertPayslipAccessAllowed(req, record) {
+    if (actorCanAccessAnyPayslip(req)) return null;
+
+    const account = req.adminAccount;
+    if (!account) {
+        return { status: 401, message: 'Admin session could not be verified.' };
+    }
+
+    const payrollStaffId = String(record.staffId || '');
+
+    if (payrollStaffId === String(account._id)) return null;
+
+    const { resolveSelfServiceStaffSubject } = require('../../utils/hrmStaffResolver');
+    const subject = await resolveSelfServiceStaffSubject(account);
+    if (subject && payrollStaffId === String(subject.staffId)) return null;
+
+    return {
+        status: 403,
+        message: 'You can only download your own pay slip.'
+    };
+}
+
 async function findStaff(identifier) {
     return findAdmin(identifier);
-}
-
-/** Calendar working days in a month, excluding the weekly day off. */
-function countWorkingDays(year, month) {
-    const daysInMonth = new Date(year, month, 0).getDate();
-    let count = 0;
-
-    for (let day = 1; day <= daysInMonth; day += 1) {
-        if (new Date(year, month - 1, day).getDay() !== WEEKEND_DAY) count += 1;
-    }
-
-    return count;
-}
-
-/**
- * Roll a month of attendance rows into payroll counters. A half-day counts
- * as half a present day, and hours logged beyond the rostered shift become
- * overtime.
- */
-function summarizeAttendance(records) {
-    let presentDays = 0;
-    let absentDays = 0;
-    let lateDays = 0;
-    let holidays = 0;
-    let overtimeHours = 0;
-
-    records.forEach((row) => {
-        if (row.status === 'present' || row.status === 'late') presentDays += 1;
-        else if (row.status === 'half-day') presentDays += 0.5;
-        else if (row.status === 'absent') absentDays += 1;
-        else if (row.status === 'holiday') holidays += 1;
-
-        if (row.isLate) lateDays += 1;
-
-        const start = Attendance.parseShiftMinutes(row.shiftStart);
-        const end = Attendance.parseShiftMinutes(row.shiftEnd);
-        const shiftHours = start !== null && end !== null && end > start
-            ? (end - start) / 60
-            : STANDARD_SHIFT_HOURS;
-
-        const worked = Number(row.hoursWorked) || 0;
-        if (worked > shiftHours) overtimeHours += worked - shiftHours;
-    });
-
-    return {
-        presentDays: Math.round(presentDays * 10) / 10,
-        absentDays,
-        lateDays,
-        holidays,
-        overtimeHours: Math.round(overtimeHours * 100) / 100
-    };
-}
-
-const GRACE_LATE_ALLOWED = 3;
-const LATE_PENALTY_BDT = 50;
-
-async function calculatePayrollFromAttendance(employeeId, month, year, options = {}) {
-    const subject = await resolveHrmSubject({
-        staffId: employeeId,
-        staffUsername: employeeId,
-        ...options
-    });
-    if (!subject) {
-        const err = new Error('Staff member not found.');
-        err.status = 404;
-        throw err;
-    }
-
-    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
-    const end = new Date(year, month, 0, 0, 0, 0, 0);
-
-    const records = await Attendance.find({
-        staffId: subject.staffId,
-        date: { $gte: start, $lte: end }
-    }).lean();
-
-    const summary = summarizeAttendance(records);
-    const calendarWorkingDays = countWorkingDays(year, month);
-    const attendanceSettings = await getAttendanceSettings();
-    const graceLateAllowed = Number(options.graceLateAllowed) >= 0
-        ? Number(options.graceLateAllowed)
-        : GRACE_LATE_ALLOWED;
-
-    const workingDays = options.workingDays !== undefined
-        ? Math.max(0, parseInt(options.workingDays, 10) || 0)
-        : Math.max(0, calendarWorkingDays - summary.holidays);
-
-    const baseSalary = options.baseSalary !== undefined
-        ? Math.max(0, Number(options.baseSalary) || 0)
-        : subject.baseSalary;
-
-    const dailyRate = workingDays > 0 ? baseSalary / workingDays : 0;
-    const earnedSalary = workingDays > 0
-        ? Math.round(baseSalary * Math.min(summary.presentDays / workingDays, 1) * 100) / 100
-        : baseSalary;
-
-    // Absent days are already reflected in presentDays pro-rating — show for breakdown only.
-    const absentDeduction = Math.round(summary.absentDays * dailyRate * 100) / 100;
-    const lateOverGrace = Math.max(0, summary.lateDays - graceLateAllowed);
-    const lateDeduction = Math.round(lateOverGrace * LATE_PENALTY_BDT * 100) / 100;
-    const attendanceDeductions = lateDeduction;
-
-    const hourlyRate = workingDays > 0
-        ? baseSalary / (workingDays * STANDARD_SHIFT_HOURS)
-        : 0;
-    const overtimeRate = options.overtimeRate !== undefined
-        ? Math.max(0, Number(options.overtimeRate) || 0)
-        : Math.round(hourlyRate * 100) / 100;
-    const overtimeHours = options.overtime !== undefined
-        ? Math.max(0, Number(options.overtime) || 0)
-        : summary.overtimeHours;
-    const bonus = Math.max(0, Number(options.bonus) || 0);
-    const manualDeductions = Math.max(0, Number(options.deductions) || 0);
-    const totalDeductions = Math.round((attendanceDeductions + manualDeductions) * 100) / 100;
-
-    const totals = computeTotalSalary({
-        baseSalary,
-        workingDays,
-        presentDays: summary.presentDays,
-        overtime: overtimeHours,
-        overtimeRate,
-        bonus,
-        deductions: totalDeductions
-    });
-
-    return {
-        staffId: subject.staffId,
-        staffUsername: subject.staffUsername,
-        staffName: subject.staffName,
-        month,
-        year,
-        baseSalary,
-        earnedSalary,
-        deductions: totalDeductions,
-        netSalary: totals.totalSalary,
-        breakdown: {
-            presentDays: summary.presentDays,
-            absentDays: summary.absentDays,
-            lateDays: summary.lateDays,
-            workingDays,
-            holidays: summary.holidays,
-            graceLateAllowed,
-            gracePeriodMinutes: attendanceSettings.gracePeriodMinutes,
-            absentDeduction,
-            lateDeduction,
-            manualDeductions,
-            overtimeHours,
-            overtimeRate,
-            overtimeAmount: totals.overtimeAmount,
-            bonus
-        },
-        attendanceRecordIds: records.map((row) => String(row._id))
-    };
 }
 
 /**
@@ -237,6 +118,110 @@ exports.previewPayrollFromAttendance = async (req, res) => {
  * and paid runs are never overwritten — the caller must be explicit about
  * reverting them first.
  */
+function wantsAsyncJob(req) {
+    return String(req.query.async || req.body?.async || '').toLowerCase() === 'true';
+}
+
+/**
+ * POST /api/admin/hrm/payroll/generate-bulk
+ * Body: { month, year, staffIds?: [], allActive?: true }. Query ?async=true queues BullMQ/inline job.
+ */
+exports.generatePayrollBulk = async (req, res) => {
+    try {
+        const body = req.body || {};
+        const now = new Date();
+        const payload = {
+            month: Math.min(Math.max(parseInt(body.month, 10) || now.getMonth() + 1, 1), 12),
+            year: parseInt(body.year, 10) || now.getFullYear(),
+            staffIds: Array.isArray(body.staffIds) ? body.staffIds : undefined,
+            allActive: body.allActive !== false,
+            createdBy: actorName(req)
+        };
+
+        if (wantsAsyncJob(req)) {
+            const job = await enqueueJob('HRM_BULK_PAYROLL_GENERATE', payload, req.adminId || null);
+            return res.status(202).json({
+                success: true,
+                message: 'Bulk payroll generation queued.',
+                data: {
+                    jobId: String(job._id),
+                    status: job.status,
+                    progress: job.progress
+                }
+            });
+        }
+
+        const result = await runBulkPayrollGeneration(payload);
+        await logHrmAuditEvent({
+            req,
+            action: 'Payroll Batch Generated',
+            actionType: HRM_ACTION_TYPES.PAYROLL_BATCH,
+            resourceType: 'payroll',
+            previousValue: null,
+            newValue: {
+                month: payload.month,
+                year: payload.year,
+                generated: result?.generated ?? result?.successCount ?? null,
+                skipped: result?.skipped ?? result?.errorCount ?? null
+            },
+            summary: `Bulk payroll ${payload.month}/${payload.year}`
+        });
+        return res.status(200).json({
+            success: true,
+            message: 'Bulk payroll generation finished.',
+            data: result
+        });
+    } catch (error) {
+        console.error('generatePayrollBulk Error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to run bulk payroll generation.' });
+    }
+};
+
+/** GET /api/admin/hrm/jobs/:jobId — HRM async job status (payroll batch / exports). */
+exports.getHrmJobStatus = async (req, res) => {
+    try {
+        const job = await getJobStatus(req.params.jobId);
+        if (!job) {
+            return res.status(404).json({ success: false, message: 'Job not found.' });
+        }
+        return res.json({
+            success: true,
+            data: {
+                jobId: String(job._id),
+                type: job.type,
+                status: job.status,
+                progress: job.progress,
+                result: job.result,
+                resultUrl: job.resultUrl || null,
+                errorMessage: job.errorMessage || '',
+                createdAt: job.createdAt,
+                startedAt: job.startedAt,
+                completedAt: job.completedAt
+            }
+        });
+    } catch (error) {
+        console.error('getHrmJobStatus Error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to load job status.' });
+    }
+};
+
+/** GET /api/admin/hrm/jobs/:jobId/download */
+exports.downloadHrmJobResult = async (req, res) => {
+    try {
+        const filePath = await resolveJobDownloadPath(req.params.jobId);
+        if (!filePath) {
+            return res.status(404).json({ success: false, message: 'Export file not ready.' });
+        }
+        const filename = path.basename(filePath);
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return res.sendFile(path.resolve(filePath));
+    } catch (error) {
+        console.error('downloadHrmJobResult Error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to download export.' });
+    }
+};
+
 exports.generatePayroll = async (req, res) => {
     try {
         const body = req.body || {};
@@ -270,7 +255,7 @@ exports.generatePayroll = async (req, res) => {
         record.overtimeRate = preview.breakdown.overtimeRate;
         record.deductions = preview.deductions;
         record.earnedSalary = preview.earnedSalary;
-        record.attendanceDeductions = preview.breakdown.absentDeduction + preview.breakdown.lateDeduction;
+        record.attendanceDeductions = preview.breakdown.attendanceDeductions;
         record.workingDays = preview.breakdown.workingDays;
         record.presentDays = preview.breakdown.presentDays;
         record.absentDays = preview.breakdown.absentDays;
@@ -291,14 +276,16 @@ exports.generatePayroll = async (req, res) => {
             }
         );
 
-        await logSecurityEvent({
+        await logHrmAuditEvent({
+            req,
             action: 'Payroll Generated',
-            actor: actorName(req),
-            actorType: 'admin',
-            ipAddress: getClientIp(req),
-            details: `${subject.staffUsername} — ${month}/${year}, net ${record.totalSalary}`,
+            actionType: HRM_ACTION_TYPES.PAYROLL_RELEASE,
+            targetStaffId: subject.staffId,
             resourceType: 'payroll',
-            resourceId: String(record._id)
+            resourceId: String(record._id),
+            previousValue: null,
+            newValue: { status: 'draft', month, year, totalSalary: record.totalSalary },
+            summary: `${subject.staffUsername} — ${month}/${year}, net ${record.totalSalary}`
         });
 
         res.status(200).json({
@@ -381,6 +368,7 @@ exports.approvePayroll = async (req, res) => {
             });
         }
 
+        const previousStatus = record.status;
         record.status = 'approved';
         if (req.body?.notes) record.notes = String(req.body.notes).trim();
         await dualWrite(
@@ -397,14 +385,16 @@ exports.approvePayroll = async (req, res) => {
             }
         );
 
-        await logSecurityEvent({
+        await logHrmAuditEvent({
+            req,
             action: 'Payroll Approved',
-            actor: actorName(req),
-            actorType: 'admin',
-            ipAddress: getClientIp(req),
-            details: `${record.staffUsername} — ${record.month}/${record.year}`,
+            actionType: HRM_ACTION_TYPES.PAYROLL_RELEASE,
+            targetStaffId: record.staffId,
             resourceType: 'payroll',
-            resourceId: String(record._id)
+            resourceId: String(record._id),
+            previousValue: { status: previousStatus },
+            newValue: { status: 'approved' },
+            summary: `${record.staffUsername} — ${record.month}/${record.year}`
         });
 
         res.status(200).json({ success: true, message: 'Payroll approved.', data: record });
@@ -436,6 +426,7 @@ exports.markPaid = async (req, res) => {
             });
         }
 
+        const previousStatus = record.status;
         record.status = 'paid';
         record.paidAt = new Date();
         if (req.body?.paymentMethod) record.paymentMethod = String(req.body.paymentMethod).trim();
@@ -453,14 +444,16 @@ exports.markPaid = async (req, res) => {
             }
         );
 
-        await logSecurityEvent({
+        await logHrmAuditEvent({
+            req,
             action: 'Payroll Paid',
-            actor: actorName(req),
-            actorType: 'admin',
-            ipAddress: getClientIp(req),
-            details: `${record.staffUsername} — ${record.month}/${record.year}, ${record.totalSalary}`,
+            actionType: HRM_ACTION_TYPES.PAYROLL_RELEASE,
+            targetStaffId: record.staffId,
             resourceType: 'payroll',
-            resourceId: String(record._id)
+            resourceId: String(record._id),
+            previousValue: { status: previousStatus },
+            newValue: { status: 'paid', totalSalary: record.totalSalary },
+            summary: `${record.staffUsername} — ${record.month}/${record.year}, ${record.totalSalary}`
         });
 
         res.status(200).json({ success: true, message: 'Payroll marked paid.', data: record });
@@ -484,6 +477,14 @@ exports.generatePaySlip = async (req, res) => {
         const record = await Payroll.findById(id).lean();
         if (!record) {
             return res.status(404).json({ success: false, message: 'Payroll record not found.' });
+        }
+
+        const accessDenied = await assertPayslipAccessAllowed(req, record);
+        if (accessDenied) {
+            return res.status(accessDenied.status).json({
+                success: false,
+                message: accessDenied.message
+            });
         }
 
         const pdf = await generatePaySlipPdf(record);
@@ -538,6 +539,16 @@ exports.updateSalaryConfig = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No changes supplied.' });
         }
 
+        const previousValue = {};
+        if (updates.baseSalary !== undefined) {
+            previousValue.baseSalary = Number(account.baseSalary) || 0;
+        }
+        if (updates.department !== undefined) previousValue.department = account.department || '';
+        if (updates.employeeId !== undefined) previousValue.employeeId = account.employeeId || '';
+        if (updates.joiningDate !== undefined) {
+            previousValue.joiningDate = account.joiningDate ? account.joiningDate.toISOString() : null;
+        }
+
         // findByIdAndUpdate keeps the password untouched, so the hashing hook
         // on save() is never a concern here.
         const updated = await adminDualWrite(
@@ -553,14 +564,20 @@ exports.updateSalaryConfig = async (req, res) => {
             }
         );
 
-        await logSecurityEvent({
+        const newValue = { ...updates };
+        if (newValue.joiningDate instanceof Date) {
+            newValue.joiningDate = newValue.joiningDate.toISOString();
+        }
+        await logHrmAuditEvent({
+            req,
             action: 'Salary Config Updated',
-            actor: actorName(req),
-            actorType: 'admin',
-            ipAddress: getClientIp(req),
-            details: `${account.username} — ${Object.keys(updates).join(', ')}`,
+            actionType: HRM_ACTION_TYPES.SALARY_MODIFIED,
+            targetStaffId: String(account._id),
             resourceType: 'payroll',
-            resourceId: String(account._id)
+            resourceId: String(account._id),
+            previousValue,
+            newValue,
+            summary: `${account.username} — ${Object.keys(updates).join(', ')}`
         });
 
         res.status(200).json({

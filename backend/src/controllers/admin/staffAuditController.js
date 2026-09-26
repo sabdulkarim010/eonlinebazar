@@ -9,8 +9,10 @@
 const {
     fetchStaffAuditGroups,
     fetchSecurityLogsPage,
-    countSecurityLogs
+    countSecurityLogs,
+    fetchHrmAuditLogsPage
 } = require('../../services/securityAuditReadService');
+const { shapeHrmAuditLogRow, HRM_ACTION_TYPES } = require('../../services/hrmAuditService');
 
 function parsePagination(query) {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -88,5 +90,59 @@ exports.getStaffActivityDetail = async (req, res) => {
     } catch (error) {
         console.error('getStaffActivityDetail Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load staff activity detail.' });
+    }
+};
+
+function parseDateRangeQuery(query) {
+    const dateFrom = query.dateFrom || query.from || null;
+    const dateTo = query.dateTo || query.to || null;
+    return {
+        dateFrom: dateFrom ? new Date(dateFrom) : null,
+        dateTo: dateTo ? new Date(dateTo) : null
+    };
+}
+
+/**
+ * GET /api/admin/staff-audit/hrm
+ * Filterable HRM audit trail (staffId, actionType, dateRange).
+ */
+exports.getHrmAuditEvents = async (req, res) => {
+    try {
+        const { page, limit, skip } = parsePagination(req.query);
+        const staffId = String(req.query.staffId || req.query.targetStaffId || '').trim() || undefined;
+        const actionType = String(req.query.actionType || req.query.action || '').trim() || undefined;
+        const { dateFrom, dateTo } = parseDateRangeQuery(req.query);
+
+        if (dateFrom && Number.isNaN(dateFrom.getTime())) {
+            return res.status(400).json({ success: false, message: 'Invalid dateFrom.' });
+        }
+        if (dateTo && Number.isNaN(dateTo.getTime())) {
+            return res.status(400).json({ success: false, message: 'Invalid dateTo.' });
+        }
+
+        const { logs, total } = await fetchHrmAuditLogsPage({
+            skip,
+            limit,
+            staffId,
+            actionType,
+            dateFrom: dateFrom || undefined,
+            dateTo: dateTo || undefined
+        });
+
+        res.status(200).json({
+            success: true,
+            filters: { staffId: staffId || null, actionType: actionType || null, dateFrom, dateTo },
+            actionTypes: HRM_ACTION_TYPES,
+            data: logs.map(shapeHrmAuditLogRow),
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit) || 1
+            }
+        });
+    } catch (error) {
+        console.error('getHrmAuditEvents Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load HRM audit events.' });
     }
 };

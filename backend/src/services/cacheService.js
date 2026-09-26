@@ -23,7 +23,9 @@ const CACHE_KEYS = {
     FOOTER_SETTINGS: 'store:footer',
     PAGE_CONTENT: (slug) => `cms:page:${slug}`,
     PRODUCT: (id) => `products:detail:${id}`,
-    SEARCH_RESULTS: (queryHash) => `search:${queryHash}`
+    SEARCH_RESULTS: (queryHash) => `search:${queryHash}`,
+    HRM_ENTERPRISE_SUMMARY: (year, month, dayKey, source) =>
+        `enterprise:hrm:${year}-${month}:${dayKey}:${source}`
 };
 
 async function getOrSet(key, fetchFn, ttlSeconds = DEFAULT_TTL) {

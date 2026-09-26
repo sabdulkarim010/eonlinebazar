@@ -13,8 +13,16 @@ const Order = require('../../models/order');
 const Product = require('../../models/product');
 const User = require('../../models/user');
 const { fetchCustomerOrderStatsMap } = require('../../services/userReadService');
-const Employee = require('../../models/employee');
 const Settings = require('../../models/Settings');
+const {
+    fetchEmployeesForExport,
+    fetchPayrollsForExport
+} = require('../../services/hrmReadService');
+const { enqueueJob } = require('../../queues/importExportQueue');
+
+function wantsAsyncExport(req) {
+    return String(req.query.async || '').toLowerCase() === 'true';
+}
 const { computeProfitLoss } = require('./profitLossController');
 
 const DEFAULT_LOW_STOCK_THRESHOLD = Number(process.env.LOW_STOCK_DEFAULT_THRESHOLD) || 10;
@@ -527,33 +535,37 @@ const exportProductsCSV = async (req, res) => {
 /**
  * GET /api/admin/hrm/employees/export
  */
+function formatCsvDate(value) {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toISOString().slice(0, 10);
+}
+
 const exportEmployeesCSV = async (req, res) => {
     try {
-        const filter = {};
-        const { EMPLOYEE_STATUSES, EMPLOYEE_TYPES } = Employee;
-
-        const status = String(req.query.status || '').trim().toLowerCase();
-        if (EMPLOYEE_STATUSES.includes(status)) filter.status = status;
-
-        const department = String(req.query.department || '').trim();
-        if (department) filter.department = department;
-
-        const designation = String(req.query.designation || '').trim();
-        if (designation) filter.designation = designation;
-
-        const employeeType = String(req.query.employeeType || '').trim().toLowerCase();
-        if (EMPLOYEE_TYPES.includes(employeeType)) filter.employeeType = employeeType;
-
-        const search = String(req.query.search || '').trim();
-        if (search) {
-            const re = new RegExp(escapeRegex(search), 'i');
-            filter.$or = [{ fullName: re }, { phone: re }, { employeeId: re }, { role: re }, { designation: re }];
+        if (wantsAsyncExport(req)) {
+            const job = await enqueueJob(
+                'HRM_EMPLOYEE_EXPORT_CSV',
+                { query: { ...req.query } },
+                req.adminId || null
+            );
+            return res.status(202).json({
+                success: true,
+                message: 'Employee export queued.',
+                data: {
+                    jobId: String(job._id),
+                    status: job.status,
+                    progress: job.progress,
+                    pollUrl: `/api/admin/hrm/jobs/${job._id}`
+                }
+            });
         }
 
-        const employees = await Employee.find(filter).sort({ createdAt: -1 }).limit(EXPORT_ROW_LIMIT).lean();
+        const employees = await fetchEmployeesForExport(req.query, EXPORT_ROW_LIMIT);
 
         const rows = [
-            csvRow(['Employee ID', 'Full Name', 'Phone', 'Email', 'Department', 'Designation', 'Type', 'Status', 'Join Date', 'Salary'])
+            csvRow(['Employee ID', 'Full Name', 'Phone', 'Email', 'Department', 'Designation', 'Type', 'Status', 'Join Date', 'Base Salary'])
         ];
 
         employees.forEach((employee) => {
@@ -566,8 +578,8 @@ const exportEmployeesCSV = async (req, res) => {
                 employee.designation || '',
                 employee.employeeType || '',
                 employee.status || '',
-                employee.joinDate ? new Date(employee.joinDate).toISOString().slice(0, 10) : '',
-                employee.salary ?? employee.basicSalary ?? ''
+                formatCsvDate(employee.joiningDate),
+                employee.baseSalary ?? ''
             ]));
         });
 
@@ -579,11 +591,82 @@ const exportEmployeesCSV = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/admin/hrm/payroll/export
+ * Payroll ledger CSV — month/year/status filters; uses routed read (Mongo/PG parity).
+ */
+const exportPayrollsCSV = async (req, res) => {
+    try {
+        if (wantsAsyncExport(req)) {
+            const job = await enqueueJob(
+                'HRM_PAYROLL_EXPORT_CSV',
+                { query: { ...req.query } },
+                req.adminId || null
+            );
+            return res.status(202).json({
+                success: true,
+                message: 'Payroll export queued.',
+                data: {
+                    jobId: String(job._id),
+                    status: job.status,
+                    progress: job.progress,
+                    pollUrl: `/api/admin/hrm/jobs/${job._id}`
+                }
+            });
+        }
+
+        const records = await fetchPayrollsForExport(req.query, EXPORT_ROW_LIMIT);
+
+        const rows = [
+            csvRow([
+                'Staff',
+                'Month',
+                'Year',
+                'Base Salary',
+                'Earned Salary',
+                'Bonus',
+                'Overtime Hours',
+                'Deductions',
+                'Net Pay',
+                'Status',
+                'Working Days',
+                'Present Days'
+            ])
+        ];
+
+        records.forEach((row) => {
+            rows.push(csvRow([
+                row.staffName || row.staffUsername || row.staffId || '',
+                row.month ?? '',
+                row.year ?? '',
+                row.baseSalary ?? '',
+                row.earnedSalary ?? '',
+                row.bonus ?? '',
+                row.overtime ?? '',
+                row.deductions ?? '',
+                row.totalSalary ?? '',
+                row.status || '',
+                row.workingDays ?? '',
+                row.presentDays ?? ''
+            ]));
+        });
+
+        const month = req.query.month ? String(req.query.month).padStart(2, '0') : 'all';
+        const year = req.query.year || 'all';
+        const stamp = `${year}-${month}`;
+        return sendCsvResponse(res, `payroll-export-${stamp}.csv`, rows);
+    } catch (err) {
+        console.error('Payroll CSV export error:', err);
+        return res.status(500).json({ success: false, message: 'Failed to export payroll CSV.' });
+    }
+};
+
 module.exports = {
     exportPLtoPDF,
     exportPLtoCSV,
     exportOrdersCSV,
     exportCustomersCSV,
     exportProductsCSV,
-    exportEmployeesCSV
+    exportEmployeesCSV,
+    exportPayrollsCSV
 };

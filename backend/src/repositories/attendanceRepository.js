@@ -16,13 +16,16 @@ const prisma = require('../config/prismaClient');
 const {
   normalizeAttendanceDate,
   formatAttendanceDateKey,
-  getPlatformDayBounds
+  getPlatformDayBounds,
+  getPlatformTimezone
 } = require('../utils/attendanceDate');
+const { platformLocalToUtc } = require('../utils/applicationTime');
 const {
   resolveStaffSubject,
   staffFields,
   parseStaffSelector
 } = require('./hrmStaffResolver');
+const { isPrismaUniqueViolation, duplicateAttendanceError } = require('../utils/attendanceDuplicate');
 
 // ── computeHoursWorked (mirrors attendance.js pre-save exactly) ───────────────
 function computeHoursWorked(clockIn, clockOut, existingHoursWorked = 0) {
@@ -80,19 +83,15 @@ function combineDateAndTime(dateNormalized, timeStr) {
   const match = /^(\d{1,2}):(\d{2})$/.exec(String(timeStr).trim());
   if (!match) return null;
 
-  let d;
-  const rawDate = dateNormalized instanceof Date
-    ? null
-    : String(dateNormalized).trim();
-  if (rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
-    const [y, mo, day] = rawDate.split('-').map(Number);
-    d = new Date(y, mo - 1, day);
-  } else {
-    d = new Date(dateNormalized);
-  }
-  if (Number.isNaN(d.getTime())) return null;
-  d.setHours(Number(match[1]), Number(match[2]), 0, 0);
-  return d;
+  const dateKey = formatAttendanceDateKey(dateNormalized, getPlatformTimezone())
+    || (typeof dateNormalized === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateNormalized.trim())
+      ? dateNormalized.trim()
+      : null);
+  if (!dateKey) return null;
+
+  const hh = String(Number(match[1])).padStart(2, '0');
+  const mm = String(match[2]).padStart(2, '0');
+  return platformLocalToUtc(dateKey, `${hh}:${mm}`, getPlatformTimezone());
 }
 
 function normaliseShift(shift) {
@@ -339,13 +338,31 @@ async function markAttendance(data) {
   }
 
   let record;
-  if (existing) {
-    record = await prisma.attendance.update({
-      where: { id: existing.id },
-      data: fields
-    });
-  } else {
-    record = await prisma.attendance.create({ data: fields });
+  try {
+    if (existing) {
+      record = await prisma.attendance.update({
+        where: { id: existing.id },
+        data: fields
+      });
+    } else {
+      record = await prisma.attendance.create({ data: fields });
+    }
+  } catch (err) {
+    if (isPrismaUniqueViolation(err)) {
+      const dup = await prisma.attendance.findFirst({
+        where: { staffId: subject.staffId, date }
+      });
+      if (dup) {
+        record = await prisma.attendance.update({
+          where: { id: dup.id },
+          data: fields
+        });
+      } else {
+        throw duplicateAttendanceError();
+      }
+    } else {
+      throw err;
+    }
   }
 
   return toShape(record);
@@ -396,10 +413,28 @@ async function clockIn(staffType, staffId, gpsLocation = {}, dateInput, options 
     data.legacyId = String(options.legacyId);
   }
 
-  if (record) {
-    record = await prisma.attendance.update({ where: { id: record.id }, data });
-  } else {
-    record = await prisma.attendance.create({ data });
+  try {
+    if (record) {
+      record = await prisma.attendance.update({ where: { id: record.id }, data });
+    } else {
+      record = await prisma.attendance.create({ data });
+    }
+  } catch (err) {
+    if (isPrismaUniqueViolation(err)) {
+      const dup = await prisma.attendance.findFirst({
+        where: { staffId: subject.staffId, date }
+      });
+      if (!dup) throw duplicateAttendanceError();
+      if (dup.clockIn) {
+        const conflict = new Error('Already clocked in for today.');
+        conflict.code = 'ALREADY_CLOCKED_IN';
+        conflict.record = toShape(dup);
+        throw conflict;
+      }
+      record = await prisma.attendance.update({ where: { id: dup.id }, data });
+    } else {
+      throw err;
+    }
   }
 
   return toShape(record);
@@ -692,6 +727,20 @@ async function bulkMarkAttendance({
   return { success, failed };
 }
 
+function staffTypeToEnum(staffType) {
+  return String(staffType || 'admin').toLowerCase() === 'employee' ? 'EMPLOYEE' : 'ADMIN';
+}
+
+async function deleteAllForStaff(staffLegacyId, staffType = 'employee') {
+  const result = await prisma.attendance.deleteMany({
+    where: {
+      staffId: String(staffLegacyId),
+      staffType: staffTypeToEnum(staffType)
+    }
+  });
+  return result.count || 0;
+}
+
 async function deleteByStaffAndDate(staffId, dateInput) {
   const date = normalizeDate(dateInput);
   if (!date) {
@@ -758,6 +807,7 @@ module.exports = {
   clockOut,
   upsertFromMongo,
   deleteByStaffAndDate,
+  deleteAllForStaff,
   getSummary,
   parseStaffSelector
 };

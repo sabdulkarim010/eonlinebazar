@@ -10,11 +10,14 @@ const mongoose = require('mongoose');
 const Admin = require('../../models/admin');
 const Employee = require('../../models/employee');
 const { ROLES, ACCOUNT_STATUS, sanitizePermissions, accountHasPermission } = require('../../config/permissions');
+const { isHrOrSuperAdmin } = require('../../middlewares/rbac');
 const Attendance = require('../../models/attendance');
 const Payroll = require('../../models/payroll');
 const Leave = require('../../models/leave');
+const { cascadeEmployeeHrmCleanup } = require('../../services/employeeHrmCascadeService');
 const cloudinary = require('../../config/cloudinary');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
+const { logHrmAuditEvent, HRM_ACTION_TYPES } = require('../../services/hrmAuditService');
 const { dualWrite } = require('../../services/dualWriteService');
 const { adminDualWrite, mirrorAdminCreate, mirrorAdminUpdate, mirrorAdminFields, mirrorAdminRemove } = require('../../utils/adminDualWriteHelpers');
 
@@ -209,6 +212,34 @@ function actorHasManageStaff(req) {
     if (!account) return false;
     if (typeof account.isSuperAdmin === 'function' && account.isSuperAdmin()) return true;
     return accountHasPermission(account, 'manage_staff');
+}
+
+/** Full bank/NID fields — manage_staff, HR role, or Super Admin only. */
+function actorCanViewUnmaskedEmployeePii(req) {
+    if (actorHasManageStaff(req)) return true;
+    const account = req.adminAccount;
+    if (!account) return false;
+    return isHrOrSuperAdmin(account);
+}
+
+function maskSensitiveDigits(value, visibleTail = 4) {
+    const raw = String(value || '').trim();
+    if (!raw) return raw;
+    if (raw.length <= visibleTail) {
+        return `${'*'.repeat(Math.max(0, raw.length - 1))}${raw.slice(-1)}`;
+    }
+    return `**** **** ${raw.slice(-visibleTail)}`;
+}
+
+function maskEmployeePii(employee) {
+    const row = employee && typeof employee.toObject === 'function'
+        ? employee.toObject()
+        : { ...employee };
+
+    row.bankAccountNumber = maskSensitiveDigits(row.bankAccountNumber);
+    row.bkashNumber = maskSensitiveDigits(row.bkashNumber);
+    row.nationalId = maskSensitiveDigits(row.nationalId);
+    return row;
 }
 
 /** Attendance-only readers get a minimal roster — no salary, bank, or identity fields. */
@@ -430,7 +461,11 @@ exports.getEmployeeById = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Employee not found.' });
         }
 
-        res.status(200).json({ success: true, data: employee });
+        const data = actorCanViewUnmaskedEmployeePii(req)
+            ? employee
+            : maskEmployeePii(employee);
+
+        res.status(200).json({ success: true, data });
     } catch (error) {
         console.error('getEmployeeById Error:', error);
         res.status(500).json({ success: false, message: 'Failed to load employee.' });
@@ -519,6 +554,11 @@ exports.updateEmployee = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Designation cannot be empty.' });
         }
 
+        const previousSnapshot = {};
+        for (const key of Object.keys(fields)) {
+            previousSnapshot[key] = employee[key];
+        }
+
         Object.assign(employee, fields);
         await dualWrite(
             () => employee.save(),
@@ -536,6 +576,37 @@ exports.updateEmployee = async (req, res) => {
 
         if (fields.fullName !== undefined) {
             await syncLinkedAdminName(employee, employee.fullName);
+        }
+
+        const targetStaffId = employee.linkedAdminId
+            ? String(employee.linkedAdminId)
+            : String(employee._id);
+
+        if (fields.status !== undefined) {
+            await logHrmAuditEvent({
+                req,
+                action: 'Employee Status Updated',
+                actionType: HRM_ACTION_TYPES.EMPLOYEE_STATUS,
+                targetStaffId,
+                resourceType: 'employee',
+                resourceId: String(employee._id),
+                previousValue: { status: previousSnapshot.status },
+                newValue: { status: fields.status },
+                summary: `${employee.employeeId} — status ${previousSnapshot.status} → ${fields.status}`
+            });
+        }
+        if (fields.baseSalary !== undefined) {
+            await logHrmAuditEvent({
+                req,
+                action: 'Employee Salary Updated',
+                actionType: HRM_ACTION_TYPES.SALARY_MODIFIED,
+                targetStaffId,
+                resourceType: 'employee',
+                resourceId: String(employee._id),
+                previousValue: { baseSalary: previousSnapshot.baseSalary },
+                newValue: { baseSalary: fields.baseSalary },
+                summary: `${employee.employeeId} — base salary updated`
+            });
         }
 
         await logSecurityEvent({
@@ -581,18 +652,22 @@ async function performPermanentEmployeeDelete(id, req) {
         );
     }
 
-    await Attendance.deleteMany({ staffId: legacyId, staffType: 'employee' });
-    await Payroll.deleteMany({ staffId: legacyId, staffType: 'employee' });
-    await Leave.deleteMany({ staffId: legacyId, staffType: 'employee' });
+    await cascadeEmployeeHrmCleanup(legacyId, { includeLeave: true });
+
+    await Employee.findByIdAndDelete(id);
 
     try {
-        const prisma = require('../../config/prismaClient');
-        await prisma.employee.deleteMany({ where: { legacyId } });
+        const repo = getEmployeeRepository();
+        const pgRow = await repo.findByLegacyId(legacyId);
+        if (pgRow) {
+            await repo.remove(pgRow.id);
+        } else {
+            const prisma = require('../../config/prismaClient');
+            await prisma.employee.deleteMany({ where: { legacyId } });
+        }
     } catch (pgErr) {
         console.warn('[DELETE-EMP-PG]', pgErr.message);
     }
-
-    await Employee.findByIdAndDelete(id);
 
     await logSecurityEvent({
         action: 'Employee Permanently Deleted',
@@ -627,9 +702,12 @@ exports.deactivateEmployee = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Employee not found' });
         }
 
+        const previousStatus = employee.status;
         employee.status = 'terminated';
         employee.isDeleted = true;
         employee.deletedAt = new Date();
+
+        await cascadeEmployeeHrmCleanup(String(employee._id), { draftsOnlyPayroll: true });
 
         await dualWrite(
             () => employee.save(),
@@ -646,6 +724,22 @@ exports.deactivateEmployee = async (req, res) => {
         );
 
         await suspendLinkedAdminAccess(employee);
+
+        const targetStaffId = employee.linkedAdminId
+            ? String(employee.linkedAdminId)
+            : String(employee._id);
+
+        await logHrmAuditEvent({
+            req,
+            action: 'Employee Deactivated',
+            actionType: HRM_ACTION_TYPES.EMPLOYEE_STATUS,
+            targetStaffId,
+            resourceType: 'employee',
+            resourceId: String(employee._id),
+            previousValue: { status: previousStatus },
+            newValue: { status: 'terminated' },
+            summary: `${employee.employeeId} — ${employee.fullName}`
+        });
 
         await logSecurityEvent({
             action: 'Employee Deactivated',

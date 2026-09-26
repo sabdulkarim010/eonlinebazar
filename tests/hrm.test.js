@@ -14,7 +14,8 @@ const Payroll = require('../backend/src/models/payroll');
 const Leave = require('../backend/src/models/leave');
 const Employee = require('../backend/src/models/employee');
 const Designation = require('../backend/src/models/designation');
-const { countWorkingDays } = require('../backend/src/controllers/admin/payrollController');
+const { countWorkingDays } = require('../backend/src/services/payrollService');
+const { DEFAULT_ATTENDANCE_SETTINGS } = require('../backend/src/services/attendanceSettingsService');
 const { getPlatformDateKey } = require('../backend/src/utils/attendanceDate');
 const { getApp, createTestAdmin } = require('./setup');
 
@@ -382,9 +383,10 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             expect(run.absentDays).toBe(1);
             expect(run.lateDays).toBe(1);
             expect(run.overtime).toBeCloseTo(1);
-            expect(run.workingDays).toBe(countWorkingDays(year, month));
+            const weekendDays = DEFAULT_ATTENDANCE_SETTINGS.weekendDays;
+            expect(run.workingDays).toBe(countWorkingDays(year, month, weekendDays));
 
-            const earnedBase = 30000 * (run.presentDays / run.workingDays);
+            const earnedBase = run.earnedSalary;
             const expectedTotal = earnedBase + run.overtimeAmount + 1000 - 500;
             expect(run.totalSalary).toBeCloseTo(Math.round(expectedTotal * 100) / 100, 1);
         });
@@ -616,7 +618,8 @@ describe('HRM — Attendance, Payroll, Leave', () => {
                 .patch(`/api/admin/hrm/leaves/${applied.body.data._id}/approve`)
                 .set(auth(token))
                 .send({});
-            expect(again.status).toBe(409);
+            expect(again.status).toBe(400);
+            expect(again.body.message).toMatch(/already been processed/i);
         });
 
         test('rejection requires a reason and records it', async () => {
@@ -858,6 +861,21 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             expect(created.status).toBe(201);
             const employeeId = created.body.data._id;
 
+            await Attendance.create({
+                staffId: String(employeeId),
+                staffType: 'employee',
+                date: Attendance.normalizeDate(new Date()),
+                status: 'present'
+            });
+            await Payroll.create({
+                staffId: String(employeeId),
+                staffType: 'employee',
+                month: 5,
+                year: 2026,
+                status: 'draft',
+                baseSalary: 5000
+            });
+
             const deactivated = await request(app)
                 .patch(`/api/admin/hrm/employees/${employeeId}/deactivate`)
                 .set(auth(token));
@@ -877,6 +895,9 @@ describe('HRM — Attendance, Payroll, Leave', () => {
             expect(list.status).toBe(200);
             const ids = (list.body.data || []).map((row) => String(row._id));
             expect(ids).not.toContain(String(employeeId));
+
+            expect(await Attendance.countDocuments({ staffId: String(employeeId) })).toBe(0);
+            expect(await Payroll.countDocuments({ staffId: String(employeeId), status: 'draft' })).toBe(0);
 
             await Employee.findByIdAndDelete(employeeId);
         });

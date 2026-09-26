@@ -16,36 +16,12 @@ const prisma = require('../config/prismaClient');
 const { resolveStaffSubject, staffFields } = require('./hrmStaffResolver');
 const { parseShiftMinutes } = require('./attendanceRepository');
 
-const WEEKEND_DAY = 5;
-const STANDARD_SHIFT_HOURS = 8;
-
-// ── computeTotalSalary (mirrors payroll.js exactly) ───────────────────────────
-function computeTotalSalary(doc) {
-  const base = Number(doc.baseSalary) || 0;
-  const workingDays = Number(doc.workingDays) || 0;
-  const presentDays = Number(doc.presentDays) || 0;
-
-  const earnedBase = workingDays > 0
-    ? base * Math.min(presentDays / workingDays, 1)
-    : base;
-
-  const overtimeAmount = (Number(doc.overtime) || 0) * (Number(doc.overtimeRate) || 0);
-  const total = earnedBase + overtimeAmount + (Number(doc.bonus) || 0) - (Number(doc.deductions) || 0);
-
-  return {
-    overtimeAmount: Math.round(overtimeAmount * 100) / 100,
-    totalSalary: Math.round(Math.max(0, total) * 100) / 100
-  };
-}
-
-function countWorkingDays(year, month) {
-  const daysInMonth = new Date(year, month, 0).getDate();
-  let count = 0;
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    if (new Date(year, month - 1, day).getDay() !== WEEKEND_DAY) count += 1;
-  }
-  return count;
-}
+const { computeTotalSalary } = require('../models/payroll');
+const { DEFAULT_ATTENDANCE_SETTINGS } = require('../services/attendanceSettingsService');
+const {
+  countWorkingDays,
+  STANDARD_SHIFT_HOURS
+} = require('../services/payrollService');
 
 function summarizeAttendance(records) {
   let presentDays = 0;
@@ -236,7 +212,8 @@ async function generate(staffType, staffId, month, year, overrides = {}) {
   });
 
   const summary = summarizeAttendance(records);
-  const calendarWorkingDays = countWorkingDays(y, m);
+  const weekendDays = DEFAULT_ATTENDANCE_SETTINGS.weekendDays;
+  const calendarWorkingDays = countWorkingDays(y, m, weekendDays);
 
   const workingDays = overrides.workingDays !== undefined
     ? Math.max(0, parseInt(overrides.workingDays, 10) || 0)
@@ -403,6 +380,18 @@ async function markPaid(id, paymentMethod = '') {
   return toShape(record);
 }
 
+async function deleteAllForStaff(staffLegacyId, options = {}) {
+  const where = {
+    staffId: String(staffLegacyId),
+    staffType: String(options.staffType || 'employee').toLowerCase() === 'employee' ? 'EMPLOYEE' : 'ADMIN'
+  };
+  if (options.draftsOnly) {
+    where.status = 'DRAFT';
+  }
+  const result = await prisma.payroll.deleteMany({ where });
+  return result.count || 0;
+}
+
 module.exports = {
   computeTotalSalary,
   countWorkingDays,
@@ -415,5 +404,6 @@ module.exports = {
   generate,
   upsertFromMongo,
   approve,
-  markPaid
+  markPaid,
+  deleteAllForStaff
 };

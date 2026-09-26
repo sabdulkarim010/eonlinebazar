@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (Enterprise summary dashboard fix — platform day bounds + Mongo PG fallback)  
+**Last updated:** 2026-09-26 (Granular HRM audit logging + enterprise dashboard KPI aggregation)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -17,12 +17,17 @@
 | `backend/src/models/attendanceLock.js` | Per-date attendance lock (Super Admin) | ✅ |
 | `backend/src/models/shift.js` | Named shifts + default + grace period | ✅ |
 | `backend/src/models/leave.js` | Leave applications + approval trail | ✅ |
-| `backend/src/models/payroll.js` | Monthly payroll runs with attendance snapshot | ✅ |
+| `backend/src/models/payroll.js` | Monthly payroll runs; `earnedSalary` + `computeTotalSalary` | ✅ |
+| `backend/src/services/payrollService.js` | Weekend-aware calendar math, joining pro-rate, net pay assembly | ✅ |
+| `backend/src/services/attendanceSettingsService.js` | `weekendDays` / grace period for payroll + attendance | ✅ |
 | `backend/src/models/designation.js` | Job title catalog | ✅ |
 | `backend/src/controllers/admin/employeeController.js` | Employee CRUD, photo/docs, grant/revoke access, `syncLinkedAdminName` | ✅ |
 | `backend/src/controllers/admin/attendanceController.js` | Attendance, shifts, clock-in/out, daily sheet, lock, update/remove, past-date guard | ✅ |
 | `backend/src/middlewares/rbac.js` | `requireHrOrSuperAdmin`, `isHrOrSuperAdmin` for manual entry + remove | ✅ |
 | `backend/src/controllers/admin/payrollController.js` | Payroll generate/approve/paid, payslip PDF | ✅ |
+| `backend/src/services/hrmAuditService.js` | Structured HRM SecurityLog events (`logHrmAuditEvent`) | ✅ |
+| `backend/src/controllers/admin/staffAuditController.js` | Staff activity + `GET /staff-audit/hrm` filtered audit | ✅ |
+| `backend/src/services/hrmDashboardMetricsService.js` | Batched HRM KPIs for enterprise summary (cached) | ✅ |
 | `backend/src/controllers/admin/leaveController.js` | Leave apply/approve/reject, balance, calendar | ✅ |
 | `backend/src/controllers/admin/designationController.js` | Designation CRUD | ✅ |
 | `backend/src/controllers/admin/adminProfileController.js` | `GET /profile/me/full`, link-employee, photo/name sync | ✅ |
@@ -114,6 +119,9 @@
 - [x] Staff roster dropdown — `GET /hrm/staff`
 - [x] Employee CSV export — `GET /hrm/employees/export`
 - [x] HRM dashboard widget — `enterpriseSummaryController.js`
+- [x] Granular HRM audit logging (salary, employee status, payroll release/batch, leave status) — `hrmAuditService.js`, wired in payroll/employee/leave controllers
+- [x] Filterable HRM audit API — `GET /api/admin/staff-audit/hrm?staffId=&actionType=&dateFrom=&dateTo=`
+- [x] Enterprise HRM KPI aggregation (single bundle + estimated payroll cost) — `hrmDashboardMetricsService.js`
 - [x] PG repositories + read cutover flags — `READ_PG_EMPLOYEE`, `READ_PG_ATTENDANCE`, etc.
 - [x] Admin–employee link API — `PUT /api/admin/profile/link-employee` (super-admin)
 - [x] Employee photo upload → linked admin image sync — `uploadEmployeePhoto` + `syncLinkedAdminPhoto`
@@ -267,6 +275,77 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Granular HRM audit logging & dashboard KPI aggregation — 2026-09-26
+
+- Added `hrmAuditService.js` with `HRM_ACTION_TYPES` and `logHrmAuditEvent` (action, actorId, actorName, targetStaffId, previousValue, newValue, ipAddress).
+- Extended `SecurityLog` Mongo schema + dual-write details JSON for Postgres read parity.
+- `GET /api/admin/staff-audit/hrm` with filters: `staffId`, `actionType`, `dateFrom`/`dateTo`.
+- Wired audit on salary config, payroll approve/paid/generate/bulk, employee status/salary/deactivate, leave approve/reject.
+- `hrmDashboardMetricsService.js` batches employee count, attendance today, pending leave, and payroll month rollup; Redis cache TTL 30s; `estimatedPayrollCostThisMonth` on enterprise summary.
+- Tests: `tests/hrmAudit.test.js`; full suite **328/328**.
+
+### Bulk attendance import & async HRM jobs — 2026-09-26
+
+- **Bulk import:** `POST /hrm/attendance/bulk-import` — CSV/Excel (`importFile`) or JSON `rows[]`; validates staff/date (Asia/Dhaka), upserts by `(staffId, date)`; summary `{ totalProcessed, successCount, errorCount, errors[] }`
+- **Async payroll batch:** `POST /hrm/payroll/generate-bulk?async=true` — BullMQ + `BackgroundJob` inline fallback via `importExportQueue`
+- **Async exports:** `GET /hrm/employees/export?async=true`, `GET /hrm/payroll/export?async=true` — **202** + `jobId`; poll `GET /hrm/jobs/:jobId`, download `GET /hrm/jobs/:jobId/download`
+- Files: `bulkAttendanceService.js`, `hrmAsyncJobService.js`, `attendanceController.js`, `payrollController.js`, `exportController.js`, `importExportQueue.js`, `adminRoutes.js`
+- Tests: **323/323** Jest (+ `bulkAttendanceService.test.js`)
+
+### Attendance unique constraint & employee cascade cleanup — 2026-09-26
+
+- **Unique (staffId, date):** Mongo `{ staffId: 1, date: 1 }` unique index; Postgres `@@unique([staffId, date])` + migration dedupe
+- **Duplicate handling:** HTTP **409** on duplicate mark/clock paths (`attendanceDuplicate.js`, PG `P2002` retry/update in `attendanceRepository`)
+- **Employee terminate/deactivate:** `cascadeEmployeeHrmCleanup` — removes all attendance + **draft** payroll (Mongo + PG); approved/paid payroll kept on soft terminate
+- **Permanent delete:** Full cascade (attendance, payroll, leave) via `employeeHrmCascadeService` + `employeeRepository.remove`
+- Files: `attendance.js`, `attendanceRepository.js`, `employeeController.js`, `employeeRepository.js`, `payrollRepository.js`, `leaveRepository.js`, `prisma/schema.prisma`
+- Tests: **321/321** Jest (+ `employeeHrmCascade.test.js`, deactivate cascade in `hrm.test.js`)
+
+### Employee read parity & CSV export — 2026-09-25
+
+- **PG/Mongo lists:** Default employee reads exclude soft-deleted + `terminated` (Mongo `isDeleted` + `status`; PG `status not TERMINATED` via `mergeOperationalEmployeeWhere`)
+- **`includeTerminated=true`:** Query flag on list/export includes terminated rows; `status=terminated` filter shows terminated only
+- **Employee CSV:** `joiningDate` + `baseSalary` fields (was wrong `joinDate` / `salary`); uses `fetchEmployeesForExport` (routed read)
+- **Payroll CSV:** `GET /hrm/payroll/export` — `baseSalary`, `earnedSalary`, `totalSalary` columns via `fetchPayrollsForExport`
+- Files: `employeeRepository.js`, `hrmReadService.js`, `exportController.js`, `adminRoutes.js`
+- Tests: **320/320** Jest (+ `employeeReadParity`, `employeeExportCsv`)
+
+### Attendance timezone, late detection & atomic clock — 2026-09-25
+
+- **Platform TZ:** Clock-in/out and manual mark times use `Asia/Dhaka` (via `attendanceDate` + `platformLocalToUtc`); lateness uses wall-clock minutes in platform TZ, not server local time
+- **Settings-driven shifts:** `resolveShiftFor` falls back to `getAttendanceSettings()` office start/end and grace; `deriveClockInLateStatus` / `calculateLateMinutes` in `attendanceSettingsService`
+- **Duplicate punch:** Mongo `findOneAndUpdate` upsert when `clockIn` is null; unique index `{ staffId, date }`; clock-out uses conditional update when `clockOut` is null
+- **Hours worked:** `Attendance.computeHoursWorked` static + pre-save hook; clock-out sets hours before save
+- Files: `attendanceController.js`, `attendanceSettingsService.js`, `attendance.js`, `attendanceRepository.js` (`combineDateAndTime`), `tests/services/attendanceClock.test.js`
+- Tests: **316/316** Jest (incl. 3 platform TZ unit tests)
+
+### Payroll calculation core fixes — 2026-09-25
+
+- **Dynamic weekends:** `countWorkingDays` uses `getAttendanceSettings().weekendDays` (not hardcoded Friday)
+- **Mid-month join:** `getMonthJoiningProration` + `resolvePayrollEmployment` pro-rate `baseSalary` by calendar days active in the payroll month (Admin + linked Employee records)
+- **Absent double-deduction removed:** `earnedSalary` from present/working days; `absentDeduction` breakdown is informational; net deductions = late + unpaid leave + manual only
+- **Controller:** `generatePayroll` persists `earnedSalary`, `proRatedBaseSalary`, attendance deduction breakdown via `payrollService`
+- **PG repo:** `countWorkingDays` uses `DEFAULT_ATTENDANCE_SETTINGS.weekendDays`; Mongo path is source of truth for full formula (PG `generate()` still legacy ratio — mirror via `upsertFromMongo`)
+- Files: `payrollService.js`, `payrollController.js`, `payroll.js`, `payrollRepository.js`, `tests/hrm.test.js`
+- Tests: `tests/hrm.test.js` **36/36**; `tests/repositories/payroll.repository.test.js` **6/6**
+
+### Leave validation & atomic approval — 2026-09-25
+
+- **Balance enforcement:** `applyLeave` / `applyOwnLeave` reject when approved + pending + requested days exceed `LEAVE_ALLOWANCES` (unpaid uncapped)
+- **Overlap guard:** blocks new applications overlapping existing pending/approved ranges
+- **Atomic approve/reject:** Mongo `findOneAndUpdate({ status: 'pending' })` + PG `updateMany` — duplicate processing returns HTTP 400
+- **Employee-only apply:** `resolveLeaveApplySubject` resolves Admin or Employee via `hrmStaffResolver`
+- Files: `leaveController.js`, `leave.js`, `leaveRepository.js`, `tests/hrm.test.js`
+- Tests: `tests/hrm.test.js` **36/36**; `tests/repositories/leave.repository.test.js` passing
+
+### HRM security hotfixes — 2026-09-25
+
+- **PII masking:** `GET /hrm/employees/:id` masks `bankAccountNumber`, `bkashNumber`, and `nationalId` (last 4 digits visible) for callers without `manage_staff` / HR / Super Admin (`maskEmployeePii`, `actorCanViewUnmaskedEmployeePii` in `employeeController.js`)
+- **Payslip IDOR:** `generatePaySlip` enforces ownership via `assertPayslipAccessAllowed` — own payslip for linked staff; any payslip only for `manage_staff` / HR / Super Admin; route accepts `view_own_payslip`
+- **Self-service clock:** `POST /hrm/attendance/clock-in|clock-out` routes accept `mark_attendance_today` and `view_own_attendance` (not only `manage_staff`)
+- Files: `employeeController.js`, `payrollController.js`, `adminRoutes.js`
+- Tests: `tests/hrm.test.js` **36/36** passing
 
 ### Enterprise summary dashboard metrics fix — 2026-09-24
 

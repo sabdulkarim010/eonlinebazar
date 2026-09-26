@@ -11,7 +11,10 @@ const JOB_TYPES = [
     'BULK_PRODUCT_IMPORT',
     'BULK_STOCK_SYNC',
     'PRODUCT_EXPORT_CSV',
-    'PRODUCT_EXPORT_XLSX'
+    'PRODUCT_EXPORT_XLSX',
+    'HRM_BULK_PAYROLL_GENERATE',
+    'HRM_EMPLOYEE_EXPORT_CSV',
+    'HRM_PAYROLL_EXPORT_CSV'
 ];
 
 const backgroundJobSchema = new mongoose.Schema({

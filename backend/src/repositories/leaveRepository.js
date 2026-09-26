@@ -251,14 +251,9 @@ async function approve(id, approvedByUsername) {
     err.code = 'NOT_FOUND';
     throw err;
   }
-  if (existing.status !== 'PENDING') {
-    const err = new Error(`This application was already ${normaliseStatus(existing.status)}.`);
-    err.code = 'INVALID_STATUS';
-    throw err;
-  }
 
-  const record = await prisma.leave.update({
-    where: { id },
+  const updated = await prisma.leave.updateMany({
+    where: { id, status: 'PENDING' },
     data: {
       status: 'APPROVED',
       approvedBy: String(approvedByUsername || '').trim(),
@@ -267,6 +262,14 @@ async function approve(id, approvedByUsername) {
     }
   });
 
+  if (updated.count === 0) {
+    const err = new Error('Leave request has already been processed');
+    err.code = 'ALREADY_PROCESSED';
+    err.status = 400;
+    throw err;
+  }
+
+  const record = await prisma.leave.findUnique({ where: { id } });
   return toShape(record);
 }
 
@@ -277,17 +280,12 @@ async function reject(id, approvedByUsername, rejectionReason) {
     err.code = 'NOT_FOUND';
     throw err;
   }
-  if (existing.status !== 'PENDING') {
-    const err = new Error(`This application was already ${normaliseStatus(existing.status)}.`);
-    err.code = 'INVALID_STATUS';
-    throw err;
-  }
 
   const reason = String(rejectionReason || '').trim();
   if (!reason) throw new Error('A rejection reason is required.');
 
-  const record = await prisma.leave.update({
-    where: { id },
+  const updated = await prisma.leave.updateMany({
+    where: { id, status: 'PENDING' },
     data: {
       status: 'REJECTED',
       rejectionReason: reason,
@@ -296,6 +294,14 @@ async function reject(id, approvedByUsername, rejectionReason) {
     }
   });
 
+  if (updated.count === 0) {
+    const err = new Error('Leave request has already been processed');
+    err.code = 'ALREADY_PROCESSED';
+    err.status = 400;
+    throw err;
+  }
+
+  const record = await prisma.leave.findUnique({ where: { id } });
   return toShape(record);
 }
 
@@ -347,6 +353,17 @@ async function getBalance(staffType, staffId, year) {
   };
 }
 
+async function deleteAllForStaff(staffLegacyId, staffType = 'employee') {
+  const typeEnum = String(staffType || 'employee').toLowerCase() === 'employee' ? 'EMPLOYEE' : 'ADMIN';
+  const result = await prisma.leave.deleteMany({
+    where: {
+      staffId: String(staffLegacyId),
+      staffType: typeEnum
+    }
+  });
+  return result.count || 0;
+}
+
 module.exports = {
   LEAVE_ALLOWANCES,
   LEAVE_TYPES,
@@ -361,5 +378,6 @@ module.exports = {
   apply,
   approve,
   reject,
-  getBalance
+  getBalance,
+  deleteAllForStaff
 };

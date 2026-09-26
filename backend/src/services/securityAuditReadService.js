@@ -176,8 +176,76 @@ function toPgSecurityLogFilter(filter = {}) {
     actor: filter.actor,
     resourceType: filter.resourceType,
     dateFrom: filter.dateFrom || filter.createdAt?.$gte,
-    dateTo: filter.dateTo || filter.createdAt?.$lte
+    dateTo: filter.dateTo || filter.createdAt?.$lte,
+    hrmActionType: filter.hrmActionType,
+    targetStaffId: filter.targetStaffId
   };
+}
+
+function buildHrmAuditMongoFilter({ staffId, actionType, dateFrom, dateTo } = {}) {
+  const filter = {
+    resourceType: { $in: ['employee', 'payroll', 'leave'] }
+  };
+  const and = [];
+  if (actionType) {
+    and.push({ hrmActionType: String(actionType) });
+  }
+  if (staffId) {
+    and.push({
+      $or: [
+        { targetStaffId: String(staffId) },
+        { resourceId: String(staffId) }
+      ]
+    });
+  }
+  if (dateFrom || dateTo) {
+    filter.createdAt = {};
+    if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
+    if (dateTo) filter.createdAt.$lte = new Date(dateTo);
+  }
+  if (and.length) filter.$and = and;
+  return filter;
+}
+
+function toPgHrmAuditFilter({ staffId, actionType, dateFrom, dateTo } = {}) {
+  return {
+    hrmActionType: actionType || undefined,
+    targetStaffId: staffId || undefined,
+    dateFrom,
+    dateTo,
+    hrmResourceTypesOnly: true
+  };
+}
+
+async function fetchHrmAuditLogsPage({ skip, limit, staffId, actionType, dateFrom, dateTo }) {
+  const mongoFilter = buildHrmAuditMongoFilter({ staffId, actionType, dateFrom, dateTo });
+  const pgFilter = toPgHrmAuditFilter({ staffId, actionType, dateFrom, dateTo });
+
+  const [logs, total] = await Promise.all([
+    routedRead(
+      'securitylog',
+      () => SecurityLog.find(mongoFilter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      async () => {
+        const rows = await getSecurityLogRepository().findAll({
+          ...pgFilter,
+          offset: skip,
+          limit
+        });
+        return mapSecurityLogsToMongo(rows);
+      }
+    ),
+    routedRead(
+      'securitylog',
+      () => SecurityLog.countDocuments(mongoFilter),
+      () => getSecurityLogRepository().count(pgFilter)
+    )
+  ]);
+
+  return { logs, total };
 }
 
 async function fetchSecurityLogsPage({ skip, limit, filter = {} }) {
@@ -340,6 +408,8 @@ module.exports = {
   countSecurityLogs,
   fetchDistinctSecurityLogActors,
   fetchStaffAuditGroups,
+  fetchHrmAuditLogsPage,
+  buildHrmAuditMongoFilter,
   fetchRecentSecurityLogs,
   fetchStockAlertsPage,
   countStockAlerts,

@@ -768,15 +768,40 @@ function fromBlacklistSource(value) {
 
 function securityLogToMongoShape(pgRow) {
   if (!pgRow) return null;
+  let actorId = null;
+  let targetStaffId = null;
+  let hrmActionType = null;
+  let previousValue = null;
+  let newValue = null;
+  const details = pgRow.details ?? '';
+  if (details && String(details).trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(details);
+      if (parsed && typeof parsed === 'object') {
+        actorId = parsed.actorId ?? null;
+        targetStaffId = parsed.targetStaffId ?? null;
+        hrmActionType = parsed.hrmActionType ?? null;
+        previousValue = parsed.previousValue ?? null;
+        newValue = parsed.newValue ?? null;
+      }
+    } catch {
+      // plain-text details
+    }
+  }
   return {
     _id: mongoIdFromRow(pgRow),
     action: pgRow.action,
     actor: pgRow.actor ?? 'system',
     actorType: fromActorType(pgRow.actorType),
     ipAddress: pgRow.ipAddress ?? 'Unknown',
-    details: pgRow.details ?? '',
+    details,
     resourceType: fromResourceType(pgRow.resourceType),
     resourceId: pgRow.resourceId ?? null,
+    actorId,
+    targetStaffId,
+    hrmActionType,
+    previousValue,
+    newValue,
     createdAt: pgRow.createdAt,
     updatedAt: pgRow.updatedAt,
     __v: MONGOOSE_DOC_VERSION

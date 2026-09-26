@@ -6,6 +6,10 @@
 const Settings = require('../models/Settings');
 const { dualWrite } = require('./dualWriteService');
 const { fetchSettingsDocumentSafe } = require('./settingsReadService');
+const {
+    getPlatformTimezone,
+    formatAttendanceDateKey
+} = require('../utils/attendanceDate');
 
 const DEFAULT_ATTENDANCE_SETTINGS = Object.freeze({
     officeStart: '09:00',
@@ -116,6 +120,63 @@ async function saveAttendanceSettings(payload) {
     return normalized;
 }
 
+/** Wall-clock minutes since midnight in the platform timezone (default Asia/Dhaka). */
+function getPlatformWallClockMinutes(instant, timeZone = getPlatformTimezone()) {
+    const d = instant instanceof Date ? instant : new Date(instant);
+    if (Number.isNaN(d.getTime())) return null;
+
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    }).formatToParts(d);
+
+    const map = {};
+    for (const part of parts) {
+        if (part.type !== 'literal') map[part.type] = part.value;
+    }
+
+    const hour = Number(map.hour);
+    const minute = Number(map.minute);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+    return hour * 60 + minute;
+}
+
+/** HH:MM (24h) for an instant in the platform timezone. */
+function formatPlatformWallClockTime(instant, timeZone = getPlatformTimezone()) {
+    const total = getPlatformWallClockMinutes(instant, timeZone);
+    if (total === null) return null;
+    const hour = Math.floor(total / 60);
+    const minute = total % 60;
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+/**
+ * Minutes late after shift start + grace. Uses platform TZ wall clock, not server local time.
+ */
+function calculateLateMinutes(clockInAt, shiftStartTime, graceMinutes, timeZone = getPlatformTimezone()) {
+    const startMinutes = parseTimeToMinutes(shiftStartTime);
+    if (startMinutes === null) return 0;
+
+    const arrivalMinutes = getPlatformWallClockMinutes(clockInAt, timeZone);
+    if (arrivalMinutes === null) return 0;
+
+    const allowed = startMinutes + (Number(graceMinutes) || 0);
+    return arrivalMinutes > allowed ? arrivalMinutes - allowed : 0;
+}
+
+/** Derive late flag and attendance status from a clock-in instant. */
+function deriveClockInLateStatus(clockInAt, shiftStartTime, graceMinutes, timeZone = getPlatformTimezone()) {
+    const lateMinutes = calculateLateMinutes(clockInAt, shiftStartTime, graceMinutes, timeZone);
+    const isLate = lateMinutes > 0;
+    return {
+        lateMinutes,
+        isLate,
+        status: isLate ? 'late' : 'present'
+    };
+}
+
 /** True when check-in time (HH:MM) is after office start + grace. */
 function isCheckInLate(checkInTime, attendanceSettings) {
     const settings = normalizeAttendanceSettings(attendanceSettings);
@@ -125,11 +186,18 @@ function isCheckInLate(checkInTime, attendanceSettings) {
     return checkInMinutes > startMinutes + settings.gracePeriodMinutes;
 }
 
+function weekdayFromDateKey(dateKey) {
+    const [y, m, d] = String(dateKey).split('-').map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
 function isWeekendDay(dateInput, attendanceSettings) {
     const settings = normalizeAttendanceSettings(attendanceSettings);
-    const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
-    if (Number.isNaN(date.getTime())) return false;
-    const day = date.getDay();
+    const dateKey = formatAttendanceDateKey(dateInput, getPlatformTimezone());
+    if (!dateKey) return false;
+    const day = weekdayFromDateKey(dateKey);
+    if (day === null) return false;
     const weekendDays = settings.weekendDays || normalizeWeekendDays(settings);
     return weekendDays.includes(day);
 }
@@ -142,5 +210,10 @@ module.exports = {
     isCheckInLate,
     isWeekendDay,
     parseTimeToMinutes,
-    normalizeWeekendDays
+    normalizeWeekendDays,
+    getPlatformWallClockMinutes,
+    formatPlatformWallClockTime,
+    calculateLateMinutes,
+    deriveClockInLateStatus,
+    weekdayFromDateKey
 };
