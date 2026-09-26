@@ -3262,3 +3262,11 @@ backend/src/server.js [MOD] single PG bootstrap + reconcile path
 tests/services/staffHelpers.test.js [NEW]
 tests/services/neonBootstrap.test.js [NEW]
 README.md [MOD] test count 335
+
+# Leave approve/reject id resolution — 2026-09-26
+backend/src/utils/leaveRecordResolver.js [NEW]
+backend/src/controllers/admin/leaveController.js [MOD] resolve route id before approve/reject
+client/js/admin/modules/hrm-leaves.js [MOD] resolveLeaveRowId, leaveActionPath, safe onclick ids
+tests/services/leaveRecordResolver.test.js [NEW]
+docs/audit/HRM_AUDIT.md [MOD]
+README.md [MOD] test count 338

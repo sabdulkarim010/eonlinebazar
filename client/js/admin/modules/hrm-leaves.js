@@ -25,6 +25,17 @@ const LEAVE_STATUS_CLASSES = {
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+/** Canonical leave id from list API (Mongo legacyId or Postgres id). */
+function resolveLeaveRowId(leave) {
+    const id = leave?._id ?? leave?.id ?? '';
+    return String(id).trim();
+}
+
+function leaveActionPath(leaveId, action) {
+    const id = encodeURIComponent(String(leaveId || '').trim());
+    return `/api/admin/hrm/leaves/${id}/${action}`;
+}
+
 let leavePg = null;
 const leavePgState = { page: 1, limit: 10 };
 let applyLeaveSelfMode = false;
@@ -127,10 +138,10 @@ async function loadPendingLeaves() {
                 <td>${window.hrmEscape(leave.reason || '—')}</td>
                 <td>
                     <div class="catalog-actions">
-                        <button type="button" class="catalog-action-btn leave-approve-btn" data-permission="approve_leave" onclick="approveLeave('${leave._id}')" title="Approve" style="color:#10b981;">
+                        <button type="button" class="catalog-action-btn leave-approve-btn" data-permission="approve_leave" onclick="approveLeave(${JSON.stringify(resolveLeaveRowId(leave))})" title="Approve" style="color:#10b981;">
                             <i class="fa-solid fa-circle-check"></i>
                         </button>
-                        <button type="button" class="catalog-action-btn delete leave-reject-btn" data-permission="approve_leave" onclick="rejectLeave('${leave._id}')" title="Reject">
+                        <button type="button" class="catalog-action-btn delete leave-reject-btn" data-permission="approve_leave" onclick="rejectLeave(${JSON.stringify(resolveLeaveRowId(leave))})" title="Reject">
                             <i class="fa-solid fa-circle-xmark"></i>
                         </button>
                     </div>
@@ -148,9 +159,14 @@ async function loadPendingLeaves() {
 }
 
 function approveLeave(id) {
+    const leaveId = String(id ?? '').trim();
+    if (!leaveId) {
+        showToast('Missing leave id — refresh the list and try again.', 'warning');
+        return;
+    }
     showCustomConfirm('Approve Leave', 'Approve this leave? The days will be marked as holiday on the attendance register.', async () => {
         try {
-            const { result } = await hrmFetchJson(`/api/admin/hrm/leaves/${id}/approve`, {
+            const { result } = await hrmFetchJson(leaveActionPath(leaveId, 'approve'), {
                 method: 'PATCH',
                 headers: window.hrmAuthHeaders(true),
                 body: JSON.stringify({})
@@ -166,6 +182,11 @@ function approveLeave(id) {
 }
 
 async function rejectLeave(id) {
+    const leaveId = String(id ?? '').trim();
+    if (!leaveId) {
+        showToast('Missing leave id — refresh the list and try again.', 'warning');
+        return;
+    }
     const result = await Swal.fire({
         title: 'Reject Leave Application',
         input: 'textarea',
@@ -183,7 +204,7 @@ async function rejectLeave(id) {
     const reason = String(result.value || '').trim();
 
     try {
-        const { result } = await hrmFetchJson(`/api/admin/hrm/leaves/${id}/reject`, {
+        const { result } = await hrmFetchJson(leaveActionPath(leaveId, 'reject'), {
             method: 'PATCH',
             headers: window.hrmAuthHeaders(true),
             body: JSON.stringify({ rejectionReason: reason })

@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-26 (staffHelpers circular-dep fix + Neon bootstrap tuning)  
+**Last updated:** 2026-09-26 (Leave approve/reject id resolution fix)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -278,6 +278,13 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Leave approve/reject 400 fix — 2026-09-26
+
+- `leaveRecordResolver.js` resolves route ids (Mongo ObjectId, Postgres UUID, legacyId) before approve/reject.
+- Removed strict ObjectId-only gate; explicit 404/400 codes + server logs on failure.
+- Frontend: `resolveLeaveRowId`, `leaveActionPath`, safe `JSON.stringify` onclick ids, URL encoding.
+- Tests: `leaveRecordResolver.test.js`; HRM leave suite green.
 
 ### staffHelpers + Neon cold-start tuning — 2026-09-26
 

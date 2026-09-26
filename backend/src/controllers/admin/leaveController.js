@@ -8,13 +8,13 @@
  * across the span so payroll never counts approved leave as absence.
  ********************************************************************/
 
-const mongoose = require('mongoose');
 const Leave = require('../../models/leave');
 const Attendance = require('../../models/attendance');
 const { iteratePlatformDateKeys, normalizeAttendanceDate } = require('../../utils/attendanceDate');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const { logHrmAuditEvent, HRM_ACTION_TYPES } = require('../../services/hrmAuditService');
 const { dualWrite } = require('../../services/dualWriteService');
+const { resolveLeaveRouteTarget } = require('../../utils/leaveRecordResolver');
 
 function getLeaveRepository() {
     return require('../../repositories/leaveRepository');
@@ -53,6 +53,36 @@ function actorName(req) {
 
 function sanitizeLeaveString(str, maxLen = 1000) {
     return typeof str === 'string' ? str.trim().slice(0, maxLen) : str;
+}
+
+async function resolveLeaveActionTarget(req, actionLabel) {
+    const routeId = String(req.params.id || '').trim();
+    const target = await resolveLeaveRouteTarget(routeId);
+    if (target.error) {
+        console.warn(`[${actionLabel}] Leave lookup failed`, {
+            routeId,
+            status: target.error.status,
+            code: target.error.code
+        });
+        return { error: target.error };
+    }
+
+    if (target.leave.status !== 'pending') {
+        console.warn(`[${actionLabel}] Leave not pending`, {
+            routeId,
+            mongoId: target.mongoId,
+            status: target.leave.status
+        });
+        return {
+            error: {
+                status: 400,
+                message: `Leave request has already been processed (current status: ${target.leave.status}).`,
+                code: 'ALREADY_PROCESSED'
+            }
+        };
+    }
+
+    return target;
 }
 
 async function resolveLeaveApplySubject(body, req) {
@@ -388,11 +418,16 @@ exports.getAllLeaves = async (req, res) => {
 /** PATCH /api/admin/hrm/leaves/:id/approve */
 exports.approveLeave = async (req, res) => {
     try {
-        const { id } = req.params;
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ success: false, message: 'Invalid leave id.' });
+        const resolved = await resolveLeaveActionTarget(req, 'approveLeave');
+        if (resolved.error) {
+            return res.status(resolved.error.status).json({
+                success: false,
+                message: resolved.error.message,
+                code: resolved.error.code
+            });
         }
 
+        const mongoId = resolved.mongoId;
         const approvedBy = actorName(req);
         const note = String(req.body?.note || '').trim();
 
@@ -401,7 +436,7 @@ exports.approveLeave = async (req, res) => {
             leave = await dualWrite(
                 async () => {
                     const updated = await Leave.findOneAndUpdate(
-                        { _id: id, status: 'pending' },
+                        { _id: mongoId, status: 'pending' },
                         {
                             $set: {
                                 status: 'approved',
@@ -415,6 +450,7 @@ exports.approveLeave = async (req, res) => {
                     if (!updated) {
                         const err = new Error('Leave request has already been processed');
                         err.status = 400;
+                        err.code = 'ALREADY_PROCESSED';
                         throw err;
                     }
                     if (note) {
@@ -436,9 +472,15 @@ exports.approveLeave = async (req, res) => {
             );
         } catch (error) {
             if (error.status === 400 || error.code === 'ALREADY_PROCESSED') {
+                console.warn('[approveLeave] Concurrent update conflict', {
+                    routeId: req.params.id,
+                    mongoId,
+                    message: error.message
+                });
                 return res.status(400).json({
                     success: false,
-                    message: error.message || 'Leave request has already been processed'
+                    message: error.message || 'Leave request has already been processed',
+                    code: error.code || 'ALREADY_PROCESSED'
                 });
             }
             throw error;
@@ -483,14 +525,23 @@ exports.approveLeave = async (req, res) => {
 /** PATCH /api/admin/hrm/leaves/:id/reject */
 exports.rejectLeave = async (req, res) => {
     try {
-        const { id } = req.params;
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ success: false, message: 'Invalid leave id.' });
+        const resolved = await resolveLeaveActionTarget(req, 'rejectLeave');
+        if (resolved.error) {
+            return res.status(resolved.error.status).json({
+                success: false,
+                message: resolved.error.message,
+                code: resolved.error.code
+            });
         }
 
+        const mongoId = resolved.mongoId;
         const reason = String(req.body?.rejectionReason || req.body?.reason || '').trim();
         if (!reason) {
-            return res.status(400).json({ success: false, message: 'A rejection reason is required.' });
+            return res.status(400).json({
+                success: false,
+                message: 'A rejection reason is required.',
+                code: 'REJECTION_REASON_REQUIRED'
+            });
         }
 
         const approvedBy = actorName(req);
@@ -500,7 +551,7 @@ exports.rejectLeave = async (req, res) => {
             leave = await dualWrite(
                 async () => {
                     const updated = await Leave.findOneAndUpdate(
-                        { _id: id, status: 'pending' },
+                        { _id: mongoId, status: 'pending' },
                         {
                             $set: {
                                 status: 'rejected',
@@ -514,6 +565,7 @@ exports.rejectLeave = async (req, res) => {
                     if (!updated) {
                         const err = new Error('Leave request has already been processed');
                         err.status = 400;
+                        err.code = 'ALREADY_PROCESSED';
                         throw err;
                     }
                     return updated;
@@ -531,9 +583,15 @@ exports.rejectLeave = async (req, res) => {
             );
         } catch (error) {
             if (error.status === 400 || error.code === 'ALREADY_PROCESSED') {
+                console.warn('[rejectLeave] Concurrent update conflict', {
+                    routeId: req.params.id,
+                    mongoId,
+                    message: error.message
+                });
                 return res.status(400).json({
                     success: false,
-                    message: error.message || 'Leave request has already been processed'
+                    message: error.message || 'Leave request has already been processed',
+                    code: error.code || 'ALREADY_PROCESSED'
                 });
             }
             throw error;
