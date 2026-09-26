@@ -27,6 +27,7 @@ const {
   buildNeonHttpAdapterOptions,
   withNeonQueryRetries
 } = require('./neonRetry');
+const { normalizeNeonConnectionString } = require('./postgresBootstrap');
 
 // The generated client emits .mts files — Node 22.18+ loads them directly via
 // native TypeScript type-stripping + require(esm). See DATABASE_MIGRATION_AUDIT.md
@@ -41,9 +42,9 @@ const { PrismaClient } = require('../../../generated/prisma/client.mts');
 const _globalRef = global;
 
 function createPrismaClient() {
-  const connectionString = String(
-    process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL || ''
-  ).trim();
+  const connectionString = normalizeNeonConnectionString(
+    String(process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL || '').trim()
+  );
   if (!connectionString) {
     throw new Error(
       '[prismaClient] DATABASE_URL_POOLED (or DATABASE_URL) is not set. ' +

@@ -15,25 +15,9 @@
 'use strict';
 
 const prisma = require('../config/prismaClient');
+const { parseStaffSelector, sanitizeStaffPayload } = require('../utils/staffHelpers');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function parseStaffSelector(raw) {
-  const value = String(raw || '').trim();
-  if (!value) return { staffType: 'admin' };
-
-  if (value.includes(':')) {
-    const [staffType, id] = value.split(':');
-    return {
-      staffType: staffType === 'employee' ? 'employee' : 'admin',
-      staffId: id,
-      staffUsername: staffType === 'admin' ? id : undefined,
-      employeeId: staffType === 'employee' ? id : undefined
-    };
-  }
-
-  return { staffType: 'admin', staffUsername: value };
-}
 
 async function findEmployeeRecord(identifier) {
   const value = String(identifier || '').trim();
@@ -76,11 +60,12 @@ async function findAdminRecord(identifier) {
  * Populates staffId (legacy string id), staffType, adminId/employeeId FKs.
  */
 async function resolveStaffSubject(input = {}) {
-  const staffType = String(input.staffType || 'admin').toLowerCase();
+  const normalized = sanitizeStaffPayload(input);
+  const staffType = String(normalized.staffType || 'admin').toLowerCase();
 
   if (staffType === 'employee') {
     const employee = await findEmployeeRecord(
-      input.staffId || input.employeeId || input.staffUsername
+      normalized.staffId || normalized.employeeId || normalized.staffUsername
     );
     if (!employee) return null;
 
@@ -96,7 +81,7 @@ async function resolveStaffSubject(input = {}) {
     };
   }
 
-  const account = await findAdminRecord(input.staffId || input.staffUsername);
+  const account = await findAdminRecord(normalized.staffId || normalized.staffUsername);
   if (!account) return null;
 
   return {

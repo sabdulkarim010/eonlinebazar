@@ -12,8 +12,31 @@ const path = require('path');
 
 const ROOT_ENV_PATH = path.join(__dirname, '..', '..', '..', '.env');
 
+const DEFAULT_WARMUP_ATTEMPTS = 3;
+const DEFAULT_WARMUP_DELAY_MS = 2000;
+
 function reloadRootEnv() {
   require('dotenv').config({ path: ROOT_ENV_PATH });
+}
+
+/**
+ * Ensure Neon-compatible SSL query params on pooled/direct URLs.
+ */
+function normalizeNeonConnectionString(url) {
+  const trimmed = String(url || '').trim();
+  if (!trimmed) return trimmed;
+
+  try {
+    const parsed = new URL(trimmed);
+    if (!parsed.searchParams.has('sslmode')) {
+      parsed.searchParams.set('sslmode', 'require');
+    }
+    return parsed.toString();
+  } catch {
+    if (/sslmode=/i.test(trimmed)) return trimmed;
+    const sep = trimmed.includes('?') ? '&' : '?';
+    return `${trimmed}${sep}sslmode=require`;
+  }
 }
 
 function assertPooledDatabaseUrl() {
@@ -24,17 +47,34 @@ function assertPooledDatabaseUrl() {
       'Add the Neon pooler URL to .env — cron dual-write cannot mirror to Postgres without it.'
     );
   }
-  return String(url).trim();
+  const normalized = normalizeNeonConnectionString(String(url).trim());
+  process.env.DATABASE_URL_POOLED = normalized;
+  if (process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = normalizeNeonConnectionString(process.env.DATABASE_URL);
+  }
+  return normalized;
 }
 
 /**
- * Reload .env, validate DATABASE_URL_POOLED, and ping Postgres.
+ * Reload .env, validate DATABASE_URL_POOLED, warm Neon, optionally reconcile dual-write failures.
  * Call before registering cron jobs and at the start of each cron run.
  */
-async function ensurePostgresReady() {
+async function ensurePostgresReady(options = {}) {
   reloadRootEnv();
   assertPooledDatabaseUrl();
-  return warmNeonConnection();
+  const prisma = await warmNeonConnection({
+    attempts: options.attempts ?? DEFAULT_WARMUP_ATTEMPTS,
+    baseDelayMs: options.baseDelayMs ?? DEFAULT_WARMUP_DELAY_MS
+  });
+
+  let reconcile = { attempted: 0, resolved: 0 };
+  const shouldReconcile = options.reconcileDualWrite === true && process.env.NODE_ENV !== 'test';
+  if (shouldReconcile) {
+    const { reconcileFailedSyncs } = require('../services/failedSyncService');
+    reconcile = await reconcileFailedSyncs();
+  }
+
+  return { prisma, reconcile };
 }
 
 /**
@@ -46,8 +86,12 @@ async function warmNeonConnection(options = {}) {
 
   const prisma = require('./prismaClient');
   const { withNeonRetry, logPgFallback } = require('./neonRetry');
-  const attempts = Number(options.attempts ?? process.env.NEON_WARMUP_ATTEMPTS ?? 5);
-  const baseDelayMs = Number(options.baseDelayMs ?? process.env.NEON_WARMUP_BASE_DELAY_MS ?? 2000);
+  const attempts = Number(
+    options.attempts ?? process.env.NEON_WARMUP_ATTEMPTS ?? DEFAULT_WARMUP_ATTEMPTS
+  );
+  const baseDelayMs = Number(
+    options.baseDelayMs ?? process.env.NEON_WARMUP_BASE_DELAY_MS ?? DEFAULT_WARMUP_DELAY_MS
+  );
 
   try {
     await withNeonRetry(() => prisma.$queryRawUnsafe('SELECT 1'), { attempts, baseDelayMs });
@@ -63,5 +107,8 @@ module.exports = {
   warmNeonConnection,
   reloadRootEnv,
   assertPooledDatabaseUrl,
-  ROOT_ENV_PATH
+  normalizeNeonConnectionString,
+  ROOT_ENV_PATH,
+  DEFAULT_WARMUP_ATTEMPTS,
+  DEFAULT_WARMUP_DELAY_MS
 };

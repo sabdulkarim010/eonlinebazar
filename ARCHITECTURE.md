@@ -190,6 +190,7 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 | HRM async jobs | `backend/src/services/hrmAsyncJobService.js` + `queues/importExportQueue.js` | Bulk payroll + large CSV exports (BullMQ / inline fallback) |
 | HRM audit trail | `backend/src/services/hrmAuditService.js` | Structured SecurityLog events (salary/status/payroll/leave) + `GET /staff-audit/hrm` filters |
 | HRM dashboard KPIs | `backend/src/services/hrmDashboardMetricsService.js` | Batched Mongo `$group` / Prisma aggregates for enterprise summary (30s Redis cache) |
+| HRM staff payload sanitizer | `backend/src/utils/staffHelpers.js` (+ `hrmPayloadSanitizer` re-export) + `client/js/admin/modules/hrm-api.js` | Strip `admin:`/`employee:` prefixes; unified leave/payroll/attendance API bodies |
 
 | Leave | `backend/src/models/leave.js` | Leave applications, approvals, balances |
 
@@ -384,9 +385,11 @@ Both live in the repo-root `.env`. Neither is read by the running application ye
 | `DATABASE_URL` | **direct** (non-pooled) Neon endpoint | Prisma CLI: `validate`, `migrate`, `diff`, `generate`. Migrate needs a direct TCP connection |
 | `DATABASE_URL_POOLED` | Neon `-pooler` endpoint | reserved for the runtime client via a driver adapter (Stage 2, next step). **Never use for migrations** |
 
-Runtime uses `backend/src/config/neonRetry.js` for Neon HTTP resilience:
-**3s fetch timeout** (`NEON_FETCH_TIMEOUT_MS`, default 3000) with **1 attempt** (fail-fast to Mongo).
+Runtime uses `backend/src/config/neonRetry.js` + `postgresBootstrap.js` for Neon HTTP resilience:
+**20s fetch timeout** (`NEON_FETCH_TIMEOUT_MS`, default 20000), **3 query retries** with **2s base delay**,
+startup warm ping **3× @ 2s** (`NEON_WARMUP_*`), and `sslmode=require` on pooled URLs.
 Repository tests keep 90s timeout and 4 retries when `REPOSITORY_TEST=1`.
+Server boot runs `reconcileFailedSyncs()` only after a successful PG warm (dual-write backlog).
 `readRouter.js` wraps PG reads in `withNeonRetry` and consults `pgCircuitBreaker.js` (3 timeouts / 60s → bypass PG 30s).
 Compact fallback logs: `[PG-FALLBACK] <model> timed out -> served via Mongo` (no stack traces).
 Optional tuning: `NEON_FETCH_TIMEOUT_MS`, `NEON_RETRY_ATTEMPTS`, `NEON_READ_ROUTER_ATTEMPTS`,

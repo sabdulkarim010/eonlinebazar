@@ -80,8 +80,7 @@ function resolveRetryAttempts(options = {}) {
   if (process.env.REPOSITORY_TEST === '1') {
     return Number(process.env.NEON_RETRY_ATTEMPTS || 4);
   }
-  // Runtime fail-fast: single attempt unless overridden.
-  return Number(process.env.NEON_RETRY_ATTEMPTS || 1);
+  return Number(process.env.NEON_RETRY_ATTEMPTS || 3);
 }
 
 function resolveRetryBaseDelayMs(options = {}) {
@@ -89,7 +88,7 @@ function resolveRetryBaseDelayMs(options = {}) {
   if (process.env.REPOSITORY_TEST === '1') {
     return Number(process.env.NEON_RETRY_BASE_DELAY_MS || 300);
   }
-  return Number(process.env.NEON_RETRY_BASE_DELAY_MS || 0);
+  return Number(process.env.NEON_RETRY_BASE_DELAY_MS || 2000);
 }
 
 async function withNeonRetry(fn, options = {}) {
@@ -116,22 +115,27 @@ async function withNeonRetry(fn, options = {}) {
 
 function buildNeonHttpAdapterOptions() {
   const isRepoTest = process.env.REPOSITORY_TEST === '1';
-  const defaultTimeout = isRepoTest ? 90000 : 10000;
+  const defaultTimeout = isRepoTest ? 90000 : 20000;
   const timeoutMs = Number(process.env.NEON_FETCH_TIMEOUT_MS || defaultTimeout);
+  const idleKeepAliveMs = Number(process.env.NEON_IDLE_KEEPALIVE_MS || 60000);
 
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+  const fetchOptions = {};
+
+  if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      fetchOptions.signal = AbortSignal.timeout(timeoutMs);
+    }
+  }
+
+  if (Number.isFinite(idleKeepAliveMs) && idleKeepAliveMs > 0) {
+    fetchOptions.keepalive = true;
+  }
+
+  if (!Object.keys(fetchOptions).length) {
     return {};
   }
 
-  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
-    return {
-      fetchOptions: {
-        signal: AbortSignal.timeout(timeoutMs)
-      }
-    };
-  }
-
-  return {};
+  return { fetchOptions };
 }
 
 function withNeonQueryRetries(client) {

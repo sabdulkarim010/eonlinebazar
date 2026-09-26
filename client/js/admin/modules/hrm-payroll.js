@@ -8,7 +8,14 @@
 // STANDARD: Use Swal.fire() for ALL confirmations.
 // Never use confirm(), alert(), or window.confirm().
 import '../admin-core.js';
-import { hrmFetchJson, hrmFetchBlob, hrmHandleLoadError, hrmTableErrorRow } from './hrm-api.js';
+import {
+    hrmFetchJson,
+    hrmFetchBlob,
+    hrmHandleLoadError,
+    hrmTableErrorRow,
+    hrmSanitizeStaffFields,
+    hrmParseStaffSelect
+} from './hrm-api.js';
 
 const PAYROLL_STATUS_CLASSES = {
     draft: 'status-pending',
@@ -173,8 +180,8 @@ async function openGeneratePayrollModal() {
 
 function readGeneratePayrollPayload() {
     const staffValue = window.hrmGetStaffSearchValue('generatePayrollStaff');
-    return {
-        ...(window.hrmParseStaffSelect ? window.hrmParseStaffSelect(staffValue) : { staffUsername: staffValue }),
+    return hrmSanitizeStaffFields({
+        staffSelect: staffValue,
         staffValue,
         month: Number(document.getElementById('generatePayrollMonth')?.value),
         year: Number(document.getElementById('generatePayrollYear')?.value),
@@ -182,7 +189,7 @@ function readGeneratePayrollPayload() {
         deductions: Number(document.getElementById('generatePayrollDeductions')?.value) || 0,
         paymentMethod: document.getElementById('generatePayrollPaymentMethod')?.value?.trim() || '',
         notes: document.getElementById('generatePayrollNotes')?.value?.trim() || ''
-    };
+    });
 }
 
 function closePayrollBreakdownModal() {
@@ -222,7 +229,7 @@ async function calculatePayrollFromAttendance() {
 
     try {
         const params = new URLSearchParams({
-            employeeId: payload.staffId || payload.staffUsername || payload.staffValue,
+            employeeId: payload.staffId || payload.employeeId || payload.staffUsername || hrmParseStaffSelect(payload.staffValue).employeeId,
             month: String(payload.month),
             year: String(payload.year),
             bonus: String(payload.bonus),
@@ -261,10 +268,11 @@ async function submitGeneratePayroll() {
     if (saveBtn) saveBtn.disabled = true;
 
     try {
+        const { staffValue: _omit, ...generateBody } = payload;
         const { result } = await hrmFetchJson('/api/admin/hrm/payroll/generate', {
             method: 'POST',
             headers: window.hrmAuthHeaders(true),
-            body: JSON.stringify(payload)
+            body: JSON.stringify(generateBody)
         });
 
         showAdminSuccess(
@@ -378,17 +386,17 @@ function prefillSalaryConfig() {
 }
 
 async function saveSalaryConfig() {
-    const payload = {
-        staffUsername: window.hrmGetStaffSearchValue('salaryConfigStaff'),
+    const payload = hrmSanitizeStaffFields({
+        staffSelect: window.hrmGetStaffSearchValue('salaryConfigStaff'),
         baseSalary: Number(document.getElementById('salaryConfigBaseSalary')?.value),
         department: document.getElementById('salaryConfigDepartment')?.value?.trim() || '',
         employeeId: document.getElementById('salaryConfigEmployeeId')?.value?.trim() || ''
-    };
+    });
 
     const joiningDate = document.getElementById('salaryConfigJoiningDate')?.value;
     if (joiningDate) payload.joiningDate = joiningDate;
 
-    if (!payload.staffUsername) {
+    if (!payload.staffUsername && !payload.staffId) {
         showToast('Select a staff member first.', 'warning');
         return;
     }
@@ -409,7 +417,7 @@ async function saveSalaryConfig() {
 
         showAdminSuccess('Salary Saved', result.message || 'Salary configuration saved.');
 
-        const cached = window.hrmFindStaff(payload.staffUsername);
+        const cached = window.hrmFindStaff(payload.staffUsername || payload.staffId);
         if (cached) Object.assign(cached, result.data || {});
 
         closeSalaryConfigModal();

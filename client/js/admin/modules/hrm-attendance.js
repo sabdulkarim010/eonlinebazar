@@ -13,7 +13,8 @@ import {
     hrmFetchBlob,
     hrmHandleLoadError,
     hrmTableErrorRow,
-    HRM_INLINE_LOAD_ERROR
+    HRM_INLINE_LOAD_ERROR,
+    hrmParseStaffSelect
 } from './hrm-api.js';
 
 const HRM_MONTHS = [
@@ -174,19 +175,6 @@ function hrmFillMonthSelect(selectId, selectedMonth) {
 function hrmFillYearInput(inputId, year) {
     const input = document.getElementById(inputId);
     if (input && !input.value) input.value = year || new Date().getFullYear();
-}
-
-function hrmParseStaffSelect(value) {
-    const raw = String(value || '').trim();
-    if (!raw) return {};
-    if (raw.includes(':')) {
-        const [staffType, id] = raw.split(':');
-        if (staffType === 'employee') {
-            return { staffType: 'employee', staffId: id, employeeId: id };
-        }
-        return { staffType: 'admin', staffUsername: id, staffId: id };
-    }
-    return { staffType: 'admin', staffUsername: raw };
 }
 
 function hrmInvalidateEmployeeCache() {

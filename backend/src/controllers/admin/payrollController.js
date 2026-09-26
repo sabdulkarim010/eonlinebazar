@@ -509,7 +509,8 @@ exports.generatePaySlip = async (req, res) => {
  */
 exports.updateSalaryConfig = async (req, res) => {
     try {
-        const body = req.body || {};
+        const { sanitizeStaffPayload } = require('../../utils/hrmPayloadSanitizer');
+        const body = sanitizeStaffPayload(req.body || {});
 
         const account = await findStaff(body.staffId || body.staffUsername);
         if (!account) {

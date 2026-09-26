@@ -78,11 +78,73 @@ function buildFetchError(message, status, result) {
     return error;
 }
 
+/** Ensure relative admin API paths always start with `/`. */
+export function hrmNormalizeApiPath(url) {
+    const s = String(url ?? '').trim();
+    if (!s) return s;
+    if (/^https?:\/\//i.test(s)) return s;
+    return s.startsWith('/') ? s : `/${s}`;
+}
+
+export function hrmStripStaffPrefix(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw) return raw;
+    const lower = raw.toLowerCase();
+    if (lower.startsWith('employee:')) return raw.slice('employee:'.length).trim();
+    if (lower.startsWith('admin:')) return raw.slice('admin:'.length).trim();
+    return raw;
+}
+
+/**
+ * Parse `<select>` values such as `admin:jdoe` or `employee:EMP 002`.
+ */
+export function hrmParseStaffSelect(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw) return {};
+    if (raw.includes(':')) {
+        const idx = raw.indexOf(':');
+        const staffType = raw.slice(0, idx).trim().toLowerCase();
+        const id = raw.slice(idx + 1).trim();
+        if (staffType === 'employee') {
+            return { staffType: 'employee', staffId: id, employeeId: id };
+        }
+        return { staffType: 'admin', staffUsername: id, staffId: id };
+    }
+    return { staffType: 'admin', staffUsername: raw };
+}
+
+/**
+ * Strip prefixed selectors and merge typed staff fields for API payloads.
+ */
+export function hrmSanitizeStaffFields(payload = {}) {
+    const out = { ...payload };
+
+    ['staffUsername', 'staffId', 'employeeId'].forEach((key) => {
+        if (out[key] != null && out[key] !== '') {
+            out[key] = hrmStripStaffPrefix(out[key]);
+        }
+    });
+
+    const selector = out.staffSelect ?? out.staffValue ?? null;
+    if (selector) {
+        Object.assign(out, hrmParseStaffSelect(selector));
+        delete out.staffSelect;
+    }
+
+    const combined = payload.staffUsername || payload.staffId || payload.employeeId;
+    if (combined && String(combined).includes(':') && !out.staffType) {
+        Object.assign(out, hrmParseStaffSelect(combined));
+    }
+
+    return out;
+}
+
 /**
  * Fetch with timeout + JSON parse. Throws on HTTP error by default.
  * Options: silent, timeoutMs, throwOnHttpError (default true), parseJson (default true).
  */
 export async function hrmFetchJson(url, options = {}, config = {}) {
+    url = hrmNormalizeApiPath(url);
     const silent = options.silent ?? config.silent ?? false;
     const timeoutMs = options.timeoutMs ?? config.timeoutMs ?? HRM_FETCH_TIMEOUT_MS;
     const throwOnHttpError = options.throwOnHttpError ?? config.throwOnHttpError ?? true;
@@ -131,6 +193,7 @@ export async function hrmApi(url, options = {}, config = {}) {
 
 /** Binary download with shared timeout (CSV, PDF, etc.). */
 export async function hrmFetchBlob(url, options = {}, config = {}) {
+    url = hrmNormalizeApiPath(url);
     const timeoutMs = options.timeoutMs ?? config.timeoutMs ?? HRM_FETCH_TIMEOUT_MS;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -169,5 +232,9 @@ Object.assign(window, {
     hrmFetchBlob,
     hrmNotifyError,
     hrmHandleLoadError,
-    hrmTableErrorRow
+    hrmTableErrorRow,
+    hrmNormalizeApiPath,
+    hrmStripStaffPrefix,
+    hrmParseStaffSelect,
+    hrmSanitizeStaffFields
 });

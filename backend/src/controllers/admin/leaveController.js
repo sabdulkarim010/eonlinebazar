@@ -57,7 +57,8 @@ function sanitizeLeaveString(str, maxLen = 1000) {
 
 async function resolveLeaveApplySubject(body, req) {
     const { resolveHrmSubject, resolveSelfServiceStaffSubject } = require('../../utils/hrmStaffResolver');
-    const payload = body || {};
+    const { sanitizeStaffPayload } = require('../../utils/hrmPayloadSanitizer');
+    const payload = sanitizeStaffPayload(body || {});
 
     if (payload.staffId || payload.staffUsername || payload.employeeId) {
         const staffType = String(payload.staffType || '').trim().toLowerCase();

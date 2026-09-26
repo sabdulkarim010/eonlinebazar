@@ -137,23 +137,15 @@ connectDB().then(async () => {
     // Postgres must be reachable before any cron registers — crons dual-write to Neon.
     try {
         const { ensurePostgresReady } = require('./config/postgresBootstrap');
-        await ensurePostgresReady();
+        const pgBootstrap = await ensurePostgresReady({ reconcileDualWrite: true });
         console.log('PostgreSQL (Neon) ready for dual-write ✅');
+        if (pgBootstrap.reconcile?.attempted > 0) {
+            console.log(
+                `🔄 Dual-write reconcile: ${pgBootstrap.reconcile.resolved}/${pgBootstrap.reconcile.attempted} resolved`
+            );
+        }
     } catch (err) {
         console.error('PostgreSQL bootstrap failed — cron dual-write will not work:', err.message);
-    }
-
-    // Retry unresolved Mongo→PG dual-write failures (best-effort, non-blocking).
-    if (process.env.NODE_ENV !== 'test') {
-        try {
-            const { reconcileFailedSyncs } = require('./services/failedSyncService');
-            const result = await reconcileFailedSyncs();
-            if (result.attempted > 0) {
-                console.log(`🔄 Dual-write reconcile: ${result.resolved}/${result.attempted} resolved`);
-            }
-        } catch (err) {
-            console.error('Dual-write reconcile bootstrap error:', err.message);
-        }
     }
 
     // Start background stock alert cron job
@@ -210,16 +202,6 @@ connectDB().then(async () => {
 
     const redisClient = require('./utils/redisClient');
     redisClient.on('connect', () => console.log('Redis Connected ✅'));
-
-    try {
-        const { warmNeonConnection } = require('./config/postgresBootstrap');
-        if (process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL) {
-            await warmNeonConnection();
-            console.log('PostgreSQL (Neon) warm ping OK ✅');
-        }
-    } catch (_err) {
-        // postgresBootstrap already logs a compact [PG-FALLBACK] line.
-    }
 
     // Daily abandoned-cart recovery (idle 24h+ carts → email + SMS)
     try {

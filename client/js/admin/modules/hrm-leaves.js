@@ -13,7 +13,8 @@ import {
     hrmHandleLoadError,
     hrmTableErrorRow,
     HRM_INLINE_LOAD_ERROR,
-    hrmEscapeInline
+    hrmEscapeInline,
+    hrmSanitizeStaffFields
 } from './hrm-api.js';
 
 const LEAVE_STATUS_CLASSES = {
@@ -406,10 +407,16 @@ async function submitLeaveApplication() {
     };
 
     if (!applyLeaveSelfMode) {
-        payload.staffUsername = window.hrmGetStaffSearchValue('applyLeaveStaff');
+        Object.assign(
+            payload,
+            hrmSanitizeStaffFields({
+                staffSelect: window.hrmGetStaffSearchValue('applyLeaveStaff')
+            })
+        );
     }
 
-    if ((!applyLeaveSelfMode && !payload.staffUsername) || !payload.startDate || !payload.endDate) {
+    const hasStaffTarget = Boolean(payload.staffId || payload.staffUsername || payload.employeeId);
+    if ((!applyLeaveSelfMode && !hasStaffTarget) || !payload.startDate || !payload.endDate) {
         showToast(applyLeaveSelfMode
             ? 'Start date and end date are required.'
             : 'Staff, start date, and end date are required.', 'warning');

@@ -3236,3 +3236,29 @@ docs/audit/HRM_AUDIT.md [MOD] audit + dashboard changelog
 SYSTEM_ENTERPRISE_AUDIT.md [MOD] Task 4.3/4.4 section
 README.md [MOD] test count 328
 ARCHITECTURE.md [MOD] hrmAudit + hrmDashboardMetrics entries
+
+# HRM staff payload sanitization — 2026-09-26
+backend/src/utils/hrmPayloadSanitizer.js [NEW]
+backend/src/utils/hrmStaffResolver.js [MOD] sanitize in resolveHrmSubject; parseStaffSelector first-colon split
+backend/src/controllers/admin/leaveController.js [MOD] sanitize leave apply subject
+backend/src/controllers/admin/payrollController.js [MOD] sanitize salary-config body
+client/js/admin/modules/hrm-api.js [MOD] hrmSanitizeStaffFields, hrmParseStaffSelect, hrmNormalizeApiPath
+client/js/admin/modules/hrm-leaves.js [MOD] leave apply payload fix
+client/js/admin/modules/hrm-payroll.js [MOD] generate + salary-config sanitize
+client/js/admin/modules/hrm-attendance.js [MOD] import hrmParseStaffSelect from hrm-api
+tests/services/hrmPayloadSanitizer.test.js [NEW]
+docs/audit/HRM_AUDIT.md [MOD]
+README.md [MOD] test count 331
+
+# staffHelpers circular-dep fix + Neon bootstrap — 2026-09-26
+backend/src/utils/staffHelpers.js [NEW]
+backend/src/utils/hrmPayloadSanitizer.js [MOD] re-export staffHelpers
+backend/src/utils/hrmStaffResolver.js [MOD] import staffHelpers only
+backend/src/repositories/hrmStaffResolver.js [MOD] shared parse/sanitize
+backend/src/config/neonRetry.js [MOD] 20s timeout, 3 retries, 2s delay defaults
+backend/src/config/postgresBootstrap.js [MOD] sslmode, warmup defaults, reconcile on boot
+backend/src/config/prismaClient.js [MOD] normalize Neon connection string
+backend/src/server.js [MOD] single PG bootstrap + reconcile path
+tests/services/staffHelpers.test.js [NEW]
+tests/services/neonBootstrap.test.js [NEW]
+README.md [MOD] test count 335

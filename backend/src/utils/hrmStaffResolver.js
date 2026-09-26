@@ -9,6 +9,10 @@
 const mongoose = require('mongoose');
 const Admin = require('../models/admin');
 const Employee = require('../models/employee');
+const {
+    sanitizeStaffPayload,
+    parseStaffSelector
+} = require('./staffHelpers');
 
 async function findEmployeeRecord(identifier) {
     const value = String(identifier || '').trim();
@@ -37,31 +41,6 @@ async function findAdmin(identifier) {
 }
 
 /**
- * Parse a combined staff selector value such as "admin:jdoe" or
- * "employee:EMP-001", or a legacy plain admin username.
- */
-function parseStaffSelector(raw) {
-    const value = String(raw || '').trim();
-    if (!value) return { staffType: 'admin' };
-
-    if (value.includes(':')) {
-        const [staffType, id] = value.split(':');
-        return {
-            staffType: staffType === 'employee' ? 'employee' : 'admin',
-            staffId: id,
-            staffUsername: staffType === 'admin' ? id : undefined,
-            employeeId: staffType === 'employee' ? id : undefined
-        };
-    }
-
-    return { staffType: 'admin', staffUsername: value };
-}
-
-/**
- * Resolve HRM subject from a request body or parsed selector.
- * Returns null when the person cannot be found.
- */
-/**
  * Resolve clock-in/out target: honour explicit staffType, else try Admin then Employee.
  */
 async function resolveClockStaff(body = {}) {
@@ -80,11 +59,12 @@ async function resolveClockStaff(body = {}) {
 }
 
 async function resolveHrmSubject(input = {}) {
-    const staffType = String(input.staffType || 'admin').toLowerCase();
+    const normalized = sanitizeStaffPayload(input);
+    const staffType = String(normalized.staffType || 'admin').toLowerCase();
 
     if (staffType === 'employee') {
         const employee = await findEmployeeRecord(
-            input.staffId || input.employeeId || input.staffUsername
+            normalized.staffId || normalized.employeeId || normalized.staffUsername
         );
         if (!employee) return null;
 
@@ -98,7 +78,7 @@ async function resolveHrmSubject(input = {}) {
         };
     }
 
-    const account = await findAdmin(input.staffId || input.staffUsername);
+    const account = await findAdmin(normalized.staffId || normalized.staffUsername);
     if (!account) return null;
 
     return {

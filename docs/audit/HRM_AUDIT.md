@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-26 (Granular HRM audit logging + enterprise dashboard KPI aggregation)  
+**Last updated:** 2026-09-26 (staffHelpers circular-dep fix + Neon bootstrap tuning)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -76,6 +76,8 @@
 | `prisma/schema.prisma` | `SidebarLabel` model | ✅ |
 | `tests/repositories/sidebarLabel.repository.test.js` | SidebarLabel repo tests | ✅ |
 | `client/js/admin/modules/hrm-api.js` | Shared HRM fetch layer — 25s timeout, debounced error toasts, `silent` option, inline table error helpers | ✅ |
+| `backend/src/utils/staffHelpers.js` | Pure staff parse/sanitize helpers (no DB imports; breaks circular deps) | ✅ |
+| `backend/src/utils/hrmPayloadSanitizer.js` | Re-exports `staffHelpers` for backward compatibility | ✅ |
 | `client/js/admin/modules/hrm-attendance.js` | Daily sheet, tab-aware refresh, stat/dashboard sync, platform TZ date helpers, uses `hrm-api.js` | ✅ |
 | `backend/src/utils/attendanceDate.js` | Platform TZ (Asia/Dhaka) attendance calendar dates; normalize/format/iterate | ✅ |
 | `client/js/admin/modules/hrm-payroll.js` | Payroll UI | ✅ |
@@ -122,6 +124,7 @@
 - [x] Granular HRM audit logging (salary, employee status, payroll release/batch, leave status) — `hrmAuditService.js`, wired in payroll/employee/leave controllers
 - [x] Filterable HRM audit API — `GET /api/admin/staff-audit/hrm?staffId=&actionType=&dateFrom=&dateTo=`
 - [x] Enterprise HRM KPI aggregation (single bundle + estimated payroll cost) — `hrmDashboardMetricsService.js`
+- [x] Staff selector payload sanitization (frontend `hrmSanitizeStaffFields` + backend `sanitizeStaffPayload`) — leave apply, payroll, attendance
 - [x] PG repositories + read cutover flags — `READ_PG_EMPLOYEE`, `READ_PG_ATTENDANCE`, etc.
 - [x] Admin–employee link API — `PUT /api/admin/profile/link-employee` (super-admin)
 - [x] Employee photo upload → linked admin image sync — `uploadEmployeePhoto` + `syncLinkedAdminPhoto`
@@ -275,6 +278,21 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### staffHelpers + Neon cold-start tuning — 2026-09-26
+
+- Moved `parseStaffSelector` / `sanitizeStaffPayload` to `staffHelpers.js` (no Mongoose); `hrmStaffResolver` ↔ sanitizer circular require removed.
+- Prisma repo `hrmStaffResolver` imports shared `staffHelpers`.
+- Neon: 20s HTTP fetch timeout, 3× retry @ 2s warmup, `sslmode=require` on pooled URLs; dual-write reconcile runs after successful PG warm on server boot.
+- Tests: **335/335**.
+
+### HRM staff payload standardization — 2026-09-26
+
+- Fixed Leave Apply sending raw `employee:…` values as `staffUsername` (staff not found).
+- Added `hrmSanitizeStaffFields` / `hrmParseStaffSelect` to `hrm-api.js`; payroll + leave forms use shared sanitizer.
+- Backend `hrmPayloadSanitizer.js`; `resolveHrmSubject` + leave apply + salary-config sanitize incoming bodies.
+- `hrmFetchJson`/`hrmFetchBlob` enforce leading `/` on relative paths.
+- Tests: `tests/services/hrmPayloadSanitizer.test.js`; suite **331/331**.
 
 ### Granular HRM audit logging & dashboard KPI aggregation — 2026-09-26
 

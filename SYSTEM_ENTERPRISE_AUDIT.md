@@ -3794,5 +3794,29 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Short TTL cache | ✅ | Redis `enterprise:hrm:*` (30s default) |
 | Tests | ✅ | **328/328** Jest (`tests/hrmAudit.test.js`) |
 
+---
+
+## HRM Staff Payload Standardization — 2026-09-26
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Leave apply staff selector bug | ✅ | Frontend sanitizer + backend `sanitizeStaffPayload` |
+| Shared frontend staff helpers | ✅ | `hrm-api.js` — parse/strip/normalize API paths |
+| Backend defensive parsing | ✅ | `resolveHrmSubject`, leave apply, salary-config |
+| Tests | ✅ | **331/331** Jest |
+
+---
+
+## staffHelpers + Neon Cold-Start — 2026-09-26
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Circular dep (hrmStaffResolver ↔ sanitizer) | ✅ | `staffHelpers.js` pure module |
+| Neon 20s timeout + 3×2s retry | ✅ | `neonRetry.js`, `postgresBootstrap.js` |
+| SSL on pooled URL | ✅ | `sslmode=require` normalization |
+| Dual-write reconcile after PG warm | ✅ | `ensurePostgresReady({ reconcileDualWrite: true })` on boot |
+| Outbox dispatcher | ✅ | Unchanged — `outboxDispatcherJob.js` |
+| Tests | ✅ | **335/335** Jest |
+
 
 
