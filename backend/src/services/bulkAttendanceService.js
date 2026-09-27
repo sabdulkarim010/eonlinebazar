@@ -70,7 +70,7 @@ async function upsertAttendanceRow(subject, date, fields, { markedBy = 'bulk-imp
             $set: update,
             $setOnInsert: { staffId: subject.staffId, date }
         },
-        { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: 'after', runValidators: true, setDefaultsOnInsert: true }
     );
 
     if (record.clockIn && record.clockOut) {

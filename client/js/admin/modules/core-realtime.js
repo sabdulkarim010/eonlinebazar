@@ -441,8 +441,10 @@ window.showCustomConfirm = function(title, message, onConfirm, type = 'warning')
                 confirmButton: 'admin-confirm-swal-confirm',
                 cancelButton: 'admin-confirm-swal-cancel'
             }
-        }).then((result) => {
-            if (result.isConfirmed && typeof onConfirm === 'function') onConfirm();
+        }).then(async (result) => {
+            if (result.isConfirmed && typeof onConfirm === 'function') {
+                await onConfirm();
+            }
             return result.isConfirmed === true;
         });
     }

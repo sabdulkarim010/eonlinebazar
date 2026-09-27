@@ -12,6 +12,14 @@ const {
     fetchUserProfileDocument,
     fetchUserAddressesList
 } = require('../services/userReadService');
+const {
+    findMongoUserByRef,
+    pickMongoUserIdFromRequest
+} = require('../utils/userRecordResolver');
+
+function reqUserMongoId(req) {
+    return pickMongoUserIdFromRequest(req);
+}
 
 function getUserRepository() {
     return require('../repositories/userRepository');
@@ -232,7 +240,7 @@ exports.updateUserProfile = async (req, res) => {
         }
 
         if (contactNumber !== undefined) {
-            const user = await User.findById(req.user.id).select('email mobile phone');
+            const user = await findMongoUserByRef(reqUserMongoId(req) || req.user.id, 'email mobile phone');
             if (!user) {
                 return res.status(404).json({ success: false, message: "User not found." });
             }
@@ -293,9 +301,9 @@ exports.updateUserProfile = async (req, res) => {
 
         const updatedUser = await dualWrite(
             () => User.findByIdAndUpdate(
-                req.user.id,
+                reqUserMongoId(req) || req.user.id,
                 updateQuery,
-                { new: true, runValidators: true }
+                { returnDocument: 'after', runValidators: true }
             ).select('-password'),
             async (saved) => {
                 if (saved) await mirrorUser(saved);
@@ -347,7 +355,7 @@ exports.updateUserAvatar = async (req, res) => {
                     const publicId = result.public_id; 
 
                     // পুরনো ছবি ক্লাউডিনারি থেকে ডিলিট করা
-                    const oldUser = await User.findById(req.user.id);
+                    const oldUser = await findMongoUserByRef(reqUserMongoId(req) || req.user.id);
                     if (oldUser && oldUser.avatarPublicId) {
                         await cloudinary.uploader.destroy(oldUser.avatarPublicId);
                         console.log("✅ Old avatar successfully deleted from Cloudinary");
@@ -356,12 +364,12 @@ exports.updateUserAvatar = async (req, res) => {
                     // ডাটাবেজে আপডেট করা
                     const updatedUser = await dualWrite(
                         () => User.findByIdAndUpdate(
-                            req.user.id,
+                            reqUserMongoId(req) || req.user.id,
                             {
                                 avatar: avatarUrl,
                                 avatarPublicId: publicId
                             },
-                            { new: true }
+                            { returnDocument: 'after' }
                         ),
                         async (saved) => {
                             if (saved) await mirrorUser(saved);
@@ -429,7 +437,7 @@ exports.changePassword = async (req, res) => {
             });
         }
 
-        const user = await User.findById(req.user.id);
+        const user = await findMongoUserByRef(reqUserMongoId(req) || req.user.id);
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found." });
         }
@@ -503,7 +511,7 @@ exports.requestContactUpdateOtp = async (req, res) => {
             });
         }
 
-        const user = await User.findById(req.user.id);
+        const user = await findMongoUserByRef(reqUserMongoId(req) || req.user.id);
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found." });
         }
@@ -627,7 +635,7 @@ exports.verifyContactUpdateOtp = async (req, res) => {
             return res.status(400).json({ success: false, message: "Please enter the 6-digit verification code." });
         }
 
-        const user = await User.findById(req.user.id);
+        const user = await findMongoUserByRef(reqUserMongoId(req) || req.user.id);
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found." });
         }
@@ -682,7 +690,7 @@ exports.verifyContactUpdateOtp = async (req, res) => {
             details: `${updateType} verified via OTP`
         });
 
-        const safeUser = await User.findById(req.user.id).select('-password');
+        const safeUser = await findMongoUserByRef(reqUserMongoId(req) || req.user.id, '-password');
 
         res.status(200).json({
             success: true,
@@ -704,7 +712,7 @@ exports.verifyContactUpdateOtp = async (req, res) => {
 // ১১.ক. সব ঠিকানা দেখা
 exports.getAddresses = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select('_id');
+        const user = await findMongoUserByRef(reqUserMongoId(req) || req.user.id, '_id');
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
         const addresses = await fetchUserAddressesList(req.user.id);
         res.status(200).json({ success: true, addresses: addresses || [] });
@@ -727,7 +735,7 @@ exports.addAddress = async (req, res) => {
 
         const { label, district, upazilaOrThana, fullAddress, phone, isDefault } = parsed.data;
 
-        const user = await User.findById(req.user.id);
+        const user = await findMongoUserByRef(reqUserMongoId(req) || req.user.id);
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
 
         const makeDefault = isDefault || user.addresses.length === 0;
@@ -779,7 +787,7 @@ exports.updateAddress = async (req, res) => {
 
         const { label, district, upazilaOrThana, fullAddress, phone, isDefault } = parsed.data;
 
-        const user = await User.findById(req.user.id);
+        const user = await findMongoUserByRef(reqUserMongoId(req) || req.user.id);
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
 
         const target = user.addresses.id(addressId);
@@ -824,7 +832,7 @@ exports.updateAddress = async (req, res) => {
 exports.deleteAddress = async (req, res) => {
     try {
         const { addressId } = req.params;
-        const user = await User.findById(req.user.id);
+        const user = await findMongoUserByRef(reqUserMongoId(req) || req.user.id);
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
 
         const target = user.addresses.id(addressId);
@@ -903,7 +911,7 @@ exports.convertPoints = async (req, res) => {
         });
 
         if (!debited) {
-            const existing = await User.findById(req.user.id).select('loyaltyPoints');
+            const existing = await findMongoUserByRef(reqUserMongoId(req) || req.user.id, 'loyaltyPoints');
             if (!existing) {
                 return res.status(404).json({ success: false, message: "User not found." });
             }
@@ -918,14 +926,15 @@ exports.convertPoints = async (req, res) => {
             });
         }
 
+        const mongoUserId = reqUserMongoId(req) || req.user.id;
         const user = await dualWrite(
             () => User.findByIdAndUpdate(
-                req.user.id,
+                mongoUserId,
                 { $inc: { walletBalance: cashValue }, $push: { walletHistory: { $each: [historyEntry], $position: 0 } } },
                 { returnDocument: 'after' }
             ),
             async (saved) => { if (saved) await mirrorWalletUser(saved); },
-            { model: 'WalletTransaction', operation: 'convert-points', mongoId: (saved) => (saved ? String(saved._id) : req.user.id) }
+            { model: 'WalletTransaction', operation: 'convert-points', mongoId: (saved) => (saved ? String(saved._id) : mongoUserId) }
         );
 
         res.status(200).json({

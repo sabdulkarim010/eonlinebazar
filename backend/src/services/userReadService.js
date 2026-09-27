@@ -39,7 +39,11 @@ function getPrisma() {
   return require('../config/prismaClient');
 }
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const {
+  UUID_PATTERN,
+  isMongoObjectIdString,
+  resolveUserLookupIds
+} = require('../utils/userRecordResolver');
 const SEGMENT_EXCLUDED_STATUSES = ['Cancelled', 'Canceled'];
 const REVIEW_PRODUCT_SELECT = 'name images image productId';
 
@@ -67,70 +71,95 @@ async function resolvePgUserId(mongoUserId) {
   return repo.resolvePostgresUserId(mongoUserId);
 }
 
-async function fetchUserCoreScalars(mongoUserId) {
+async function normalizeUserReadRef(userRef) {
+  const raw = String(userRef || '').trim();
+  const { mongoId, pgUserId } = await resolveUserLookupIds(raw);
+  const mongoLookupId = mongoId || (isMongoObjectIdString(raw) ? raw : null);
+  return { raw, mongoLookupId, pgUserId };
+}
+
+async function fetchUserCoreScalars(userRef) {
+  const { mongoLookupId, pgUserId } = await normalizeUserReadRef(userRef);
   return routedRead(
     'user',
     async () => {
-      const user = await User.findById(mongoUserId).select('-password');
+      if (!mongoLookupId) return null;
+      const user = await User.findById(mongoLookupId).select('-password');
       if (!user) return null;
       return stripEmbeddedArrays(user.toObject());
     },
     async () => {
-      const row = await loadPgUserByLegacyId(mongoUserId);
+      const prisma = getPrisma();
+      let row = null;
+      if (pgUserId) {
+        row = await prisma.user.findUnique({
+          where: { id: pgUserId },
+          include: { referredBy: { select: { legacyId: true } } }
+        });
+      }
+      if (!row && mongoLookupId) {
+        row = await loadPgUserByLegacyId(mongoLookupId);
+      }
       return userToMongoShape(row, { toObject: true });
     }
   );
 }
 
-async function fetchUserAddressesEmbedded(mongoUserId) {
+async function fetchUserAddressesEmbedded(userRef) {
+  const { mongoLookupId, pgUserId } = await normalizeUserReadRef(userRef);
   return routedRead(
     'address',
     async () => {
-      const user = await User.findById(mongoUserId).select('addresses');
+      if (!mongoLookupId) return [];
+      const user = await User.findById(mongoLookupId).select('addresses');
       return user ? (user.addresses || []) : [];
     },
     async () => {
-      const pgUserId = await resolvePgUserId(mongoUserId);
-      if (!pgUserId) return [];
-      const rows = await getUserRepository().listAddresses(pgUserId, { sort: 'mongoEmbedded' });
+      const pgId = pgUserId || (mongoLookupId ? await resolvePgUserId(mongoLookupId) : null);
+      if (!pgId) return [];
+      const rows = await getUserRepository().listAddresses(pgId, { sort: 'mongoEmbedded' });
       return mapAddressesToMongo(rows);
     }
   );
 }
 
-async function fetchUserWishlistEmbedded(mongoUserId) {
+async function fetchUserWishlistEmbedded(userRef) {
+  const { mongoLookupId, pgUserId } = await normalizeUserReadRef(userRef);
   return routedRead(
     'wishlist',
     async () => {
-      const user = await User.findById(mongoUserId).select('wishlist');
+      if (!mongoLookupId) return [];
+      const user = await User.findById(mongoLookupId).select('wishlist');
       if (!user) return [];
       return (user.wishlist || []).map((item) => (
         item && typeof item.toObject === 'function' ? item.toObject() : { ...item }
       ));
     },
     async () => {
-      const pgUserId = await resolvePgUserId(mongoUserId);
-      if (!pgUserId) return [];
-      const rows = await getUserRepository().listWishlist(pgUserId);
+      const pgId = pgUserId || (mongoLookupId ? await resolvePgUserId(mongoLookupId) : null);
+      if (!pgId) return [];
+      const rows = await getUserRepository().listWishlist(pgId);
       return mapWishlistEmbeddedToMongo(rows);
     }
   );
 }
 
-async function fetchUserWalletHistoryEmbedded(mongoUserId) {
+async function fetchUserWalletHistoryEmbedded(userRef) {
+  const { mongoLookupId, pgUserId } = await normalizeUserReadRef(userRef);
   return routedRead(
     'wallet',
     async () => {
-      const user = await User.findById(mongoUserId).select('walletHistory');
+      if (!mongoLookupId) return [];
+      const user = await User.findById(mongoLookupId).select('walletHistory');
       if (!user) return [];
       return (user.walletHistory || []).map((row) => (
         row && typeof row.toObject === 'function' ? row.toObject() : { ...row }
       ));
     },
     async () => {
-      const pgUserId = await resolvePgUserId(mongoUserId);
-      if (!pgUserId) return [];
-      const rows = await getUserRepository().listWalletTransactions(pgUserId);
+      const pgId = pgUserId || (mongoLookupId ? await resolvePgUserId(mongoLookupId) : null);
+      if (!pgId) return [];
+      const rows = await getUserRepository().listWalletTransactions(pgId);
       return mapWalletTransactionsToMongo(rows);
     }
   );
@@ -405,17 +434,42 @@ async function fetchAdminCustomersPage({ query, limit }) {
   );
 }
 
-async function fetchCustomerById(mongoUserId) {
+async function fetchCustomerById(customerRef) {
+  const raw = String(customerRef || '').trim();
+  if (!raw) return null;
+
+  const { mongoId, pgUserId } = await resolveUserLookupIds(raw);
+  const mongoLookupId = mongoId || (isMongoObjectIdString(raw) ? raw : null);
+
   return routedRead(
     'user',
-    () => User.findById(mongoUserId).select('-password').lean(),
     async () => {
-      const row = await loadPgUserByLegacyId(mongoUserId);
+      if (!mongoLookupId) return null;
+      return User.findById(mongoLookupId).select('-password').lean();
+    },
+    async () => {
+      const prisma = getPrisma();
+      let row = null;
+      if (pgUserId) {
+        row = await prisma.user.findUnique({
+          where: { id: pgUserId },
+          include: { referredBy: { select: { legacyId: true } } }
+        });
+      }
+      if (!row && mongoLookupId) {
+        row = await loadPgUserByLegacyId(mongoLookupId);
+      }
       if (!row) return null;
+      const embedLegacyId = row.legacyId
+        ? String(row.legacyId)
+        : (mongoLookupId || null);
+      if (!embedLegacyId) {
+        return userToMongoShape(row, { lean: true, includeEmbedded: false });
+      }
       const [addresses, wishlist, walletHistory] = await Promise.all([
-        fetchUserAddressesEmbedded(mongoUserId),
-        fetchUserWishlistEmbedded(mongoUserId),
-        fetchUserWalletHistoryEmbedded(mongoUserId)
+        fetchUserAddressesEmbedded(embedLegacyId),
+        fetchUserWishlistEmbedded(embedLegacyId),
+        fetchUserWalletHistoryEmbedded(embedLegacyId)
       ]);
       return userToMongoShape(row, {
         lean: true,

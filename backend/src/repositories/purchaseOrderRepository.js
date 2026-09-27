@@ -345,11 +345,20 @@ async function updatePurchaseOrderStatusInPG(mongoId, status) {
  * @param {string[]} [openStatuses]
  * @returns {Promise<number>}
  */
-async function sumOpenPurchaseOrderTotalFromPG(openStatuses = ['draft', 'sent', 'partial']) {
+async function sumOpenPurchaseOrderTotalFromPG(
+  openStatuses = ['draft', 'sent', 'partial'],
+  dateRange = null
+) {
   try {
     const statusEnums = openStatuses.map((s) => toStatusEnum(s));
+    const where = { status: { in: statusEnums } };
+    if (dateRange?.dateFrom || dateRange?.dateTo) {
+      where.createdAt = {};
+      if (dateRange.dateFrom) where.createdAt.gte = new Date(dateRange.dateFrom);
+      if (dateRange.dateTo) where.createdAt.lte = new Date(dateRange.dateTo);
+    }
     const result = await prisma.purchaseOrder.aggregate({
-      where: { status: { in: statusEnums } },
+      where,
       _sum: { totalCost: true }
     });
     return toDecimalNumber(result._sum.totalCost);

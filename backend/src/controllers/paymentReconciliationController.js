@@ -7,6 +7,7 @@
 
 const Order = require('../models/order');
 const { findOrderByRef } = require('../utils/orderMongoLookup');
+const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 
 const VALID_TYPES = new Set(['all', 'gateway', 'manual', 'cod']);
 const VALID_STATUSES = new Set(['paid', 'unpaid', 'pending']);
@@ -279,8 +280,11 @@ const markGatewayOrderPaid = async (req, res) => {
         }
 
         const adminNote = String(req.body?.adminNote || '').trim();
-        const adminId = req.admin?.id || req.admin?._id || null;
+        const adminId = req.admin?.id || req.admin?._id || req.adminAccount?._id || null;
+        const adminUsername = req.admin?.username || req.adminAccount?.username || 'admin';
         const now = new Date();
+        const previousStatus = order.payment?.status || 'unpaid';
+        const paymentMethod = order.payment?.code || order.paymentMethod || '';
 
         if (!order.payment) order.payment = {};
         order.payment.status = 'paid';
@@ -308,6 +312,30 @@ const markGatewayOrderPaid = async (req, res) => {
 
         order.markModified('payment');
         await order.save();
+
+        await logSecurityEvent({
+            action: 'Payment Status Override',
+            actor: adminUsername,
+            actorType: 'admin',
+            actorId: adminId,
+            ipAddress: getClientIp(req),
+            resourceType: 'order',
+            resourceId: String(order._id),
+            previousValue: previousStatus,
+            newValue: 'paid',
+            details: JSON.stringify({
+                event: 'payment_reconciliation_mark_paid',
+                adminUserId: adminId ? String(adminId) : null,
+                orderId: order.orderId || String(order._id),
+                previousStatus,
+                newStatus: 'paid',
+                paymentMethod,
+                ipAddress: getClientIp(req),
+                timestamp: now.toISOString(),
+                adminNote: adminNote || null
+            }),
+            source: 'payment_reconciliation'
+        });
 
         return res.json({
             success: true,

@@ -336,7 +336,7 @@ exports.updateWarehouse = async (req, res) => {
                 const doc = await Warehouse.findByIdAndUpdate(
                     id,
                     { $set: fields },
-                    { new: true, runValidators: true }
+                    { returnDocument: 'after', runValidators: true }
                 );
                 if (fields.isDefault === true && doc) {
                     await demoteOtherDefaults(doc._id);

@@ -14,6 +14,10 @@ const AdminSession = require('../models/adminSession');
 const { attachAdminAccount } = require('./rbac');
 const userSessionRepo = require('../repositories/userSessionRepository');
 const adminSessionRepo = require('../repositories/adminSessionRepository');
+const {
+    fetchUserAuthSnapshot,
+    resolveUserLookupIds
+} = require('../utils/userRecordResolver');
 
 // ১. অ্যাডমিন ভেরিফাই করার জন্য (🌟 role-based + session-aware, নিরাপত্তা-হার্ডেনড)
 const verifyAdmin = async (req, res, next) => {
@@ -115,9 +119,15 @@ const verifyUser = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET); 
 
         const userId = decoded.id || decoded._id || decoded.userId;
-        req.user = { id: userId, sid: decoded.sid || null };
+        const resolvedIds = await resolveUserLookupIds(userId);
+        req.user = {
+            id: userId,
+            mongoId: resolvedIds.mongoId,
+            pgUserId: resolvedIds.pgUserId,
+            sid: decoded.sid || null
+        };
 
-        const account = await User.findById(userId).select('isDeleted accountStatus').lean();
+        const account = await fetchUserAuthSnapshot(userId);
         if (!account || account.isDeleted || account.accountStatus === 'blocked') {
             return res.status(401).json({
                 success: false,

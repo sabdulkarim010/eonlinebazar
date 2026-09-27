@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-27 (Leave/attendance DB indexes + batch stamp)  
+**Last updated:** 2026-09-27 (Leave approve/reject UI sync + 400 handling)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -279,6 +279,20 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Leave approve/reject UI sync + 400 handling — 2026-09-27
+
+- `hrm-leaves.js`: `runLeaveRowMutation` (try/catch/finally), `fetchPendingLeaves`, stale-row removal on 400 `ALREADY_PROCESSED`, backend message toasts, trigger button reset.
+- `leaveController.js`: consistent `{ success: false, message }` on 400 (non-pending + workflow conflicts).
+- `core-realtime.js`: `showCustomConfirm` awaits async `onConfirm` (approve flow).
+- Tests: **340/340** Jest.
+
+### Apply Leave E2E QA — DOM guards, payload, toasts — 2026-09-27
+
+- **Root cause:** After `createSearchableSelect`, `#applyLeaveStaff` id moves to a hidden input; code reading `.options` on that node threw `TypeError` and broke prefetch/modal/submit.
+- **`hrm-attendance.js`:** `hrmResolveNativeStaffSelect(selectId)`; staff load/refresh/mount/clear/set use native `<select>` + `Array.from(select?.options || [])`; `data-hrm-staff-select-id` on native select before mount.
+- **`hrm-leaves.js`:** `getApplyLeaveNativeSelect`, safe `applyLeaveStaffSelectHasOptions`; `buildApplyLeavePayload` reads live DOM (searchable staff value + dates/type/reason/attachment); `notifyLeaveSubmitError` surfaces `err.result.message` (overlap/validation); submit `finally` always calls `resetApplyLeaveSubmitButton`; approve/reject errors reuse same notifier.
+- Tests: **340/340** Jest.
 
 ### Apply Leave searchable staff picker — 2026-09-27
 

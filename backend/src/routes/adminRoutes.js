@@ -89,6 +89,8 @@ const notificationController = require('../controllers/admin/notificationControl
 const productController = require('../controllers/productController');
 const enterpriseSummaryController = require('../controllers/admin/enterpriseSummaryController');
 const accountsSummaryController = require('../controllers/admin/accountsSummaryController');
+const chartOfAccountsController = require('../controllers/admin/chartOfAccountsController');
+const financeReportController = require('../controllers/admin/financeReportController');
 const upload = require('../middlewares/uploadMiddleware');
 const { brandingUpload, paymentMethodLogoUpload, footerIconUpload, importFileUpload, employeePhotoUpload, employeeDocumentUpload } = upload;
 const staffController = require('../controllers/staffController');
@@ -208,7 +210,7 @@ router.post('/customers/quick', verifyAdmin, checkPermission('manage_customers',
 router.get('/enterprise-summary', verifyAdmin, checkPermission('view_analytics'), enterpriseSummaryController.getEnterpriseSummary);
 
 // Accounts overview — cash flow, liquidity, and balance metrics (GET)
-router.get('/accounts-summary', verifyAdmin, checkPermission('manage_settings', 'view_accounts', 'view_analytics'), accountsSummaryController.getAccountsSummary);
+router.get('/accounts-summary', verifyAdmin, checkPermission('view_accounts', 'view_analytics'), accountsSummaryController.getAccountsSummary);
 
 // ১গ. Sales & Order Analytics Dashboard (GET)
 router.get('/dashboard-analytics', verifyAdmin, checkPermission('view_analytics'), getDashboardAnalytics);
@@ -645,33 +647,36 @@ router.post('/crm/rfm-segments/recalculate', verifyAdmin, checkPermission('manag
  # Permission: manage_settings (finance/settings owner)
  # Named /summary is declared before /:id so it is never read as an id.
  ********************************************************************/
-router.get('/expenses/summary', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.getExpenseSummary);
-router.post('/expenses/upload-receipt', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.receiptUploadMiddleware, expenseController.uploadExpenseReceipt);
-router.get('/expenses', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.getAllExpenses);
-router.post('/expenses', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.createExpense);
-router.patch('/expenses/:id', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.updateExpense);
-router.delete('/expenses/:id', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseController.deleteExpense);
+router.get('/expenses/summary', verifyAdmin, checkPermission('manage_expenses'), expenseController.getExpenseSummary);
+router.post('/expenses/upload-receipt', verifyAdmin, checkPermission('manage_expenses'), expenseController.receiptUploadMiddleware, expenseController.uploadExpenseReceipt);
+router.get('/expenses', verifyAdmin, checkPermission('manage_expenses'), expenseController.getAllExpenses);
+router.post('/expenses', verifyAdmin, checkPermission('manage_expenses'), expenseController.createExpense);
+router.patch('/expenses/:id', verifyAdmin, checkPermission('manage_expenses'), expenseController.updateExpense);
+router.delete('/expenses/:id', verifyAdmin, checkPermission('manage_expenses'), expenseController.deleteExpense);
 
 /********************************************************************
  # ERP Finance — Dynamic Expense Categories
  # URL: /api/admin/expense-categories
  # Named routes declared before /:id to avoid param collisions.
  ********************************************************************/
-router.get('/expense-categories/admin', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.getAdminExpenseCategories);
-router.patch('/expense-categories/other-custom-toggle', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.toggleOtherCustomInput);
-router.get('/expense-categories', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.getActiveExpenseCategories);
-router.post('/expense-categories', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.createExpenseCategory);
-router.patch('/expense-categories/:id/toggle', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.toggleExpenseCategoryActive);
-router.delete('/expense-categories/:id', verifyAdmin, checkPermission('manage_settings', 'manage_expenses'), expenseCategoryController.deleteExpenseCategory);
+router.get('/expense-categories/admin', verifyAdmin, checkPermission('manage_expenses'), expenseCategoryController.getAdminExpenseCategories);
+router.patch('/expense-categories/other-custom-toggle', verifyAdmin, checkPermission('manage_expenses'), expenseCategoryController.toggleOtherCustomInput);
+router.get('/expense-categories', verifyAdmin, checkPermission('manage_expenses'), expenseCategoryController.getActiveExpenseCategories);
+router.post('/expense-categories', verifyAdmin, checkPermission('manage_expenses'), expenseCategoryController.createExpenseCategory);
+router.patch('/expense-categories/:id/toggle', verifyAdmin, checkPermission('manage_expenses'), expenseCategoryController.toggleExpenseCategoryActive);
+router.delete('/expense-categories/:id', verifyAdmin, checkPermission('manage_expenses'), expenseCategoryController.deleteExpenseCategory);
 
 /********************************************************************
  # ERP Finance — Advanced Profit & Loss (superadmin only)
  # URL: /api/admin/finance/profit-loss[/export-pdf|/export-csv]
  ********************************************************************/
-router.get('/finance/profit-loss', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports'), profitLossController.getProfitLossReport);
-router.get('/finance/profit-loss/export-pdf', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports'), exportController.exportPLtoPDF);
-router.get('/finance/profit-loss/export-csv', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports'), exportController.exportPLtoCSV);
-router.get('/finance/export', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports'), financeExportController.exportFinanceReport);
+router.get('/finance/chart-of-accounts', verifyAdmin, checkPermission('view_accounts'), chartOfAccountsController.getChartOfAccounts);
+router.get('/finance/balance-sheet', verifyAdmin, checkPermission('view_financial_reports'), financeReportController.getBalanceSheet);
+router.get('/finance/tax-vat-ledger', verifyAdmin, checkPermission('view_financial_reports'), financeReportController.getTaxVatLedger);
+router.get('/finance/profit-loss', verifyAdmin, checkPermission('view_financial_reports'), profitLossController.getProfitLossReport);
+router.get('/finance/profit-loss/export-pdf', verifyAdmin, checkPermission('view_financial_reports'), exportController.exportPLtoPDF);
+router.get('/finance/profit-loss/export-csv', verifyAdmin, checkPermission('view_financial_reports'), exportController.exportPLtoCSV);
+router.get('/finance/export', verifyAdmin, checkPermission('view_financial_reports'), financeExportController.exportFinanceReport);
 router.get('/orders/export', verifyAdmin, checkPermission('manage_orders', 'view_orders', 'update_order_status'), exportController.exportOrdersCSV);
 router.get('/orders/export-csv', verifyAdmin, checkPermission('manage_orders', 'view_orders', 'update_order_status'), exportController.exportOrdersCSV);
 router.get('/products/export', verifyAdmin, checkPermission('manage_inventory', 'view_products'), exportController.exportProductsCSV);

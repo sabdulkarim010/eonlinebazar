@@ -405,7 +405,7 @@ admin-dashboard/src/services/api.js [DONE] chat_admin_token only — no store ad
 ## HTML Files
 client/admin.html                    [DONE] removed — assembled by backend/src/utils/adminPageBuilder.js
 client/profile.html                  [DONE] thin shell — assembled with profile/partials by backend/src/utils/profilePageBuilder.js
-client/admin-login.html              [DONE] kept as single page
+client/admin-login.html              [DONE] enterprise split-screen UI; scroll-safe 2FA card (2026-09-27)
 client/partials/shared-header.html   [DONE] injected into pages with a search header (about/contact/CMS simplified headers left as-is)
 client/partials/shared-footer.html   [DONE] injected via backend/src/utils/injectSharedPartials.js
 client/partials/shared-whatsapp.html [DONE]
@@ -3338,3 +3338,125 @@ prisma/schema.prisma [MOD] Leave/Attendance indexes
 prisma/migrations/20260927110000_hrm_leave_attendance_indexes/migration.sql [NEW]
 DATABASE_MIGRATION_AUDIT.md [MOD]
 docs/audit/HRM_AUDIT.md [MOD]
+
+# Apply Leave E2E QA — native select + submit flow — 2026-09-27
+client/js/admin/modules/hrm-attendance.js [MOD] hrmResolveNativeStaffSelect; safe .options iteration
+client/js/admin/modules/hrm-leaves.js [MOD] buildApplyLeavePayload, notifyLeaveSubmitError, submit finally reset
+docs/audit/HRM_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Leave approve/reject UI sync + 400 JSON — 2026-09-27
+client/js/admin/modules/hrm-leaves.js [MOD] runLeaveRowMutation, fetchPendingLeaves, stale row sync
+backend/src/controllers/admin/leaveController.js [MOD] 400 success:false safeguard
+client/js/admin/modules/core-realtime.js [MOD] showCustomConfirm awaits async onConfirm
+docs/audit/HRM_AUDIT.md [MOD]
+README.md [MOD]
+
+# User UUID CastError + async dual-write + Mongoose returnDocument — 2026-09-27
+backend/src/utils/userRecordResolver.js [NEW]
+backend/src/middlewares/authMiddleware.js [MOD] verifyUser resolver
+backend/src/services/userReadService.js [MOD] fetchCustomerById UUID-safe
+backend/src/controllers/internalChatController.js [MOD]
+backend/src/config/passport.js [MOD] deserializeUser
+backend/src/controllers/admin/customerAdminController.js [MOD] strict ObjectId gate
+backend/src/services/dualWriteService.js [MOD] async PG mirror (prod)
+backend/src/config/neonRetry.js [MOD] 30s default fetch timeout
+tests/utils/userRecordResolver.test.js [NEW]
+DATABASE_MIGRATION_AUDIT.md [MOD]
+README.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+
+# Finance API resilience — accounts summary + P&L — 2026-09-27
+backend/src/controllers/admin/accountsSummaryController.js [MOD] PG batched scan, PG→Mongo→zero fallbacks, HTTP 200 on degradation
+backend/src/controllers/admin/profitLossController.js [MOD] defensive PG/Mongo loads, empty report builder, HTTP 200 always on getProfitLossReport
+docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Phase 4 — Finance security, POS/wallet liquidity, RBAC — 2026-09-27
+backend/src/controllers/paymentReconciliationController.js [MOD] logSecurityEvent on mark-paid
+backend/src/controllers/orderPaymentProofController.js [MOD] audit log on proof approve
+backend/src/services/accountingLedgerService.js [MOD] POS drawer + wallet liability in accounts summary
+backend/src/services/posShiftService.js [MOD] getAggregatePosDrawerCashBalance
+backend/src/services/walletService.js [MOD] getOutstandingCustomerWalletLiability
+backend/src/services/balanceSheetService.js [MOD] wallet liability + POS drawer lines
+backend/src/routes/adminRoutes.js [MOD] granular finance/expense RBAC
+client/admin/partials/view-accounts.html [MOD] POS + wallet KPI cards
+client/js/admin/modules/erp-accounts.js [MOD] render new balance fields
+client/js/admin/modules/erp-profit-loss.js [MOD] balance sheet liability rows
+tests/financePhase4.test.js [NEW]
+tests/admin.test.js [MOD] accounts-summary field assertions
+docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD]
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Phase 3 Part 2 — Balance sheet + Tax/VAT ledger — 2026-09-27
+backend/src/services/balanceSheetService.js [NEW]
+backend/src/services/taxVatService.js [NEW]
+backend/src/controllers/admin/financeReportController.js [NEW]
+backend/src/routes/adminRoutes.js [MOD] balance-sheet + tax-vat-ledger routes
+client/admin/partials/view-finance.html [MOD] P&L / Balance Sheet tabs
+client/admin/partials/view-tax-vat.html [NEW]
+client/admin/partials/sidebar.html [MOD] Tax & VAT nav item
+client/js/admin/modules/erp-profit-loss.js [MOD] balance sheet tab loader
+client/js/admin/modules/erp-tax-vat.js [NEW]
+client/js/admin/admin-products.js [MOD] import erp-tax-vat
+client/js/admin/modules/core-nav.js [MOD] loadTaxVatSection
+client/js/admin/modules/core-breadcrumb.js [MOD]
+client/js/admin/modules/core-state.js [MOD]
+backend/src/config/permissions.js [MOD] view-tax-vat
+backend/src/utils/adminPageBuilder.js [MOD] view-tax-vat partial
+client/css/admin/_finance.css [MOD] BS + tax styles
+tests/admin.test.js [MOD] balance sheet + tax ledger tests
+docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD]
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# Phase 3 Part 1 — Chart of accounts + finance sidebar — 2026-09-27
+backend/src/services/chartOfAccountsService.js [NEW]
+backend/src/controllers/admin/chartOfAccountsController.js [NEW]
+backend/src/services/accountingLedgerService.js [MOD] loadAccountsSummaryContext, buildAccountsSummaryPayload
+backend/src/controllers/admin/accountsSummaryController.js [MOD] thin delegate to ledger
+backend/src/routes/adminRoutes.js [MOD] GET /finance/chart-of-accounts
+backend/src/config/permissions.js [MOD] view-chart-of-accounts → view_accounts
+backend/src/utils/adminPageBuilder.js [MOD] view-chart-of-accounts partial
+client/admin/partials/view-chart-of-accounts.html [NEW]
+client/admin/partials/sidebar.html [MOD] COA nav item order
+client/js/admin/modules/erp-chart-of-accounts.js [NEW]
+client/js/admin/modules/core-nav.js [MOD] loadChartOfAccountsSection hook
+client/js/admin/modules/core-breadcrumb.js [MOD]
+client/js/admin/modules/core-state.js [MOD]
+client/js/admin/admin-products.js [MOD] import erp-chart-of-accounts
+client/css/admin/_finance.css [MOD] COA styles
+tests/admin.test.js [MOD] chart-of-accounts API test
+docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# Phase 2 Part 2 — Accounts overview date-range filters — 2026-09-27
+backend/src/controllers/admin/accountsSummaryController.js [MOD] dateFrom/dateTo query + scoped PG/Mongo loads
+backend/src/services/accountingLedgerService.js [MOD] parseAccountsSummaryDateRange, range expense/PO totals
+backend/src/repositories/purchaseOrderRepository.js [MOD] optional createdAt on sumOpenPurchaseOrderTotalFromPG
+client/admin/partials/view-accounts.html [MOD] date filter bar
+client/js/admin/modules/erp-accounts.js [MOD] presets + query string
+client/css/admin/_finance.css [MOD] accounts filter styles
+tests/admin.test.js [MOD] accounts-summary date range test
+docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Phase 2 Part 1 — Unified accounting ledger + expense PG reads — 2026-09-27
+backend/src/services/accountingLedgerService.js [NEW]
+backend/src/repositories/expenseRepository.js [MOD] strict PG read helpers + shared buildExpenseWhere
+backend/src/controllers/admin/accountsSummaryController.js [MOD] ledger service for metrics + expense totals
+backend/src/controllers/admin/profitLossController.js [MOD] ledger COGS/revenue/expense breakdown
+backend/src/controllers/admin/expenseController.js [MOD] PG-aligned list/summary reads
+ARCHITECTURE.md [MOD]
+docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]

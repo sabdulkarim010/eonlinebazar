@@ -451,6 +451,15 @@ Assembled from `client/admin/partials/` via `adminPageBuilder.js`:
 - `/admin/payment-reconciliation` — Payment reconciliation
 - `/chat-admin` — React chat agent dashboard (separate SPA)
 
+## Admin Login Split-Screen UI — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Enterprise split-screen layout (`client/admin-login.html`) | ✅ | Brand panel ≥1024px; auth panel scroll-safe |
+| 100% zoom / 768p 2FA overflow fix | ✅ | `body` no longer `overflow: hidden`; card `max-height: calc(100dvh - 2rem)` + scrollbar |
+| Auth contract preserved | ✅ | All DOM IDs + `admin-login.js` unchanged; `POST /api/admin/login` |
+| Step 1 hide selector fix | ✅ | `#adminLoginStep.is-hidden` replaces non-matching legacy class |
+
 ### Navigation Issues (Scattered / Messy)
 
 1. **Flat 20+ sidebar items** — no ERP/CRM/HRM grouping
@@ -3858,6 +3867,112 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Fast HTTP response (prod) | ✅ | Audit, notify, attendance via `setImmediate` |
 | Approve API `attendanceProcessing` flag | ✅ | `attendanceDaysMarked` when sync (`NODE_ENV=test`) |
 | Tests | ✅ | **340/340** Jest |
+
+---
+
+## Apply Leave Frontend E2E QA — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Searchable staff picker vs native `<select>` | ✅ | `hrmResolveNativeStaffSelect`; no `.options` on hidden input |
+| Submit payload from live DOM | ✅ | `buildApplyLeavePayload` + searchable staff value |
+| Backend validation toasts (`success: false`) | ✅ | `notifyLeaveSubmitError` / `hrmFetchJson` throw path |
+| Submit button loading reset | ✅ | `finally` → `resetApplyLeaveSubmitButton` |
+| Tests | ✅ | **340/340** Jest |
+
+---
+
+## Leave Approve/Reject UI Sync — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| 400 JSON `{ success: false, message }` on non-pending | ✅ | `leaveController.js` |
+| Pending row remove + soft refresh on stale 400 | ✅ | `runLeaveRowMutation`, `fetchPendingLeaves` |
+| Approve/reject button always reset | ✅ | `finally` + `resetLeaveActionTriggerButton` |
+| Tests | ✅ | **340/340** Jest |
+
+---
+
+## User UUID / Neon / Dual-Write Hardening — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| User CastError (UUID → Mongo `_id`) | ✅ | `userRecordResolver.js`; auth + customer fetch |
+| Async PG dual-write (non-blocking HTTP) | ✅ | `dualWriteService` + `failedSyncService` |
+| Neon HTTP fetch timeout default | ✅ | 30s (`NEON_FETCH_TIMEOUT_MS`) |
+| Mongoose `returnDocument: 'after'` | ✅ | Backend-wide `new: true` removed |
+| Tests | ✅ | **342/342** Jest |
+
+---
+
+## Finance API Resilience — Accounts Summary + P&L — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Accounts summary PG timeout / 500 | ✅ | Batched PG reads; PG→Mongo→zero-safe; HTTP 200 preserves JSON contract |
+| P&L PG order/expense failures | ✅ | Mirrors finance analytics defensive pattern; empty report fallback |
+| Routes / RBAC unchanged | ✅ | `/api/admin/accounts-summary`, `/api/admin/finance/profit-loss` |
+| Tests | ✅ | **342/342** Jest |
+
+---
+
+## Phase 2 Part 1 — Unified Accounting Ledger — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `accountingLedgerService.js` | ✅ | Shared revenue, paid inflow, COGS, expense aggregates |
+| Expense reads `READ_PG_EXPENSE` | ✅ | List, summary, P&L, accounts — Mongo fallback |
+| Dual-write on expense CUD | ✅ | Mongo writes + PG mirror unchanged |
+| API contracts / RBAC | ✅ | No route or response key changes |
+| Tests | ✅ | **343/343** Jest |
+
+---
+
+## Phase 4 — Finance Security & Liquidity Integration — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Payment override audit trail | ✅ | `markGatewayOrderPaid` + payment proof approve → SecurityLog |
+| POS drawer in accounts summary | ✅ | `posDrawerCash` via `posShiftService` |
+| Wallet store credit liability | ✅ | `customerWalletLiability` in accounts + balance sheet |
+| Finance RBAC hardening | ✅ | Granular permissions on `/finance/*`, expenses, accounts-summary |
+| Tests | ✅ | **350/350** Jest (`financePhase4.test.js`) |
+
+---
+
+## Phase 3 Part 2 — Balance Sheet & Tax/VAT Ledger — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `GET /api/admin/finance/balance-sheet` | ✅ | Inventory valuation + P&L retained earnings; balance check |
+| `GET /api/admin/finance/tax-vat-ledger` | ✅ | Order tax snapshots + computed VAT fallback; CSV export |
+| Financial Reports UI | ✅ | P&L + Balance Sheet tabs in `view-finance.html` |
+| Tax & VAT admin view | ✅ | `view-tax-vat.html`, `erp-tax-vat.js` |
+| Tests | ✅ | **346/346** Jest |
+
+---
+
+## Phase 3 Part 1 — Chart of Accounts (Finance GL) — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `GET /api/admin/finance/chart-of-accounts` | ✅ | Default GL seed + live balances |
+| Admin COA view | ✅ | `view-chart-of-accounts.html`, `erp-chart-of-accounts.js` |
+| Sidebar restructure | ✅ | Overview → Reports → COA → Expenses → Payment Reconciliation |
+| Ledger shared context | ✅ | `buildAccountsSummaryPayload` in `accountingLedgerService.js` |
+| RBAC | ✅ | `manage_settings` \| `view_accounts` |
+| Tests | ✅ | **344/344** Jest |
+
+---
+
+## Phase 2 Part 2 — Accounts Overview Date Range — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `GET /api/admin/accounts-summary` dateFrom/dateTo | ✅ | All-time default when params omitted |
+| Scoped inflow/outflow/balances | ✅ | Orders, expenses, open POs filtered by date window |
+| Admin filter UI | ✅ | `view-accounts.html` + `erp-accounts.js` |
+| Tests | ✅ | **343/343** Jest |
 
 
 

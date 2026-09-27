@@ -414,7 +414,7 @@ exports.deleteAccount = async (req, res) => {
                 profileUpdateOtpExpires: null,
                 pendingEmail: null,
                 pendingMobile: null
-            }, { new: true }),
+            }, { returnDocument: 'after' }),
             async (saved) => {
                 if (saved) {
                     await require('../../repositories/userRepository').mirrorAccountDeletion(saved);

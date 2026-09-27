@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-25 (Phase 3 backend API admin UI integration)  
+**Last updated:** 2026-09-27 (Phase 3 Part 2 balance sheet + tax/VAT)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -23,6 +23,8 @@
 | `client/admin/partials/view-erp-expenses.html` | Expense ledger UI |
 | `client/admin/partials/view-finance.html` | P&L report embed |
 | `client/admin/partials/view-accounts.html` | Accounts overview cards |
+| `client/admin/partials/view-chart-of-accounts.html` | Chart of accounts GL table |
+| `client/js/admin/modules/erp-chart-of-accounts.js` | COA loader + search |
 | `client/admin/partials/modals-*.html` | Orders, products, catalog, customers, CMS, payments modals |
 | `client/js/admin/admin-main.js` | Admin SPA entry |
 | `client/js/admin/admin-core.js` | Core barrel → modules/core-*.js |
@@ -62,7 +64,7 @@
 - [x] Unified AdminPagination (Showing X–Y of Z) — newsletter subscribers, contact inbox, security logs, dashboard stock alerts
 - [x] HRM views (employees, attendance, payroll, leave) — `view-hrm-*.html`, `hrm-*.js`
 - [x] ERP (suppliers, warehouses, POs, expenses) — `erp-*.js`, `view-suppliers.html`, etc.
-- [x] Finance P&L embed + accounts overview — `view-finance.html`, `view-accounts.html`, `erp-profit-loss.js`
+- [x] Finance P&L + balance sheet tabs, accounts overview, chart of accounts, tax/VAT — `view-finance.html`, `view-tax-vat.html`, related `erp-*.js` modules
 - [x] RBAC permission gating on nav sections — `permissions.js`, `core-nav.js`
 - [x] In-app notification center — `notifications.js`, header bell
 - [x] Filter-aware CSV export — `/api/admin/*/export` endpoints
@@ -203,6 +205,18 @@
 - Security logs: `securityLogPaginationContainer` in `view-security.html`, `settings-security.js`
 - Dashboard stock alerts: `stockAlertPaginationContainer` + new `admin-stock-alerts.js`; wired from `admin-dashboard.js`
 - Removed duplicate `messagePg` / `securityPg` init from `core-nav.js`
+
+### Phase 3 Part 2 — Balance sheet tab + Tax/VAT view — 2026-09-27
+
+- `view-finance.html`: P&amp;L / Balance Sheet tabs; `erp-profit-loss.js` loads balance sheet API
+- `view-tax-vat.html` + sidebar; CSV export via `export=csv`
+- Tests: Jest **346/346**
+
+### Phase 3 Part 1 — Chart of accounts nav + view — 2026-09-27
+
+- Sidebar: Chart of Accounts between Financial Reports and Expense Tracking
+- `view-chart-of-accounts` registered in `adminPageBuilder.js`; `loadChartOfAccountsSection` in `core-nav.js`
+- Tests: Jest **344/344**
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

@@ -11,6 +11,7 @@ import '../admin-core.js';
 import {
     hrmFetchJson,
     hrmHandleLoadError,
+    hrmNotifyError,
     hrmTableErrorRow,
     HRM_INLINE_LOAD_ERROR,
     hrmEscapeInline,
@@ -40,17 +41,78 @@ const leaveActionsBusy = new Set();
 function isLeaveAlreadyProcessedError(err) {
     const code = err?.result?.code || err?.code;
     if (code === 'ALREADY_PROCESSED') return true;
-    return /already been processed/i.test(String(err?.message || ''));
+    const msg = String(err?.result?.message || err?.message || '');
+    return /already been processed|current status:/i.test(msg);
+}
+
+/** 400 from approve/reject when the row is no longer pending on the server. */
+function isLeavePendingSyncError(err) {
+    if (err?.status !== 400) return false;
+    if (isLeaveAlreadyProcessedError(err)) return true;
+    const code = err?.result?.code || err?.code;
+    return code === 'ALREADY_PROCESSED' || code === 'LEAVE_NOT_PENDING';
+}
+
+function leaveActionErrorMessage(err, fallbackMessage) {
+    return err?.result?.message || err?.message || fallbackMessage;
+}
+
+/** Silent background refresh of pending approvals table + badge. */
+function fetchPendingLeaves() {
+    return loadPendingLeaves({ soft: true });
+}
+
+function syncPendingLeaveUiAfterMutation(leaveId) {
+    removePendingLeaveRow(leaveId);
+    fetchPendingLeaves().catch(() => {});
+    loadLeaveBalances().catch(() => {});
+}
+
+function handleLeaveActionError(err, leaveId, fallbackMessage) {
+    const message = leaveActionErrorMessage(err, fallbackMessage);
+
+    if (isLeavePendingSyncError(err)) {
+        syncPendingLeaveUiAfterMutation(leaveId);
+        showToast(message, 'warning', 5000);
+        return;
+    }
+
+    notifyLeaveSubmitError(err, fallbackMessage);
 }
 
 function handleLeaveMutationError(err, leaveId, fallbackMessage) {
-    if (isLeaveAlreadyProcessedError(err)) {
-        showToast('This leave was already processed. Updating your list…', 'info');
-        removePendingLeaveRow(leaveId);
-        loadPendingLeaves({ soft: true }).catch(() => {});
-        return;
+    handleLeaveActionError(err, leaveId, fallbackMessage);
+}
+
+function resetLeaveActionTriggerButton(btn) {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.dataset.loading = '0';
+    btn.classList.remove('is-loading');
+    const defaultHtml = btn.dataset.leaveActionDefaultHtml;
+    if (defaultHtml) btn.innerHTML = defaultHtml;
+}
+
+async function runLeaveRowMutation(leaveId, triggerBtn, mutationFn, fallbackMessage) {
+    if (triggerBtn && !triggerBtn.dataset.leaveActionDefaultHtml) {
+        triggerBtn.dataset.leaveActionDefaultHtml = triggerBtn.innerHTML;
     }
-    showToast(err?.message || fallbackMessage, 'error');
+
+    try {
+        const exec = async () => mutationFn();
+        if (triggerBtn && window.hrmWithButtonElement) {
+            await window.hrmWithButtonElement(triggerBtn, exec, {
+                loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i>'
+            });
+        } else {
+            await exec();
+        }
+    } catch (err) {
+        handleLeaveActionError(err, leaveId, fallbackMessage);
+    } finally {
+        endLeaveAction(leaveId);
+        resetLeaveActionTriggerButton(triggerBtn);
+    }
 }
 
 function removePendingLeaveRow(leaveId) {
@@ -71,10 +133,19 @@ function removePendingLeaveRow(leaveId) {
 
 const LEAVE_APPLY_STAFF_SEARCH_PLACEHOLDER = 'Search by staff name or ID…';
 
+function getApplyLeaveNativeSelect() {
+    if (typeof window.hrmResolveNativeStaffSelect === 'function') {
+        return window.hrmResolveNativeStaffSelect('applyLeaveStaff');
+    }
+    const el = document.getElementById('applyLeaveStaff');
+    if (el?.tagName === 'SELECT') return el;
+    return document.querySelector('#applyLeaveStaffGroup select') || null;
+}
+
 function applyLeaveStaffSelectHasOptions() {
-    const select = document.getElementById('applyLeaveStaff');
-    if (!select) return false;
-    return [...select.options].some((opt) => Boolean(opt.value));
+    const select = getApplyLeaveNativeSelect();
+    if (!select?.options) return false;
+    return Array.from(select.options).some((opt) => Boolean(opt.value));
 }
 
 /**
@@ -319,6 +390,7 @@ function approveLeave(id, triggerBtn = null) {
     if (!leaveId) {
         showToast('Missing leave id — refresh the list and try again.', 'warning');
         endLeaveAction(leaveId);
+        resetLeaveActionTriggerButton(triggerBtn);
         return;
     }
 
@@ -326,7 +398,7 @@ function approveLeave(id, triggerBtn = null) {
         'Approve Leave',
         'Approve this leave? The days will be marked as holiday on the attendance register.',
         async () => {
-            const run = async () => {
+            await runLeaveRowMutation(leaveId, triggerBtn, async () => {
                 const { result } = await hrmFetchJson(leaveActionPath(leaveId, 'approve'), {
                     method: 'PATCH',
                     headers: window.hrmAuthHeaders(true),
@@ -334,7 +406,7 @@ function approveLeave(id, triggerBtn = null) {
                     timeoutMs: LEAVE_MUTATION_TIMEOUT_MS
                 });
 
-                removePendingLeaveRow(leaveId);
+                syncPendingLeaveUiAfterMutation(leaveId);
 
                 if (result.attendanceProcessing) {
                     showToast(
@@ -345,29 +417,16 @@ function approveLeave(id, triggerBtn = null) {
                 } else {
                     showAdminSuccess('Leave Approved', result.message || 'Leave approved.');
                 }
-
-                loadLeaveBalances().catch(() => {});
-                loadPendingLeaves({ soft: true }).catch(() => {});
-            };
-            try {
-                if (triggerBtn && window.hrmWithButtonElement) {
-                    await window.hrmWithButtonElement(triggerBtn, run, {
-                        loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i>'
-                    });
-                } else {
-                    await run();
-                }
-            } catch (err) {
-                handleLeaveMutationError(err, leaveId, 'Failed to approve leave.');
-            } finally {
-                endLeaveAction(leaveId);
-            }
+            }, 'Failed to approve leave.');
         }
     );
 
     if (confirmPromise && typeof confirmPromise.then === 'function') {
         confirmPromise.then((confirmed) => {
-            if (!confirmed) endLeaveAction(leaveId);
+            if (!confirmed) {
+                endLeaveAction(leaveId);
+                resetLeaveActionTriggerButton(triggerBtn);
+            }
         });
     }
 }
@@ -377,6 +436,7 @@ async function rejectLeave(id, triggerBtn = null) {
     if (!leaveId) {
         showToast('Missing leave id — refresh the list and try again.', 'warning');
         endLeaveAction(leaveId);
+        resetLeaveActionTriggerButton(triggerBtn);
         return;
     }
     const result = await Swal.fire({
@@ -398,7 +458,7 @@ async function rejectLeave(id, triggerBtn = null) {
     }
     const reason = String(result.value || '').trim();
 
-    const run = async () => {
+    await runLeaveRowMutation(leaveId, triggerBtn, async () => {
         const { result: apiResult } = await hrmFetchJson(leaveActionPath(leaveId, 'reject'), {
             method: 'PATCH',
             headers: window.hrmAuthHeaders(true),
@@ -406,25 +466,9 @@ async function rejectLeave(id, triggerBtn = null) {
             timeoutMs: LEAVE_MUTATION_TIMEOUT_MS
         });
 
-        removePendingLeaveRow(leaveId);
+        syncPendingLeaveUiAfterMutation(leaveId);
         showAdminSuccess('Leave Rejected', apiResult.message || 'Leave rejected.');
-        loadLeaveBalances().catch(() => {});
-        loadPendingLeaves({ soft: true }).catch(() => {});
-    };
-
-    try {
-        if (triggerBtn && window.hrmWithButtonElement) {
-            await window.hrmWithButtonElement(triggerBtn, run, {
-                loadingHtml: '<i class="fa-solid fa-spinner fa-spin"></i>'
-            });
-        } else {
-            await run();
-        }
-    } catch (err) {
-        handleLeaveMutationError(err, leaveId, 'Failed to reject leave.');
-    } finally {
-        endLeaveAction(leaveId);
-    }
+    }, 'Failed to reject leave.');
 }
 
 function setupLeaveTableDelegation() {
@@ -650,13 +694,15 @@ async function openApplyLeaveModal(isSelf = false, triggerBtn = null) {
             const staffGroup = document.getElementById('applyLeaveStaffGroup');
             const selfInfo = document.getElementById('applyLeaveSelfInfo');
             const selfName = document.getElementById('applyLeaveSelfName');
-            const staffSelect = document.getElementById('applyLeaveStaff');
+            const staffSelect = getApplyLeaveNativeSelect();
             const subtitle = document.getElementById('applyLeaveModalSubtitle');
 
             if (applyLeaveSelfMode) {
                 if (staffGroup) staffGroup.style.display = 'none';
                 if (selfInfo) selfInfo.style.display = '';
                 if (staffSelect) staffSelect.required = false;
+                const hiddenStaff = document.getElementById('applyLeaveStaff');
+                if (hiddenStaff?.tagName === 'INPUT') hiddenStaff.removeAttribute('required');
                 if (subtitle) subtitle.textContent = 'Submit a leave application for yourself';
                 const adminName = window.currentAdmin?.name || window.currentAdmin?.username || 'Your account';
                 if (selfName) selfName.textContent = adminName;
@@ -666,30 +712,71 @@ async function openApplyLeaveModal(isSelf = false, triggerBtn = null) {
                 });
                 if (staffGroup) staffGroup.style.display = '';
                 if (selfInfo) selfInfo.style.display = 'none';
-                if (staffSelect) staffSelect.required = true;
+                if (staffSelect) staffSelect.required = false;
+                const hiddenStaff = document.getElementById('applyLeaveStaff');
+                if (hiddenStaff?.tagName === 'INPUT') hiddenStaff.removeAttribute('required');
                 if (subtitle) subtitle.textContent = 'Submit a leave application on behalf of a staff member';
             }
         }
     });
 }
 
-async function submitLeaveApplication() {
+function readApplyLeaveStaffValue() {
+    const fromSearch = typeof window.hrmGetStaffSearchValue === 'function'
+        ? window.hrmGetStaffSearchValue('applyLeaveStaff')
+        : '';
+    if (fromSearch) return fromSearch;
+
+    const native = getApplyLeaveNativeSelect();
+    return native?.value || document.getElementById('applyLeaveStaff')?.value || '';
+}
+
+function buildApplyLeavePayload() {
+    const leaveType = String(document.getElementById('applyLeaveType')?.value || '').trim().toLowerCase();
+    const startDate = String(document.getElementById('applyLeaveStartDate')?.value || '').trim();
+    const endDate = String(document.getElementById('applyLeaveEndDate')?.value || '').trim();
+    const reason = String(document.getElementById('applyLeaveReason')?.value || '').trim();
+    const attachmentUrl = String(document.getElementById('applyLeaveAttachment')?.value || '').trim();
+
     const payload = {
-        leaveType: document.getElementById('applyLeaveType')?.value,
-        startDate: document.getElementById('applyLeaveStartDate')?.value,
-        endDate: document.getElementById('applyLeaveEndDate')?.value,
-        reason: document.getElementById('applyLeaveReason')?.value?.trim() || '',
-        attachmentUrl: document.getElementById('applyLeaveAttachment')?.value?.trim() || ''
+        leaveType,
+        startDate,
+        endDate,
+        reason,
+        attachmentUrl
     };
 
     if (!applyLeaveSelfMode) {
-        Object.assign(
-            payload,
-            hrmSanitizeStaffFields({
-                staffSelect: window.hrmGetStaffSearchValue('applyLeaveStaff')
-            })
-        );
+        Object.assign(payload, hrmSanitizeStaffFields({
+            staffSelect: readApplyLeaveStaffValue()
+        }));
     }
+
+    return payload;
+}
+
+function resetApplyLeaveSubmitButton(saveBtn, defaultLabel) {
+    if (!saveBtn) return;
+    saveBtn.disabled = false;
+    saveBtn.dataset.loading = '0';
+    saveBtn.classList.remove('is-loading');
+    saveBtn.textContent = defaultLabel;
+}
+
+function notifyLeaveSubmitError(err, fallback) {
+    const message = err?.result?.message || err?.message || fallback;
+    if (typeof showToast === 'function') {
+        showToast(message, 'error', 5000);
+    } else {
+        hrmNotifyError(message, 'error');
+    }
+}
+
+async function submitLeaveApplication() {
+    const saveBtn = document.getElementById('applyLeaveSaveBtn');
+    const defaultLabel = 'Submit Application';
+
+    const payload = buildApplyLeavePayload();
 
     const hasStaffTarget = Boolean(payload.staffId || payload.staffUsername || payload.employeeId);
     if ((!applyLeaveSelfMode && !hasStaffTarget) || !payload.startDate || !payload.endDate) {
@@ -698,13 +785,14 @@ async function submitLeaveApplication() {
             : 'Staff, start date, and end date are required.', 'warning');
         return;
     }
+    if (!payload.leaveType) {
+        showToast('Leave type is required.', 'warning');
+        return;
+    }
     if (new Date(payload.endDate) < new Date(payload.startDate)) {
         showToast('End date cannot be before the start date.', 'warning');
         return;
     }
-
-    const saveBtn = document.getElementById('applyLeaveSaveBtn');
-    const defaultLabel = 'Submit Application';
 
     try {
         await hrmWithSubmitButton(saveBtn, defaultLabel, async () => {
@@ -726,12 +814,9 @@ async function submitLeaveApplication() {
             loadLeaveBalances().catch(() => {});
         });
     } catch (err) {
-        showToast(err.message || 'Server error while submitting the leave application.', 'error');
+        notifyLeaveSubmitError(err, 'Server error while submitting the leave application.');
     } finally {
-        if (saveBtn && saveBtn.dataset.loading !== '1') {
-            saveBtn.disabled = false;
-            saveBtn.textContent = defaultLabel;
-        }
+        resetApplyLeaveSubmitButton(saveBtn, defaultLabel);
     }
 }
 
@@ -800,6 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.loadHrmLeavesSection = loadHrmLeavesSection;
 window.loadPendingLeaves = loadPendingLeaves;
+window.fetchPendingLeaves = fetchPendingLeaves;
 window.loadAllLeaves = loadAllLeaves;
 window.applyLeaveFilters = applyLeaveFilters;
 window.loadLeaveBalances = loadLeaveBalances;

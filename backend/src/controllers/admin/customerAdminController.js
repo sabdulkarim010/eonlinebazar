@@ -37,6 +37,7 @@ const {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MONGO_OID_PATTERN = /^[0-9a-fA-F]{24}$/;
+const { isMongoObjectIdString } = require('../../utils/userRecordResolver');
 
 /** Order statuses that block permanent admin deletion until resolved. */
 const BLOCKING_ORDER_STATUSES = [
@@ -133,7 +134,7 @@ async function resolveAdminCustomer(rawId) {
         };
     }
 
-    if (mongoose.Types.ObjectId.isValid(id)) {
+    if (isMongoObjectIdString(id)) {
         const mongoUser = await User.findById(id).select('-password').lean();
         if (mongoUser) {
             const pgUserId = await safePgLookup(
@@ -526,7 +527,7 @@ const updateCustomer = async (req, res) => {
             () => User.findByIdAndUpdate(
                 mongoId,
                 { $set: updateFields },
-                { new: true, runValidators: true }
+                { returnDocument: 'after', runValidators: true }
             ).select('-password'),
             async (saved) => {
                 if (saved) await getUserRepository().upsertFromMongo(saved);
@@ -685,7 +686,7 @@ const updateCustomerStatus = async (req, res) => {
             () => User.findByIdAndUpdate(
                 mongoId,
                 { $set: { accountStatus: status } },
-                { new: true }
+                { returnDocument: 'after' }
             ).select('-password'),
             async (saved) => {
                 if (saved) await getUserRepository().upsertFromMongo(saved);

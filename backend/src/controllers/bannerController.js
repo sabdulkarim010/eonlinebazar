@@ -383,7 +383,7 @@ exports.updateBanner = async (req, res) => {
     }
 
     const banner = await dualWrite(
-      () => Banner.findByIdAndUpdate(req.params.id, updates, { new: true }),
+      () => Banner.findByIdAndUpdate(req.params.id, updates, { returnDocument: 'after' }),
       async (saved) => {
         if (!saved) return;
         const repo = getBannerRepository();

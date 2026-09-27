@@ -10,6 +10,16 @@
             </a>
         </div>
     </div>
+
+    <div class="finance-report-tabs" role="tablist" aria-label="Financial report type">
+        <button type="button" class="finance-tab finance-tab--active" data-finance-tab="pl" role="tab" aria-selected="true">
+            <i class="fa-solid fa-chart-column"></i> Profit &amp; Loss
+        </button>
+        <button type="button" class="finance-tab" data-finance-tab="balance-sheet" role="tab" aria-selected="false">
+            <i class="fa-solid fa-scale-balanced"></i> Balance Sheet
+        </button>
+    </div>
+
     <!-- ============================================================
          ERP · Advanced Profit & Loss Report (superadmin only)
          Rendered by js/admin/modules/erp-profit-loss.js
@@ -133,6 +143,63 @@
                         </table>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Balance Sheet (same finance view) -->
+    <div class="bs-report" id="bsReport" hidden>
+        <div class="bs-controls pl-controls">
+            <div class="pl-field">
+                <label for="bsAsOfDate">As of date</label>
+                <input type="date" id="bsAsOfDate" class="pl-input">
+            </div>
+            <div class="pl-field">
+                <label for="bsDateFrom">From (optional)</label>
+                <input type="date" id="bsDateFrom" class="pl-input">
+            </div>
+            <div class="pl-field">
+                <label for="bsDateTo">To (optional)</label>
+                <input type="date" id="bsDateTo" class="pl-input">
+            </div>
+            <div class="pl-controls-actions">
+                <button type="button" id="bsGenerateBtn" class="btn-primary pl-generate-btn">
+                    <i class="fa-solid fa-scale-balanced"></i> Generate Balance Sheet
+                </button>
+            </div>
+        </div>
+
+        <div id="bsSpinner" class="pl-spinner loading-container" hidden>
+            <div class="spinner"></div>
+            <p>Building balance sheet…</p>
+        </div>
+        <p id="bsError" class="pl-error" hidden></p>
+
+        <div id="bsResult" class="bs-result" hidden>
+            <p class="pl-period" id="bsPeriodLabel"></p>
+            <div class="bs-balance-check" id="bsBalanceCheck"></div>
+            <div class="bs-sections">
+                <article class="bs-section-card">
+                    <h4><i class="fa-solid fa-vault"></i> Assets</h4>
+                    <table class="bs-table">
+                        <tbody id="bsAssetsBody"></tbody>
+                        <tfoot><tr><th>Total Assets</th><td class="bs-num" id="bsAssetsTotal">—</td></tr></tfoot>
+                    </table>
+                </article>
+                <article class="bs-section-card">
+                    <h4><i class="fa-solid fa-hand-holding-dollar"></i> Liabilities</h4>
+                    <table class="bs-table">
+                        <tbody id="bsLiabilitiesBody"></tbody>
+                        <tfoot><tr><th>Total Liabilities</th><td class="bs-num" id="bsLiabilitiesTotal">—</td></tr></tfoot>
+                    </table>
+                </article>
+                <article class="bs-section-card">
+                    <h4><i class="fa-solid fa-chart-pie"></i> Equity</h4>
+                    <table class="bs-table">
+                        <tbody id="bsEquityBody"></tbody>
+                        <tfoot><tr><th>Total Equity</th><td class="bs-num" id="bsEquityTotal">—</td></tr></tfoot>
+                    </table>
+                </article>
             </div>
         </div>
     </div>

@@ -826,10 +826,12 @@ function navigateAdminSection(targetId, clickedItem) {
         'view-warehouses': () => window.loadWarehousesSection && window.loadWarehousesSection(),
         'view-purchase-orders': () => window.loadPurchaseOrdersSection && window.loadPurchaseOrdersSection(),
         'view-accounts': () => window.loadAccountsSection && window.loadAccountsSection(),
+        'view-chart-of-accounts': () => window.loadChartOfAccountsSection && window.loadChartOfAccountsSection(),
         'view-finance': () => {
             if (window.initProfitLossReport) window.initProfitLossReport();
         },
         'view-erp-expenses': () => window.loadExpensesSection && window.loadExpensesSection(),
+        'view-tax-vat': () => window.loadTaxVatSection && window.loadTaxVatSection(),
         'view-overview': fetchDashboardData,
         'manage-category': loadCategories,
         'manage-brands': fetchBrands,

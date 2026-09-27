@@ -1,0 +1,82 @@
+<section id="view-tax-vat" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3><i class="fa-solid fa-file-invoice-dollar"></i> Tax &amp; VAT Compliance</h3>
+            <p class="section-subtitle">Order-wise tax ledger, collected VAT, and exempt sales for audit reporting.</p>
+        </div>
+        <div class="taxvat-header-actions">
+            <button type="button" class="btn-secondary" id="taxVatExportBtn" onclick="exportTaxVatLedgerCsv()">
+                <i class="fa-solid fa-file-csv"></i> Export CSV
+            </button>
+            <button type="button" class="btn-secondary" id="taxVatRefreshBtn" onclick="loadTaxVatSection()">
+                <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="taxvat-filter-bar accounts-filter-bar">
+        <div class="accounts-filter-presets" role="group" aria-label="Tax period presets">
+            <button type="button" class="accounts-filter-preset" data-tax-preset="today">Today</button>
+            <button type="button" class="accounts-filter-preset accounts-filter-preset--active" data-tax-preset="this-month">This Month</button>
+            <button type="button" class="accounts-filter-preset" data-tax-preset="custom">Custom</button>
+        </div>
+        <div class="accounts-filter-custom">
+            <label class="accounts-filter-field">
+                <span>From</span>
+                <input type="date" id="taxDateFrom" class="accounts-date-input">
+            </label>
+            <label class="accounts-filter-field">
+                <span>To</span>
+                <input type="date" id="taxDateTo" class="accounts-date-input">
+            </label>
+            <button type="button" class="btn-primary accounts-filter-apply" id="taxApplyFilterBtn">
+                <i class="fa-solid fa-filter"></i> Apply Filter
+            </button>
+        </div>
+        <p class="accounts-filter-hint" id="taxFilterHint">Showing this calendar month</p>
+    </div>
+
+    <div id="taxVatLoading" class="taxvat-loading loading-container" hidden>
+        <div class="spinner"></div>
+        <p>Loading tax ledger…</p>
+    </div>
+    <p id="taxVatError" class="taxvat-error" hidden></p>
+
+    <div id="taxVatContent" class="taxvat-content" hidden>
+        <div class="taxvat-kpi-grid">
+            <div class="taxvat-kpi-card">
+                <span class="taxvat-kpi-label">Taxable Revenue</span>
+                <strong class="taxvat-kpi-value" id="taxKpiTaxable">৳ 0</strong>
+            </div>
+            <div class="taxvat-kpi-card">
+                <span class="taxvat-kpi-label">Tax / VAT Collected</span>
+                <strong class="taxvat-kpi-value" id="taxKpiCollected">৳ 0</strong>
+            </div>
+            <div class="taxvat-kpi-card">
+                <span class="taxvat-kpi-label">Net Tax Payable</span>
+                <strong class="taxvat-kpi-value" id="taxKpiPayable">৳ 0</strong>
+            </div>
+            <div class="taxvat-kpi-card">
+                <span class="taxvat-kpi-label">Exempt Sales</span>
+                <strong class="taxvat-kpi-value" id="taxKpiExempt">৳ 0</strong>
+            </div>
+        </div>
+
+        <div class="taxvat-table-wrap table-responsive">
+            <table class="taxvat-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th class="taxvat-num">Taxable Amount</th>
+                        <th class="taxvat-num">VAT Rate</th>
+                        <th class="taxvat-num">Tax Collected</th>
+                        <th>Payment Status</th>
+                    </tr>
+                </thead>
+                <tbody id="taxVatLedgerBody"></tbody>
+            </table>
+        </div>
+    </div>
+</section>

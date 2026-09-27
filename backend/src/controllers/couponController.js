@@ -411,7 +411,7 @@ async function recordCouponUserUse(couponId, userId) {
     return Coupon.findByIdAndUpdate(
         couponId,
         { $push: { usedBy: userId } },
-        { new: true }
+        { returnDocument: 'after' }
     );
 }
 

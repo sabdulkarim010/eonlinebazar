@@ -2,6 +2,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../models/user');
 const { isSandboxMode } = require('../services/sandboxService');
+const { resolveUserLookupIds } = require('../utils/userRecordResolver');
 
 function splitDisplayName(displayName) {
     const parts = String(displayName || 'User').trim().split(/\s+/).filter(Boolean);
@@ -87,10 +88,17 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 
 passport.serializeUser((user, done) => done(null, user._id));
 
-passport.deserializeUser((id, done) => {
-    User.findById(id)
-        .then((user) => done(null, user))
-        .catch((err) => done(err));
+passport.deserializeUser(async (id, done) => {
+    try {
+        const { mongoId } = await resolveUserLookupIds(id);
+        if (!mongoId) {
+            return done(null, false);
+        }
+        const user = await User.findById(mongoId);
+        return done(null, user || false);
+    } catch (err) {
+        return done(err);
+    }
 });
 
 module.exports = passport;

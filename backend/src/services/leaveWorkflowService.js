@@ -250,7 +250,7 @@ async function approveLeaveApplication(mongoId, approvedBy, note) {
     let leave;
     try {
         leave = await withLeaveTransaction(async (session) => {
-            const queryOpts = session ? { session, new: true, runValidators: true } : { new: true, runValidators: true };
+            const queryOpts = session ? { session, returnDocument: 'after', runValidators: true } : { returnDocument: 'after', runValidators: true };
             const updated = await Leave.findOneAndUpdate(
                 { _id: mongoId, status: 'pending' },
                 {
@@ -340,7 +340,7 @@ async function runPostApproveSideEffects({ leave, req }) {
 
 async function rejectLeaveApplication(mongoId, approvedBy, reason) {
     const leave = await withLeaveTransaction(async (session) => {
-        const queryOpts = session ? { session, new: true, runValidators: true } : { new: true, runValidators: true };
+        const queryOpts = session ? { session, returnDocument: 'after', runValidators: true } : { returnDocument: 'after', runValidators: true };
         const updated = await Leave.findOneAndUpdate(
             { _id: mongoId, status: 'pending' },
             {

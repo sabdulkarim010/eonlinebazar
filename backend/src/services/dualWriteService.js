@@ -15,6 +15,45 @@
 const { reloadRootEnv, assertPooledDatabaseUrl } = require('../config/postgresBootstrap');
 const { recordFailedSync } = require('./failedSyncService');
 
+function shouldAwaitPostgresMirror() {
+    if (process.env.NODE_ENV === 'test') return true;
+    if (String(process.env.DUAL_WRITE_SYNC || '') === '1') return true;
+    if (String(process.env.REPOSITORY_TEST || '') === '1') return true;
+    return false;
+}
+
+async function mirrorPostgresWrite(postgresWriteFn, result, context) {
+    try {
+        reloadRootEnv();
+        assertPooledDatabaseUrl();
+        await postgresWriteFn(result);
+    } catch (error) {
+        const mongoId = resolveMongoId(context, result);
+
+        const reconciliationEntry = {
+            timestamp: new Date().toISOString(),
+            model: context.model || 'unknown',
+            operation: context.operation || 'unknown',
+            source: context.source || 'unknown',
+            mongoId: mongoId || null,
+            error: error && error.message ? error.message : String(error),
+            stack: error && error.stack ? String(error.stack).split('\n').slice(0, 4).join(' | ') : undefined
+        };
+
+        console.error('[DUAL-WRITE-FAILURE]', reconciliationEntry);
+
+        void recordFailedSync({
+            entity: reconciliationEntry.model,
+            mongoId: reconciliationEntry.mongoId,
+            operation: reconciliationEntry.operation,
+            error: reconciliationEntry.error,
+            payload: buildFailurePayload(context, result)
+        }).catch((trackErr) => {
+            console.error('[DUAL-WRITE] Could not track failure:', trackErr.message || trackErr);
+        });
+    }
+}
+
 /**
  * Execute a MongoDB write, then attempt a best-effort PostgreSQL mirror write.
  *
@@ -24,78 +63,58 @@ const { recordFailedSync } = require('./failedSyncService');
  * @returns {Promise<any>} The MongoDB write result, unchanged from pre-dual-write behavior.
  */
 async function dualWrite(mongoWriteFn, postgresWriteFn, context = {}) {
-  const result = await mongoWriteFn();
+    const result = await mongoWriteFn();
 
-  try {
-    reloadRootEnv();
-    assertPooledDatabaseUrl();
-    await postgresWriteFn(result);
-  } catch (error) {
-    const mongoId = resolveMongoId(context, result);
+    const runMirror = () => mirrorPostgresWrite(postgresWriteFn, result, context);
 
-    const reconciliationEntry = {
-      timestamp: new Date().toISOString(),
-      model: context.model || 'unknown',
-      operation: context.operation || 'unknown',
-      source: context.source || 'unknown',
-      mongoId: mongoId || null,
-      error: error && error.message ? error.message : String(error),
-      stack: error && error.stack ? String(error.stack).split('\n').slice(0, 4).join(' | ') : undefined
-    };
+    if (shouldAwaitPostgresMirror()) {
+        await runMirror();
+    } else {
+        setImmediate(() => {
+            void runMirror();
+        });
+    }
 
-    console.error('[DUAL-WRITE-FAILURE]', reconciliationEntry);
-
-    // Non-blocking — Mongo tracking must not stall the request/event loop after PG mirror fails.
-    void recordFailedSync({
-      entity: reconciliationEntry.model,
-      mongoId: reconciliationEntry.mongoId,
-      operation: reconciliationEntry.operation,
-      error: reconciliationEntry.error,
-      payload: buildFailurePayload(context, result)
-    }).catch((trackErr) => {
-      console.error('[DUAL-WRITE] Could not track failure:', trackErr.message || trackErr);
-    });
-  }
-
-  return result;
+    return result;
 }
 
 function buildFailurePayload(context, result) {
-  if (context.payload !== undefined && context.payload !== null) {
-    try {
-      return typeof context.payload === 'string'
-        ? context.payload
-        : JSON.stringify(context.payload);
-    } catch (_) {
-      return String(context.payload);
+    if (context.payload !== undefined && context.payload !== null) {
+        try {
+            return typeof context.payload === 'string'
+                ? context.payload
+                : JSON.stringify(context.payload);
+        } catch (_) {
+            return String(context.payload);
+        }
     }
-  }
 
-  if (!result) return '';
+    if (!result) return '';
 
-  try {
-    const plain = typeof result.toObject === 'function' ? result.toObject() : result;
-    return JSON.stringify(plain);
-  } catch (_) {
-    return '';
-  }
+    try {
+        const plain = typeof result.toObject === 'function' ? result.toObject() : result;
+        return JSON.stringify(plain);
+    } catch (_) {
+        return '';
+    }
 }
 
 function resolveMongoId(context, result) {
-  if (context.mongoId !== undefined && context.mongoId !== null) {
-    if (typeof context.mongoId === 'function') {
-      return context.mongoId(result);
+    if (context.mongoId !== undefined && context.mongoId !== null) {
+        if (typeof context.mongoId === 'function') {
+            return context.mongoId(result);
+        }
+        return String(context.mongoId);
     }
-    return String(context.mongoId);
-  }
 
-  if (result && (result._id || result.id)) {
-    return String(result._id || result.id);
-  }
+    if (result && (result._id || result.id)) {
+        return String(result._id || result.id);
+    }
 
-  return undefined;
+    return undefined;
 }
 
 module.exports = {
-  dualWrite
+    dualWrite,
+    shouldAwaitPostgresMirror
 };

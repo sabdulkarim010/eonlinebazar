@@ -60,8 +60,10 @@ window.ADMIN_PAGE_META = {
     'view-warehouses':      { title: 'Warehouses',              subtitle: 'Multi-location inventory and receiving destinations.' },
     'view-purchase-orders': { title: 'Purchase Orders',         subtitle: 'Vendor PO workflow from draft through received.' },
     'view-accounts':        { title: 'Accounts Overview',       subtitle: 'Cash flow, liquidity position, and account balance summary.' },
+    'view-chart-of-accounts': { title: 'Chart of Accounts',     subtitle: 'General ledger structure with live asset, liability, revenue, and expense balances.' },
     'view-finance':         { title: 'Financial Reports',       subtitle: 'Profit, revenue, and margin analytics.' },
-    'view-erp-expenses':    { title: 'Expense Tracking',        subtitle: 'Operating expense ledger for rent, salaries, marketing, and more.' }
+    'view-erp-expenses':    { title: 'Expense Tracking',        subtitle: 'Operating expense ledger for rent, salaries, marketing, and more.' },
+    'view-tax-vat':         { title: 'Tax & VAT Compliance',    subtitle: 'Order-wise VAT ledger, collected tax, and exempt sales for audit.' }
 };
 window.allOrders = {};
 window.allProducts = {};

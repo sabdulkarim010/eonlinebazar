@@ -43,7 +43,7 @@ async function ensureExportDir() {
 }
 
 async function updateJob(jobId, patch) {
-    return BackgroundJob.findByIdAndUpdate(jobId, patch, { new: true });
+    return BackgroundJob.findByIdAndUpdate(jobId, patch, { returnDocument: 'after' });
 }
 
 async function processBulkImportJob(jobDoc) {

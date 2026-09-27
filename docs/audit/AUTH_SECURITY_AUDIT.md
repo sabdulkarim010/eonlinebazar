@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (Sidebar labels PG+Mongo fallback + batch API)  
+**Last updated:** 2026-09-27 (Phase 4 payment reconciliation audit logging)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -57,6 +57,8 @@
 | `client/js/admin/modules/settings-security.js` | Security settings |
 | `client/js/admin/modules/settings-staff-audit.js` | Staff audit timeline |
 | `client/js/session-guard.js` | Storefront session guard |
+| `client/admin-login.html` | Admin login shell — split-screen brand panel + scroll-safe auth card (inline CSS) |
+| `client/js/admin-login.js` | Same-page password + 2FA OTP flow (`POST /api/admin/login`) |
 
 ---
 
@@ -66,6 +68,7 @@
 - [x] HRM employee access-info — `GET /api/admin/hrm/employees/:id/access-info` detects linked Super Admin accounts
 - [x] Admin frontend Bearer auth — `verifyAdmin` reads `Authorization: Bearer`; `hrm-employees.js` + `admin-staff.js` send token from `localStorage.adminToken`
 - [x] 25 granular RBAC permissions — `permissions.js` + dynamic grant/edit modals
+- [x] Admin login page UX — `client/admin-login.html` enterprise split-screen; `100dvh` scroll containment; DOM IDs preserved for `admin-login.js`
 - [x] Admin JWT login — `loginController.js` (admin branch)
 - [x] Google OAuth — `oauthController.js`, passport config
 - [x] Forgot/reset password (OTP) — `passwordController.js`
@@ -75,6 +78,7 @@
 - [x] Admin session management — `sessionController.js`, `view-sessions.html`
 - [x] Admin session PG mirror (best-effort) — `mirrorAdminSessionBestEffort()`; throttled heartbeats; never blocks `verifyAdmin`
 - [x] Security event logging — `securityLog.js`, `securityLogger.js`
+- [x] Payment reconciliation override audit — `markGatewayOrderPaid` + payment proof approve → immutable SecurityLog (`resourceType: order`)
 - [x] Login attempt tracking — `loginAttempt.js`
 - [x] IP blacklist + geo-fence — `blacklistController.js`
 - [x] Staff activity audit — `staffAuditController.js`
@@ -108,6 +112,12 @@
 ---
 
 ## Change Log
+
+### Phase 4 — Payment status override audit trail — 2026-09-27
+
+- Gateway `mark-paid` and payment proof approval emit `Payment Status Override` SecurityLog entries (dual-write Mongo + PG)
+- Metadata includes admin user, order id, previous/new status, payment method, IP, timestamp
+- Tests: `tests/financePhase4.test.js`
 
 ### Admin session PG mirror non-blocking — 2026-09-24
 
@@ -202,6 +212,13 @@
 - **Frontend:** `sidebarLabels.js` — fetch labels on load, apply to sidebar, ✏️ inline edit on hover (hidden for non–Super Admin)
 - **Staff access modals:** viewport-safe shell; Assign/Edit permission grids load all 25 keys from `/api/admin/permissions`
 - Tests: Jest **228/228** passing
+
+### Admin login split-screen UI — 2026-09-27
+
+- Refactored `client/admin-login.html`: `.admin-auth-wrapper` 50/50 grid (≥1024px), brand panel with floating glass cards, auth panel `overflow-y: auto`, card `max-height: calc(100dvh - 2rem)` + custom scrollbar; fixes 100% zoom clipping on 768p when 2FA step expands
+- No changes to `client/js/admin-login.js` or `/api/admin/login` contract; all preserved element IDs and inline handlers intact
+- CSS fix: `#adminLoginStep.is-hidden` (was non-matching `.admin-login-step.is-hidden`)
+- Tests: `npm test` (unchanged backend surface)
 
 ### Fix Group B — Staff Directory revoke — 2026-09-21
 

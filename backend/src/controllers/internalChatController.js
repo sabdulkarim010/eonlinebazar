@@ -5,6 +5,11 @@
 
 const User = require('../models/user');
 const Order = require('../models/order');
+const {
+    findMongoUserByRef,
+    resolveUserLookupIds,
+    isMongoObjectIdString
+} = require('../utils/userRecordResolver');
 const Admin = require('../models/admin');
 const { enrichOrderItemsWithImages } = require('../utils/orderItemImages');
 const { adminDualWrite, mirrorAdminUpdate } = require('../utils/adminDualWriteHelpers');
@@ -51,17 +56,20 @@ function buildChatProfile(customer) {
 
 const getInternalCustomerProfile = async (req, res) => {
     try {
-        const customer = await User.findById(req.params.id).select('-password').lean();
+        const customer = await findMongoUserByRef(req.params.id, '-password');
         if (!customer) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
         }
+        const customerLean = typeof customer.toObject === 'function'
+            ? customer.toObject()
+            : customer;
 
-        const orderCount = await Order.countDocuments({ user: customer._id });
+        const orderCount = await Order.countDocuments({ user: customerLean._id });
 
         return res.status(200).json({
             success: true,
             data: {
-                ...buildChatProfile(customer),
+                ...buildChatProfile(customerLean),
                 orderCount,
             },
         });
@@ -74,12 +82,19 @@ const getInternalCustomerProfile = async (req, res) => {
 const getInternalCustomerOrders = async (req, res) => {
     try {
         const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 5));
-        const customer = await User.findById(req.params.id).select('firstName lastName email mobile').lean();
-        if (!customer) {
+        const customerDoc = await findMongoUserByRef(req.params.id, 'firstName lastName email mobile');
+        if (!customerDoc) {
             return res.status(404).json({ success: false, message: 'Customer not found.' });
         }
+        const customer = typeof customerDoc.toObject === 'function'
+            ? customerDoc.toObject()
+            : customerDoc;
 
-        const orders = await Order.find({ user: req.params.id })
+        const orderUserRef = isMongoObjectIdString(String(customer._id))
+            ? customer._id
+            : (await resolveUserLookupIds(req.params.id)).mongoId;
+
+        const orders = await Order.find({ user: orderUserRef || customer._id })
             .sort({ createdAt: -1 })
             .limit(limit)
             .select('orderId status grandTotal total createdAt items')

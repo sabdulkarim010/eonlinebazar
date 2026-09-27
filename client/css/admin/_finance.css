@@ -319,6 +319,83 @@
     flex-wrap: wrap;
 }
 
+.accounts-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--admin-border, #e2e8f0);
+    background: var(--admin-card-bg, #fff);
+}
+
+.accounts-filter-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.accounts-filter-preset {
+    border: 1px solid var(--admin-border, #cbd5e1);
+    background: #f8fafc;
+    color: #334155;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.accounts-filter-preset:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+}
+
+.accounts-filter-preset--active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+.accounts-filter-custom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.accounts-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--admin-text-muted, #64748b);
+}
+
+.accounts-date-input {
+    min-width: 148px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--admin-border, #cbd5e1);
+    font-size: 14px;
+}
+
+.accounts-filter-apply {
+    white-space: nowrap;
+}
+
+.accounts-filter-hint {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
 .accounts-loading,
 .accounts-error {
     margin: 16px 0;
@@ -415,4 +492,370 @@
 
 @media (max-width: 900px) {
     .accounts-cashflow-grid { grid-template-columns: 1fr; }
+}
+
+/* =====================================================================
+   Chart of Accounts (#view-chart-of-accounts)
+   Rendered by erp-chart-of-accounts.js
+   ===================================================================== */
+
+.coa-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.coa-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.coa-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 280px;
+    max-width: 420px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--admin-border, #cbd5e1);
+    background: #fff;
+    color: #64748b;
+}
+
+.coa-search-input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 14px;
+    background: transparent;
+    color: #0f172a;
+}
+
+.coa-period-hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--admin-text-muted, #64748b);
+}
+
+.coa-loading,
+.coa-error {
+    margin-bottom: 16px;
+}
+
+.coa-error {
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+.coa-type-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.coa-type-block {
+    border: 1px solid var(--admin-border, #e2e8f0);
+    border-radius: 12px;
+    background: var(--admin-card-bg, #fff);
+    overflow: hidden;
+}
+
+.coa-type-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--admin-border, #e2e8f0);
+}
+
+.coa-type-header h4 {
+    margin: 0 0 4px;
+    font-size: 16px;
+}
+
+.coa-type-range {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.coa-type-subtotal {
+    font-size: 15px;
+    color: #0f172a;
+}
+
+.coa-table-wrap {
+    overflow-x: auto;
+}
+
+.coa-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.coa-table th,
+.coa-table td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.coa-table th {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    background: #fff;
+}
+
+.coa-col-code code {
+    font-weight: 700;
+    color: #1d4ed8;
+}
+
+.coa-col-balance {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.coa-status {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.coa-status--active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.coa-empty-row {
+    text-align: center;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.coa-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 12000;
+    padding: 16px;
+}
+
+.coa-modal-overlay[hidden] {
+    display: none !important;
+}
+
+.coa-modal {
+    width: min(480px, 100%);
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+}
+
+.coa-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.coa-modal-header h4 {
+    margin: 0;
+}
+
+.coa-modal-close {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+    color: #64748b;
+}
+
+.coa-modal-note {
+    margin: 0 0 16px;
+    font-size: 14px;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.coa-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* =====================================================================
+   Financial Reports tabs + Balance Sheet (#view-finance)
+   ===================================================================== */
+
+.finance-report-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.finance-tab {
+    border: 1px solid var(--admin-border, #cbd5e1);
+    background: #f8fafc;
+    color: #334155;
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.finance-tab--active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+.bs-sections {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.bs-section-card {
+    border: 1px solid var(--admin-border, #e2e8f0);
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px;
+}
+
+.bs-section-card h4 {
+    margin: 0 0 10px;
+    font-size: 15px;
+}
+
+.bs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.bs-table td,
+.bs-table th {
+    padding: 8px 6px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.bs-num {
+    text-align: right;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.bs-balance-check {
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.bs-balance-check--ok {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.bs-balance-check--warn {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* Tax & VAT (#view-tax-vat) */
+
+.taxvat-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.taxvat-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.taxvat-kpi-card {
+    border: 1px solid var(--admin-border, #e2e8f0);
+    border-radius: 12px;
+    padding: 14px;
+    background: #fff;
+}
+
+.taxvat-kpi-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.taxvat-kpi-value {
+    font-size: 20px;
+    color: #0f172a;
+}
+
+.taxvat-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.taxvat-table th,
+.taxvat-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+}
+
+.taxvat-num {
+    text-align: right;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.taxvat-empty {
+    text-align: center;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.taxvat-pay {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: capitalize;
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.taxvat-pay--paid {
+    background: #dcfce7;
+    color: #166534;
 }

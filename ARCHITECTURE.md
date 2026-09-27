@@ -190,6 +190,7 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 | HRM async jobs | `backend/src/services/hrmAsyncJobService.js` + `queues/importExportQueue.js` | Bulk payroll + large CSV exports (BullMQ / inline fallback) |
 | Leave workflow | `backend/src/services/leaveWorkflowService.js` | Transactional leave submit/approve/reject; `setImmediate` side effects (notify, audit, attendance stamp). Set `LEAVE_WORKFLOW_SYNC=1` to force inline side effects. |
 | HRM Mongo indexes | `backend/src/utils/ensureHrmMongoIndexes.js` | Idempotent `syncIndexes()` for Leave + Attendance on server boot |
+| User id resolver | `backend/src/utils/userRecordResolver.js` | PG UUID ↔ Mongo `legacyId`; safe customer/auth lookups (no CastError on `User.findById`) |
 | HRM audit trail | `backend/src/services/hrmAuditService.js` | Structured SecurityLog events (salary/status/payroll/leave) + `GET /staff-audit/hrm` filters |
 | HRM dashboard KPIs | `backend/src/services/hrmDashboardMetricsService.js` | Batched Mongo `$group` / Prisma aggregates for enterprise summary (30s Redis cache) |
 | HRM staff payload sanitizer | `backend/src/utils/staffHelpers.js` (+ `hrmPayloadSanitizer` re-export) + `client/js/admin/modules/hrm-api.js` | Strip `admin:`/`employee:` prefixes; unified leave/payroll/attendance API bodies |
@@ -199,6 +200,10 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 | AdminNotification | `backend/src/models/adminNotification.js` | In-app admin notification center (order/stock/leave/payroll/security/system) |
 | ExpenseCategory | `backend/src/models/expenseCategory.js` | Dynamic expense category catalog — seeded defaults + admin custom categories; `allowCustomInput` on "Other" |
 | Expense | `backend/src/models/expense.js` | Operating expense ledger row — `category` slug + optional `customCategoryName` |
+| Accounting ledger | `backend/src/services/accountingLedgerService.js` | Unified revenue / paid inflow / COGS / expense reads; accounts summary includes POS drawer cash + customer wallet liabilities |
+| Chart of accounts | `backend/src/services/chartOfAccountsService.js` | Default GL catalog (1000–5000 series) with balances from ledger + P&amp;L; `GET /api/admin/finance/chart-of-accounts` |
+| Balance sheet | `backend/src/services/balanceSheetService.js` | Assets/liabilities/equity snapshot; `GET /api/admin/finance/balance-sheet` |
+| Tax/VAT ledger | `backend/src/services/taxVatService.js` | Order-wise VAT compliance ledger + CSV; `GET /api/admin/finance/tax-vat-ledger` |
 | SidebarLabel | `backend/src/models/SidebarLabel.js` | Super Admin custom sidebar menu labels (Mongo fallback; PG mirror via `sidebarLabelRepository.js`) |
 
 

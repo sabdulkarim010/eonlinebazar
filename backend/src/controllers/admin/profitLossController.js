@@ -12,23 +12,21 @@
  ********************************************************************/
 
 const Order = require('../../models/order');
-const Expense = require('../../models/expense');
-const ExpenseCategory = require('../../models/expenseCategory');
 const { isPgReadEnabled } = require('../../config/readCutoverFlags');
 const orderRepository = require('../../repositories/orderRepository');
-const { getExpenseSummaryByCategory } = require('../../repositories/expenseRepository');
-const expenseCategoryRepository = require('../../repositories/expenseCategoryRepository');
-/** Delivered orders count as realized revenue. */
-const DELIVERED_STATUSES = ['delivered'];
-/** Returned/refunded orders are deducted from gross revenue. */
-const RETURNED_STATUSES = ['returned', 'refunded'];
+const accountingLedger = require('../../services/accountingLedgerService');
 
-function toNumber(value, fallback = 0) {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : fallback;
-}
-
-const roundMoney = (n) => Math.round((toNumber(n, 0) + Number.EPSILON) * 100) / 100;
+const {
+    DEFAULT_EXPENSE_SLUGS,
+    toNumber,
+    roundMoney,
+    resolveOrderRevenue,
+    resolveOrderBuyingCost,
+    isDeliveredOrder,
+    isReturnedOrder,
+    buildEmptyExpensesByCategory,
+    loadExpenseBreakdownForPeriod
+} = accountingLedger;
 
 function startOfDay(d) {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
@@ -125,23 +123,63 @@ function formatBucketLabel(key, groupBy) {
     return new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' });
 }
 
-/** Sum item-level buying cost for an order, falling back to the snapshot. */
-function resolveOrderBuyingCost(order) {
-    const snapshot = toNumber(order.totalBuyingPrice, 0);
-    if (snapshot > 0) return snapshot;
-
-    const items = Array.isArray(order.items) ? order.items : [];
-    let cogs = 0;
-    for (const item of items) {
-        const qty = Math.max(1, toNumber(item?.quantity, 1));
-        cogs += toNumber(item?.buyingPrice, 0) * qty;
-    }
-    return cogs;
+/** Zero-safe P&L payload preserving the public API shape. */
+function buildEmptyProfitLossReport(start, end, groupBy, catalogSlugs = DEFAULT_EXPENSE_SLUGS) {
+    const expensesByCategory = buildEmptyExpensesByCategory(catalogSlugs);
+    return {
+        period: {
+            start: start.toISOString(),
+            end: end.toISOString(),
+            groupBy
+        },
+        currency: 'BDT',
+        revenue: {
+            gross: 0,
+            returns: 0,
+            net: 0
+        },
+        costs: {
+            buying: 0,
+            courier: 0,
+            returnLoss: 0,
+            expenses: expensesByCategory,
+            expensesTotal: 0,
+            cashback: 0,
+            discounts: 0,
+            total: 0
+        },
+        profit: {
+            gross: 0,
+            net: 0,
+            marginPercent: 0
+        },
+        orders: {
+            delivered: 0
+        },
+        topProducts: [],
+        worstProducts: [],
+        series: [],
+        trend: []
+    };
 }
 
-function resolveOrderRevenue(order) {
-    const revenue = toNumber(order.grandTotal, 0) || toNumber(order.totalAmount, 0);
-    return revenue;
+async function loadOrdersForProfitLoss(start, end) {
+    if (isPgReadEnabled('profitloss')) {
+        try {
+            return await orderRepository.findAll({ dateFrom: start, dateTo: end });
+        } catch (err) {
+            console.warn('⚠️ P&L PG order query failed, falling back to Mongo:', err.message);
+        }
+    }
+
+    try {
+        return await Order.find({
+            createdAt: { $gte: start, $lte: end }
+        }).lean();
+    } catch (err) {
+        console.error('🔴 P&L Mongo order query failed:', err.message);
+        return [];
+    }
 }
 
 /**
@@ -150,16 +188,29 @@ function resolveOrderRevenue(order) {
  * @returns {Promise<object>} full breakdown payload
  */
 async function computeProfitLoss(query = {}) {
-    const { start, end } = parseRange(query);
-    const groupBy = resolveGroupBy(query, start, end);
+    let start;
+    let end;
+    let groupBy;
 
-    let orders;
-    if (isPgReadEnabled('profitloss')) {
-        orders = await orderRepository.findAll({ dateFrom: start, dateTo: end });
-    } else {
-        orders = await Order.find({
-            createdAt: { $gte: start, $lte: end }
-        }).lean();
+    try {
+        ({ start, end } = parseRange(query));
+        groupBy = resolveGroupBy(query, start, end);
+    } catch (err) {
+        console.warn('⚠️ P&L date range parse failed, using current month:', err.message);
+        const now = new Date();
+        start = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+        end = endOfDay(now);
+        groupBy = 'month';
+    }
+
+    try {
+    let orders = [];
+    try {
+        orders = await loadOrdersForProfitLoss(start, end);
+        if (!Array.isArray(orders)) orders = [];
+    } catch (err) {
+        console.error('🔴 P&L order load failed:', err.message);
+        orders = [];
     }
 
     let grossRevenue = 0;
@@ -183,10 +234,9 @@ async function computeProfitLoss(query = {}) {
     };
 
     for (const order of orders) {
-        const status = String(order.status || '').trim().toLowerCase();
         const orderDate = resolveOrderDate(order);
 
-        if (DELIVERED_STATUSES.includes(status)) {
+        if (isDeliveredOrder(order)) {
             const revenue = resolveOrderRevenue(order);
             const cogs = resolveOrderBuyingCost(order);
 
@@ -218,7 +268,7 @@ async function computeProfitLoss(query = {}) {
                 bucket.cost += cogs;
                 bucket.profit += (revenue - cogs);
             }
-        } else if (RETURNED_STATUSES.includes(status)) {
+        } else if (isReturnedOrder(order)) {
             const returnedRevenue = resolveOrderRevenue(order);
             returnsAmount += returnedRevenue;
             // The buying cost of returned goods is a real loss (already paid).
@@ -227,25 +277,10 @@ async function computeProfitLoss(query = {}) {
     }
 
     // Operating expenses for the period, grouped by category (incl. courier_charges).
-    let catalogSlugs;
-    let expenseRows;
-
-    if (isPgReadEnabled('profitloss')) {
-        const categoryCatalog = await expenseCategoryRepository.listExpenseCategoriesFromPG();
-        catalogSlugs = (categoryCatalog || []).map((row) => row.slug);
-        const summary = await getExpenseSummaryByCategory(start, end);
-        expenseRows = summary.map((row) => ({ _id: row.category, total: row.total }));
-    } else {
-        const categoryCatalog = await ExpenseCategory.find({}).select('slug').lean();
-        catalogSlugs = categoryCatalog.map((row) => row.slug);
-
-        expenseRows = await Expense.aggregate([
-            { $match: { date: { $gte: start, $lte: end } } },
-            { $group: { _id: '$category', total: { $sum: '$amount' } } }
-        ]);
-    }
-    const expensesByCategory = {};
-    catalogSlugs.forEach((cat) => { expensesByCategory[cat] = 0; });
+    const { catalogSlugs, expenseRows } = await loadExpenseBreakdownForPeriod(start, end);
+    const expensesByCategory = buildEmptyExpensesByCategory(
+        catalogSlugs.length ? catalogSlugs : DEFAULT_EXPENSE_SLUGS
+    );
     let expensesTotal = 0;
     expenseRows.forEach((row) => {
         if (expensesByCategory[row._id] === undefined) {
@@ -351,6 +386,10 @@ async function computeProfitLoss(query = {}) {
         series,
         trend
     };
+    } catch (err) {
+        console.error('🔴 computeProfitLoss failed:', err.message);
+        return buildEmptyProfitLossReport(start, end, groupBy);
+    }
 }
 
 /**
@@ -359,14 +398,22 @@ async function computeProfitLoss(query = {}) {
 const getProfitLossReport = async (req, res) => {
     try {
         const report = await computeProfitLoss(req.query);
-        return res.json({ success: true, data: report });
+        return res.status(200).json({ success: true, data: report });
     } catch (err) {
         console.error('🔴 Profit & Loss report error:', err);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to compute the Profit & Loss report.',
-            error: err.message
-        });
+        let start;
+        let end;
+        let groupBy = 'month';
+        try {
+            ({ start, end } = parseRange(req.query));
+            groupBy = resolveGroupBy(req.query, start, end);
+        } catch {
+            const now = new Date();
+            start = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
+            end = endOfDay(now);
+        }
+        const report = buildEmptyProfitLossReport(start, end, groupBy);
+        return res.status(200).json({ success: true, data: report });
     }
 };
 

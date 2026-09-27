@@ -3857,3 +3857,17 @@ Full **HTTP-level** verification via supertest against `tests/app`, toggling `RE
 
 **Apply PG migration:** `npx prisma migrate deploy` (or run the SQL manually on Neon).
 
+---
+
+## User UUID lookup + async dual-write — 2026-09-27
+
+| Item | Change |
+|------|--------|
+| `userRecordResolver.js` | Resolve PG UUID → Mongo `legacyId` before `User.findById`; strict ObjectId check (no loose `isValid` on UUIDs) |
+| `verifyUser` / `fetchCustomerById` | Use resolver; prevents Mongo `CastError` when PG read falls back with UUID id |
+| `dualWriteService.js` | PG mirror deferred via `setImmediate` in production; sync when `NODE_ENV=test` or `DUAL_WRITE_SYNC=1` |
+| `neonRetry.js` | Default `NEON_FETCH_TIMEOUT_MS` raised to **30s** (prod) |
+| Mongoose | Backend `new: true` → `returnDocument: 'after'` on findOneAndUpdate / findByIdAndUpdate |
+
+**Tests:** Jest **342/342**.
+

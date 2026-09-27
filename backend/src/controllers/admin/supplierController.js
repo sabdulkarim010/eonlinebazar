@@ -329,7 +329,7 @@ exports.updateSupplier = async (req, res) => {
             () => Supplier.findByIdAndUpdate(
                 id,
                 { $set: fields },
-                { new: true, runValidators: true }
+                { returnDocument: 'after', runValidators: true }
             ),
             async (saved) => {
                 if (!saved) return;

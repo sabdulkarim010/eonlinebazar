@@ -11,6 +11,29 @@
         </div>
     </div>
 
+    <div class="accounts-filter-bar" id="accountsFilterBar">
+        <div class="accounts-filter-presets" role="group" aria-label="Quick date filters">
+            <button type="button" class="accounts-filter-preset" data-acct-preset="today">Today</button>
+            <button type="button" class="accounts-filter-preset accounts-filter-preset--active" data-acct-preset="all">All Time</button>
+            <button type="button" class="accounts-filter-preset" data-acct-preset="this-month">This Month</button>
+            <button type="button" class="accounts-filter-preset" data-acct-preset="last-month">Last Month</button>
+        </div>
+        <div class="accounts-filter-custom">
+            <label class="accounts-filter-field">
+                <span>From</span>
+                <input type="date" id="acctDateFrom" class="accounts-date-input">
+            </label>
+            <label class="accounts-filter-field">
+                <span>To</span>
+                <input type="date" id="acctDateTo" class="accounts-date-input">
+            </label>
+            <button type="button" class="btn-primary accounts-filter-apply" id="acctApplyFilterBtn">
+                <i class="fa-solid fa-filter"></i> Apply Filter
+            </button>
+        </div>
+        <p class="accounts-filter-hint" id="acctFilterHint">Showing all-time totals · paid inflow sub-line is current calendar month</p>
+    </div>
+
     <div id="accountsLoading" class="accounts-loading loading-container" hidden>
         <div class="spinner"></div>
         <p>Loading accounts summary…</p>
@@ -83,6 +106,22 @@
                     <p>ACCOUNTS PAYABLE</p>
                     <h3 id="acctPayable">৳ 0</h3>
                     <span class="metric-sub">Pending supplier bills (open POs)</span>
+                </div>
+            </div>
+            <div class="metric-card success">
+                <div class="icon"><i class="fa-solid fa-cash-register"></i></div>
+                <div class="data">
+                    <p>POS DRAWER CASH</p>
+                    <h3 id="acctPosDrawer">৳ 0</h3>
+                    <span class="metric-sub">Open registers + recently closed drawer counts</span>
+                </div>
+            </div>
+            <div class="metric-card warning">
+                <div class="icon"><i class="fa-solid fa-wallet"></i></div>
+                <div class="data">
+                    <p>CUSTOMER WALLET LIABILITY</p>
+                    <h3 id="acctWalletLiability">৳ 0</h3>
+                    <span class="metric-sub">Outstanding store credit across customer wallets</span>
                 </div>
             </div>
         </div>

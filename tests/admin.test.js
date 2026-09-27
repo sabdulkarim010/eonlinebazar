@@ -446,6 +446,75 @@ describe('Admin API', () => {
         expect(res.body.data.balances).toBeDefined();
         expect(typeof res.body.data.cashFlow.inflow).toBe('number');
         expect(typeof res.body.data.balances.accountsReceivable).toBe('number');
+        expect(typeof res.body.data.balances.posDrawerCash).toBe('number');
+        expect(typeof res.body.data.balances.customerWalletLiability).toBe('number');
+    });
+
+    test('GET /api/admin/accounts-summary accepts optional dateFrom/dateTo', async () => {
+        const token = await getAdminAuthToken();
+
+        const res = await request(app)
+            .get('/api/admin/accounts-summary?dateFrom=2099-01-01&dateTo=2099-01-31')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.cashFlow.inflow).toBe(0);
+        expect(res.body.data.cashFlow.expensesTotal).toBe(0);
+    });
+
+    test('GET /api/admin/finance/balance-sheet returns assets, liabilities, equity check', async () => {
+        const token = await getAdminAuthToken();
+
+        const res = await request(app)
+            .get('/api/admin/finance/balance-sheet?asOfDate=2099-01-01')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.assets).toBeDefined();
+        expect(res.body.data.liabilities).toBeDefined();
+        expect(res.body.data.equity).toBeDefined();
+        expect(res.body.data.check).toMatchObject({
+            equation: 'Assets = Liabilities + Equity',
+            balanced: expect.any(Boolean)
+        });
+    });
+
+    test('GET /api/admin/finance/tax-vat-ledger returns summary and ledger rows', async () => {
+        const token = await getAdminAuthToken();
+
+        const res = await request(app)
+            .get('/api/admin/finance/tax-vat-ledger?dateFrom=2099-01-01&dateTo=2099-01-31')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.summary).toMatchObject({
+            totalTaxableRevenue: 0,
+            totalTaxCollected: 0,
+            netTaxPayable: 0,
+            exemptSales: 0
+        });
+        expect(Array.isArray(res.body.data.ledger)).toBe(true);
+    });
+
+    test('GET /api/admin/finance/chart-of-accounts returns default GL accounts', async () => {
+        const token = await getAdminAuthToken();
+
+        const res = await request(app)
+            .get('/api/admin/finance/chart-of-accounts')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(Array.isArray(res.body.data.accounts)).toBe(true);
+        expect(res.body.data.accounts.length).toBeGreaterThanOrEqual(8);
+        expect(Array.isArray(res.body.data.typeGroups)).toBe(true);
+        const codes = res.body.data.accounts.map((row) => row.code);
+        expect(codes).toContain('1010');
+        expect(codes).toContain('4010');
+        expect(codes).toContain('5020');
     });
 
     test('PUT /api/admin/orders/:id/master-update rejects item edits on cancelled orders', async () => {

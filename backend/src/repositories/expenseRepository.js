@@ -15,6 +15,39 @@
 
 const prisma = require('../config/prismaClient');
 
+function buildExpenseWhere(filters = {}) {
+  const where = {};
+
+  if (filters.dateFrom || filters.dateTo) {
+    where.date = {};
+    if (filters.dateFrom) {
+      const from = new Date(filters.dateFrom);
+      from.setHours(0, 0, 0, 0);
+      where.date.gte = from;
+    }
+    if (filters.dateTo) {
+      const to = new Date(filters.dateTo);
+      to.setHours(23, 59, 59, 999);
+      where.date.lte = to;
+    }
+  }
+
+  if (filters.category) {
+    where.category = filters.category;
+  }
+
+  if (filters.categoryId) {
+    where.expenseCategoryId = filters.categoryId;
+  }
+
+  return where;
+}
+
+function parseDecimalSum(value) {
+  if (value == null) return 0;
+  return parseFloat(String(value));
+}
+
 // ── Helper: Convert Prisma record to Mongoose-like shape ──────────────────────
 function toShape(record) {
   if (!record) return null;
@@ -93,35 +126,8 @@ async function getExpenseByMongoId(mongoId) {
  */
 async function listExpensesFromPG(filters = {}) {
   try {
-    const where = {};
-
-    // Date range filters
-    if (filters.dateFrom || filters.dateTo) {
-      where.date = {};
-      if (filters.dateFrom) {
-        const from = new Date(filters.dateFrom);
-        from.setHours(0, 0, 0, 0);
-        where.date.gte = from;
-      }
-      if (filters.dateTo) {
-        const to = new Date(filters.dateTo);
-        to.setHours(23, 59, 59, 999);
-        where.date.lte = to;
-      }
-    }
-
-    // Category filter (by slug)
-    if (filters.category) {
-      where.category = filters.category;
-    }
-
-    // ExpenseCategory FK filter
-    if (filters.categoryId) {
-      where.expenseCategoryId = filters.categoryId;
-    }
-
     const records = await prisma.expense.findMany({
-      where,
+      where: buildExpenseWhere(filters),
       orderBy: { date: 'desc' }
     });
 
@@ -130,6 +136,81 @@ async function listExpensesFromPG(filters = {}) {
     console.error('[DUAL-WRITE-EXPENSE-FAIL] list:', err.message);
     return [];
   }
+}
+
+// ── Strict PG reads (throw on failure — caller handles Mongo fallback) ────────
+
+async function countExpensesFromPGStrict(filters = {}) {
+  return prisma.expense.count({ where: buildExpenseWhere(filters) });
+}
+
+async function listExpensesPaginatedFromPGStrict(filters = {}, skip = 0, limit = 50) {
+  const records = await prisma.expense.findMany({
+    where: buildExpenseWhere(filters),
+    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    skip,
+    take: limit
+  });
+  return records.map(toShape);
+}
+
+async function sumExpensesMatchingFiltersStrict(filters = {}) {
+  const result = await prisma.expense.aggregate({
+    where: buildExpenseWhere(filters),
+    _sum: { amount: true }
+  });
+  return parseDecimalSum(result._sum.amount);
+}
+
+async function getTotalExpensesAllFromPGStrict() {
+  const result = await prisma.expense.aggregate({
+    _sum: { amount: true }
+  });
+  return parseDecimalSum(result._sum.amount);
+}
+
+async function getTotalExpensesByDateRangeStrict(dateFrom, dateTo) {
+  return sumExpensesMatchingFiltersStrict({ dateFrom, dateTo });
+}
+
+async function getCategoryBreakdownFromPGStrict(dateFrom, dateTo) {
+  const where = buildExpenseWhere({ dateFrom, dateTo });
+  const grouped = await prisma.expense.groupBy({
+    by: ['category'],
+    where,
+    _sum: { amount: true },
+    _count: { category: true }
+  });
+
+  return grouped.map((g) => ({
+    category: g.category,
+    total: parseDecimalSum(g._sum.amount),
+    count: g._count.category || 0
+  }));
+}
+
+async function getMonthlyExpenseTotalsFromPGStrict(dateFrom, dateTo) {
+  const where = buildExpenseWhere({ dateFrom, dateTo });
+  const rows = await prisma.expense.findMany({
+    where,
+    select: { date: true, amount: true }
+  });
+
+  const buckets = new Map();
+  for (const row of rows) {
+    if (!row.date) continue;
+    const d = new Date(row.date);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const key = `${year}-${month}`;
+    const prev = buckets.get(key) || { year, month, total: 0 };
+    prev.total += parseDecimalSum(row.amount);
+    buckets.set(key, prev);
+  }
+
+  return [...buckets.values()].sort((a, b) => (
+    a.year !== b.year ? a.year - b.year : a.month - b.month
+  ));
 }
 
 // ── getExpenseSummaryByCategory ───────────────────────────────────────────────
@@ -142,31 +223,8 @@ async function listExpensesFromPG(filters = {}) {
  */
 async function getExpenseSummaryByCategory(dateFrom, dateTo) {
   try {
-    const where = {};
-    if (dateFrom) {
-      const from = new Date(dateFrom);
-      from.setHours(0, 0, 0, 0);
-      where.date = { ...where.date, gte: from };
-    }
-    if (dateTo) {
-      const to = new Date(dateTo);
-      to.setHours(23, 59, 59, 999);
-      where.date = { ...where.date, lte: to };
-    }
-
-    const grouped = await prisma.expense.groupBy({
-      by: ['category'],
-      where,
-      _sum: {
-        amount: true
-      }
-    });
-
-    // Transform to { category, total } shape matching MongoDB aggregate output
-    return grouped.map(g => ({
-      category: g.category,
-      total: g._sum.amount ? parseFloat(g._sum.amount.toString()) : 0
-    }));
+    const rows = await getCategoryBreakdownFromPGStrict(dateFrom, dateTo);
+    return rows.map((g) => ({ category: g.category, total: g.total }));
   } catch (err) {
     console.error('[DUAL-WRITE-EXPENSE-FAIL] getExpenseSummaryByCategory:', err.message);
     return [];
@@ -183,26 +241,7 @@ async function getExpenseSummaryByCategory(dateFrom, dateTo) {
  */
 async function getTotalExpensesByDateRange(dateFrom, dateTo) {
   try {
-    const where = {};
-    if (dateFrom) {
-      const from = new Date(dateFrom);
-      from.setHours(0, 0, 0, 0);
-      where.date = { ...where.date, gte: from };
-    }
-    if (dateTo) {
-      const to = new Date(dateTo);
-      to.setHours(23, 59, 59, 999);
-      where.date = { ...where.date, lte: to };
-    }
-
-    const result = await prisma.expense.aggregate({
-      where,
-      _sum: {
-        amount: true
-      }
-    });
-
-    return result._sum.amount ? parseFloat(result._sum.amount.toString()) : 0;
+    return await getTotalExpensesByDateRangeStrict(dateFrom, dateTo);
   } catch (err) {
     console.error('[DUAL-WRITE-EXPENSE-FAIL] getTotalExpensesByDateRange:', err.message);
     return 0;
@@ -217,10 +256,7 @@ async function getTotalExpensesByDateRange(dateFrom, dateTo) {
  */
 async function getTotalExpensesAllFromPG() {
   try {
-    const result = await prisma.expense.aggregate({
-      _sum: { amount: true }
-    });
-    return result._sum.amount ? parseFloat(result._sum.amount.toString()) : 0;
+    return await getTotalExpensesAllFromPGStrict();
   } catch (err) {
     console.error('[DUAL-WRITE-EXPENSE-FAIL] getTotalExpensesAllFromPG:', err.message);
     return 0;
@@ -259,5 +295,13 @@ module.exports = {
   getExpenseSummaryByCategory,
   getTotalExpensesByDateRange,
   getTotalExpensesAllFromPG,
-  deleteExpenseInPG
+  deleteExpenseInPG,
+  buildExpenseWhere,
+  countExpensesFromPGStrict,
+  listExpensesPaginatedFromPGStrict,
+  sumExpensesMatchingFiltersStrict,
+  getTotalExpensesAllFromPGStrict,
+  getTotalExpensesByDateRangeStrict,
+  getCategoryBreakdownFromPGStrict,
+  getMonthlyExpenseTotalsFromPGStrict
 };

@@ -185,6 +185,23 @@ async function debitWallet(userId, amount, reason = 'Wallet debit') {
     return debitWalletForAdmin(userId, amount, reason);
 }
 
+/**
+ * Sum of positive customer wallet balances (store credit liability).
+ * Returns 0 on read failure.
+ */
+async function getOutstandingCustomerWalletLiability() {
+    try {
+        const [row] = await User.aggregate([
+            { $match: { walletBalance: { $gt: 0 } } },
+            { $group: { _id: null, total: { $sum: '$walletBalance' } } }
+        ]);
+        return roundMoney(row?.total || 0);
+    } catch (err) {
+        console.warn('[wallet] aggregate liability failed:', err.message);
+        return 0;
+    }
+}
+
 module.exports = {
     buildWalletHistoryEntry,
     deductWalletForOrder,
@@ -196,5 +213,6 @@ module.exports = {
     getWalletBalance,
     getWalletTransactions,
     creditWallet,
-    debitWallet
+    debitWallet,
+    getOutstandingCustomerWalletLiability
 };

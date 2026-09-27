@@ -1,0 +1,51 @@
+<section id="view-chart-of-accounts" class="admin-section" style="display: none;">
+    <div class="section-header-box">
+        <div>
+            <h3><i class="fa-solid fa-book"></i> Chart of Accounts</h3>
+            <p class="section-subtitle">General ledger account structure with live balances from orders, payables, and expenses.</p>
+        </div>
+        <div class="coa-header-actions">
+            <button type="button" class="btn-primary" id="coaAddAccountBtn" onclick="openCoaAddAccountModal()">
+                <i class="fa-solid fa-plus"></i> Add Account
+            </button>
+            <button type="button" class="btn-secondary" id="coaRefreshBtn" onclick="loadChartOfAccountsSection()">
+                <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="coa-toolbar">
+        <label class="coa-search-wrap">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" id="coaSearchInput" class="coa-search-input" placeholder="Search by code or account name…" autocomplete="off">
+        </label>
+        <p class="coa-period-hint" id="coaPeriodHint">All-time balances</p>
+    </div>
+
+    <div id="coaLoading" class="coa-loading loading-container" hidden>
+        <div class="spinner"></div>
+        <p>Loading chart of accounts…</p>
+    </div>
+
+    <p id="coaError" class="coa-error" hidden></p>
+
+    <div id="coaContent" class="coa-content" hidden>
+        <div id="coaTypeGroups" class="coa-type-groups"></div>
+    </div>
+
+    <!-- Add Account (UI stub — custom GL accounts in a later phase) -->
+    <div id="coaAddAccountModal" class="coa-modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="coaAddAccountTitle">
+        <div class="coa-modal">
+            <div class="coa-modal-header">
+                <h4 id="coaAddAccountTitle"><i class="fa-solid fa-plus"></i> Add Account</h4>
+                <button type="button" class="coa-modal-close" onclick="closeCoaAddAccountModal()" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <p class="coa-modal-note">Custom account creation and journal posting will be enabled in a future release. The default e-commerce chart is shown below with live computed balances.</p>
+            <div class="coa-modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeCoaAddAccountModal()">Close</button>
+            </div>
+        </div>
+    </div>
+</section>

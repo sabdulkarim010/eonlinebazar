@@ -43,8 +43,10 @@ const VIEW_PARTIALS = [
     'view-warehouses',
     'view-purchase-orders',
     'view-accounts',
+    'view-chart-of-accounts',
     'view-finance',
     'view-erp-expenses',
+    'view-tax-vat',
     // Isolated SPA view — hidden by default in partial; core-nav toggles visibility.
     'view-system-backup'
 ];

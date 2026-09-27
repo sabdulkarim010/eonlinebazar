@@ -7,6 +7,10 @@
 
 const mongoose = require('mongoose');
 const User = require('../models/user');
+const {
+    findMongoUserByRef,
+    pickMongoUserIdFromRequest
+} = require('../utils/userRecordResolver');
 const Product = require('../models/product');
 const { dualWrite } = require('../services/dualWriteService');
 const { fetchEnrichedWishlist } = require('../services/userReadService');
@@ -69,7 +73,7 @@ async function enrichWishlistItems(wishlist = []) {
 
 exports.getWishlist = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select('_id');
+        const user = await findMongoUserByRef(pickMongoUserIdFromRequest(req) || req.user.id).select('_id');
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
         const enriched = await fetchEnrichedWishlist(req.user.id);
         res.status(200).json({ success: true, wishlist: enriched });
@@ -86,7 +90,7 @@ exports.addToWishlist = async (req, res) => {
             return res.status(400).json({ success: false, message: "Product ID is required." });
         }
 
-        const user = await User.findById(req.user.id);
+        const user = await findMongoUserByRef(pickMongoUserIdFromRequest(req) || req.user.id);
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
 
         const alreadyExists = user.wishlist.some(item => String(item.productId) === String(productId));
@@ -131,7 +135,7 @@ exports.addToWishlist = async (req, res) => {
 exports.removeFromWishlist = async (req, res) => {
     try {
         const { productId } = req.params;
-        const user = await User.findById(req.user.id);
+        const user = await findMongoUserByRef(pickMongoUserIdFromRequest(req) || req.user.id);
         if (!user) return res.status(404).json({ success: false, message: "User not found." });
 
         user.wishlist = user.wishlist.filter(item => String(item.productId) !== String(productId));

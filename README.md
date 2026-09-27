@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-27 (Leave workflow — transactional core, async side effects)
+**Last updated:** 2026-09-27 (Phase 4 finance security + POS/wallet liquidity)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-340%2F340-brightgreen" alt="340/340 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-350%2F350-brightgreen" alt="350/350 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">
@@ -71,7 +71,7 @@ The web client uses vanilla JavaScript with a modular ES architecture. The API r
 
 The admin header includes an **in-app notification center** (bell icon with unread badge, dropdown inbox, 30s polling) backed by `AdminNotification` and `/api/admin/notifications/*`. High-value tables (Customers, Orders, Products, Employees) support **filter-aware CSV export** via dedicated `/api/admin/*/export` endpoints.
 
-All modules below are **100% completed** and wired into the **7-module enterprise admin navigation** (**Dashboard · Sales & Orders · Product & Stock Operations · Marketing & Content · HRM & Staff · Accounts & Finance · System Settings**). **Accounts & Finance** includes a new **Accounts Overview** page (`view-accounts.html`) with cash flow, liquidity, and balance summary cards backed by `GET /api/admin/accounts-summary`. **System Settings** is a unified tabbed hub (`view-settings.html` + `settings-hub.js`) — a single sidebar entry with five inner tabs (Branding, General, Shipping & Payments, Security, Utilities) — using SweetAlert2 for saves and tab feedback. **HRM modules** standardize on SweetAlert2 for all confirmations (permanent employee delete, bulk attendance, lock/unlock date); native `confirm()`/`alert()` are not used in HRM JS. **Super-admin database backup** (`view-system-backup.html`, `GET /api/admin/system/backup-now`) exports a portable Mongoose JSON snapshot; restore is intentionally not exposed in-panel. The backup view is **isolated to its own route** — hidden by default and only shown when navigating to Backup & Restore (fixes prior leak where superadmin CSS forced it visible on every page). **Tax & VAT** configuration lives on the Shipping & Payments tab (`vatEnabled`, `vatPercentage`, `vatInclusive`, `taxRegistrationNumber`) and applies additive VAT at checkout with amounts snapshotted on each order and shown on PDF invoices. **System Staff Directory** lives under HRM; Staff Audit, Sessions, and Security Logs open from the Security tab. Employee profile **Access** tab supports three live states — no access (Grant), active (Manage / Suspend / Revoke), and suspended (Re-activate).
+All modules below are **100% completed** and wired into the **7-module enterprise admin navigation** (**Dashboard · Sales & Orders · Product & Stock Operations · Marketing & Content · HRM & Staff · Accounts & Finance · System Settings**). **Accounts & Finance** includes **Accounts Overview** (`view-accounts.html`, `GET /api/admin/accounts-summary`), **Chart of Accounts** (`view-chart-of-accounts.html`, `GET /api/admin/finance/chart-of-accounts`) with live GL balances, plus P&amp;L and expense tracking. **System Settings** is a unified tabbed hub (`view-settings.html` + `settings-hub.js`) — a single sidebar entry with five inner tabs (Branding, General, Shipping & Payments, Security, Utilities) — using SweetAlert2 for saves and tab feedback. **HRM modules** standardize on SweetAlert2 for all confirmations (permanent employee delete, bulk attendance, lock/unlock date); native `confirm()`/`alert()` are not used in HRM JS. **Super-admin database backup** (`view-system-backup.html`, `GET /api/admin/system/backup-now`) exports a portable Mongoose JSON snapshot; restore is intentionally not exposed in-panel. The backup view is **isolated to its own route** — hidden by default and only shown when navigating to Backup & Restore (fixes prior leak where superadmin CSS forced it visible on every page). **Tax & VAT** configuration lives on the Shipping & Payments tab (`vatEnabled`, `vatPercentage`, `vatInclusive`, `taxRegistrationNumber`) and applies additive VAT at checkout with amounts snapshotted on each order and shown on PDF invoices. **System Staff Directory** lives under HRM; Staff Audit, Sessions, and Security Logs open from the Security tab. Employee profile **Access** tab supports three live states — no access (Grant), active (Manage / Suspend / Revoke), and suspended (Re-activate).
 
 ### 1. ERP Pillar — Enterprise Resource Planning
 
@@ -159,12 +159,12 @@ Each domain has a dedicated audit file with **File Inventory**, **Feature Checkl
 
 ## Quality Assurance & Testing
 
-The repository ships with **100% passing automated coverage: 340 / 340 tests** across **53 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, Resend, or Cloudinary calls are required.
+The repository ships with **100% passing automated coverage: 350 / 350 tests** across **55 Jest suites**. Suites use an in-memory MongoDB (`mongodb-memory-server`) and Supertest — no live Atlas, Resend, or Cloudinary calls are required.
 
 PostgreSQL repository integration tests (241 tests, real Neon) run separately:
 
 ```bash
-npm test                  # 53 suites, 340 tests — MongoDB in-memory
+npm test                  # 55 suites, 350 tests — MongoDB in-memory
 npm run test:repositories # 32 files, 241 tests — Neon PostgreSQL (serial concurrency)
 cd backend && npx prisma migrate deploy  # apply PG schema (production)
 
@@ -181,7 +181,7 @@ cd backend && npx prisma migrate deploy  # apply PG schema (production)
 | Cart | `tests/cart.test.js` | 6 | Add, hydrate images, clear |
 | Order | `tests/order.test.js` | 10 | COD create, track, cancel, line-item shape, additive VAT at checkout |
 | Payment | `tests/payment.test.js` | 3 | Gateway adapter, COD IPN, admin payment update |
-| Admin | `tests/admin.test.js` | 28 | Login, orders, notifications, bulk CSV export, activity feed, database backup, Tax/VAT settings, support SLA, security monitor, master editor |
+| Admin | `tests/admin.test.js` | 31 | Login, orders, notifications, bulk CSV export, activity feed, database backup, Tax/VAT settings, support SLA, security monitor, master editor, chart of accounts, balance sheet, tax/VAT ledger |
 | Notes | `tests/note.test.js` | 7 | Owner-scoped notebook and expense validation |
 | Product seed | `tests/product-seed.test.js` | 3 | Demo catalog upsert |
 | Chat session | `tests/chat-end-session.test.js` | 8 | Guest / agent / admin end-session ownership |

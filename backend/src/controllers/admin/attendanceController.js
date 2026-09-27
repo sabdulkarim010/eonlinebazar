@@ -625,7 +625,7 @@ exports.clockIn = async (req, res) => {
                         date
                     }
                 },
-                { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+                { upsert: true, returnDocument: 'after', runValidators: true, setDefaultsOnInsert: true }
             );
         } catch (err) {
             if (err.code !== 11000) throw err;
@@ -711,7 +711,7 @@ exports.clockOut = async (req, res) => {
                 $or: [{ clockOut: null }, { clockOut: { $exists: false } }]
             },
             { $set: { clockOut: clockOutAt } },
-            { new: true, runValidators: true }
+            { returnDocument: 'after', runValidators: true }
         );
 
         if (!record) {
@@ -1216,7 +1216,7 @@ exports.lockAttendanceDate = async (req, res) => {
                     lockedBy: adminId,
                     lockedByName: adminName
                 },
-                { upsert: true, new: true, setDefaultsOnInsert: true }
+                { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
             ),
             async (saved) => { await attendanceLockRepo.upsertFromMongo(saved); },
             { model: 'AttendanceLock', operation: 'create', mongoId: (saved) => String(saved._id) }
@@ -1408,7 +1408,7 @@ exports.updateShift = async (req, res) => {
             return res.status(400).json({ success: false, message: `${badField} must use 24-hour HH:MM format.` });
         }
 
-        const shift = await Shift.findByIdAndUpdate(id, { $set: fields }, { new: true, runValidators: true });
+        const shift = await Shift.findByIdAndUpdate(id, { $set: fields }, { returnDocument: 'after', runValidators: true });
         if (!shift) {
             return res.status(404).json({ success: false, message: 'Shift not found.' });
         }

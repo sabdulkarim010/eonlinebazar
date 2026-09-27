@@ -15,6 +15,7 @@ const ExpenseCategory = require('../../models/expenseCategory');
 const upload = require('../../middlewares/uploadMiddleware');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 const expenseRepo = require('../../repositories/expenseRepository');
+const accountingLedger = require('../../services/accountingLedgerService');
 
 function parsePagination(query) {
     const page = Math.max(1, parseInt(query.page, 10) || 1);
@@ -39,31 +40,6 @@ function buildDateRangeFilter(query) {
     return Object.keys(range).length ? range : null;
 }
 
-function monthBounds(year, monthIndex) {
-    const start = new Date(year, monthIndex, 1);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
-    return { start, end };
-}
-
-function formatMonthKey(date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`;
-}
-
-function formatMonthLabel(date) {
-    return date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-}
-
-async function sumExpensesBetween(start, end) {
-    const rows = await Expense.aggregate([
-        { $match: { date: { $gte: start, $lte: end } } },
-        { $group: { _id: null, total: { $sum: '$amount' } } }
-    ]);
-    return rows[0]?.total || 0;
-}
-
 async function uploadBufferToCloudinary(file, folder) {
     return new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -75,11 +51,6 @@ async function uploadBufferToCloudinary(file, folder) {
         );
         stream.end(file.buffer);
     });
-}
-
-async function loadCategoryCatalog() {
-    const rows = await ExpenseCategory.find({}).sort({ isSystemDefault: -1, name: 1 }).lean();
-    return rows;
 }
 
 /**
@@ -194,19 +165,16 @@ exports.getAllExpenses = async (req, res) => {
         const categorySlug = String(req.query.category || '').trim().toLowerCase();
         if (categorySlug) filter.category = categorySlug;
 
-        const [total, expenses, totalAgg] = await Promise.all([
-            Expense.countDocuments(filter),
-            Expense.find(filter).sort({ date: -1, createdAt: -1 }).skip(skip).limit(limit).lean(),
-            Expense.aggregate([
-                { $match: filter },
-                { $group: { _id: null, total: { $sum: '$amount' } } }
-            ])
-        ]);
+        const { total, expenses, totalAmount } = await accountingLedger.listExpensesPaginated({
+            mongoFilter: filter,
+            skip,
+            limit
+        });
 
         return res.json({
             success: true,
             data: expenses,
-            totalAmount: totalAgg[0]?.total || 0,
+            totalAmount,
             pagination: {
                 total,
                 page,
@@ -283,7 +251,7 @@ exports.updateExpense = async (req, res) => {
             if (!Number.isNaN(parsed.getTime())) update.date = parsed;
         }
 
-        const expense = await Expense.findByIdAndUpdate(id, { $set: update }, { new: true, runValidators: true });
+        const expense = await Expense.findByIdAndUpdate(id, { $set: update }, { returnDocument: 'after', runValidators: true });
         if (!expense) {
             return res.status(404).json({ success: false, message: 'Expense not found.' });
         }
@@ -380,106 +348,15 @@ exports.uploadExpenseReceipt = async (req, res) => {
  */
 exports.getExpenseSummary = async (req, res) => {
     try {
-        const filter = {};
         const dateRange = buildDateRangeFilter(req.query);
-        if (dateRange) filter.date = dateRange;
-
-        const now = new Date();
-        const thisMonth = monthBounds(now.getFullYear(), now.getMonth());
-        const lastMonth = monthBounds(now.getFullYear(), now.getMonth() - 1);
-        const trendStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-        trendStart.setHours(0, 0, 0, 0);
-
-        const catalog = await loadCategoryCatalog();
-        const catalogSlugs = catalog.map((row) => row.slug);
-
-        const [rows, thisMonthTotal, lastMonthTotal, monthlyTrendRows] = await Promise.all([
-            Expense.aggregate([
-                { $match: filter },
-                {
-                    $group: {
-                        _id: '$category',
-                        total: { $sum: '$amount' },
-                        count: { $sum: 1 }
-                    }
-                },
-                { $sort: { total: -1 } }
-            ]),
-            sumExpensesBetween(thisMonth.start, thisMonth.end),
-            sumExpensesBetween(lastMonth.start, lastMonth.end),
-            Expense.aggregate([
-                { $match: { date: { $gte: trendStart, $lte: thisMonth.end } } },
-                {
-                    $group: {
-                        _id: { year: { $year: '$date' }, month: { $month: '$date' } },
-                        total: { $sum: '$amount' }
-                    }
-                },
-                { $sort: { '_id.year': 1, '_id.month': 1 } }
-            ])
-        ]);
-
-        const byCategory = {};
-        catalogSlugs.forEach((slug) => { byCategory[slug] = { total: 0, count: 0 }; });
-
-        let grandTotal = 0;
-        rows.forEach((row) => {
-            if (!byCategory[row._id]) {
-                byCategory[row._id] = { total: 0, count: 0 };
-            }
-            byCategory[row._id] = { total: row.total, count: row.count };
-            grandTotal += row.total;
+        const data = await accountingLedger.buildExpenseSummaryDashboard({
+            dateRangeFilter: dateRange,
+            now: new Date()
         });
-
-        const thisMonthRows = await Expense.aggregate([
-            { $match: { date: { $gte: thisMonth.start, $lte: thisMonth.end } } },
-            { $group: { _id: '$category', total: { $sum: '$amount' } } },
-            { $sort: { total: -1 } },
-            { $limit: 1 }
-        ]);
-        const topCategory = thisMonthRows[0]?._id || null;
-        const topCategoryTotal = thisMonthRows[0]?.total || 0;
-
-        const vsLastMonth = lastMonthTotal > 0
-            ? Math.round(((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 1000) / 10
-            : (thisMonthTotal > 0 ? 100 : 0);
-
-        const monthlyTrend = [];
-        for (let i = 5; i >= 0; i -= 1) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const keyYear = d.getFullYear();
-            const keyMonth = d.getMonth() + 1;
-            const match = monthlyTrendRows.find(
-                (row) => row._id.year === keyYear && row._id.month === keyMonth
-            );
-            monthlyTrend.push({
-                month: formatMonthKey(d),
-                label: formatMonthLabel(d),
-                total: match?.total || 0
-            });
-        }
-
-        const categoryKeys = [...new Set([...catalogSlugs, ...Object.keys(byCategory)])];
 
         return res.json({
             success: true,
-            data: {
-                byCategory,
-                categories: categoryKeys.map((cat) => ({
-                    category: cat,
-                    total: byCategory[cat]?.total || 0,
-                    count: byCategory[cat]?.count || 0
-                })),
-                grandTotal,
-                stats: {
-                    thisMonthTotal,
-                    lastMonthTotal,
-                    vsLastMonth,
-                    topCategory,
-                    topCategoryTotal
-                },
-                monthlyTrend
-            }
+            data
         });
     } catch (err) {
         console.error('getExpenseSummary error:', err);

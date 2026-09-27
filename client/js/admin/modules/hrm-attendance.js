@@ -252,8 +252,8 @@ async function hrmLoadStaffOptions(selectIds = [], {
     const activeEmployeeCache = forStaffPicker ? hrmEmployeePickerCache : hrmEmployeeCache;
 
     selectIds.forEach((selectId) => {
-        const select = document.getElementById(selectId);
-        if (!select) return;
+        const select = hrmResolveNativeStaffSelect(selectId) || document.getElementById(selectId);
+        if (!select || select.tagName !== 'SELECT') return;
 
         const previous = select.value;
         let html = select.multiple ? '' : `<option value="">${hrmEscape(placeholder)}</option>`;
@@ -293,17 +293,41 @@ async function hrmLoadStaffOptions(selectIds = [], {
 
 const hrmStaffSearchInstances = {};
 
+/**
+ * After searchable-select mounts, `#id` moves to the hidden input — resolve the native `<select>`.
+ */
+function hrmResolveNativeStaffSelect(selectId) {
+    const id = String(selectId || '').trim();
+    if (!id) return null;
+
+    const byData = document.querySelector(`select[data-hrm-staff-select-id="${id}"]`);
+    if (byData) return byData;
+
+    const el = document.getElementById(id);
+    if (el?.tagName === 'SELECT') return el;
+
+    const container = el?.closest('.form-group') || el?.parentElement;
+    const nested = container?.querySelector('select');
+    if (nested) return nested;
+
+    return null;
+}
+
 /** Type-to-search staff picker — list hidden until the user types. */
 function hrmMountStaffSearchSelect(selectId, { placeholder = 'Search staff by name or ID…' } = {}) {
-    const select = document.getElementById(selectId);
-    if (!select || typeof window.createSearchableSelect !== 'function') return null;
+    const select = hrmResolveNativeStaffSelect(selectId) || document.getElementById(selectId);
+    if (!select || select.tagName !== 'SELECT' || typeof window.createSearchableSelect !== 'function') {
+        return null;
+    }
+
+    select.dataset.hrmStaffSelectId = selectId;
 
     if (hrmStaffSearchInstances[selectId]?.destroy) {
         hrmStaffSearchInstances[selectId].destroy();
         delete hrmStaffSearchInstances[selectId];
     }
 
-    const options = [...select.options]
+    const options = Array.from(select.options || [])
         .filter((opt) => opt.value)
         .map((opt) => ({ value: opt.value, label: opt.textContent.trim() }));
 
@@ -320,10 +344,10 @@ function hrmMountStaffSearchSelect(selectId, { placeholder = 'Search staff by na
 
 /** Re-index searchable select options after `<select>` innerHTML changes. */
 function hrmRefreshStaffSearchSelect(selectId, { placeholder = 'Search staff by name or ID…' } = {}) {
-    const select = document.getElementById(selectId);
-    if (!select) return null;
+    const select = hrmResolveNativeStaffSelect(selectId);
+    if (!select?.options) return null;
 
-    const options = [...select.options]
+    const options = Array.from(select.options)
         .filter((opt) => opt.value)
         .map((opt) => ({ value: opt.value, label: opt.textContent.trim() }));
 
@@ -349,7 +373,7 @@ function hrmSetStaffSearchValue(selectId, value) {
         instance.setValue(val);
         return;
     }
-    const select = document.getElementById(selectId);
+    const select = hrmResolveNativeStaffSelect(selectId);
     if (select) {
         select.value = val;
     }
@@ -360,10 +384,11 @@ function hrmClearStaffSearchSelect(selectId, { placeholder = 'Select staff membe
         hrmStaffSearchInstances[selectId].destroy();
         delete hrmStaffSearchInstances[selectId];
     }
-    const select = document.getElementById(selectId);
-    if (select) {
+    const select = hrmResolveNativeStaffSelect(selectId) || document.getElementById(selectId);
+    if (select?.tagName === 'SELECT') {
         select.innerHTML = `<option value="">${hrmEscape(placeholder)}</option>`;
         select.value = '';
+        delete select.dataset.hrmStaffSelectId;
     }
 }
 
@@ -2105,6 +2130,7 @@ Object.assign(window, {
     hrmFillMonthSelect,
     hrmFillYearInput,
     hrmLoadStaffOptions,
+    hrmResolveNativeStaffSelect,
     hrmMountStaffSearchSelect,
     hrmRefreshStaffSearchSelect,
     hrmInvalidateStaffPickerCache,

@@ -172,6 +172,8 @@ const reviewPaymentProof = async (req, res) => {
         const now = new Date();
         order.paymentProof.reviewedAt = now;
         order.paymentProof.reviewedBy = req.admin?.id || null;
+        const previousPaymentStatus = order.payment?.status || 'unpaid';
+        const paymentMethod = order.payment?.code || order.paymentMethod || '';
 
         if (normalizedAction === 'approve') {
             order.paymentProof.status = 'approved';
@@ -198,6 +200,33 @@ const reviewPaymentProof = async (req, res) => {
                 mongoId: (saved) => String(saved._id)
             }
         );
+
+        if (normalizedAction === 'approve') {
+            const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
+            const adminId = req.admin?.id || req.adminAccount?._id || null;
+            await logSecurityEvent({
+                action: 'Payment Status Override',
+                actor: req.admin?.username || req.adminAccount?.username || 'admin',
+                actorType: 'admin',
+                actorId: adminId,
+                ipAddress: getClientIp(req),
+                resourceType: 'order',
+                resourceId: String(order._id),
+                previousValue: previousPaymentStatus,
+                newValue: 'paid',
+                details: JSON.stringify({
+                    event: 'payment_proof_approved',
+                    adminUserId: adminId ? String(adminId) : null,
+                    orderId: order.orderId || String(order._id),
+                    previousStatus: previousPaymentStatus,
+                    newStatus: 'paid',
+                    paymentMethod,
+                    ipAddress: getClientIp(req),
+                    timestamp: now.toISOString()
+                }),
+                source: 'payment_proof_review'
+            });
+        }
 
         return res.json({
             success: true,

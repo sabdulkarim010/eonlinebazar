@@ -174,11 +174,72 @@ async function listShifts({ page = 1, limit = 20, startDate, endDate, status, re
     };
 }
 
+/**
+ * Cash in active registers plus recently closed drawer counts (7-day window).
+ * Returns 0 when POS data is unavailable.
+ */
+async function getAggregatePosDrawerCashBalance() {
+    try {
+        const openAgg = await PosShift.aggregate([
+            { $match: { status: 'OPEN' } },
+            {
+                $group: {
+                    _id: null,
+                    total: {
+                        $sum: {
+                            $add: [
+                                { $ifNull: ['$startingCash', 0] },
+                                { $ifNull: ['$totalCashSales', 0] }
+                            ]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        const since = new Date();
+        since.setDate(since.getDate() - 7);
+
+        const closedAgg = await PosShift.aggregate([
+            {
+                $match: {
+                    status: 'CLOSED',
+                    closedAt: { $gte: since },
+                    actualCash: { $ne: null }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: { $ifNull: ['$actualCash', 0] } }
+                }
+            }
+        ]);
+
+        const openDrawerCash = roundMoney(openAgg[0]?.total || 0);
+        const closedDrawerCash = roundMoney(closedAgg[0]?.total || 0);
+
+        return {
+            openDrawerCash,
+            closedDrawerCash,
+            totalDrawerCash: roundMoney(openDrawerCash + closedDrawerCash)
+        };
+    } catch (err) {
+        console.warn('[posShift] aggregate drawer cash failed:', err.message);
+        return {
+            openDrawerCash: 0,
+            closedDrawerCash: 0,
+            totalDrawerCash: 0
+        };
+    }
+}
+
 module.exports = {
     isCashPaymentMethod,
     openShift,
     getCurrentShift,
     recordShiftSale,
     closeShift,
-    listShifts
+    listShifts,
+    getAggregatePosDrawerCashBalance
 };

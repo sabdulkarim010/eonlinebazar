@@ -456,6 +456,165 @@ function exportCSV() { return plDownloadExport('csv'); }
 function exportExcel() { return plDownloadExport('excel'); }
 
 /* ------------------------------------------------------------------ */
+/* Balance Sheet (Financial Reports tab)                              */
+/* ------------------------------------------------------------------ */
+
+let bsInitialized = false;
+let financeTab = 'pl';
+
+function bsGetEls() {
+    return {
+        asOf: document.getElementById('bsAsOfDate'),
+        from: document.getElementById('bsDateFrom'),
+        to: document.getElementById('bsDateTo'),
+        generateBtn: document.getElementById('bsGenerateBtn'),
+        spinner: document.getElementById('bsSpinner'),
+        error: document.getElementById('bsError'),
+        result: document.getElementById('bsResult'),
+        period: document.getElementById('bsPeriodLabel'),
+        check: document.getElementById('bsBalanceCheck'),
+        assetsBody: document.getElementById('bsAssetsBody'),
+        liabilitiesBody: document.getElementById('bsLiabilitiesBody'),
+        equityBody: document.getElementById('bsEquityBody'),
+        assetsTotal: document.getElementById('bsAssetsTotal'),
+        liabilitiesTotal: document.getElementById('bsLiabilitiesTotal'),
+        equityTotal: document.getElementById('bsEquityTotal')
+    };
+}
+
+function bsBuildQuery() {
+    const els = bsGetEls();
+    const params = new URLSearchParams();
+    const hasRange = els.from?.value && els.to?.value;
+    if (hasRange) {
+        params.set('dateFrom', els.from.value);
+        params.set('dateTo', els.to.value);
+    } else if (els.asOf?.value) {
+        params.set('asOfDate', els.asOf.value);
+    }
+    return params.toString();
+}
+
+function bsRenderRow(label, amount) {
+    return `<tr><td>${plEscape(label)}</td><td class="bs-num">${plFormatMoney(amount)}</td></tr>`;
+}
+
+function renderBalanceSheet(data) {
+    const els = bsGetEls();
+    if (!data || !els.result) return;
+
+    const asOf = data.asOfDate ? new Date(data.asOfDate).toLocaleDateString() : '—';
+    if (els.period) {
+        els.period.textContent = `Balance sheet as of ${asOf} (${data.periodMode || 'snapshot'})`;
+    }
+
+    if (els.check) {
+        const ok = data.check?.balanced;
+        els.check.className = `bs-balance-check ${ok ? 'bs-balance-check--ok' : 'bs-balance-check--warn'}`;
+        els.check.innerHTML = ok
+            ? `<i class="fa-solid fa-circle-check"></i> ${plEscape(data.check.equation)} — balanced`
+            : `<i class="fa-solid fa-triangle-exclamation"></i> ${plEscape(data.check.equation)} — difference ${plFormatMoney(data.check.difference)}`;
+    }
+
+    const a = data.assets || {};
+    const l = data.liabilities || {};
+    const e = data.equity || {};
+
+    if (els.assetsBody) {
+        els.assetsBody.innerHTML = [
+            bsRenderRow('Cash in Hand', a.cashInHand),
+            bsRenderRow('POS Drawer Cash', a.posDrawerCash),
+            bsRenderRow('Bank Balance', a.bankBalance),
+            bsRenderRow('Accounts Receivable', a.accountsReceivable),
+            bsRenderRow('Inventory Valuation', a.inventoryValuation)
+        ].join('');
+    }
+    if (els.liabilitiesBody) {
+        els.liabilitiesBody.innerHTML = [
+            bsRenderRow('Accounts Payable (Open POs)', l.accountsPayable),
+            bsRenderRow('Customer Store Credit (Wallets)', l.customerStoreCredit)
+        ].join('');
+    }
+    if (els.equityBody) {
+        els.equityBody.innerHTML = [
+            bsRenderRow('Retained Earnings (Net Income)', e.retainedEarnings),
+            bsRenderRow('Balancing Adjustment', e.balancingAdjustment)
+        ].join('');
+    }
+
+    if (els.assetsTotal) els.assetsTotal.textContent = plFormatMoney(a.total);
+    if (els.liabilitiesTotal) els.liabilitiesTotal.textContent = plFormatMoney(l.total);
+    if (els.equityTotal) els.equityTotal.textContent = plFormatMoney(e.total);
+
+    els.result.hidden = false;
+}
+
+async function loadBalanceSheetReport() {
+    if (typeof window.hasAnyAdminPermission === 'function'
+        && !window.hasAnyAdminPermission('view_financial_reports', 'manage_settings')) {
+        return;
+    }
+
+    const els = bsGetEls();
+    if (!els.generateBtn) return;
+
+    if (els.spinner) els.spinner.hidden = false;
+    if (els.error) els.error.hidden = true;
+    if (els.result) els.result.hidden = true;
+
+    try {
+        const qs = bsBuildQuery();
+        const url = qs
+            ? `/api/admin/finance/balance-sheet?${qs}`
+            : '/api/admin/finance/balance-sheet';
+
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        const result = await res.json();
+        if (!res.ok || !result.success) {
+            throw new Error(result.message || 'Could not load balance sheet.');
+        }
+        renderBalanceSheet(result.data);
+    } catch (err) {
+        console.error('loadBalanceSheetReport error:', err);
+        if (els.error) {
+            els.error.textContent = err.message || 'Failed to load balance sheet.';
+            els.error.hidden = false;
+        }
+    } finally {
+        if (els.spinner) els.spinner.hidden = true;
+    }
+}
+
+function setFinanceTab(tab) {
+    financeTab = tab;
+    const plPanel = document.getElementById('plReport');
+    const bsPanel = document.getElementById('bsReport');
+    document.querySelectorAll('[data-finance-tab]').forEach((btn) => {
+        const active = btn.dataset.financeTab === tab;
+        btn.classList.toggle('finance-tab--active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    if (plPanel) plPanel.hidden = tab !== 'pl';
+    if (bsPanel) bsPanel.hidden = tab !== 'balance-sheet';
+    if (tab === 'balance-sheet') loadBalanceSheetReport();
+}
+
+function initBalanceSheetPanel() {
+    if (bsInitialized) return;
+    bsInitialized = true;
+
+    const els = bsGetEls();
+    const now = new Date();
+    if (els.asOf && !els.asOf.value) els.asOf.value = plToDateInput(now);
+
+    document.querySelectorAll('[data-finance-tab]').forEach((btn) => {
+        btn.addEventListener('click', () => setFinanceTab(btn.dataset.financeTab || 'pl'));
+    });
+
+    if (els.generateBtn) els.generateBtn.addEventListener('click', loadBalanceSheetReport);
+}
+
+/* ------------------------------------------------------------------ */
 /* Init                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -469,6 +628,8 @@ function initProfitLossReport() {
 
     const els = plGetEls();
     if (!els.generateBtn) return; // finance partial not mounted (non-superadmin)
+
+    initBalanceSheetPanel();
 
     // Default the range to the current month on first mount.
     if (!plInitialized) {
@@ -492,6 +653,8 @@ function initProfitLossReport() {
 
 window.initProfitLossReport = initProfitLossReport;
 window.loadPLReport = loadPLReport;
+window.loadBalanceSheetReport = loadBalanceSheetReport;
+window.setFinanceTab = setFinanceTab;
 window.renderSummaryCards = renderSummaryCards;
 window.renderCharts = renderCharts;
 window.renderTopProducts = renderTopProducts;

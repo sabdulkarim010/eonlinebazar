@@ -57,6 +57,7 @@ async function resolveLeaveActionTarget(req, actionLabel) {
         return {
             error: {
                 status: 400,
+                success: false,
                 message: `Leave request has already been processed (current status: ${target.leave.status}).`,
                 code: 'ALREADY_PROCESSED'
             }
@@ -285,7 +286,7 @@ exports.approveLeave = async (req, res) => {
                 });
                 return res.status(400).json({
                     success: false,
-                    message: error.message || 'Leave request has already been processed',
+                    message: error.message || 'Leave request has already been processed.',
                     code: error.code || 'ALREADY_PROCESSED'
                 });
             }
@@ -302,6 +303,13 @@ exports.approveLeave = async (req, res) => {
             attendanceProcessing: sideEffects.attendanceProcessing
         });
     } catch (error) {
+        if (error.status === 400) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || 'Leave request cannot be approved.',
+                code: error.code || 'LEAVE_ACTION_FAILED'
+            });
+        }
         console.error('approveLeave Error:', error);
         res.status(500).json({ success: false, message: 'Failed to approve leave.' });
     }
@@ -354,6 +362,13 @@ exports.rejectLeave = async (req, res) => {
 
         res.status(200).json({ success: true, message: 'Leave rejected.', data: leave });
     } catch (error) {
+        if (error.status === 400) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || 'Leave request cannot be rejected.',
+                code: error.code || 'LEAVE_ACTION_FAILED'
+            });
+        }
         console.error('rejectLeave Error:', error);
         res.status(500).json({ success: false, message: 'Failed to reject leave.' });
     }

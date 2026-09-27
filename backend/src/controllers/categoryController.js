@@ -717,7 +717,7 @@ exports.adminUploadBanner = async (req, res) => {
     const cat = await Category.findByIdAndUpdate(
       req.params.id,
       { bannerImageUrl, updatedAt: new Date() },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!cat) {
       return res.status(404).json({ success: false, message: 'Category not found' });
