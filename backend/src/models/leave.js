@@ -44,6 +44,12 @@ leaveSchema.index({ staffId: 1, status: 1 });
 leaveSchema.index({ status: 1, startDate: -1 });
 leaveSchema.index({ startDate: 1 });
 leaveSchema.index({ startDate: 1, endDate: 1 });
+/** Overlap checks + balance commits within a year. */
+leaveSchema.index({ staffId: 1, status: 1, startDate: 1, endDate: 1 });
+leaveSchema.index({ staffId: 1, leaveType: 1, status: 1, startDate: 1 });
+/** Pending queue / admin list (status filter + createdAt sort). */
+leaveSchema.index({ status: 1, createdAt: -1 });
+leaveSchema.index({ createdAt: -1 });
 
 /** Inclusive whole-day span between two dates, minimum 1. */
 function countLeaveDays(startDate, endDate) {

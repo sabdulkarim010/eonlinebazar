@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-26 (HRM performance, Super Admin sheets, leave race guard, empId PATCH)  
+**Last updated:** 2026-09-27 (Leave/attendance DB indexes + batch stamp)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -28,7 +28,8 @@
 | `backend/src/services/hrmAuditService.js` | Structured HRM SecurityLog events (`logHrmAuditEvent`) | ✅ |
 | `backend/src/controllers/admin/staffAuditController.js` | Staff activity + `GET /staff-audit/hrm` filtered audit | ✅ |
 | `backend/src/services/hrmDashboardMetricsService.js` | Batched HRM KPIs for enterprise summary (cached) | ✅ |
-| `backend/src/controllers/admin/leaveController.js` | Leave apply/approve/reject, balance, calendar | ✅ |
+| `backend/src/controllers/admin/leaveController.js` | Leave HTTP handlers (thin) | ✅ |
+| `backend/src/services/leaveWorkflowService.js` | Transactional leave writes + async side effects | ✅ |
 | `backend/src/controllers/admin/designationController.js` | Designation CRUD | ✅ |
 | `backend/src/controllers/admin/adminProfileController.js` | `GET /profile/me/full`, link-employee, photo/name sync | ✅ |
 | `backend/src/repositories/employeeRepository.js` | PG employee dual-write/read | ✅ |
@@ -278,6 +279,26 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Leave & attendance database indexes — 2026-09-27
+
+- Mongo compound indexes on Leave/Attendance; boot-time `ensureHrmMongoIndexes`.
+- PG idempotent migration `20260927110000_hrm_leave_attendance_indexes`.
+- Batch attendance stamp (`$in` prefetch); PG balance `groupBy` (no full-year row scan).
+
+### Leave Management frontend — async approve UX — 2026-09-27
+
+- `hrm-leaves.js`: prefetch staff picker on mount; instant Apply Leave modal when cache warm.
+- 8s mutation timeout; submit/approve/reject button guards + `finally` recovery.
+- Optimistic pending-row removal; `attendanceProcessing` success toast; graceful `ALREADY_PROCESSED` refresh.
+
+### Leave submit/approve async workflow — 2026-09-27
+
+- New `leaveWorkflowService.js`: Mongo transactions for create/approve/reject; PG mirror on critical path.
+- Deferred via `setImmediate`: security log, in-app notify (submit), HRM audit, security log, holiday attendance stamp (approve).
+- Production approve response includes `attendanceProcessing: true` until background stamp completes; tests use sync side effects (`NODE_ENV=test`).
+- Parallel `Promise.all` attendance stamping in background worker.
+- Tests: **340/340** Jest (`leaveWorkflowService.test.js` added).
 
 ### HRM performance, Super Admin mapping, leave UX, empId edit — 2026-09-26
 

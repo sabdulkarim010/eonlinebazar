@@ -181,6 +181,9 @@ function hrmFillYearInput(inputId, year) {
 function hrmInvalidateEmployeeCache() {
     hrmEmployeeCache = [];
     hrmEmployeePickerCache = [];
+    if (typeof window.hrmInvalidateLeaveStaffPicker === 'function') {
+        window.hrmInvalidateLeaveStaffPicker();
+    }
 }
 
 /** Load admin staff + operational employees into grouped optgroups. */

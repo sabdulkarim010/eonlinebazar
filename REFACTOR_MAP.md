@@ -3308,3 +3308,28 @@ docs/audit/HRM_AUDIT.md [MOD]
 docs/audit/SETTINGS_AUDIT.md [MOD]
 README.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+
+# Leave workflow async refactor — 2026-09-27
+backend/src/services/leaveWorkflowService.js [NEW]
+backend/src/controllers/admin/leaveController.js [MOD] thin handlers; delegate to workflow service
+tests/services/leaveWorkflowService.test.js [NEW]
+docs/audit/HRM_AUDIT.md [MOD]
+README.md [MOD] 340 tests
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+
+# Leave frontend async approve UX — 2026-09-27
+client/js/admin/modules/hrm-leaves.js [MOD] prefetch staff, 8s timeout, optimistic rows, attendanceProcessing toast
+client/js/admin/modules/hrm-attendance.js [MOD] invalidate leave staff picker on employee cache clear
+docs/audit/HRM_AUDIT.md [MOD]
+
+# HRM leave/attendance indexes + query batching — 2026-09-27
+backend/src/models/leave.js [MOD] compound indexes
+backend/src/models/attendance.js [MOD] compound indexes
+backend/src/utils/ensureHrmMongoIndexes.js [NEW]
+backend/src/server.js [MOD] sync HRM indexes on Mongo connect
+backend/src/services/leaveWorkflowService.js [MOD] batch attendance lookup
+backend/src/repositories/leaveRepository.js [MOD] aggregateBalanceByStaff groupBy
+prisma/schema.prisma [MOD] Leave/Attendance indexes
+prisma/migrations/20260927110000_hrm_leave_attendance_indexes/migration.sql [NEW]
+DATABASE_MIGRATION_AUDIT.md [MOD]
+docs/audit/HRM_AUDIT.md [MOD]

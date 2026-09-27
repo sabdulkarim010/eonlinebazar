@@ -188,6 +188,8 @@ The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/p
 | Payroll math | `backend/src/services/payrollService.js` | Weekend-aware working days, joining pro-rate, earned salary + net pay |
 | Bulk attendance import | `backend/src/services/bulkAttendanceService.js` | CSV/Excel row validate + upsert (Asia/Dhaka dates) |
 | HRM async jobs | `backend/src/services/hrmAsyncJobService.js` + `queues/importExportQueue.js` | Bulk payroll + large CSV exports (BullMQ / inline fallback) |
+| Leave workflow | `backend/src/services/leaveWorkflowService.js` | Transactional leave submit/approve/reject; `setImmediate` side effects (notify, audit, attendance stamp). Set `LEAVE_WORKFLOW_SYNC=1` to force inline side effects. |
+| HRM Mongo indexes | `backend/src/utils/ensureHrmMongoIndexes.js` | Idempotent `syncIndexes()` for Leave + Attendance on server boot |
 | HRM audit trail | `backend/src/services/hrmAuditService.js` | Structured SecurityLog events (salary/status/payroll/leave) + `GET /staff-audit/hrm` filters |
 | HRM dashboard KPIs | `backend/src/services/hrmDashboardMetricsService.js` | Batched Mongo `$group` / Prisma aggregates for enterprise summary (30s Redis cache) |
 | HRM staff payload sanitizer | `backend/src/utils/staffHelpers.js` (+ `hrmPayloadSanitizer` re-export) + `client/js/admin/modules/hrm-api.js` | Strip `admin:`/`employee:` prefixes; unified leave/payroll/attendance API bodies |

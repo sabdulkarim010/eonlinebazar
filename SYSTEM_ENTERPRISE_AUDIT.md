@@ -3848,5 +3848,16 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Sidebar category label keys | ✅ | `nav-section:*` in labels API + settings |
 | Tests | ✅ | **338/338** Jest |
 
+---
+
+## Leave Workflow Refactor — Async Side Effects — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Transactional leave create/approve/reject | ✅ | `leaveWorkflowService.js` + Mongo sessions |
+| Fast HTTP response (prod) | ✅ | Audit, notify, attendance via `setImmediate` |
+| Approve API `attendanceProcessing` flag | ✅ | `attendanceDaysMarked` when sync (`NODE_ENV=test`) |
+| Tests | ✅ | **340/340** Jest |
+
 
 

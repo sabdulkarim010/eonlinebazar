@@ -3840,3 +3840,20 @@ Full **HTTP-level** verification via supertest against `tests/app`, toggling `RE
 
 **Result:** `npm run test:repositories` — **21/21 files**, zero timeout failures.
 
+---
+
+## HRM Leave & Attendance Index Pass — 2026-09-27
+
+**Scope:** No `leave_balances` or `staff` collections — balances are aggregated from `leaves`; staff is polymorphic (`staffId` + Admin/Employee FKs on PG).
+
+| Layer | Change |
+|-------|--------|
+| Mongo `leave.js` | Compound indexes: `{ staffId, status, startDate, endDate }`, `{ staffId, leaveType, status, startDate }`, `{ status, createdAt }` |
+| Mongo `attendance.js` | `{ staffId, status, date }`, `{ createdAt }` |
+| Boot | `ensureHrmMongoIndexes.js` → `Leave.syncIndexes()` + `Attendance.syncIndexes()` after Mongo connect |
+| PostgreSQL | `prisma/migrations/20260927110000_hrm_leave_attendance_indexes/migration.sql` — all `CREATE INDEX IF NOT EXISTS` |
+| Prisma schema | Matching `@@index` entries on `Leave` and `Attendance` |
+| N+1 | `leaveWorkflowService.stampLeaveOnAttendance` — one `$in` fetch then parallel saves; `leaveRepository.aggregateBalanceByStaff` → `groupBy` |
+
+**Apply PG migration:** `npx prisma migrate deploy` (or run the SQL manually on Neon).
+

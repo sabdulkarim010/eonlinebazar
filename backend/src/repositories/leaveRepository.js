@@ -137,34 +137,43 @@ async function aggregateBalanceByStaff(year) {
   const start = new Date(y, 0, 1, 0, 0, 0, 0);
   const end = new Date(y, 11, 31, 23, 59, 59, 999);
 
-  const leaves = await prisma.leave.findMany({
+  const grouped = await prisma.leave.groupBy({
+    by: [
+      'staffId',
+      'staffUsername',
+      'staffType',
+      'adminId',
+      'employeeId',
+      'leaveType',
+      'status'
+    ],
     where: { startDate: { gte: start, lte: end } },
-    select: {
-      staffId: true,
-      staffUsername: true,
-      staffType: true,
-      adminId: true,
-      employeeId: true,
-      leaveType: true,
-      status: true,
-      totalDays: true
-    }
+    _sum: { totalDays: true }
   });
 
   const byStaff = new Map();
-  leaves.forEach((leave) => {
-    const key = leave.staffId;
+  grouped.forEach((row) => {
+    const key = row.staffId;
     if (!byStaff.has(key)) {
       byStaff.set(key, {
-        staffId: leave.staffId,
-        staffUsername: leave.staffUsername || '',
-        staffType: leave.staffType,
-        adminId: leave.adminId,
-        employeeId: leave.employeeId,
+        staffId: row.staffId,
+        staffUsername: row.staffUsername || '',
+        staffType: row.staffType,
+        adminId: row.adminId,
+        employeeId: row.employeeId,
         rows: []
       });
     }
-    byStaff.get(key).rows.push(leave);
+    byStaff.get(key).rows.push({
+      staffId: row.staffId,
+      staffUsername: row.staffUsername,
+      staffType: row.staffType,
+      adminId: row.adminId,
+      employeeId: row.employeeId,
+      leaveType: row.leaveType,
+      status: row.status,
+      totalDays: row._sum.totalDays || 0
+    });
   });
 
   return [...byStaff.values()];

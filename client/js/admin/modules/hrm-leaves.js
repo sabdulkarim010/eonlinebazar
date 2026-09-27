@@ -27,8 +27,80 @@ const LEAVE_STATUS_CLASSES = {
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+/** Mutations (submit / approve / reject) — fail fast so UI never hangs. */
+const LEAVE_MUTATION_TIMEOUT_MS = 8000;
+
+/** Staff picker + searchable select warmed on section mount. */
+let leaveStaffPickerReady = false;
+let leaveApplyResourcesPrefetchPromise = null;
+
 /** Blocks duplicate approve/reject while confirm or API is in flight. */
 const leaveActionsBusy = new Set();
+
+function isLeaveAlreadyProcessedError(err) {
+    const code = err?.result?.code || err?.code;
+    if (code === 'ALREADY_PROCESSED') return true;
+    return /already been processed/i.test(String(err?.message || ''));
+}
+
+function handleLeaveMutationError(err, leaveId, fallbackMessage) {
+    if (isLeaveAlreadyProcessedError(err)) {
+        showToast('This leave was already processed. Updating your list…', 'info');
+        removePendingLeaveRow(leaveId);
+        loadPendingLeaves({ soft: true }).catch(() => {});
+        return;
+    }
+    showToast(err?.message || fallbackMessage, 'error');
+}
+
+function removePendingLeaveRow(leaveId) {
+    const row = getLeavePendingRow(leaveId);
+    if (row) row.remove();
+
+    const tbody = document.getElementById('hrmLeavePendingTableBody');
+    if (tbody && !tbody.querySelector('tr[data-leave-id]')) {
+        tbody.innerHTML = '<tr><td colspan="6" class="table-status-empty">No leave applications waiting for approval.</td></tr>';
+    }
+
+    const badge = document.getElementById('hrmLeavePendingBadge');
+    if (badge && !badge.hidden) {
+        const next = Math.max(0, (parseInt(badge.textContent, 10) || 0) - 1);
+        updatePendingBadge(next);
+    }
+}
+
+async function prefetchLeaveApplyResources() {
+    if (leaveStaffPickerReady) return;
+    if (leaveApplyResourcesPrefetchPromise) {
+        await leaveApplyResourcesPrefetchPromise;
+        return;
+    }
+
+    if (!canApplyLeaveForStaff() || typeof window.hrmLoadStaffOptions !== 'function') {
+        return;
+    }
+
+    leaveApplyResourcesPrefetchPromise = (async () => {
+        try {
+            await window.hrmLoadStaffOptions(['applyLeaveStaff'], {
+                placeholder: 'Select staff member',
+                forStaffPicker: true
+            });
+            if (typeof window.hrmMountStaffSearchSelect === 'function') {
+                window.hrmMountStaffSearchSelect('applyLeaveStaff', {
+                    placeholder: 'Search staff by name or ID…'
+                });
+            }
+            leaveStaffPickerReady = true;
+        } catch (err) {
+            hrmHandleLoadError(err, { context: 'prefetchLeaveApplyResources', silent: true });
+        } finally {
+            leaveApplyResourcesPrefetchPromise = null;
+        }
+    })();
+
+    await leaveApplyResourcesPrefetchPromise;
+}
 
 function getLeavePendingRow(leaveId) {
     const safeId = typeof CSS !== 'undefined' && CSS.escape
@@ -218,14 +290,24 @@ function approveLeave(id, triggerBtn = null) {
                 const { result } = await hrmFetchJson(leaveActionPath(leaveId, 'approve'), {
                     method: 'PATCH',
                     headers: window.hrmAuthHeaders(true),
-                    body: JSON.stringify({})
+                    body: JSON.stringify({}),
+                    timeoutMs: LEAVE_MUTATION_TIMEOUT_MS
                 });
 
-                showAdminSuccess('Leave Approved', result.message || 'Leave approved.');
-                await Promise.all([
-                    loadPendingLeaves({ soft: true }),
-                    loadLeaveBalances()
-                ]);
+                removePendingLeaveRow(leaveId);
+
+                if (result.attendanceProcessing) {
+                    showToast(
+                        'Leave approved! Attendance records are processing in the background.',
+                        'success',
+                        4500
+                    );
+                } else {
+                    showAdminSuccess('Leave Approved', result.message || 'Leave approved.');
+                }
+
+                loadLeaveBalances().catch(() => {});
+                loadPendingLeaves({ soft: true }).catch(() => {});
             };
             try {
                 if (triggerBtn && window.hrmWithButtonElement) {
@@ -236,7 +318,7 @@ function approveLeave(id, triggerBtn = null) {
                     await run();
                 }
             } catch (err) {
-                showToast(err.message || 'Failed to approve leave.', 'error');
+                handleLeaveMutationError(err, leaveId, 'Failed to approve leave.');
             } finally {
                 endLeaveAction(leaveId);
             }
@@ -280,14 +362,14 @@ async function rejectLeave(id, triggerBtn = null) {
         const { result: apiResult } = await hrmFetchJson(leaveActionPath(leaveId, 'reject'), {
             method: 'PATCH',
             headers: window.hrmAuthHeaders(true),
-            body: JSON.stringify({ rejectionReason: reason })
+            body: JSON.stringify({ rejectionReason: reason }),
+            timeoutMs: LEAVE_MUTATION_TIMEOUT_MS
         });
 
+        removePendingLeaveRow(leaveId);
         showAdminSuccess('Leave Rejected', apiResult.message || 'Leave rejected.');
-        await Promise.all([
-            loadPendingLeaves({ soft: true }),
-            loadLeaveBalances()
-        ]);
+        loadLeaveBalances().catch(() => {});
+        loadPendingLeaves({ soft: true }).catch(() => {});
     };
 
     try {
@@ -299,7 +381,7 @@ async function rejectLeave(id, triggerBtn = null) {
             await run();
         }
     } catch (err) {
-        showToast(err.message || 'Failed to reject leave.', 'error');
+        handleLeaveMutationError(err, leaveId, 'Failed to reject leave.');
     } finally {
         endLeaveAction(leaveId);
     }
@@ -537,11 +619,9 @@ async function openApplyLeaveModal(isSelf = false, triggerBtn = null) {
                 const adminName = window.currentAdmin?.name || window.currentAdmin?.username || 'Your account';
                 if (selfName) selfName.textContent = adminName;
             } else {
-                await window.hrmLoadStaffOptions(['applyLeaveStaff'], {
-                    placeholder: 'Select staff member',
-                    forStaffPicker: true
-                });
-                window.hrmMountStaffSearchSelect('applyLeaveStaff', { placeholder: 'Search staff by name or ID…' });
+                if (!leaveStaffPickerReady) {
+                    await prefetchLeaveApplyResources();
+                }
                 if (staffGroup) staffGroup.style.display = '';
                 if (selfInfo) selfInfo.style.display = 'none';
                 if (staffSelect) staffSelect.required = true;
@@ -582,27 +662,34 @@ async function submitLeaveApplication() {
     }
 
     const saveBtn = document.getElementById('applyLeaveSaveBtn');
+    const defaultLabel = 'Submit Application';
 
     try {
-        await hrmWithSubmitButton(saveBtn, 'Submit Application', async () => {
+        await hrmWithSubmitButton(saveBtn, defaultLabel, async () => {
             const endpoint = applyLeaveSelfMode
                 ? '/api/admin/hrm/leaves/apply-own'
                 : '/api/admin/hrm/leaves/apply';
             const { result } = await hrmFetchJson(endpoint, {
                 method: 'POST',
                 headers: window.hrmAuthHeaders(true),
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                timeoutMs: LEAVE_MUTATION_TIMEOUT_MS
             });
 
             showAdminSuccess('Leave Submitted', result.message || 'Leave application submitted.');
             closeApplyLeaveModal();
             if (!applyLeaveSelfMode) {
-                await loadPendingLeaves({ soft: true });
+                loadPendingLeaves({ soft: true }).catch(() => {});
             }
-            await loadLeaveBalances();
+            loadLeaveBalances().catch(() => {});
         });
     } catch (err) {
         showToast(err.message || 'Server error while submitting the leave application.', 'error');
+    } finally {
+        if (saveBtn && saveBtn.dataset.loading !== '1') {
+            saveBtn.disabled = false;
+            saveBtn.textContent = defaultLabel;
+        }
     }
 }
 
@@ -626,9 +713,7 @@ async function loadHrmLeavesSection() {
 
     configureApplyLeaveButtons();
 
-    if (canApplyLeaveForStaff() && typeof window.hrmLoadStaffOptions === 'function') {
-        window.hrmLoadStaffOptions([]).catch(() => {});
-    }
+    prefetchLeaveApplyResources().catch(() => {});
 
     const canViewRequests = typeof window.hasAdminPermission === 'function'
         && window.hasAdminPermission('view_leave_requests');
@@ -666,7 +751,10 @@ function setupHrmLeavesSection() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', setupHrmLeavesSection);
+document.addEventListener('DOMContentLoaded', () => {
+    setupHrmLeavesSection();
+    prefetchLeaveApplyResources().catch(() => {});
+});
 
 window.loadHrmLeavesSection = loadHrmLeavesSection;
 window.loadPendingLeaves = loadPendingLeaves;
@@ -679,3 +767,6 @@ window.rejectLeave = rejectLeave;
 window.openApplyLeaveModal = openApplyLeaveModal;
 window.closeApplyLeaveModal = closeApplyLeaveModal;
 window.submitLeaveApplication = submitLeaveApplication;
+window.hrmInvalidateLeaveStaffPicker = function hrmInvalidateLeaveStaffPicker() {
+    leaveStaffPickerReady = false;
+};

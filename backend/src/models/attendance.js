@@ -50,6 +50,8 @@ attendanceSchema.index({ staffId: 1, date: 1 }, { unique: true });
 attendanceSchema.index({ date: 1, staffId: 1 });
 attendanceSchema.index({ date: -1, status: 1 });
 attendanceSchema.index({ status: 1 });
+attendanceSchema.index({ staffId: 1, status: 1, date: 1 });
+attendanceSchema.index({ createdAt: -1 });
 
 /** Midnight of the given day in platform TZ — canonical key for one attendance row. */
 attendanceSchema.statics.normalizeDate = function normalizeDate(input) {

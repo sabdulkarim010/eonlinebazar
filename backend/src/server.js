@@ -72,6 +72,13 @@ logChatProxyConfig();
 // সেট হয়, যাতে মালিকের অ্যাক্সেস কোনোভাবেই নষ্ট না হয়।
 connectDB().then(async () => {
     try {
+        const { ensureHrmMongoIndexes } = require('./utils/ensureHrmMongoIndexes');
+        await ensureHrmMongoIndexes();
+    } catch (err) {
+        console.warn('HRM Mongo index sync warning:', err.message);
+    }
+
+    try {
         const Admin = require('./models/admin');
         const { rolesBackfilled, statusBackfilled, marketingBackfilled } = await Admin.ensureRbacDefaults();
         if (rolesBackfilled || statusBackfilled || marketingBackfilled) {
