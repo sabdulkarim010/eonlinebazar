@@ -2,7 +2,8 @@ const request = require('supertest');
 const Product = require('../backend/src/models/product');
 const Order = require('../backend/src/models/order');
 const PaymentMethod = require('../backend/src/models/PaymentMethod');
-const Settings = require('../backend/src/models/Settings');
+const { saveSettings } = require('../backend/src/services/settingsService');
+const { syncTaxSettingsFromLegacyFields } = require('../backend/src/services/taxSettingsService');
 const { getApp, createTestUser, getAuthToken } = require('./setup');
 
 describe('Order API', () => {
@@ -54,12 +55,16 @@ describe('Order API', () => {
     });
 
     test('POST /api/orders — applies additive VAT when vatEnabled and not inclusive', async () => {
-        const settings = await Settings.getOrCreate();
-        settings.vatEnabled = true;
-        settings.vatPercentage = 5;
-        settings.vatInclusive = false;
-        settings.taxRegistrationNumber = 'TRN-TEST-001';
-        await settings.save();
+        const saved = await saveSettings({
+            mutate: (settings) => {
+                settings.vatEnabled = true;
+                settings.vatPercentage = 5;
+                settings.vatInclusive = false;
+                settings.taxRegistrationNumber = 'TRN-TEST-001';
+                syncTaxSettingsFromLegacyFields(settings);
+            }
+        });
+        expect(saved.ok).toBe(true);
 
         const product = await seedProduct();
         const codMethod = await PaymentMethod.findOne({ code: 'cod' });
@@ -86,7 +91,11 @@ describe('Order API', () => {
         expect(orderRes.status).toBe(201);
         expect(orderRes.body.success).toBe(true);
         expect(Number(orderRes.body.data.vatAmount)).toBe(60);
+        expect(Number(orderRes.body.data.taxAmount)).toBe(60);
+        expect(Number(orderRes.body.data.taxableAmount)).toBe(1200);
+        expect(orderRes.body.data.priceTaxMode).toBe('EXCLUSIVE');
         expect(Number(orderRes.body.data.vatPercentage)).toBe(5);
+        expect(Number(orderRes.body.data.vatRate)).toBe(5);
         expect(orderRes.body.data.vatEnabled).toBe(true);
         expect(orderRes.body.data.taxRegistrationNumber).toBe('TRN-TEST-001');
         expect(Number(orderRes.body.lockedPricing.vatAmount)).toBe(60);

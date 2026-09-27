@@ -249,6 +249,13 @@ connectDB().then(async () => {
     } catch (err) {
         console.error('PG TTL sweep cron bootstrap error:', err.message);
     }
+
+    try {
+        const { startBackupScheduler } = require('./cron/backupScheduler');
+        startBackupScheduler();
+    } catch (err) {
+        console.error('Encrypted backup scheduler bootstrap error:', err.message);
+    }
 });
 
 // ৩. প্রয়োজনীয় মিডলওয়্যারসমূহ

@@ -97,7 +97,12 @@ const staffController = require('../controllers/staffController');
 const staffRoutes = require('./staffRoutes');
 const fileManagerRoutes = require('./fileManagerRoutes');
 const { verifyAdmin } = require('../middlewares/authMiddleware');
-const { checkPermission, requireSuperAdmin, requireHrOrSuperAdmin } = require('../middlewares/rbac');
+const {
+    checkPermission,
+    checkSensitiveSettingsAccess,
+    requireSuperAdmin,
+    requireHrOrSuperAdmin
+} = require('../middlewares/rbac');
 const { checkBlacklist, adminLoginLimiter } = require('../middlewares/adminSecurity');
 const { geoFence } = require('../middlewares/geoFencing');
 const { checkAndAlertLowStock } = require('../services/stockAlertService');
@@ -109,6 +114,7 @@ const cacheController = require('../controllers/cacheController');
 const sandboxController = require('../controllers/sandboxController');
 const backupController = require('../controllers/admin/backupController');
 const syncFailuresController = require('../controllers/admin/syncFailuresController');
+const systemHealthController = require('../controllers/admin/systemHealthController');
 const sidebarLabelController = require('../controllers/admin/sidebarLabelController');
 const supportSlaController = require('../controllers/admin/supportSlaController');
 const securityMonitorController = require('../controllers/admin/securityMonitorController');
@@ -514,11 +520,26 @@ router.post('/sync-data', verifyAdmin, checkPermission('manage_settings'), admin
 router.get('/logs', verifyAdmin, checkPermission('manage_security'), adminController.getSecurityLogs);
 
 // ৪ক. সেটিংস চেঞ্জ হিস্ট্রি (GET) — settings-related audit events only
-router.get('/settings-history', verifyAdmin, checkPermission('manage_settings'), adminController.getSettingsHistory);
+router.get(
+    '/settings-history',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Settings change history' }),
+    adminController.getSettingsHistory
+);
 
 // ৪খ. সেটিংস JSON এক্সপোর্ট/ইম্পোর্ট (sanitized backup — no secrets)
-router.get('/settings-export', verifyAdmin, checkPermission('manage_settings'), adminController.exportSettingsBackup);
-router.post('/settings-import', verifyAdmin, checkPermission('manage_settings'), adminController.importSettingsBackup);
+router.get(
+    '/settings-export',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Settings JSON export' }),
+    adminController.exportSettingsBackup
+);
+router.post(
+    '/settings-import',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Settings JSON import' }),
+    adminController.importSettingsBackup
+);
 
 // ৫. সিস্টেম ডেলিভারি সেটিংস (GET / PUT / POST)
 // পড়া সবার জন্য খোলা (অর্ডার/চেকআউট ভিউ এই ভ্যালুগুলো দেখায়), লেখা কেবল manage_settings-এ
@@ -526,19 +547,74 @@ router.get('/all-settings', verifyAdmin, settingsController.getAllSettings);
 router.get('/settings', verifyAdmin, settingsController.getSettings);
 router.put('/settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateSettings);
 router.post('/settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateSettings);
-router.get('/rate-limit-settings', verifyAdmin, checkPermission('manage_settings'), settingsController.getRateLimitSettings);
-router.put('/rate-limit-settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateRateLimitSettings);
-router.post('/rate-limit-settings', verifyAdmin, checkPermission('manage_settings'), settingsController.updateRateLimitSettings);
+router.get(
+    '/rate-limit-settings',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Rate limit settings read' }),
+    settingsController.getRateLimitSettings
+);
+router.put(
+    '/rate-limit-settings',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Rate limit settings update' }),
+    settingsController.updateRateLimitSettings
+);
+router.post(
+    '/rate-limit-settings',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Rate limit settings update' }),
+    settingsController.updateRateLimitSettings
+);
 router.post('/settings/cache', verifyAdmin, checkPermission('manage_settings'), settingsController.updateCacheSettings);
 router.get('/settings/gateway-status', verifyAdmin, settingsController.getGatewayStatus);
-router.get('/settings/notification-config', verifyAdmin, checkPermission('manage_settings'), settingsController.getNotificationConfig);
-router.post('/settings/notification-config', verifyAdmin, checkPermission('manage_settings'), settingsController.saveNotificationConfig);
-router.put('/settings/notification-config', verifyAdmin, checkPermission('manage_settings'), settingsController.saveNotificationConfig);
-router.post('/settings/test-email', verifyAdmin, checkPermission('manage_settings'), settingsController.testNotificationEmail);
-router.get('/settings/whatsapp-status', verifyAdmin, checkPermission('manage_settings'), settingsController.getWhatsAppConnectionStatus);
-router.post('/settings/whatsapp-enable', verifyAdmin, checkPermission('manage_settings'), settingsController.enableWhatsAppNotifications);
-router.post('/settings/whatsapp-disconnect', verifyAdmin, checkPermission('manage_settings'), settingsController.disconnectWhatsAppNotifications);
-router.post('/settings/test-whatsapp', verifyAdmin, checkPermission('manage_settings'), settingsController.testNotificationWhatsApp);
+router.get(
+    '/settings/notification-config',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Notification config read' }),
+    settingsController.getNotificationConfig
+);
+router.post(
+    '/settings/notification-config',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Notification config save' }),
+    settingsController.saveNotificationConfig
+);
+router.put(
+    '/settings/notification-config',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Notification config save' }),
+    settingsController.saveNotificationConfig
+);
+router.post(
+    '/settings/test-email',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Notification test email' }),
+    settingsController.testNotificationEmail
+);
+router.get(
+    '/settings/whatsapp-status',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'WhatsApp notification status' }),
+    settingsController.getWhatsAppConnectionStatus
+);
+router.post(
+    '/settings/whatsapp-enable',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'WhatsApp notification enable' }),
+    settingsController.enableWhatsAppNotifications
+);
+router.post(
+    '/settings/whatsapp-disconnect',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'WhatsApp notification disconnect' }),
+    settingsController.disconnectWhatsAppNotifications
+);
+router.post(
+    '/settings/test-whatsapp',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'WhatsApp notification test' }),
+    settingsController.testNotificationWhatsApp
+);
 router.get('/settings/attendance', verifyAdmin, checkPermission('manage_staff', 'view_attendance'), settingsController.getAttendanceSettings);
 router.put('/settings/attendance', verifyAdmin, checkPermission('manage_staff'), settingsController.updateAttendanceSettings);
 
@@ -560,25 +636,50 @@ router.put('/master-settings/update', verifyAdmin, checkPermission('manage_setti
  # (field: logo) — গেটওয়ে ক্রেডেনশিয়াল সেভের আগেই এনক্রিপ্ট হয়ে যায়।
  # দ্রষ্টব্য: /reorder অবশ্যই /:id এর আগে — নাহলে "reorder" একটি আইডি হিসেবে ধরা পড়ে।
  ********************************************************************/
-router.get('/payment-methods', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.listPaymentMethods);
-router.patch('/payment-methods/reorder', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.reorderPaymentMethods);
+router.get(
+    '/payment-methods',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Payment methods list' }),
+    paymentMethodController.listPaymentMethods
+);
+router.patch(
+    '/payment-methods/reorder',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Payment methods reorder' }),
+    paymentMethodController.reorderPaymentMethods
+);
 router.post(
     '/payment-methods',
     verifyAdmin,
-    checkPermission('manage_settings'),
+    checkSensitiveSettingsAccess({ detail: 'Payment method create' }),
     paymentMethodLogoUpload,
     paymentMethodController.createPaymentMethod
 );
-router.get('/payment-methods/:id', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.getPaymentMethod);
+router.get(
+    '/payment-methods/:id',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Payment method read' }),
+    paymentMethodController.getPaymentMethod
+);
 router.put(
     '/payment-methods/:id',
     verifyAdmin,
-    checkPermission('manage_settings'),
+    checkSensitiveSettingsAccess({ detail: 'Payment method update' }),
     paymentMethodLogoUpload,
     paymentMethodController.updatePaymentMethod
 );
-router.patch('/payment-methods/:id/toggle', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.togglePaymentMethod);
-router.delete('/payment-methods/:id', verifyAdmin, checkPermission('manage_settings'), paymentMethodController.deletePaymentMethod);
+router.patch(
+    '/payment-methods/:id/toggle',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Payment method toggle' }),
+    paymentMethodController.togglePaymentMethod
+);
+router.delete(
+    '/payment-methods/:id',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Payment method delete' }),
+    paymentMethodController.deletePaymentMethod
+);
 
 /********************************************************************
  # ৫ঘ. 🦶 DYNAMIC FOOTER SETTINGS
@@ -853,12 +954,32 @@ router.post('/newsletter/campaigns/:id/send', verifyAdmin, checkPermission('mana
 router.post('/newsletter/campaigns/:id/test', verifyAdmin, checkPermission('manage_marketing', 'manage_campaigns'), newsletterAdminController.testCampaign);
 
 // URL: GET|POST /api/admin/announcement-settings (legacy announcement-only save)
-router.get('/announcement-settings', verifyAdmin, masterSettingsController.getAnnouncementSettings);
-router.post('/announcement-settings', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateAnnouncementSettings);
+router.get(
+    '/announcement-settings',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Announcement settings read' }),
+    masterSettingsController.getAnnouncementSettings
+);
+router.post(
+    '/announcement-settings',
+    verifyAdmin,
+    checkPermission('manage_settings', 'manage_security'),
+    masterSettingsController.updateAnnouncementSettings
+);
 
 // URL: GET|POST /api/admin/settings/announcement (legacy alias)
-router.get('/settings/announcement', verifyAdmin, masterSettingsController.getAnnouncementSettings);
-router.post('/settings/announcement', verifyAdmin, checkPermission('manage_settings'), masterSettingsController.updateAnnouncementSettings);
+router.get(
+    '/settings/announcement',
+    verifyAdmin,
+    checkSensitiveSettingsAccess({ detail: 'Announcement settings read' }),
+    masterSettingsController.getAnnouncementSettings
+);
+router.post(
+    '/settings/announcement',
+    verifyAdmin,
+    checkPermission('manage_settings', 'manage_security'),
+    masterSettingsController.updateAnnouncementSettings
+);
 
 // ৫ক. অ্যাডমিন প্ল্যাটফর্ম সেটিংস (GET নিজের প্রোফাইল / PUT স্টোর প্রেফারেন্স)
 router.get('/platform-settings', verifyAdmin, adminController.getAdminSettings);
@@ -886,6 +1007,27 @@ router.post('/update-profile-pic', verifyAdmin, upload.single('profilePic'), adm
 router.get('/system/backup-now', verifyAdmin, requireSuperAdmin, backupController.triggerBackup);
 router.get('/system/backup-postgres', verifyAdmin, requireSuperAdmin, backupController.triggerPostgresBackup);
 router.get('/system/backup-status', verifyAdmin, requireSuperAdmin, backupController.getBackupStatus);
+router.get('/system/backups', verifyAdmin, requireSuperAdmin, backupController.listEncryptedBackups);
+router.post('/system/backup/generate', verifyAdmin, requireSuperAdmin, backupController.generateInstantEncryptedBackup);
+router.get('/system/backups/:id/download', verifyAdmin, requireSuperAdmin, backupController.downloadEncryptedBackup);
+router.delete('/system/backups/:id', verifyAdmin, requireSuperAdmin, backupController.deleteEncryptedBackup);
+router.post(
+    '/system/backup/validate',
+    verifyAdmin,
+    requireSuperAdmin,
+    upload.backupUpload.single('backupFile'),
+    backupController.validateBackup
+);
+router.post(
+    '/system/backup/restore',
+    verifyAdmin,
+    requireSuperAdmin,
+    upload.backupUpload.single('backupFile'),
+    backupController.restoreBackup
+);
+router.get('/system/health', verifyAdmin, checkPermission('manage_security'), systemHealthController.getSystemHealth);
+router.post('/system/purge-cache', verifyAdmin, checkPermission('manage_security'), systemHealthController.purgeSystemCache);
+router.post('/system/trigger-sync', verifyAdmin, checkPermission('manage_security'), systemHealthController.triggerManualSync);
 router.get('/system/sync-failures', verifyAdmin, requireSuperAdmin, syncFailuresController.getSyncFailures);
 
 // 🧪 Sandbox mode — super-admin only (Stripe-style test/live data separation)

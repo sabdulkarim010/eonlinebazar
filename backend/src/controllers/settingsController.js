@@ -16,27 +16,8 @@ const {
     getPublicRateLimitSettings,
     loadRateLimitSettings
 } = require('../middlewares/rateLimiter');
-const { dualWrite } = require('../services/dualWriteService');
-const { fetchSettingsDocument } = require('../services/settingsReadService');
-
-function getSettingsRepository() {
-    return require('../repositories/settingsRepository');
-}
-
-async function dualWriteSettingsUpsert(settings) {
-    await dualWrite(
-        () => settings.save(),
-        async (saved) => {
-            const plain = saved.toObject ? saved.toObject() : saved;
-            await getSettingsRepository().upsertFromMongo(plain);
-        },
-        {
-            model: 'Settings',
-            operation: 'update',
-            mongoId: (saved) => String(saved._id)
-        }
-    );
-}
+const { fetchSettingsDocument, fetchSettingsDocumentSafe } = require('../services/settingsReadService');
+const { saveSettings } = require('../services/settingsService');
 
 const parseNonNegativeNumber = (value, fieldLabel) => {
     if (value === undefined || value === null || value === '') {
@@ -53,11 +34,20 @@ const parseNonNegativeNumber = (value, fieldLabel) => {
 
 const getSettings = async (req, res) => {
     try {
-        const settings = await fetchSettingsDocument();
-        res.status(200).json({ success: true, data: toPublicSettings(settings) });
+        const settings = await fetchSettingsDocumentSafe();
+        res.status(200).json({
+            success: true,
+            data: toPublicSettings(settings),
+            fallback: settings._fallbackDefaults === true
+        });
     } catch (error) {
         console.error('Get Settings Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to load delivery settings.' });
+        const settings = await fetchSettingsDocumentSafe();
+        res.status(200).json({
+            success: true,
+            data: toPublicSettings(settings),
+            fallback: true
+        });
     }
 };
 
@@ -86,14 +76,29 @@ const updateSettings = async (req, res) => {
             return res.status(400).json({ success: false, message: freeShipping.error });
         }
 
-        const settings = await Settings.getOrCreate();
-        settings.shopHomeCity = shopHomeCity;
-        settings.deliveryInsideCity = inside.value;
-        settings.deliveryOutsideCity = outside.value;
-        settings.freeShippingMinAmount = freeShipping.value;
-        settings.freeShippingThreshold = freeShipping.value;
-        settings.announcementDiscount = String(freeShipping.value);
-        await dualWriteSettingsUpsert(settings);
+        const expectedRevision = req.body?.expectedRevision ?? req.body?.revisionId;
+        const saveResult = await saveSettings({
+            expectedRevision,
+            mutate: async (settings) => {
+                settings.shopHomeCity = shopHomeCity;
+                settings.deliveryInsideCity = inside.value;
+                settings.deliveryOutsideCity = outside.value;
+                settings.freeShippingMinAmount = freeShipping.value;
+                settings.freeShippingThreshold = freeShipping.value;
+                settings.announcementDiscount = String(freeShipping.value);
+            }
+        });
+
+        if (!saveResult.ok) {
+            return res.status(409).json({
+                success: false,
+                reason: 'REVISION_MISMATCH',
+                message: 'Settings have been updated by another admin. Please refresh and try again.',
+                currentRevision: saveResult.currentRevision
+            });
+        }
+
+        const settings = saveResult.settings;
 
         await logSecurityEvent({
             action: 'Delivery Settings Updated',
@@ -126,9 +131,24 @@ const updateCacheSettings = async (req, res) => {
             });
         }
 
-        const settings = await Settings.getOrCreate();
-        settings.serviceWorkerEnabled = enabled !== false && enabled !== 'false' && enabled !== 0 && enabled !== '0';
-        await dualWriteSettingsUpsert(settings);
+        const expectedRevision = req.body?.expectedRevision ?? req.body?.revisionId;
+        const saveResult = await saveSettings({
+            expectedRevision,
+            mutate: async (settings) => {
+                settings.serviceWorkerEnabled = enabled !== false && enabled !== 'false' && enabled !== 0 && enabled !== '0';
+            }
+        });
+
+        if (!saveResult.ok) {
+            return res.status(409).json({
+                success: false,
+                reason: 'REVISION_MISMATCH',
+                message: 'Settings have been updated by another admin. Please refresh and try again.',
+                currentRevision: saveResult.currentRevision
+            });
+        }
+
+        const settings = saveResult.settings;
 
         await logSecurityEvent({
             action: 'Service Worker Cache Settings Updated',
@@ -153,13 +173,14 @@ const updateCacheSettings = async (req, res) => {
  */
 const getAllSettings = async (req, res) => {
     try {
-        const doc = await fetchSettingsDocument();
+        const doc = await fetchSettingsDocumentSafe();
 
         res.status(200).json({
             success: true,
             data: {
                 global: toPublicSettings(doc),
-                master: normalizeRewardSettings(doc)
+                master: normalizeRewardSettings(doc),
+                revisionId: Number(doc.revisionId) || 0
             },
             meta: {
                 model: 'Settings.js — consolidated singleton (delivery, loyalty, SMS, courier, flash sale)',
@@ -168,7 +189,16 @@ const getAllSettings = async (req, res) => {
         });
     } catch (error) {
         console.error('Get All Settings Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to load unified settings.' });
+        const doc = await fetchSettingsDocumentSafe();
+        res.status(200).json({
+            success: true,
+            fallback: true,
+            data: {
+                global: toPublicSettings(doc),
+                master: normalizeRewardSettings(doc),
+                revisionId: Number(doc.revisionId) || 0
+            }
+        });
     }
 };
 
@@ -210,26 +240,40 @@ module.exports = {
                 });
             }
 
-            const settings = await Settings.getOrCreate();
+            const expectedRevision = req.body?.expectedRevision ?? req.body?.revisionId;
+            const saveResult = await saveSettings({
+                expectedRevision,
+                mutate: async (settings) => {
+                    if (enabled !== undefined) {
+                        settings.rateLimitEnabled = enabled !== false && enabled !== 'false' && enabled !== 0 && enabled !== '0';
+                    }
+                    if (bypass !== undefined) {
+                        settings.bypassAdminAndLocalhost = bypass !== false && bypass !== 'false' && bypass !== 0 && bypass !== '0';
+                    }
+                    if (req.body.rateLimitWindowMs !== undefined) settings.rateLimitWindowMs = windowMs;
+                    if (req.body.rateLimitMaxRequests !== undefined) settings.rateLimitMaxRequests = maxRequests;
+                }
+            });
 
-            if (enabled !== undefined) {
-                settings.rateLimitEnabled = enabled !== false && enabled !== 'false' && enabled !== 0 && enabled !== '0';
+            if (!saveResult.ok) {
+                return res.status(409).json({
+                    success: false,
+                    reason: 'REVISION_MISMATCH',
+                    message: 'Settings have been updated by another admin. Please refresh and try again.',
+                    currentRevision: saveResult.currentRevision
+                });
             }
-            if (bypass !== undefined) {
-                settings.bypassAdminAndLocalhost = bypass !== false && bypass !== 'false' && bypass !== 0 && bypass !== '0';
-            }
-            if (req.body.rateLimitWindowMs !== undefined) settings.rateLimitWindowMs = windowMs;
-            if (req.body.rateLimitMaxRequests !== undefined) settings.rateLimitMaxRequests = maxRequests;
 
-            await dualWriteSettingsUpsert(settings);
+            const settings = saveResult.settings;
             invalidateRateLimitCache();
 
             await logSecurityEvent({
-                action: 'Rate Limit Settings Updated',
+                action: 'CRITICAL_SETTINGS_UPDATE',
                 actor: req.admin?.username || 'admin',
+                actorId: req.adminId != null ? String(req.adminId) : undefined,
                 actorType: 'admin',
                 ipAddress: getClientIp(req),
-                details: `Enabled: ${settings.rateLimitEnabled}, Max: ${settings.rateLimitMaxRequests}/${settings.rateLimitWindowMs}ms, Bypass admin/localhost: ${settings.bypassAdminAndLocalhost}`,
+                details: `Rate limits — Enabled: ${settings.rateLimitEnabled}, Max: ${settings.rateLimitMaxRequests}/${settings.rateLimitWindowMs}ms, Bypass admin/localhost: ${settings.bypassAdminAndLocalhost}`,
                 resourceType: 'setting',
                 resourceId: 'rate-limit'
             });
@@ -279,14 +323,20 @@ module.exports = {
     saveNotificationConfig: async (req, res) => {
         try {
             const { saveNotificationConfig } = require('../services/notificationConfigService');
-            const data = await saveNotificationConfig(req.body || {});
+            const body = req.body || {};
+            const data = await saveNotificationConfig(body);
+
+            const touchesSecrets = body.resendKey !== undefined || body.brevoKey !== undefined;
 
             await logSecurityEvent({
-                action: 'Notification Settings Updated',
+                action: touchesSecrets ? 'CRITICAL_SETTINGS_UPDATE' : 'Notification Settings Updated',
                 actor: req.admin?.username || 'admin',
+                actorId: req.adminId != null ? String(req.adminId) : undefined,
                 actorType: 'admin',
                 ipAddress: getClientIp(req),
-                details: `Email provider: ${data.emailProvider || 'resend'}`,
+                details: touchesSecrets
+                    ? `Notification credentials updated — provider: ${data.emailProvider || 'resend'}`
+                    : `Email provider: ${data.emailProvider || 'resend'}`,
                 resourceType: 'setting',
                 resourceId: 'notifications'
             });
@@ -298,6 +348,14 @@ module.exports = {
             });
         } catch (error) {
             console.error('Save Notification Config Error:', error);
+            if (error.code === 'REVISION_MISMATCH') {
+                return res.status(409).json({
+                    success: false,
+                    reason: 'REVISION_MISMATCH',
+                    message: 'Settings have been updated by another admin. Please refresh and try again.',
+                    currentRevision: error.currentRevision
+                });
+            }
             return res.status(400).json({ success: false, message: error.message || 'Failed to save notification settings.' });
         }
     },

@@ -9,7 +9,8 @@ const Order = require('../models/order');
 const orderRepository = require('../repositories/orderRepository');
 const { isPgReadEnabled } = require('../config/readCutoverFlags');
 const accountingLedger = require('./accountingLedgerService');
-const { getVatSettings, computeVatAmount, roundMoney } = require('./deliveryChargeService');
+const { roundMoney } = require('./deliveryChargeService');
+const { computeLineTaxAmount } = require('./taxSettingsService');
 
 const CANCELLED_STATUSES = new Set(['cancelled', 'refunded', 'returned']);
 
@@ -56,30 +57,45 @@ function resolveCustomerLabel(order) {
     return 'Guest';
 }
 
-function resolveTaxLine(order, vatSettings) {
+function resolveTaxLine(order, taxSettings) {
     const subTotal = roundMoney(Number(order.subTotal ?? order.subtotal) || 0);
     const discountAmount = roundMoney(Number(order.discountAmount) || 0);
-    const taxableAmount = roundMoney(Math.max(0, subTotal - discountAmount));
 
-    let vatRate = Number(order.vatPercentage);
-    if (!Number.isFinite(vatRate) || vatRate <= 0) {
-        vatRate = Number(vatSettings.vatPercentage) || 0;
-    }
+    const hasSnapshotTaxable = order.taxableAmount != null && order.taxableAmount !== '';
+    const taxableAmount = hasSnapshotTaxable
+        ? roundMoney(Number(order.taxableAmount) || 0)
+        : roundMoney(Math.max(0, subTotal - discountAmount));
 
-    let taxCollected = roundMoney(Number(order.vatAmount) || 0);
+    const snapshotTax = order.taxAmount != null && order.taxAmount !== ''
+        ? Number(order.taxAmount)
+        : Number(order.vatAmount);
+    let taxCollected = Number.isFinite(snapshotTax) ? roundMoney(snapshotTax) : 0;
+
+    let vatRate = Number(order.vatRate ?? order.vatPercentage);
+    const priceTaxMode = String(order.priceTaxMode || '').toUpperCase();
+    const pricesIncludeTax = priceTaxMode === 'INCLUSIVE'
+        || (priceTaxMode !== 'EXCLUSIVE' && taxSettings.pricesIncludeTax === true);
+
     const orderVatEnabled = order.vatEnabled === true || taxCollected > 0;
-    const vatEnabled = orderVatEnabled || vatSettings.vatEnabled === true;
+    const vatEnabled = orderVatEnabled || taxSettings.enabled === true;
 
-    if (taxCollected <= 0 && vatEnabled && vatRate > 0) {
-        taxCollected = computeVatAmount({
-            merchandisePayable: taxableAmount,
-            vatEnabled: true,
-            vatPercentage: vatRate,
-            vatInclusive: vatSettings.vatInclusive !== false
-        });
-        if (vatSettings.vatInclusive !== false && taxCollected <= 0) {
-            taxCollected = roundMoney(taxableAmount * vatRate / (100 + vatRate));
-        }
+    const hasRateSnapshot = Number.isFinite(vatRate) && vatRate > 0;
+
+    if (taxCollected <= 0 && vatEnabled && taxableAmount > 0) {
+        const fallbackRate = hasRateSnapshot
+            ? vatRate
+            : Number(taxSettings.defaultVatRate) || 0;
+        vatRate = fallbackRate;
+        taxCollected = computeLineTaxAmount(
+            taxableAmount,
+            fallbackRate,
+            pricesIncludeTax,
+            vatEnabled
+        );
+    } else if (!hasRateSnapshot && taxCollected > 0 && taxableAmount > 0) {
+        vatRate = roundMoney((taxCollected / taxableAmount) * 100);
+    } else if (!hasRateSnapshot) {
+        vatRate = Number(taxSettings.defaultVatRate) || 0;
     }
 
     const isExempt = !vatEnabled || (taxCollected <= 0 && taxableAmount > 0);
@@ -89,7 +105,8 @@ function resolveTaxLine(order, vatSettings) {
         taxCollected: roundMoney(taxCollected),
         vatRate: roundMoney(vatRate),
         vatEnabled,
-        isExempt
+        isExempt,
+        priceTaxMode: priceTaxMode || (pricesIncludeTax ? 'INCLUSIVE' : 'EXCLUSIVE')
     };
 }
 
@@ -107,7 +124,7 @@ async function loadOrdersForTaxLedger(dateFrom, dateTo) {
             createdAt: { $gte: dateFrom, $lte: dateTo }
         })
             .select(
-                'orderId customerName shippingName subTotal subtotal discountAmount vatAmount vatPercentage vatEnabled status payment paymentMethod createdAt user'
+                'orderId customerName shippingName subTotal subtotal discountAmount vatAmount vatPercentage vatRate vatEnabled taxAmount taxableAmount priceTaxMode status payment paymentMethod createdAt user taxRegistrationNumber'
             )
             .lean();
     } catch (err) {
@@ -173,9 +190,10 @@ function summarizeLedger(rows) {
 
 async function buildTaxVatLedger(query = {}) {
     const { dateFrom, dateTo } = parseTaxLedgerDateRange(query);
-    const vatSettings = await getVatSettings();
+    const { getTaxSettings } = require('./settingsReadService');
+    const taxSettings = await getTaxSettings();
     const orders = await loadOrdersForTaxLedger(dateFrom, dateTo);
-    const ledger = buildLedgerRows(orders, vatSettings);
+    const ledger = buildLedgerRows(orders, taxSettings);
     const summary = summarizeLedger(ledger);
 
     return {
@@ -185,7 +203,7 @@ async function buildTaxVatLedger(query = {}) {
             dateFrom: dateFrom.toISOString(),
             dateTo: dateTo.toISOString()
         },
-        taxRegistrationNumber: vatSettings.taxRegistrationNumber || '',
+        taxRegistrationNumber: taxSettings.taxRegistrationNumber || '',
         summary,
         ledger
     };
@@ -239,5 +257,6 @@ module.exports = {
     buildTaxVatLedger,
     parseTaxLedgerDateRange,
     sendTaxLedgerCsv,
-    buildTaxLedgerCsvRows
+    buildTaxLedgerCsvRows,
+    resolveTaxLine
 };

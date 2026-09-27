@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-27 (Phase 4 payment reconciliation audit logging)  
+**Last updated:** 2026-09-27 (System Settings Phase 1 sensitive-route lockdown)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -28,7 +28,9 @@
 | `backend/src/controllers/staffController.js` | Super Admin staff CRUD + `revokeStaffAccess` |
 | `backend/src/routes/staffRoutes.js` | `/api/admin/staff` — includes `DELETE /:id/access` |
 | `backend/src/middlewares/auth.js` | `verifyUser`, `verifyAdmin`, `optionalVerifyUser` |
-| `backend/src/middlewares/rbac.js` | `checkPermission()` RBAC gate |
+| `backend/src/middlewares/rbac.js` | `checkPermission()`, `checkSensitiveSettingsAccess()` |
+| `backend/src/utils/secretMasking.js` | Mask integration secrets in admin API responses |
+| `backend/src/utils/settingsIntegrationSecrets.js` | Encrypt integration credentials at rest on Settings singleton |
 | `backend/src/middlewares/rateLimiter.js` | `authLimiter`, `otpLimiter`, `apiLimiter` fixed windows |
 | `backend/src/middlewares/securityMiddleware.js` | Wires limiters to auth/OTP routes + global `/api/*` |
 | `backend/src/middlewares/maintenanceModeMiddleware.js` | Storefront 503 gate with IP allowlist bypass |
@@ -219,6 +221,12 @@
 - No changes to `client/js/admin-login.js` or `/api/admin/login` contract; all preserved element IDs and inline handlers intact
 - CSS fix: `#adminLoginStep.is-hidden` (was non-matching `.admin-login-step.is-hidden`)
 - Tests: `npm test` (unchanged backend surface)
+
+### System Settings Phase 1 — sensitive route lockdown — 2026-09-27
+
+- `checkSensitiveSettingsAccess()` on payment methods, notification config, rate limits, settings export/import/history, announcement GET; `UNAUTHORIZED_SETTINGS_ACCESS` SecurityLog on 403.
+- Integration credentials masked in API reads; encrypted at rest on Settings singleton; `CRITICAL_SETTINGS_UPDATE` on secret/rate-limit changes.
+- Tests: **354/354** pass.
 
 ### Fix Group B — Staff Directory revoke — 2026-09-21
 

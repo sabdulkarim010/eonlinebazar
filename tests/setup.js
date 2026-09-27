@@ -9,6 +9,8 @@ jest.mock('../backend/src/utils/redisClient', () => {
     set: jest.fn().mockResolvedValue('OK'),
     del: jest.fn().mockResolvedValue(1),
     scan: jest.fn().mockResolvedValue(['0', []]),
+    ping: jest.fn().mockResolvedValue('PONG'),
+    dbsize: jest.fn().mockResolvedValue(0),
     info: jest.fn().mockResolvedValue(''),
     flushdb: jest.fn().mockResolvedValue('OK'),
     on: jest.fn(),

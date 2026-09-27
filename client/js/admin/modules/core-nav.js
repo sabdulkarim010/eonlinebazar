@@ -810,6 +810,12 @@ function navigateAdminSection(targetId, clickedItem) {
     }
     syncNavAccordionState(sectionId, resolvedItem);
 
+    const navHash = resolvedItem?.getAttribute?.('data-nav-hash');
+    if (navHash && navHash.startsWith('#')) {
+        const url = `${window.location.pathname}${window.location.search}${navHash}`;
+        history.replaceState(null, '', url);
+    }
+
     const refreshMap = {
         'view-orders': () => {
             if (typeof window.canFetchLiveOrders === 'function' && window.canFetchLiveOrders()) {
@@ -850,6 +856,9 @@ function navigateAdminSection(targetId, clickedItem) {
         },
         'view-activity-feed': () => {
             if (typeof loadActivityFeed === 'function') loadActivityFeed(1);
+        },
+        'view-settings-health': () => {
+            if (typeof loadSettingsHealthSection === 'function') loadSettingsHealthSection();
         },
         'view-hrm-employees': () => window.loadHrmEmployeesSection && window.loadHrmEmployeesSection(),
         'view-hrm-attendance': () => window.loadHrmAttendanceSection && window.loadHrmAttendanceSection(),

@@ -14,7 +14,12 @@ let cachedStatus = null;
 let cacheExpiresAt = 0;
 
 function isSmsConfigured(settings) {
-    const key = String(settings?.smsApiKey || process.env.SMS_API_KEY || '').trim();
+    const { resolveIntegrationSecret } = require('../utils/settingsIntegrationSecrets');
+    const key = String(
+        resolveIntegrationSecret(settings?.smsApiKey)
+        || process.env.SMS_API_KEY
+        || ''
+    ).trim();
     const provider = String(settings?.smsProvider || settings?.smsGatewayProvider || process.env.SMS_PROVIDER || '').trim();
     return Boolean(key && provider);
 }

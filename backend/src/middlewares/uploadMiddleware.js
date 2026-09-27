@@ -264,5 +264,9 @@ module.exports.employeeDocumentUpload = employeeDocumentUploadSafe;
 module.exports.paymentMethodLogoUpload = paymentMethodLogoUploadSafe;
 module.exports.footerIconUpload = footerIconUploadSafe;
 module.exports.importFileUpload = importFileUploadSafe;
+module.exports.backupUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 100 * 1024 * 1024 }
+});
 module.exports.BRANDING_DIR = BRANDING_DIR;
 module.exports.PAYMENTS_DIR = PAYMENTS_DIR;

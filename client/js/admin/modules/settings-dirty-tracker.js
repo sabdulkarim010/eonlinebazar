@@ -115,6 +115,7 @@ function setScopeDirtyUI(scopeEl, isDirty) {
         || (scopeEl.classList?.contains('saas-settings-card') ? scopeEl : null)
         || (scopeEl.classList?.contains('system-settings-card') ? scopeEl : null);
     if (card) card.classList.toggle('has-unsaved-changes', isDirty);
+    updateSettingsStickyActionBar();
 }
 
 function isScopeDirty(scopeEl) {
@@ -164,9 +165,87 @@ function isSettingsTabDirty(tabId) {
     return collectScopesInPanel(panel).some(isScopeDirty);
 }
 
+function hasAnyUnsavedSettingsInHub() {
+    if (!hubShell) return false;
+    let dirty = false;
+    hubShell.querySelectorAll('.admin-settings-panel').forEach((panel) => {
+        if (collectScopesInPanel(panel).some(isScopeDirty)) {
+            dirty = true;
+        }
+    });
+    return dirty;
+}
+
 function hasAnyUnsavedSettings() {
-    const tabId = getActiveSettingsTabId();
-    return tabId ? isSettingsTabDirty(tabId) : false;
+    return hasAnyUnsavedSettingsInHub();
+}
+
+function findFirstDirtyScopeAnyTab() {
+    if (!hubShell) return null;
+    for (const panel of hubShell.querySelectorAll('.admin-settings-panel')) {
+        const scope = collectScopesInPanel(panel).find(isScopeDirty);
+        if (scope) {
+            return { tabId: panel.dataset.panel, scope };
+        }
+    }
+    return null;
+}
+
+function updateSettingsStickyActionBar() {
+    const bar = document.getElementById('settingsStickyActionBar');
+    if (!bar) return;
+    const viewSettings = document.getElementById('view-settings');
+    const hubActive = viewSettings?.classList.contains('active')
+        && viewSettings.style.display !== 'none';
+    const show = hubActive && hasAnyUnsavedSettingsInHub();
+    bar.hidden = !show;
+    bar.classList.toggle('is-visible', show);
+    if (show) {
+        document.querySelector('.admin-settings-shell')?.classList.add('has-sticky-settings-bar');
+    } else {
+        document.querySelector('.admin-settings-shell')?.classList.remove('has-sticky-settings-bar');
+    }
+}
+
+async function revertAllSettingsHubChanges() {
+    if (!hubShell) return;
+    hubShell.querySelectorAll('.admin-settings-panel').forEach((panel) => {
+        collectScopesInPanel(panel).forEach((scopeEl) => {
+            if (isScopeDirty(scopeEl)) {
+                revertSettingsScopeToBaseline(scopeEl);
+            }
+        });
+    });
+    updateSettingsStickyActionBar();
+}
+
+function triggerSettingsHubStickySave() {
+    const found = findFirstDirtyScopeAnyTab();
+    if (!found?.scope) return false;
+    return triggerSaveForScope(found.scope);
+}
+
+function bindSettingsStickyActionBar() {
+    const saveBtn = document.getElementById('settingsStickySaveBtn');
+    const discardBtn = document.getElementById('settingsStickyDiscardBtn');
+    if (!saveBtn || saveBtn.dataset.bound) return;
+    saveBtn.dataset.bound = '1';
+
+    saveBtn.addEventListener('click', () => {
+        const ok = triggerSettingsHubStickySave();
+        if (!ok && typeof window.showToast === 'function') {
+            window.showToast('No save action available for the changed section.', 'info');
+        }
+    });
+
+    discardBtn?.addEventListener('click', async () => {
+        const confirmed = await confirmDiscardSettingsChanges();
+        if (!confirmed) return;
+        revertAllSettingsHubChanges();
+        if (typeof window.showToast === 'function') {
+            window.showToast('Changes discarded.', 'info');
+        }
+    });
 }
 
 function revertSettingsScopeToBaseline(scopeEl) {
@@ -323,7 +402,7 @@ function bindBeforeUnloadGuard() {
         if (!viewSettings || viewSettings.style.display === 'none' || !viewSettings.classList.contains('active')) {
             return;
         }
-        if (!hasAnyUnsavedSettings()) return;
+        if (!hasAnyUnsavedSettingsInHub()) return;
         event.preventDefault();
         event.returnValue = '';
     });
@@ -349,9 +428,11 @@ function setupSettingsDirtyTracker(shell) {
     shell.addEventListener('change', handleSettingsFieldChange, true);
 
     bindBeforeUnloadGuard();
+    bindSettingsStickyActionBar();
 
     const activeTab = getActiveSettingsTabId();
     if (activeTab) scheduleSettingsTabBaselineCapture(activeTab);
+    updateSettingsStickyActionBar();
 }
 
 function notifySettingsTabActivated(tabId) {
@@ -437,6 +518,10 @@ Object.assign(window, {
     markSettingsFormSaved,
     isSettingsTabDirty,
     hasAnyUnsavedSettings,
+    hasAnyUnsavedSettingsInHub,
+    updateSettingsStickyActionBar,
+    revertAllSettingsHubChanges,
+    triggerSettingsHubStickySave,
     requestSettingsTabSwitch,
     confirmDiscardSettingsChanges,
     revertSettingsTabToBaseline,
@@ -458,6 +543,10 @@ export {
     markSettingsFormSaved,
     isSettingsTabDirty,
     hasAnyUnsavedSettings,
+    hasAnyUnsavedSettingsInHub,
+    updateSettingsStickyActionBar,
+    revertAllSettingsHubChanges,
+    triggerSettingsHubStickySave,
     requestSettingsTabSwitch,
     confirmDiscardSettingsChanges,
     revertSettingsTabToBaseline,

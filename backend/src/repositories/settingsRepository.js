@@ -62,11 +62,11 @@ async function ensureGlobalRow() {
   return row;
 }
 
-async function replacePaymentGatewayRows(settingsId, paymentGatewaysObj = {}) {
-  await prisma.settingsPaymentGateway.deleteMany({ where: { settingsId } });
+async function replacePaymentGatewayRows(settingsId, paymentGatewaysObj = {}, client = prisma) {
+  await client.settingsPaymentGateway.deleteMany({ where: { settingsId } });
   for (const gatewayKey of GATEWAY_KEYS) {
     const entry = paymentGatewaysObj[gatewayKey] || {};
-    await prisma.settingsPaymentGateway.create({
+    await client.settingsPaymentGateway.create({
       data: {
         settingsId,
         gatewayKey,
@@ -76,6 +76,23 @@ async function replacePaymentGatewayRows(settingsId, paymentGatewaysObj = {}) {
       }
     });
   }
+}
+
+class RevisionMismatchError extends Error {
+  constructor(currentRevision) {
+    super('REVISION_MISMATCH');
+    this.name = 'RevisionMismatchError';
+    this.code = 'REVISION_MISMATCH';
+    this.currentRevision = Number(currentRevision) || 0;
+  }
+}
+
+async function getRevisionId(key = SETTINGS_KEY) {
+  const row = await prisma.settings.findUnique({
+    where: { key },
+    select: { revisionId: true }
+  });
+  return Number(row?.revisionId) || 0;
 }
 
 function mapScalars(doc) {
@@ -144,24 +161,77 @@ function mapScalars(doc) {
     orderPrefix: String(doc.orderPrefix || 'ORD').trim(),
     maintenanceMode: doc.maintenanceMode === true,
     maintenanceMessage: String(doc.maintenanceMessage || '').trim()
-      || 'We are currently performing scheduled maintenance. Please check back soon.'
+      || 'We are currently performing scheduled maintenance. Please check back soon.',
+    revisionId: doc.revisionId != null ? Number(doc.revisionId) : undefined,
+    taxSettings: doc.taxSettings && typeof doc.taxSettings === 'object' ? doc.taxSettings : {}
   };
+}
+
+function parseExpectedRevision(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /** Mirror a saved Mongoose Settings document to Postgres (global singleton). */
 async function upsertFromMongo(mongoDoc) {
-  const root = await ensureGlobalRow();
-  const data = mapScalars(mongoDoc);
+  return upsertPrimary(mongoDoc, { skipRevisionCheck: true, incrementRevision: false });
+}
 
-  await prisma.settings.update({ where: { id: root.id }, data });
-  await replacePaymentGatewayRows(root.id, mongoDoc.paymentGateways || {});
+/**
+ * PostgreSQL-primary upsert with optional optimistic revision check.
+ * @returns {Promise<{ revisionId: number, row: object }>}
+ */
+async function upsertPrimary(mongoDoc, options = {}) {
+  const {
+    expectedRevision = null,
+    skipRevisionCheck = false,
+    incrementRevision = true
+  } = options;
 
-  return findByKey(SETTINGS_KEY);
+  const expected = parseExpectedRevision(expectedRevision);
+
+  return prisma.$transaction(async (tx) => {
+    let root = await tx.settings.findUnique({ where: { key: SETTINGS_KEY } });
+    if (!root) {
+      root = await tx.settings.create({ data: { key: SETTINGS_KEY, revisionId: 0 } });
+    }
+
+    const currentRev = Number(root.revisionId) || 0;
+
+    if (!skipRevisionCheck && expected != null && expected !== currentRev) {
+      throw new RevisionMismatchError(currentRev);
+    }
+
+    const nextRev = incrementRevision ? currentRev + 1 : currentRev;
+    const scalars = mapScalars(mongoDoc);
+    if (incrementRevision) {
+      scalars.revisionId = nextRev;
+    } else if (scalars.revisionId === undefined) {
+      delete scalars.revisionId;
+    }
+
+    await tx.settings.update({
+      where: { id: root.id },
+      data: scalars
+    });
+    await replacePaymentGatewayRows(root.id, mongoDoc.paymentGateways || {}, tx);
+
+    const row = await tx.settings.findUnique({
+      where: { id: root.id },
+      include: { paymentGateways: true }
+    });
+
+    return { revisionId: nextRev, row: toShape(row) };
+  });
 }
 
 module.exports = {
   SETTINGS_KEY,
   findByKey,
   upsertFromMongo,
+  upsertPrimary,
+  getRevisionId,
+  RevisionMismatchError,
   replacePaymentGatewayRows
 };

@@ -3940,6 +3940,82 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 
 ---
 
+## System Settings Phase 2 — PG-Primary Writes & Revision Locking — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `saveSettings()` PG-first + Mongo mirror | ✅ | `settingsService.js`; mirror failure non-fatal |
+| Mongo fallback + `pendingPgSync` | ✅ | When PG write fails |
+| Optimistic `revisionId` + HTTP 409 | ✅ | Master/delivery/rate-limit/notification saves |
+| Zero-safe read defaults | ✅ | `settingsDefaults.js` + `fetchSettingsDocumentSafe()` |
+| Tests | ✅ | **358/358** Jest |
+
+---
+
+## System Settings Phase 5 — Encrypted Disaster Recovery — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| AES-256-GCM encrypted backups | ✅ | `backupEncryptionService.js` + SHA-256 checksum |
+| Daily cron + 30-day retention | ✅ | `cron/backupScheduler.js` |
+| Validate / restore API | ✅ | Dry-run validate; restore with password step-up |
+| Super Admin RBAC | ✅ | All DR routes `requireSuperAdmin` |
+| Admin DR UI | ✅ | `view-system-backup.html` + `system-backup.js` |
+| Tests | ✅ | **380/380** Jest |
+
+---
+
+## System Settings Phase 4 Part 2 — Health Diagnostics Engine — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `GET /api/admin/system/health` | ✅ | DB latency, memory, sync queue, Redis |
+| `POST /api/admin/system/purge-cache` | ✅ | Scoped cache purge + SecurityLog |
+| `POST /api/admin/system/trigger-sync` | ✅ | Manual dual-write reconcile |
+| Live System Health UI | ✅ | 30s auto-refresh + status badges |
+| RBAC | ✅ | `checkPermission('manage_security')` |
+| Tests | ✅ | **372/372** Jest |
+
+---
+
+## System Settings Phase 4 Part 1 — Sidebar & Premium Hub UI — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| System Settings sidebar (5 sub-menus) | ✅ | Configuration, Security, Audit logs, Backup, Health |
+| Sticky unsaved-changes action bar | ✅ | Hub-wide dirty detection + `beforeunload` |
+| Secret field show/hide toggles | ✅ | SMS/courier/WhatsApp/email/payment keys |
+| System Health view | ✅ | `view-settings-health` + rate-limit/sync snapshot |
+| Tests | ✅ | **364/364** Jest |
+
+---
+
+## System Settings Phase 3 — Global Tax & VAT Engine — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Structured `taxSettings` on Settings singleton | ✅ | enabled, defaultVatRate, pricesIncludeTax, categoryTaxRules, TRN |
+| `getTaxSettings()` safe read + defaults | ✅ | `settingsReadService.js`; legacy `vat*` bridge |
+| Checkout order tax snapshots | ✅ | `taxAmount`, `taxableAmount`, `vatRate`, `priceTaxMode` on Order |
+| Tax/VAT ledger snapshot parity | ✅ | `taxVatService.resolveTaxLine()` prefers order fields; settings fallback for legacy orders |
+| Phase 1 masking + Phase 2 revision writes | ✅ | Unchanged |
+| Tests | ✅ | **364/364** Jest |
+
+---
+
+## System Settings Phase 1 — Security Lockdown — 2026-09-27
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Integration secret masking (`maskSecretKey`) | ✅ | Master/announcement read APIs; format `sk_live_••••1234` |
+| Encrypt at rest (SMS/courier/WhatsApp alert keys) | ✅ | `settingsIntegrationSecrets.js` + `enc:` envelope |
+| Skip masked placeholder on write | ✅ | Preserves existing DB secret when UI re-submits mask |
+| `checkSensitiveSettingsAccess` | ✅ | Payments, notifications, rate limits, export/import, announcement GET |
+| Audit actions | ✅ | `CRITICAL_SETTINGS_UPDATE`, `UNAUTHORIZED_SETTINGS_ACCESS` |
+| Tests | ✅ | **354/354** Jest |
+
+---
+
 ## Phase 3 Part 2 — Balance Sheet & Tax/VAT Ledger — 2026-09-27
 
 | Item | Status | Notes |

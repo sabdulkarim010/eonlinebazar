@@ -7,3 +7,15 @@
 .backup-warning-text i {
     margin-right: 6px;
 }
+
+.backup-actions-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 220px;
+}
+
+.backup-actions-cell .btn-sm {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+}

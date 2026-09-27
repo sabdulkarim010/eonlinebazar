@@ -117,12 +117,45 @@ async function invalidateBannerCaches() {
     await invalidate(CACHE_KEYS.BANNERS_ACTIVE);
 }
 
+const PURGE_CACHE_PATTERNS = Object.freeze([
+    'store:*',
+    'catalog:*',
+    'cms:*',
+    'products:*',
+    'search:*',
+    'enterprise:*'
+]);
+
+/**
+ * Safely purge application Redis cache keys (never FLUSHDB — scoped patterns only).
+ * @returns {Promise<{ redisConnected: boolean, keysDeleted: number, patterns: string[] }>}
+ */
+async function purgeApplicationCaches() {
+    const staticKeys = Object.values(CACHE_KEYS).filter((k) => typeof k === 'string');
+    await invalidateMany(staticKeys);
+
+    let keysDeleted = staticKeys.length;
+    if (isRedisAvailable()) {
+        for (const pattern of PURGE_CACHE_PATTERNS) {
+            keysDeleted += await invalidatePattern(pattern);
+        }
+    }
+
+    return {
+        redisConnected: isRedisAvailable(),
+        keysDeleted,
+        patterns: [...PURGE_CACHE_PATTERNS]
+    };
+}
+
 module.exports = {
     CACHE_KEYS,
+    PURGE_CACHE_PATTERNS,
     getOrSet,
     invalidate,
     invalidateMany,
     invalidatePattern,
     invalidateProductCaches,
-    invalidateBannerCaches
+    invalidateBannerCaches,
+    purgeApplicationCaches
 };

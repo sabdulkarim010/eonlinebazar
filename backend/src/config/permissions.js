@@ -523,6 +523,7 @@ const SECTION_PERMISSIONS = Object.freeze({
     'view-erp-expenses': 'manage_expenses',
     'view-tax-vat': 'view_financial_reports',
     'view-settings': 'manage_settings',
+    'view-settings-health': 'manage_security',
     'view-activity-feed': 'manage_security',
     'view-system-backup': null,
     'view-security': 'manage_security',

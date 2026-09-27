@@ -137,7 +137,7 @@
 
                     <div class="form-group">
                         <label for="smsApiKey">SMS API Key / Token</label>
-                        <input type="text" id="smsApiKey" placeholder="Paste gateway API key or token" autocomplete="off">
+                        <input type="text" id="smsApiKey" data-settings-secret="true" placeholder="Paste gateway API key or token" autocomplete="off">
                         <small class="field-hint">Stored securely in MongoDB. Overrides <code>SMS_API_KEY</code> from <code>.env</code>.</small>
                     </div>
 
@@ -187,13 +187,13 @@
 
                     <div class="form-group" id="courierSteadfastFields">
                         <label for="courierApiKey">Courier API Key</label>
-                        <input type="text" id="courierApiKey" placeholder="Paste your Steadfast Api-Key" autocomplete="off">
+                        <input type="text" id="courierApiKey" data-settings-secret="true" placeholder="Paste your Steadfast Api-Key" autocomplete="off">
                         <small class="field-hint">Sent as the <code>Api-Key</code> header. Find it in your Steadfast merchant portal under API settings.</small>
                     </div>
 
                     <div class="form-group" id="courierSteadfastSecretField">
                         <label for="courierSecretKey">Courier Secret Key</label>
-                        <input type="password" id="courierSecretKey" placeholder="Paste your Steadfast Secret-Key" autocomplete="new-password">
+                        <input type="password" id="courierSecretKey" data-settings-secret="true" placeholder="Paste your Steadfast Secret-Key" autocomplete="new-password">
                         <small class="field-hint">Sent as the <code>Secret-Key</code> header. Masked here for safety — retype it to change it.</small>
                     </div>
 
@@ -283,7 +283,7 @@
 
                     <div class="form-group">
                         <label for="whatsAppAlertApiKey">Alert API Key / Token</label>
-                        <input type="text" id="whatsAppAlertApiKey" placeholder="Gateway API key or CallMeBot apikey" autocomplete="off">
+                        <input type="text" id="whatsAppAlertApiKey" data-settings-secret="true" placeholder="Gateway API key or CallMeBot apikey" autocomplete="off">
                         <small class="field-hint">Stored in MongoDB. Overrides <code>WHATSAPP_ALERT_API_KEY</code> from <code>.env</code>.</small>
                     </div>
 

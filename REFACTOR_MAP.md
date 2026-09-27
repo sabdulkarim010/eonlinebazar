@@ -3460,3 +3460,121 @@ ARCHITECTURE.md [MOD]
 docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
+
+# System Settings Phase 5 — Encrypted DR backup engine — 2026-09-27
+backend/src/services/backupEncryptionService.js [NEW]
+backend/src/services/backupArchiveService.js [NEW]
+backend/src/services/backupService.js [MOD] generateEncryptedBackup, validate, restore
+backend/src/cron/backupScheduler.js [NEW]
+backend/src/controllers/admin/backupController.js [MOD] validate/restore/list/generate
+backend/src/routes/adminRoutes.js [MOD] backup DR routes
+backend/src/middlewares/uploadMiddleware.js [MOD] backupUpload
+backend/src/server.js [MOD] startBackupScheduler
+data/encrypted-backups/.gitkeep [NEW]
+client/admin/partials/view-system-backup.html [MOD] DR UI
+client/js/admin/modules/system-backup.js [MOD] archive table + step-up restore
+client/css/admin/_system-backup.css [MOD]
+tests/services/backupDisasterRecovery.test.js [NEW]
+tests/admin.test.js [MOD] backup generate RBAC
+docs/audit/SETTINGS_AUDIT.md [MOD]
+docs/audit/DEVOPS_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# System Settings Phase 4 Part 2 — System health backend & live monitoring — 2026-09-27
+backend/src/services/systemHealthService.js [NEW]
+backend/src/controllers/admin/systemHealthController.js [NEW]
+backend/src/services/cacheService.js [MOD] purgeApplicationCaches()
+backend/src/routes/adminRoutes.js [MOD] GET /system/health, POST purge-cache, POST trigger-sync
+client/admin/partials/view-settings-health.html [MOD] live metrics UI + actions
+client/js/admin/modules/settings-health.js [MOD] 30s auto-refresh + purge/sync
+client/css/admin/_settings-system.css [MOD] health status badges
+tests/services/systemHealth.test.js [NEW]
+tests/setup.js [MOD] redis ping/dbsize mocks
+docs/audit/SETTINGS_AUDIT.md [MOD]
+docs/audit/DEVOPS_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# System Settings Phase 4 Part 1 — Sidebar & premium hub UI — 2026-09-27
+client/admin/partials/sidebar.html [MOD] 5-item System Settings accordion + hash routes
+client/admin/partials/view-settings.html [MOD] premium header + sticky action bar
+client/admin/partials/view-settings-health.html [NEW]
+client/admin/partials/view-shipping-payments.html [MOD] data-settings-secret on integration keys
+client/js/admin/modules/settings-hub.js [MOD] hash aliases + standalone settings routes
+client/js/admin/modules/settings-dirty-tracker.js [MOD] hub-wide dirty + sticky bar
+client/js/admin/modules/settings-secret-fields.js [NEW]
+client/js/admin/modules/settings-health.js [NEW]
+client/js/admin/modules/core-nav.js [MOD] health section + nav hash
+client/js/admin/modules/core-breadcrumb.js [MOD]
+client/js/admin/modules/core-state.js [MOD]
+client/js/admin/admin-settings.js [MOD] import secret-fields + health
+client/js/admin-staff.js [MOD] data-role super_admin gating
+client/css/admin/_settings-system.css [MOD] sticky bar, secret toggle, premium header
+backend/src/utils/adminPageBuilder.js [MOD] view-settings-health partial
+backend/src/config/permissions.js [MOD] view-settings-health map
+docs/audit/SETTINGS_AUDIT.md [MOD]
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# System Settings Phase 3 — Global Tax & VAT engine — 2026-09-27
+backend/src/services/taxSettingsService.js [NEW]
+backend/src/services/settingsReadService.js [MOD] getTaxSettings()
+backend/src/config/settingsDefaults.js [MOD] taxSettings defaults
+backend/src/controllers/masterSettingsController.js [MOD] taxSettings in unified payload + legacy sync
+backend/src/controllers/orderCheckoutController.js [MOD] computeOrderTaxSnapshot + order snapshots
+backend/src/services/taxVatService.js [MOD] resolveTaxLine prefers order snapshots; export resolveTaxLine
+backend/src/services/deliveryChargeService.js [MOD] getVatSettings → getTaxSettings
+backend/src/models/Settings.js [MOD] taxSettings field
+backend/src/models/order.js [MOD] taxAmount, taxableAmount, priceTaxMode, vatRate
+backend/src/repositories/orderRepository.js [MOD] PG tax snapshot columns
+backend/src/repositories/settingsRepository.js [MOD] taxSettings JSON
+backend/src/services/readShapeHelpers.js [MOD] taxSettings + order tax fields
+backend/src/utils/settingsExportSanitizer.js [MOD] taxSettings import allowlist
+prisma/schema.prisma [MOD] taxSettings + order tax columns
+prisma/migrations/20260927133000_tax_settings_engine/migration.sql [NEW]
+tests/services/taxSettingsService.test.js [NEW]
+tests/services/taxVatService.test.js [NEW]
+tests/order.test.js [MOD] VAT snapshot via saveSettings()
+docs/audit/SETTINGS_AUDIT.md [MOD]
+docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# System Settings Phase 2 — PG-primary writes & revision locking — 2026-09-27
+backend/src/services/settingsService.js [NEW]
+backend/src/config/settingsDefaults.js [NEW]
+backend/src/services/settingsReadService.js [MOD] zero-safe read chain
+backend/src/repositories/settingsRepository.js [MOD] upsertPrimary + revisionId
+backend/src/controllers/masterSettingsController.js [MOD] saveSettings + 409 conflict
+backend/src/controllers/settingsController.js [MOD] saveSettings + safe reads
+backend/src/services/notificationConfigService.js [MOD] saveSettings path
+backend/src/models/Settings.js [MOD] revisionId, pendingPgSync
+backend/src/services/readShapeHelpers.js [MOD] revisionId in PG shape
+prisma/schema.prisma [MOD] revisionId column
+prisma/migrations/20260927120000_settings_revision_id/migration.sql [NEW]
+tests/services/settingsService.test.js [NEW]
+docs/audit/SETTINGS_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# System Settings Phase 1 — security lockdown — 2026-09-27
+backend/src/utils/secretMasking.js [NEW]
+backend/src/utils/settingsIntegrationSecrets.js [NEW]
+backend/src/controllers/masterSettingsController.js [MOD] mask/encrypt integration secrets; credential RBAC
+backend/src/controllers/settingsController.js [MOD] CRITICAL_SETTINGS_UPDATE audit actions
+backend/src/middlewares/rbac.js [MOD] checkSensitiveSettingsAccess + super-admin deny logging
+backend/src/routes/adminRoutes.js [MOD] sensitive settings routes gated
+backend/src/services/smsService.js [MOD] resolveIntegrationSecret
+backend/src/services/courierService.js [MOD] resolveIntegrationSecret
+backend/src/services/gatewayStatusService.js [MOD] resolveIntegrationSecret for SMS configured check
+tests/utils/secretMasking.test.js [NEW]
+docs/audit/SETTINGS_AUDIT.md [MOD]
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD]
+SYSTEM_SETTINGS_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]

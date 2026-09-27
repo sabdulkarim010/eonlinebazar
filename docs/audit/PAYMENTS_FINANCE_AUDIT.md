@@ -1,6 +1,6 @@
 # PAYMENTS & FINANCE AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-27 (Phase 4 finance security + POS/wallet liquidity)  
+**Last updated:** 2026-09-27 (System Settings Phase 3 — tax ledger snapshot parity)  
 **Scope:** Payment gateways, reconciliation, wallet, expenses, P&L, finance analytics, accounts summary, VAT  
 **Status:** ✅ COMPLETE
 
@@ -103,6 +103,12 @@
 ---
 
 ## Change Log
+
+### System Settings Phase 3 — Tax/VAT ledger snapshot parity — 2026-09-27
+
+- `taxVatService.js` — `resolveTaxLine()` prefers persisted order fields (`taxAmount`, `taxableAmount`, `vatRate`/`vatPercentage`, `priceTaxMode`); falls back to live `getTaxSettings().defaultVatRate` only for legacy orders missing snapshots.
+- Checkout (`orderCheckoutController.js`) writes tax snapshots aligned with `computeOrderTaxSnapshot()` from global `taxSettings`.
+- Tests: `tests/services/taxVatService.test.js`; full suite **364/364**.
 
 ### Phase 4 — Payment audit logging, POS/wallet liquidity, RBAC — 2026-09-27
 

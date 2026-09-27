@@ -16,6 +16,7 @@
 const Admin = require('../models/admin');
 const AdminSession = require('../models/adminSession');
 const { ROLES, ACCOUNT_STATUS, accountHasPermission } = require('../config/permissions');
+const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 
 const ACCESS_DENIED_PATH = '/admin/access-denied';
 const LOGIN_PATH = '/admin-login';
@@ -174,6 +175,51 @@ function requireHrOrSuperAdmin(message = 'This action requires HR or Super Admin
     };
 }
 
+/**
+ * Super Admin or manage_security — for payment gateways, API credentials,
+ * rate limits, notification secrets, and settings export/import.
+ * Logs UNAUTHORIZED_SETTINGS_ACCESS on denial.
+ */
+function checkSensitiveSettingsAccess(options = {}) {
+    const detail = options.detail || 'Sensitive settings route';
+
+    return async function sensitiveSettingsGuard(req, res, next) {
+        const account = req.adminAccount;
+
+        if (!account) {
+            return res.status(401).json({
+                success: false,
+                message: 'Admin session could not be verified. Please log in again.',
+                redirect: LOGIN_PATH
+            });
+        }
+
+        if (account.isSuperAdmin()) return next();
+        if (accountHasPermission(account, 'manage_security')) return next();
+
+        try {
+            await logSecurityEvent({
+                action: 'UNAUTHORIZED_SETTINGS_ACCESS',
+                actor: account.username || 'unknown',
+                actorId: account._id != null ? String(account._id) : undefined,
+                actorType: 'admin',
+                ipAddress: getClientIp(req),
+                details: `${detail} — ${req.method} ${req.originalUrl || req.url}`,
+                resourceType: 'setting',
+                resourceId: 'sensitive'
+            });
+        } catch (logErr) {
+            console.warn('[RBAC] Failed to log unauthorized settings access:', logErr.message);
+        }
+
+        return res.status(403).json({
+            success: false,
+            reason: 'PERMISSION_DENIED',
+            message: 'Access denied. This settings area requires Super Admin or Security & Audit permission.'
+        });
+    };
+}
+
 /** Owner-only routes: staff accounts can never reach these, whatever their permissions. */
 function requireSuperAdmin(req, res, next) {
     const account = req.adminAccount;
@@ -188,6 +234,17 @@ function requireSuperAdmin(req, res, next) {
 
     if (account.isSuperAdmin()) return next();
 
+    logSecurityEvent({
+        action: 'UNAUTHORIZED_SETTINGS_ACCESS',
+        actor: account.username || 'unknown',
+        actorId: account._id != null ? String(account._id) : undefined,
+        actorType: 'admin',
+        ipAddress: getClientIp(req),
+        details: `Super Admin route denied — ${req.method} ${req.originalUrl || req.url}`,
+        resourceType: 'setting',
+        resourceId: 'super-admin'
+    }).catch(() => {});
+
     return denyAccess(req, res, {
         message: 'Access denied. This action is restricted to the Super Admin.'
     });
@@ -196,6 +253,7 @@ function requireSuperAdmin(req, res, next) {
 module.exports = {
     attachAdminAccount,
     checkPermission,
+    checkSensitiveSettingsAccess,
     requireSuperAdmin,
     requireHrOrSuperAdmin,
     isHrOrSuperAdmin,

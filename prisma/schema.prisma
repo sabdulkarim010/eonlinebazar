@@ -1752,7 +1752,11 @@ model Order {
 
   vatAmount             Decimal @default(0) @db.Decimal(12, 2)
   vatPercentage         Decimal @default(0) @db.Decimal(5, 2)
+  vatRate               Decimal @default(0) @db.Decimal(5, 2)
   vatEnabled            Boolean @default(false)
+  taxAmount             Decimal @default(0) @db.Decimal(12, 2)
+  taxableAmount         Decimal @default(0) @db.Decimal(12, 2)
+  priceTaxMode          String  @default("EXCLUSIVE")
   taxRegistrationNumber String  @default("")
 
   walletApplied        Decimal              @default(0) @db.Decimal(12, 2)
@@ -2919,6 +2923,12 @@ model Settings {
 
   maintenanceMode    Boolean @default(false)
   maintenanceMessage String  @default("We are currently performing scheduled maintenance. Please check back soon.")
+
+  /// Optimistic concurrency — incremented on every successful settings write.
+  revisionId Int @default(0)
+
+  /// Structured tax/VAT configuration (Phase 3 global tax engine).
+  taxSettings Json @default("{}")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

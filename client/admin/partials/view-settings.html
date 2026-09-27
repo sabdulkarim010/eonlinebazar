@@ -1,8 +1,14 @@
 <section id="view-settings" class="admin-section" style="display: none;">
                 <div class="admin-settings-shell">
-                    <div class="section-header-box settings-hub-header">
-                        <h3>System Settings</h3>
-                        <p class="section-subtitle">Unified configuration hub — branding, tax, shipping, security, and utilities.</p>
+                    <div class="section-header-box settings-hub-header settings-hub-header--premium">
+                        <div class="settings-hub-header__copy">
+                            <span class="settings-hub-eyebrow">Enterprise workspace</span>
+                            <h3>Configuration Hub</h3>
+                            <p class="section-subtitle">Branding, tax, shipping, notifications, and utilities — with revision-safe saves.</p>
+                        </div>
+                        <div class="settings-hub-header__badge" aria-hidden="true">
+                            <i class="fa-solid fa-sliders"></i>
+                        </div>
                     </div>
 
                     <nav class="admin-settings-tabs admin-settings-tabs--enterprise" role="tablist" aria-label="System settings sections">
@@ -21,7 +27,7 @@
                         <button type="button" class="admin-settings-tab" role="tab" id="adminTabNotifications" aria-selected="false" aria-controls="adminPanelNotifications" data-tab="notifications" data-permission="manage_settings">
                             <i class="fa-solid fa-bell" aria-hidden="true"></i> Notifications
                         </button>
-                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabSecurity" aria-selected="false" aria-controls="adminPanelSecurity" data-tab="security">
+                        <button type="button" class="admin-settings-tab" role="tab" id="adminTabSecurity" aria-selected="false" aria-controls="adminPanelSecurity" data-tab="security" data-permission="manage_security">
                             <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Security &amp; Access
                         </button>
                         <button type="button" class="admin-settings-tab" role="tab" id="adminTabUtilities" aria-selected="false" aria-controls="adminPanelUtilities" data-tab="utilities" data-superadmin-only="true">
@@ -299,7 +305,7 @@
                                         <div class="form-group">
                                             <label for="notifResendKey">Resend API Key</label>
                                             <div class="notif-inline-actions">
-                                                <input type="password" id="notifResendKey" placeholder="re_..." autocomplete="off">
+                                                <input type="password" id="notifResendKey" data-settings-secret="true" placeholder="re_..." autocomplete="off">
                                             </div>
                                         </div>
                                         <div class="form-group">
@@ -308,7 +314,7 @@
                                         </div>
                                         <div class="form-group">
                                             <label for="notifBrevoKey">Brevo API Key</label>
-                                            <input type="password" id="notifBrevoKey" placeholder="xkeysib-..." autocomplete="off">
+                                            <input type="password" id="notifBrevoKey" data-settings-secret="true" placeholder="xkeysib-..." autocomplete="off">
                                         </div>
                                         <div class="form-group">
                                             <label for="notifBrevoFrom">Brevo From</label>
@@ -724,6 +730,23 @@
                                     <i class="fa-solid fa-database"></i>
                                     <strong>Backup &amp; Restore</strong>
                                     <span>Download a full JSON database export</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-sticky-action-bar" id="settingsStickyActionBar" hidden aria-live="polite">
+                        <div class="settings-sticky-action-bar__inner">
+                            <p class="settings-sticky-action-bar__message">
+                                <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+                                Unsaved changes detected
+                            </p>
+                            <div class="settings-sticky-action-bar__actions">
+                                <button type="button" class="btn-secondary" id="settingsStickyDiscardBtn">
+                                    Cancel / Reset
+                                </button>
+                                <button type="button" class="btn-submit" id="settingsStickySaveBtn">
+                                    <i class="fa-solid fa-floppy-disk"></i> Save Changes
                                 </button>
                             </div>
                         </div>

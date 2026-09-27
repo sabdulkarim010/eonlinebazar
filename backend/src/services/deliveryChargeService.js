@@ -133,14 +133,14 @@ function buildLockedOrderTotals({
 }
 
 async function getVatSettings() {
-    const doc = await fetchSettingsDocument();
-    const percentage = Number(doc.vatPercentage ?? doc.vatRate ?? 0);
-
+    const { getTaxSettings } = require('./settingsReadService');
+    const tax = await getTaxSettings();
     return {
-        vatEnabled: doc.vatEnabled === true,
-        vatPercentage: Number.isFinite(percentage) ? percentage : 0,
-        vatInclusive: doc.vatInclusive !== false,
-        taxRegistrationNumber: String(doc.taxRegistrationNumber || '').trim()
+        vatEnabled: tax.enabled === true,
+        vatPercentage: Number(tax.defaultVatRate) || 0,
+        vatInclusive: tax.pricesIncludeTax === true,
+        taxRegistrationNumber: String(tax.taxRegistrationNumber || '').trim(),
+        taxSettings: tax
     };
 }
 

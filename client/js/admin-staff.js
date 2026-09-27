@@ -101,10 +101,15 @@ function isSuperAdmin() {
  * Show or hide every [data-superadmin-only] element (sidebar items, sandbox card, …).
  * Callable from admin.js after settings navigation so the card is not left hidden.
  */
+function isSuperAdminOnlyElement(el) {
+    if (!el) return false;
+    return el.dataset.superadminOnly === 'true' || el.dataset.role === 'super_admin';
+}
+
 function applySuperAdminOnlyVisibility() {
     const show = isSuperAdmin();
 
-    document.querySelectorAll('[data-superadmin-only="true"]').forEach((el) => {
+    document.querySelectorAll('[data-superadmin-only="true"], [data-role="super_admin"]').forEach((el) => {
         // Full-page admin views are shown only via navigateAdminSection — not here.
         if (el.classList.contains('admin-section')) return;
 
@@ -295,7 +300,7 @@ function isSidebarNavItemVisible(item) {
     if (!item) return false;
     if (item.style.display === 'none') return false;
     if (item.hidden) return false;
-    if (item.dataset.superadminOnly === 'true' && !isSuperAdmin()) return false;
+    if (isSuperAdminOnlyElement(item) && !isSuperAdmin()) return false;
     return true;
 }
 
@@ -320,7 +325,7 @@ function applyRoleToSidebar() {
 
     // Step 1 — hide/show each navigable section by permission map + data-permission
     nav.querySelectorAll('li[data-target]').forEach((item) => {
-        if (item.dataset.superadminOnly === 'true') {
+        if (isSuperAdminOnlyElement(item)) {
             item.style.display = isSuperAdmin() ? '' : 'none';
             return;
         }
@@ -942,6 +947,8 @@ async function loadStaffSection() {
 }
 window.loadStaffSection = loadStaffSection;
 window.applySuperAdminOnlyVisibility = applySuperAdminOnlyVisibility;
+window.isSuperAdminOnlyElement = isSuperAdminOnlyElement;
+window.isSuperAdminOnlyElement = isSuperAdminOnlyElement;
 window.isAdminSuperAdmin = isSuperAdmin;
 window.hasAdminPermission = hasPermission;
 window.hasAnyAdminPermission = hasAnyPermission;

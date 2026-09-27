@@ -37,16 +37,17 @@ const BREADCRUMB_MAP = {
     'view-finance': { group: 'Accounts & Finance', label: 'Financial Reports' },
     'view-erp-expenses': { group: 'Accounts & Finance', label: 'Expense Tracking' },
     'view-tax-vat': { group: 'Accounts & Finance', label: 'Tax & VAT Compliance' },
-    'view-settings': { group: 'System Settings', label: 'Settings Hub' },
+    'view-settings': { group: 'System Settings', label: 'Configuration Hub' },
+    'view-settings-health': { group: 'System Settings', label: 'System Health' },
     'view-shipping-payments': { group: 'System Settings', label: 'Shipping & Payments' },
     'view-store-config': { group: 'System Settings', label: 'Store Configuration' },
     'view-staff-audit': { group: 'System Settings', label: 'Staff Audit' },
-    'view-activity-feed': { group: 'System Settings', label: 'Activity Feed' },
+    'view-activity-feed': { group: 'System Settings', label: 'Security & Audit Logs' },
     'view-security': { group: 'System Settings', label: 'Security Logs' },
     'view-audit': { group: 'System Settings', label: 'Security & Audit' },
     'view-sessions': { group: 'System Settings', label: 'Admin Sessions' },
     'view-file-manager': { group: 'System Settings', label: 'File Manager' },
-    'view-system-backup': { group: 'System Settings', label: 'Backup & Restore' }
+    'view-system-backup': { group: 'System Settings', label: 'Backup & Recovery' }
 };
 
 function resolveBreadcrumbMeta(sectionId, clickedItem) {

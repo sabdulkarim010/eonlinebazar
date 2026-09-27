@@ -1,8 +1,7 @@
 /********************************************************************
  * Project: EonlineBazar — Database Migration Stage 4
  * File: settingsReadService.js
- * Description: Routed Settings singleton reads (Mongo default; Postgres when
- *   READ_PG_SETTINGS=true). Used by controllers and read-only service helpers.
+ * Description: Routed Settings singleton reads (PG → Mongo → safe defaults).
  ********************************************************************/
 
 'use strict';
@@ -10,48 +9,74 @@
 const Settings = require('../models/Settings');
 const { routedRead } = require('./readRouter');
 const { settingsToMongoShape } = require('./readShapeHelpers');
+const { getDefaultSettingsDocument } = require('../config/settingsDefaults');
 
 function getSettingsRepository() {
   return require('../repositories/settingsRepository');
 }
 
-/**
- * Fetch the global Settings document for read paths.
- * Returns a Mongoose document from Mongo, or a plain object with the same fields from Postgres.
- */
-async function fetchSettingsDocument() {
-  return routedRead(
-    'settings',
-    () => Settings.getOrCreate(),
-    async () => {
-      const row = await getSettingsRepository().findByKey();
-      if (!row) {
-        return Settings.getOrCreate();
-      }
-      const shaped = settingsToMongoShape(row);
-      if (!shaped) {
-        return Settings.getOrCreate();
-      }
-      return shaped;
-    }
-  );
+async function readFromPostgres() {
+  const row = await getSettingsRepository().findByKey();
+  if (!row) return null;
+  return settingsToMongoShape(row);
+}
+
+async function readFromMongo() {
+  const doc = await Settings.getOrCreate();
+  return doc.toObject ? doc.toObject() : doc;
 }
 
 /**
- * Safe settings read — never throws; returns plain object or null.
+ * Safe settings read — never throws; PG (when flagged) → Mongo → hardcoded defaults.
  */
 async function fetchSettingsDocumentSafe() {
   try {
-    return await fetchSettingsDocument();
+    const doc = await routedRead(
+      'settings',
+      readFromMongo,
+      async () => {
+        const shaped = await readFromPostgres();
+        if (shaped) return shaped;
+        return readFromMongo();
+      }
+    );
+    if (doc) return doc;
   } catch (err) {
-    console.warn('[settingsReadService] fetchSettingsDocument failed:', err.message);
-    try {
-      return await Settings.getOrCreate();
-    } catch (mongoErr) {
-      console.warn('[settingsReadService] Mongo Settings fallback failed:', mongoErr.message);
-      return null;
-    }
+    console.warn('[settingsReadService] routed read failed:', err.message);
   }
+
+  try {
+    const mongoDoc = await readFromMongo();
+    if (mongoDoc) return mongoDoc;
+  } catch (mongoErr) {
+    console.warn('[settingsReadService] Mongo Settings fallback failed:', mongoErr.message);
+  }
+
+  return getDefaultSettingsDocument();
 }
 
-module.exports = { fetchSettingsDocument, fetchSettingsDocumentSafe };
+/**
+ * Fetch the global Settings document for read paths (same chain as safe read).
+ */
+async function fetchSettingsDocument() {
+  return fetchSettingsDocumentSafe();
+}
+
+const { normalizeTaxSettingsFromDoc, getDefaultTaxSettings } = require('./taxSettingsService');
+
+/**
+ * Active tax configuration — safe defaults when DB is offline.
+ */
+async function getTaxSettings() {
+  const doc = await fetchSettingsDocumentSafe();
+  if (!doc || doc._fallbackDefaults) {
+    return getDefaultTaxSettings();
+  }
+  return normalizeTaxSettingsFromDoc(doc);
+}
+
+module.exports = {
+  fetchSettingsDocument,
+  fetchSettingsDocumentSafe,
+  getTaxSettings
+};

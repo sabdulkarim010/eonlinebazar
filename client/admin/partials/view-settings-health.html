@@ -1,0 +1,110 @@
+<section id="view-settings-health" class="admin-section" style="display: none;">
+    <div class="admin-settings-shell settings-health-shell">
+        <div class="section-header-box settings-hub-header settings-health-header">
+            <div>
+                <h3>System Health</h3>
+                <p class="section-subtitle">Live diagnostics — database latency, memory, cache engine, and sync queue.</p>
+            </div>
+            <div class="settings-health-toolbar">
+                <label class="settings-health-auto-refresh">
+                    <input type="checkbox" id="settingsHealthAutoRefresh" checked>
+                    Auto-refresh (30s)
+                </label>
+                <button type="button" class="btn-secondary" id="settingsHealthRefreshBtn">
+                    <i class="fa-solid fa-rotate"></i> Refresh Metrics
+                </button>
+            </div>
+        </div>
+
+        <p class="settings-health-meta" id="settingsHealthGeneratedAt" aria-live="polite">Loading metrics…</p>
+
+        <div class="settings-health-overall" id="settingsHealthOverall">
+            <span class="health-status-badge health-status-badge--loading" id="settingsHealthOverallBadge">Checking…</span>
+            <span class="settings-health-overall-label">Overall system status</span>
+        </div>
+
+        <div class="settings-health-grid settings-health-grid--metrics">
+            <div class="saas-settings-card" id="settingsHealthMongoCard">
+                <div class="saas-settings-card-header">
+                    <h4><i class="fa-solid fa-leaf"></i> MongoDB</h4>
+                    <span class="health-status-badge health-status-badge--loading" id="settingsHealthMongoBadge">—</span>
+                </div>
+                <div class="saas-settings-card-body">
+                    <p class="settings-health-metric-line">Latency: <strong id="settingsHealthMongoLatency">—</strong></p>
+                </div>
+            </div>
+
+            <div class="saas-settings-card" id="settingsHealthPgCard">
+                <div class="saas-settings-card-header">
+                    <h4><i class="fa-solid fa-database"></i> PostgreSQL</h4>
+                    <span class="health-status-badge health-status-badge--loading" id="settingsHealthPgBadge">—</span>
+                </div>
+                <div class="saas-settings-card-body">
+                    <p class="settings-health-metric-line">Latency: <strong id="settingsHealthPgLatency">—</strong></p>
+                </div>
+            </div>
+
+            <div class="saas-settings-card" id="settingsHealthRedisCard">
+                <div class="saas-settings-card-header">
+                    <h4><i class="fa-solid fa-bolt"></i> Cache (Redis)</h4>
+                    <span class="health-status-badge health-status-badge--loading" id="settingsHealthRedisBadge">—</span>
+                </div>
+                <div class="saas-settings-card-body">
+                    <p class="settings-health-metric-line">Driver: <strong id="settingsHealthCacheDriver">—</strong></p>
+                    <p class="settings-health-metric-line">Latency: <strong id="settingsHealthRedisLatency">—</strong></p>
+                    <p class="settings-health-metric-line">Keys: <strong id="settingsHealthRedisKeys">—</strong></p>
+                </div>
+            </div>
+
+            <div class="saas-settings-card saas-settings-card--accent-orange">
+                <div class="saas-settings-card-header">
+                    <h4><i class="fa-solid fa-link-slash"></i> Sync Queue</h4>
+                </div>
+                <div class="saas-settings-card-body">
+                    <p class="settings-health-metric-line">Dual-write failures: <strong id="settingsHealthSyncFailures">—</strong></p>
+                    <p class="settings-health-metric-line">Settings pending PG sync: <strong id="settingsHealthPendingPgSync">—</strong></p>
+                    <p class="settings-health-metric-line">Rate-limit hits (24h): <strong id="settingsHealthRateLimitHits">—</strong></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-health-grid settings-health-grid--server">
+            <div class="saas-settings-card saas-settings-card--accent-teal">
+                <div class="saas-settings-card-header">
+                    <h4><i class="fa-solid fa-server"></i> Node.js Process</h4>
+                    <span class="health-status-badge health-status-badge--loading" id="settingsHealthMemoryBadge">—</span>
+                </div>
+                <div class="saas-settings-card-body">
+                    <p class="settings-health-metric-line">Uptime: <strong id="settingsHealthUptime">—</strong></p>
+                    <p class="settings-health-metric-line">Heap used: <strong id="settingsHealthHeapUsed">—</strong></p>
+                    <p class="settings-health-metric-line">RSS: <strong id="settingsHealthRss">—</strong></p>
+                    <p class="settings-health-metric-line">Load (1m): <strong id="settingsHealthLoad1">—</strong></p>
+                </div>
+            </div>
+
+            <div class="saas-settings-card">
+                <div class="saas-settings-card-header">
+                    <h4><i class="fa-solid fa-arrows-rotate"></i> Storefront Build</h4>
+                </div>
+                <div class="saas-settings-card-body">
+                    <p class="settings-health-kpi settings-health-kpi--sm"><code id="settingsHealthCacheVersion">loading…</code></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="saas-settings-card settings-health-actions-card">
+            <div class="saas-settings-card-header">
+                <h4><i class="fa-solid fa-screwdriver-wrench"></i> Maintenance Actions</h4>
+                <p class="settings-card-sub">Requires <code>manage_security</code> or Super Admin. All actions are audit-logged.</p>
+            </div>
+            <div class="saas-settings-card-footer util-backup-actions">
+                <button type="button" class="btn-secondary" id="settingsHealthPurgeCacheBtn">
+                    <i class="fa-solid fa-eraser"></i> Purge System Cache
+                </button>
+                <button type="button" class="btn-submit saas-settings-save-btn" id="settingsHealthTriggerSyncBtn">
+                    <i class="fa-solid fa-rotate"></i> Trigger Manual Sync
+                </button>
+            </div>
+        </div>
+    </div>
+</section>

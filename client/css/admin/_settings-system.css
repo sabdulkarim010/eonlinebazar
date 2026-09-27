@@ -747,3 +747,244 @@
     border-color: #fcd34d;
     box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.25), 0 4px 12px rgba(15, 23, 42, 0.06);
 }
+
+/* Configuration Hub — premium header */
+.settings-hub-header--premium {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 22px 24px;
+    border-radius: 16px;
+    border: 1px solid rgba(37, 99, 235, 0.12);
+    background: linear-gradient(135deg, rgba(239, 246, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 55%);
+}
+
+.settings-hub-eyebrow {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #2563eb;
+    margin-bottom: 6px;
+}
+
+.settings-hub-header__badge {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.admin-settings-shell.has-sticky-settings-bar {
+    padding-bottom: 88px;
+}
+
+.settings-sticky-action-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1200;
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.28);
+}
+
+.settings-sticky-action-bar__inner {
+    max-width: 1360px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.settings-sticky-action-bar__message {
+    margin: 0;
+    color: #f8fafc;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.92rem;
+}
+
+.settings-sticky-action-bar__message i {
+    color: #fbbf24;
+}
+
+.settings-sticky-action-bar__actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.settings-sticky-action-bar .btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.45);
+}
+
+.settings-secret-field-wrap {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+}
+
+.settings-secret-field-wrap .settings-secret-input {
+    flex: 1;
+    padding-right: 44px;
+}
+
+.settings-secret-toggle {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.15);
+    color: #475569;
+    cursor: pointer;
+}
+
+.settings-secret-toggle:hover {
+    background: rgba(37, 99, 235, 0.12);
+    color: #2563eb;
+}
+
+.settings-secret-mask-hint {
+    margin: 8px 0 0;
+    font-size: 0.78rem;
+    color: #64748b;
+    line-height: 1.45;
+}
+
+.settings-health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.settings-health-kpi {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+}
+
+.settings-health-kpi--sm {
+    font-size: 1.1rem;
+}
+
+.settings-health-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-health-auto-refresh {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #475569;
+    cursor: pointer;
+    user-select: none;
+}
+
+.settings-health-meta {
+    font-size: 0.82rem;
+    color: #64748b;
+    margin: 0 0 12px;
+}
+
+.settings-health-overall {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.settings-health-overall-label {
+    font-weight: 600;
+    color: #334155;
+}
+
+.settings-health-grid--metrics,
+.settings-health-grid--server {
+    margin-bottom: 18px;
+}
+
+.settings-health-metric-line {
+    margin: 0 0 8px;
+    font-size: 0.88rem;
+    color: #475569;
+}
+
+.settings-health-metric-line strong {
+    color: #0f172a;
+}
+
+.health-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.health-status-badge--healthy {
+    background: rgba(16, 185, 129, 0.15);
+    color: #047857;
+}
+
+.health-status-badge--degraded {
+    background: rgba(245, 158, 11, 0.18);
+    color: #b45309;
+}
+
+.health-status-badge--offline {
+    background: rgba(239, 68, 68, 0.15);
+    color: #b91c1c;
+}
+
+.health-status-badge--loading {
+    background: rgba(148, 163, 184, 0.2);
+    color: #475569;
+}
+
+.saas-settings-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.settings-health-actions-card .saas-settings-card-footer {
+    flex-wrap: wrap;
+}
+
+@media (min-width: 992px) {
+    .settings-sticky-action-bar {
+        left: var(--admin-sidebar-width, 260px);
+    }
+}

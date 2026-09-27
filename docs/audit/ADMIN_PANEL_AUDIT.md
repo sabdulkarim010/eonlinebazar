@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-27 (Phase 3 Part 2 balance sheet + tax/VAT)  
+**Last updated:** 2026-09-27 (System Settings Phase 4 Part 1 — sidebar & hub UI)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -14,7 +14,10 @@
 | `client/admin/partials/sidebar.html` | 7-module enterprise nav (Dashboard + 6 groups) |
 | `client/admin/partials/header.html` | Breadcrumb container, notification bell, mobile toggle |
 | `client/admin/partials/view-overview.html` | Dashboard KPIs + ERP/CRM/HRM widgets |
-| `client/admin/partials/view-settings.html` | Unified settings hub shell |
+| `client/admin/partials/view-settings.html` | Unified settings hub shell + sticky save bar |
+| `client/admin/partials/view-settings-health.html` | System Health KPI view |
+| `client/js/admin/modules/settings-secret-fields.js` | Mask/unmask toggles for integration secrets |
+| `client/js/admin/modules/settings-health.js` | Health view data loaders |
 | `client/admin/partials/view-orders.html` | Order management table |
 | `client/admin/partials/view-pos.html` | Full-page POS layout |
 | `client/admin/partials/view-products.html` | Product CRUD + bulk import |
@@ -96,6 +99,12 @@
 ---
 
 ## Change Log
+
+### System Settings Phase 4 Part 1 — Sidebar & hub UI — 2026-09-27
+
+- Sidebar System Settings accordion expanded to 5 RBAC-gated entries with hash deep links.
+- Configuration Hub premium header, sticky unsaved-changes bar, secret field toggles.
+- Tests: **364/364**.
 
 ### Page Content Manager preview/edit mode — 2026-09-24
 

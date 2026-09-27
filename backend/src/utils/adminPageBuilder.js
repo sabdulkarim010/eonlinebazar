@@ -38,6 +38,7 @@ const VIEW_PARTIALS = [
     'view-hrm-payroll',
     'view-hrm-leaves',
     'view-settings',
+    'view-settings-health',
     'view-reviews',
     'view-suppliers',
     'view-warehouses',

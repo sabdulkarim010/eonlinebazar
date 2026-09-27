@@ -63,6 +63,7 @@ const SETTINGS_IMPORT_ALLOWLIST = new Set([
   'vatPercentage',
   'vatInclusive',
   'taxRegistrationNumber',
+  'taxSettings',
   'orderPrefix',
   'maintenanceMode',
   'maintenanceMessage',

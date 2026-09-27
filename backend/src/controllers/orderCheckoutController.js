@@ -34,8 +34,6 @@ const {
     toShippingLocationLabel,
     computeDeliveryCharge,
     buildLockedOrderTotals,
-    getVatSettings,
-    computeVatAmount,
     roundMoney,
     isValidDistrict
 } = require('../services/deliveryChargeService');
@@ -362,14 +360,16 @@ const createOrder = async (req, res) => {
             subtotal
         });
 
-        const vatSettings = await getVatSettings();
-        const merchandiseBeforeVat = roundMoney(Math.max(0, subtotal - discountAmount));
-        const vatAmount = computeVatAmount({
-            merchandisePayable: merchandiseBeforeVat,
-            vatEnabled: vatSettings.vatEnabled,
-            vatPercentage: vatSettings.vatPercentage,
-            vatInclusive: vatSettings.vatInclusive
+        const { getTaxSettings } = require('../services/settingsReadService');
+        const { computeOrderTaxSnapshot } = require('../services/taxSettingsService');
+        const taxSettings = await getTaxSettings();
+        const taxSnapshot = computeOrderTaxSnapshot({
+            taxSettings,
+            subTotal: subtotal,
+            discountAmount,
+            lineItems: normalizedItems
         });
+        const vatAmount = taxSnapshot.taxAmount;
 
         const lockedTotals = buildLockedOrderTotals({
             itemSubtotal: subtotal,
@@ -500,9 +500,13 @@ const createOrder = async (req, res) => {
             subtotal: subTotal,
             discountAmount,
             vatAmount: lockedVatAmount,
-            vatPercentage: vatSettings.vatPercentage,
-            vatEnabled: vatSettings.vatEnabled,
-            taxRegistrationNumber: vatSettings.taxRegistrationNumber,
+            taxAmount: lockedVatAmount,
+            taxableAmount: taxSnapshot.taxableAmount,
+            vatPercentage: taxSnapshot.vatRate,
+            vatRate: taxSnapshot.vatRate,
+            vatEnabled: taxSnapshot.vatEnabled,
+            priceTaxMode: taxSnapshot.priceTaxMode,
+            taxRegistrationNumber: taxSnapshot.taxRegistrationNumber,
             walletApplied,
             pointsRedeemed,
             loyaltyDiscount,

@@ -7,7 +7,6 @@
  * refund window are all read and written through one save action.
  ********************************************************************/
 
-const Settings = require('../models/Settings');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
 const { normalizeRewardSettings } = require('../utils/rewardSettings');
 const {
@@ -27,51 +26,70 @@ const {
     toPublicFlashSalePayload
 } = require('../services/flashSaleService');
 const { invalidate, CACHE_KEYS } = require('../services/cacheService');
-const { dualWrite } = require('../services/dualWriteService');
-const { fetchSettingsDocument } = require('../services/settingsReadService');
-
-function getSettingsRepository() {
-    return require('../repositories/settingsRepository');
-}
-
-async function dualWriteSettingsUpsert(settings) {
-    await dualWrite(
-        () => settings.save(),
-        async (saved) => {
-            const plain = saved.toObject ? saved.toObject() : saved;
-            await getSettingsRepository().upsertFromMongo(plain);
-        },
-        {
-            model: 'Settings',
-            operation: 'update',
-            mongoId: (saved) => String(saved._id)
-        }
-    );
-}
-
+const { fetchSettingsDocument, fetchSettingsDocumentSafe } = require('../services/settingsReadService');
+const { saveSettings, attachRevisionToPayload } = require('../services/settingsService');
+const { accountHasPermission } = require('../config/permissions');
+const {
+    applyIntegrationSecretUpdate,
+    bodyTouchesIntegrationCredentials,
+    maskIntegrationSecretsInPayload
+} = require('../utils/settingsIntegrationSecrets');
+const {
+    normalizeTaxSettingsFromDoc,
+    syncTaxSettingsFromLegacyFields
+} = require('../services/taxSettingsService');
 const VALID_SMS_GATEWAY_PROVIDERS = ['Greenweb BD', 'BulkSMS BD', 'AlphaSMS', 'Generic API', ''];
 
-const toPublicSmsSettings = (deliverySettings = {}) => ({
-    smsGatewayProvider: deliverySettings.smsGatewayProvider || '',
-    smsApiKey: deliverySettings.smsApiKey || '',
-    smsSenderId: deliverySettings.smsSenderId || ''
-});
+const toPublicSmsSettings = (deliverySettings = {}) =>
+    maskIntegrationSecretsInPayload({
+        smsGatewayProvider: deliverySettings.smsGatewayProvider || '',
+        smsApiKey: deliverySettings.smsApiKey || '',
+        smsSenderId: deliverySettings.smsSenderId || ''
+    });
 
-const toPublicCourierSettings = (deliverySettings = {}) => ({
-    defaultCourierProvider: deliverySettings.defaultCourierProvider || '',
-    courierApiKey: deliverySettings.courierApiKey || '',
-    courierSecretKey: deliverySettings.courierSecretKey || ''
-});
+const toPublicCourierSettings = (deliverySettings = {}) =>
+    maskIntegrationSecretsInPayload({
+        defaultCourierProvider: deliverySettings.defaultCourierProvider || '',
+        courierApiKey: deliverySettings.courierApiKey || '',
+        courierSecretKey: deliverySettings.courierSecretKey || ''
+    });
 
-const toPublicWhatsAppSettings = (deliverySettings = {}) => ({
-    publicSupportWhatsApp: deliverySettings.publicSupportWhatsApp || '',
-    privateAdminAlertWhatsApp: deliverySettings.privateAdminAlertWhatsApp || '',
-    enableWhatsAppOrderAlerts: deliverySettings.enableWhatsAppOrderAlerts === true,
-    whatsAppAlertProvider: deliverySettings.whatsAppAlertProvider || '',
-    whatsAppAlertApiKey: deliverySettings.whatsAppAlertApiKey || '',
-    whatsAppAlertInstanceId: deliverySettings.whatsAppAlertInstanceId || '',
-    whatsAppAlertWebhookUrl: deliverySettings.whatsAppAlertWebhookUrl || ''
-});
+const toPublicWhatsAppSettings = (deliverySettings = {}) =>
+    maskIntegrationSecretsInPayload({
+        publicSupportWhatsApp: deliverySettings.publicSupportWhatsApp || '',
+        privateAdminAlertWhatsApp: deliverySettings.privateAdminAlertWhatsApp || '',
+        enableWhatsAppOrderAlerts: deliverySettings.enableWhatsAppOrderAlerts === true,
+        whatsAppAlertProvider: deliverySettings.whatsAppAlertProvider || '',
+        whatsAppAlertApiKey: deliverySettings.whatsAppAlertApiKey || '',
+        whatsAppAlertInstanceId: deliverySettings.whatsAppAlertInstanceId || '',
+        whatsAppAlertWebhookUrl: deliverySettings.whatsAppAlertWebhookUrl || ''
+    });
+
+function canManageIntegrationSecrets(req) {
+    const account = req.adminAccount;
+    if (!account) return false;
+    if (account.isSuperAdmin()) return true;
+    return accountHasPermission(account, 'manage_security');
+}
+
+async function denyIntegrationSecretAccess(req, res, detail) {
+    await logSecurityEvent({
+        action: 'UNAUTHORIZED_SETTINGS_ACCESS',
+        actor: req.admin?.username || req.adminAccount?.username || 'unknown',
+        actorId: req.adminId != null ? String(req.adminId) : undefined,
+        actorType: 'admin',
+        ipAddress: getClientIp(req),
+        details: detail || 'Integration credential access denied',
+        resourceType: 'setting',
+        resourceId: 'integration-secrets'
+    });
+
+    return res.status(403).json({
+        success: false,
+        reason: 'PERMISSION_DENIED',
+        message: 'Access denied. Integration credentials require Super Admin or Security & Audit permission.'
+    });
+}
 
 const toPublicMasterSettings = (doc) => normalizeRewardSettings(doc);
 
@@ -183,7 +201,7 @@ const buildUnifiedPayload = async (settingsDoc) => {
         settingsDoc.freeShippingMinAmount
     );
 
-    return {
+    const payload = {
         ...rewards,
         ...announcement,
         ...toPublicAnnouncementPayload(announcement, rewards),
@@ -213,6 +231,7 @@ const buildUnifiedPayload = async (settingsDoc) => {
         vatPercentage: Number(settingsDoc.vatPercentage ?? settingsDoc.vatRate ?? 0),
         vatInclusive: settingsDoc.vatInclusive !== false,
         taxRegistrationNumber: String(settingsDoc.taxRegistrationNumber || '').trim(),
+        taxSettings: normalizeTaxSettingsFromDoc(settingsDoc),
         lastBackupAt: settingsDoc.lastBackupAt || null,
         orderPrefix: String(settingsDoc.orderPrefix || 'ORD').trim() || 'ORD',
         maintenanceMode: settingsDoc.maintenanceMode === true,
@@ -233,25 +252,45 @@ const buildUnifiedPayload = async (settingsDoc) => {
         ...toPublicCourierSettings(settingsDoc),
         ...toPublicWhatsAppSettings(settingsDoc)
     };
+
+    return attachRevisionToPayload(maskIntegrationSecretsInPayload(payload), settingsDoc);
 };
 
 const getMasterSettings = async (req, res) => {
     try {
-        const settings = await fetchSettingsDocument();
-        res.status(200).json({ success: true, data: await buildUnifiedPayload(settings) });
+        const settings = await fetchSettingsDocumentSafe();
+        res.status(200).json({
+            success: true,
+            data: await buildUnifiedPayload(settings),
+            fallback: settings._fallbackDefaults === true
+        });
     } catch (error) {
         console.error('Get Master Settings Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to load master settings.' });
+        const settings = await fetchSettingsDocumentSafe();
+        res.status(200).json({
+            success: true,
+            data: await buildUnifiedPayload(settings),
+            fallback: true
+        });
     }
 };
 
 const getAnnouncementSettings = async (req, res) => {
     try {
-        const settings = await fetchSettingsDocument();
-        res.status(200).json({ success: true, data: await buildUnifiedPayload(settings) });
+        const settings = await fetchSettingsDocumentSafe();
+        res.status(200).json({
+            success: true,
+            data: await buildUnifiedPayload(settings),
+            fallback: settings._fallbackDefaults === true
+        });
     } catch (error) {
         console.error('Get Announcement Settings Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to load announcement settings.' });
+        const settings = await fetchSettingsDocumentSafe();
+        res.status(200).json({
+            success: true,
+            data: await buildUnifiedPayload(settings),
+            fallback: true
+        });
     }
 };
 
@@ -261,273 +300,319 @@ const getAnnouncementSettings = async (req, res) => {
  * form, and the legacy announcement-only form can all share this handler
  * without one erasing another's values.
  */
+function settingsValidationError(message) {
+    const err = new Error(message);
+    err.code = 'SETTINGS_VALIDATION';
+    return err;
+}
+
 const saveMasterSettings = async (req, res, { scope = 'Master' } = {}) => {
     const body = req.body || {};
-    const settings = await Settings.getOrCreate();
-    const changes = [];
+    const expectedRevision = body.expectedRevision ?? body.revisionId;
 
-    for (const [canonicalKey, rule] of Object.entries(NUMERIC_FIELD_RULES)) {
-        const raw = readAliasedField(body, canonicalKey);
-        if (raw === undefined) continue;
-
-        const parsed = parsePositiveNumber(raw, rule.label, { min: rule.min, max: rule.max ?? null });
-        if (parsed.error) {
-            return res.status(400).json({ success: false, message: parsed.error });
-        }
-
-        settings[canonicalKey] = parsed.value;
-        changes.push(`${rule.label}: ${parsed.value}`);
-    }
-
-    if (body.announcementText !== undefined) {
-        settings.announcementText = String(body.announcementText ?? '').trim();
-        changes.push(`Custom text: ${settings.announcementText ? 'yes' : 'no'}`);
-    }
-
-    if (body.isAnnouncementActive !== undefined) {
-        settings.isAnnouncementActive = parseBoolean(body.isAnnouncementActive);
-        changes.push(`Announcement active: ${settings.isAnnouncementActive}`);
-    }
-
-    if (body.enableSmsNotifications !== undefined) {
-        settings.enableSmsNotifications = parseBoolean(body.enableSmsNotifications, false);
-        changes.push(`SMS notifications: ${settings.enableSmsNotifications}`);
-    }
-
-    if (body.enableTieredLoyalty !== undefined) {
-        settings.enableTieredLoyalty = parseBoolean(body.enableTieredLoyalty, false);
-        changes.push(`Tiered loyalty: ${settings.enableTieredLoyalty ? 'enabled' : 'disabled'}`);
-    }
-
-    if (body.flashSaleEnabled !== undefined) {
-        settings.flashSaleEnabled = parseBoolean(body.flashSaleEnabled, false);
-        changes.push(`Flash sale: ${settings.flashSaleEnabled ? 'enabled' : 'disabled'}`);
-    }
-
-    if (body.flashSaleTitle !== undefined) {
-        settings.flashSaleTitle = String(body.flashSaleTitle || 'Flash Sale').trim() || 'Flash Sale';
-        changes.push(`Flash sale title updated`);
-    }
-
-    if (body.flashSaleEndDate !== undefined || body.flashSaleEndTime !== undefined) {
-        const endDate = resolveFlashSaleEndDate(body.flashSaleEndDate, body.flashSaleEndTime);
-        settings.flashSaleEndDate = endDate;
-        changes.push(endDate ? `Flash sale ends ${endDate.toISOString()}` : 'Flash sale end cleared');
-    }
-
-    if (body.flashSaleDiscountPercent !== undefined) {
-        const parsedDiscount = parsePositiveNumber(
-            body.flashSaleDiscountPercent,
-            'Flash sale discount percentage',
-            { min: 0, max: 100 }
+    if (bodyTouchesIntegrationCredentials(body) && !canManageIntegrationSecrets(req)) {
+        return denyIntegrationSecretAccess(
+            req,
+            res,
+            `Attempted integration credential update via ${scope} settings`
         );
-        if (parsedDiscount.error) {
-            return res.status(400).json({ success: false, message: parsedDiscount.error });
-        }
-        settings.flashSaleDiscountPercent = parsedDiscount.value;
-        changes.push(`Flash sale discount: ${parsedDiscount.value}%`);
     }
 
-    if (body.flashSaleProductIds !== undefined) {
-        settings.flashSaleProductIds = parseFlashSaleProductIds(body.flashSaleProductIds);
-        changes.push(`Flash sale products: ${settings.flashSaleProductIds.length}`);
-    }
+    let saveResult;
+    try {
+        saveResult = await saveSettings({
+            expectedRevision,
+            mutate: async (settings) => {
+                const changes = [];
+                let criticalSecretChange = false;
 
-    if (body.orderPrefix !== undefined) {
-        const prefix = String(body.orderPrefix || 'ORD').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '') || 'ORD';
-        settings.orderPrefix = prefix.slice(0, 12);
-        changes.push(`Order prefix: ${settings.orderPrefix}`);
-    }
+                for (const [canonicalKey, rule] of Object.entries(NUMERIC_FIELD_RULES)) {
+                    const raw = readAliasedField(body, canonicalKey);
+                    if (raw === undefined) continue;
 
-    if (body.maintenanceMode !== undefined) {
-        settings.maintenanceMode = parseBoolean(body.maintenanceMode, false);
-        changes.push(`Maintenance mode: ${settings.maintenanceMode ? 'ON' : 'OFF'}`);
-    }
+                    const parsed = parsePositiveNumber(raw, rule.label, { min: rule.min, max: rule.max ?? null });
+                    if (parsed.error) {
+                        throw settingsValidationError(parsed.error);
+                    }
 
-    if (body.maintenanceMessage !== undefined) {
-        settings.maintenanceMessage = String(body.maintenanceMessage || '').trim()
-            || 'We are currently performing scheduled maintenance. Please check back soon.';
-        changes.push('Maintenance message updated');
-    }
+                    settings[canonicalKey] = parsed.value;
+                    changes.push(`${rule.label}: ${parsed.value}`);
+                }
 
-    if (body.maintenanceAllowedIPs !== undefined) {
-        const raw = Array.isArray(body.maintenanceAllowedIPs)
-            ? body.maintenanceAllowedIPs
-            : String(body.maintenanceAllowedIPs || '').split(/[\n,]+/);
-        settings.maintenanceAllowedIPs = raw
-            .map((ip) => String(ip || '').trim())
-            .filter(Boolean);
-        changes.push(`Maintenance allowlist: ${settings.maintenanceAllowedIPs.length} IP(s)`);
-        try {
-            require('../middlewares/maintenanceModeMiddleware').invalidateMaintenanceCache();
-        } catch (_) { /* noop */ }
-    }
+                if (body.announcementText !== undefined) {
+                    settings.announcementText = String(body.announcementText ?? '').trim();
+                    changes.push(`Custom text: ${settings.announcementText ? 'yes' : 'no'}`);
+                }
 
-    if (body.vatEnabled !== undefined) {
-        settings.vatEnabled = parseBoolean(body.vatEnabled, false);
-        changes.push(`VAT enabled: ${settings.vatEnabled ? 'yes' : 'no'}`);
-    }
+                if (body.isAnnouncementActive !== undefined) {
+                    settings.isAnnouncementActive = parseBoolean(body.isAnnouncementActive);
+                    changes.push(`Announcement active: ${settings.isAnnouncementActive}`);
+                }
 
-    if (body.vatInclusive !== undefined) {
-        settings.vatInclusive = parseBoolean(body.vatInclusive, true);
-        changes.push(`VAT inclusive pricing: ${settings.vatInclusive ? 'yes' : 'no'}`);
-    }
+                if (body.enableSmsNotifications !== undefined) {
+                    settings.enableSmsNotifications = parseBoolean(body.enableSmsNotifications, false);
+                    changes.push(`SMS notifications: ${settings.enableSmsNotifications}`);
+                }
 
-    if (body.taxRegistrationNumber !== undefined) {
-        settings.taxRegistrationNumber = String(body.taxRegistrationNumber ?? '').trim();
-        changes.push('Tax registration number updated');
-    }
+                if (body.enableTieredLoyalty !== undefined) {
+                    settings.enableTieredLoyalty = parseBoolean(body.enableTieredLoyalty, false);
+                    changes.push(`Tiered loyalty: ${settings.enableTieredLoyalty ? 'enabled' : 'disabled'}`);
+                }
 
-    if (settings.vatPercentage !== undefined && settings.vatPercentage !== null) {
-        settings.vatRate = Number(settings.vatPercentage) || 0;
-    }
+                if (body.flashSaleEnabled !== undefined) {
+                    settings.flashSaleEnabled = parseBoolean(body.flashSaleEnabled, false);
+                    changes.push(`Flash sale: ${settings.flashSaleEnabled ? 'enabled' : 'disabled'}`);
+                }
 
-    if (body.smsGatewayProvider !== undefined) {
-        const provider = String(body.smsGatewayProvider || '').trim();
-        if (provider && !VALID_SMS_GATEWAY_PROVIDERS.includes(provider)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid SMS gateway provider selected.'
-            });
-        }
-        settings.smsGatewayProvider = provider;
-        changes.push(`SMS gateway: ${provider || 'none'}`);
-    }
+                if (body.flashSaleTitle !== undefined) {
+                    settings.flashSaleTitle = String(body.flashSaleTitle || 'Flash Sale').trim() || 'Flash Sale';
+                    changes.push('Flash sale title updated');
+                }
 
-    if (body.smsApiKey !== undefined) {
-        settings.smsApiKey = String(body.smsApiKey ?? '').trim();
-        changes.push('SMS API key updated');
-    }
+                if (body.flashSaleEndDate !== undefined || body.flashSaleEndTime !== undefined) {
+                    const endDate = resolveFlashSaleEndDate(body.flashSaleEndDate, body.flashSaleEndTime);
+                    settings.flashSaleEndDate = endDate;
+                    changes.push(endDate ? `Flash sale ends ${endDate.toISOString()}` : 'Flash sale end cleared');
+                }
 
-    if (body.smsSenderId !== undefined) {
-        settings.smsSenderId = String(body.smsSenderId ?? '').trim();
-        changes.push(`SMS sender ID: ${settings.smsSenderId || 'none'}`);
-    }
+                if (body.flashSaleDiscountPercent !== undefined) {
+                    const parsedDiscount = parsePositiveNumber(
+                        body.flashSaleDiscountPercent,
+                        'Flash sale discount percentage',
+                        { min: 0, max: 100 }
+                    );
+                    if (parsedDiscount.error) {
+                        throw settingsValidationError(parsedDiscount.error);
+                    }
+                    settings.flashSaleDiscountPercent = parsedDiscount.value;
+                    changes.push(`Flash sale discount: ${parsedDiscount.value}%`);
+                }
 
-    if (body.defaultCourierProvider !== undefined) {
-        const rawProvider = String(body.defaultCourierProvider || '').trim();
-        const courierProvider = normalizeCourierSlug(rawProvider);
-        if (rawProvider && !VALID_COURIER_PROVIDERS.includes(rawProvider) && !VALID_COURIER_PROVIDERS.includes(courierProvider)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid courier provider selected.'
-            });
-        }
-        settings.defaultCourierProvider = courierProvider;
-        changes.push(`Courier provider: ${courierProvider || 'none'}`);
-    }
+                if (body.flashSaleProductIds !== undefined) {
+                    settings.flashSaleProductIds = parseFlashSaleProductIds(body.flashSaleProductIds);
+                    changes.push(`Flash sale products: ${settings.flashSaleProductIds.length}`);
+                }
 
-    if (body.courierApiKey !== undefined) {
-        settings.courierApiKey = String(body.courierApiKey ?? '').trim();
-        changes.push('Courier API key updated');
-    }
+                if (body.orderPrefix !== undefined) {
+                    const prefix = String(body.orderPrefix || 'ORD').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '') || 'ORD';
+                    settings.orderPrefix = prefix.slice(0, 12);
+                    changes.push(`Order prefix: ${settings.orderPrefix}`);
+                }
 
-    if (body.courierSecretKey !== undefined) {
-        settings.courierSecretKey = String(body.courierSecretKey ?? '').trim();
-        changes.push('Courier secret key updated');
-    }
+                if (body.maintenanceMode !== undefined) {
+                    settings.maintenanceMode = parseBoolean(body.maintenanceMode, false);
+                    changes.push(`Maintenance mode: ${settings.maintenanceMode ? 'ON' : 'OFF'}`);
+                }
 
-    if (body.publicSupportWhatsApp !== undefined) {
-        const rawPublic = String(body.publicSupportWhatsApp ?? '').trim();
-        if (rawPublic) {
-            const normalizedPublic = sanitizeWhatsAppInput(rawPublic);
-            if (!normalizedPublic) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid public customer WhatsApp number.'
-                });
+                if (body.maintenanceMessage !== undefined) {
+                    settings.maintenanceMessage = String(body.maintenanceMessage || '').trim()
+                        || 'We are currently performing scheduled maintenance. Please check back soon.';
+                    changes.push('Maintenance message updated');
+                }
+
+                if (body.maintenanceAllowedIPs !== undefined) {
+                    const raw = Array.isArray(body.maintenanceAllowedIPs)
+                        ? body.maintenanceAllowedIPs
+                        : String(body.maintenanceAllowedIPs || '').split(/[\n,]+/);
+                    settings.maintenanceAllowedIPs = raw
+                        .map((ip) => String(ip || '').trim())
+                        .filter(Boolean);
+                    changes.push(`Maintenance allowlist: ${settings.maintenanceAllowedIPs.length} IP(s)`);
+                    try {
+                        require('../middlewares/maintenanceModeMiddleware').invalidateMaintenanceCache();
+                    } catch (_) { /* noop */ }
+                }
+
+                if (body.vatEnabled !== undefined) {
+                    settings.vatEnabled = parseBoolean(body.vatEnabled, false);
+                    changes.push(`VAT enabled: ${settings.vatEnabled ? 'yes' : 'no'}`);
+                }
+
+                if (body.vatInclusive !== undefined) {
+                    settings.vatInclusive = parseBoolean(body.vatInclusive, true);
+                    changes.push(`VAT inclusive pricing: ${settings.vatInclusive ? 'yes' : 'no'}`);
+                }
+
+                if (body.taxRegistrationNumber !== undefined) {
+                    settings.taxRegistrationNumber = String(body.taxRegistrationNumber ?? '').trim();
+                    changes.push('Tax registration number updated');
+                }
+
+                if (settings.vatPercentage !== undefined && settings.vatPercentage !== null) {
+                    settings.vatRate = Number(settings.vatPercentage) || 0;
+                }
+
+                if (body.smsGatewayProvider !== undefined) {
+                    const provider = String(body.smsGatewayProvider || '').trim();
+                    if (provider && !VALID_SMS_GATEWAY_PROVIDERS.includes(provider)) {
+                        throw settingsValidationError('Invalid SMS gateway provider selected.');
+                    }
+                    settings.smsGatewayProvider = provider;
+                    changes.push(`SMS gateway: ${provider || 'none'}`);
+                }
+
+                if (body.smsApiKey !== undefined) {
+                    const { updated, critical } = applyIntegrationSecretUpdate(settings, 'smsApiKey', body.smsApiKey);
+                    if (updated) {
+                        changes.push('SMS API key updated');
+                        if (critical) criticalSecretChange = true;
+                    }
+                }
+
+                if (body.smsSenderId !== undefined) {
+                    settings.smsSenderId = String(body.smsSenderId ?? '').trim();
+                    changes.push(`SMS sender ID: ${settings.smsSenderId || 'none'}`);
+                }
+
+                if (body.defaultCourierProvider !== undefined) {
+                    const rawProvider = String(body.defaultCourierProvider || '').trim();
+                    const courierProvider = normalizeCourierSlug(rawProvider);
+                    if (rawProvider && !VALID_COURIER_PROVIDERS.includes(rawProvider) && !VALID_COURIER_PROVIDERS.includes(courierProvider)) {
+                        throw settingsValidationError('Invalid courier provider selected.');
+                    }
+                    settings.defaultCourierProvider = courierProvider;
+                    changes.push(`Courier provider: ${courierProvider || 'none'}`);
+                }
+
+                if (body.courierApiKey !== undefined) {
+                    const { updated, critical } = applyIntegrationSecretUpdate(settings, 'courierApiKey', body.courierApiKey);
+                    if (updated) {
+                        changes.push('Courier API key updated');
+                        if (critical) criticalSecretChange = true;
+                    }
+                }
+
+                if (body.courierSecretKey !== undefined) {
+                    const { updated, critical } = applyIntegrationSecretUpdate(
+                        settings,
+                        'courierSecretKey',
+                        body.courierSecretKey
+                    );
+                    if (updated) {
+                        changes.push('Courier secret key updated');
+                        if (critical) criticalSecretChange = true;
+                    }
+                }
+
+                if (body.publicSupportWhatsApp !== undefined) {
+                    const rawPublic = String(body.publicSupportWhatsApp ?? '').trim();
+                    if (rawPublic) {
+                        const normalizedPublic = sanitizeWhatsAppInput(rawPublic);
+                        if (!normalizedPublic) {
+                            throw settingsValidationError('Invalid public customer WhatsApp number.');
+                        }
+                        settings.publicSupportWhatsApp = normalizedPublic;
+                    } else {
+                        settings.publicSupportWhatsApp = '';
+                    }
+                    changes.push(`Public WhatsApp: ${settings.publicSupportWhatsApp || 'none'}`);
+                }
+
+                if (body.privateAdminAlertWhatsApp !== undefined) {
+                    const rawPrivate = String(body.privateAdminAlertWhatsApp ?? '').trim();
+                    if (rawPrivate) {
+                        const normalizedPrivate = sanitizeWhatsAppInput(rawPrivate);
+                        if (!normalizedPrivate) {
+                            throw settingsValidationError('Invalid private admin alert WhatsApp number.');
+                        }
+                        settings.privateAdminAlertWhatsApp = normalizedPrivate;
+                    } else {
+                        settings.privateAdminAlertWhatsApp = '';
+                    }
+                    changes.push(`Admin alert WhatsApp: ${settings.privateAdminAlertWhatsApp ? 'configured' : 'cleared'}`);
+                }
+
+                if (body.enableWhatsAppOrderAlerts !== undefined) {
+                    settings.enableWhatsAppOrderAlerts = parseBoolean(body.enableWhatsAppOrderAlerts, false);
+                    changes.push(`WhatsApp order alerts: ${settings.enableWhatsAppOrderAlerts}`);
+                }
+
+                if (body.whatsAppAlertProvider !== undefined) {
+                    const provider = String(body.whatsAppAlertProvider || '').trim();
+                    if (provider && !VALID_ALERT_PROVIDERS.includes(provider)) {
+                        throw settingsValidationError('Invalid WhatsApp alert provider selected.');
+                    }
+                    settings.whatsAppAlertProvider = provider;
+                    changes.push(`WhatsApp alert provider: ${provider || 'none'}`);
+                }
+
+                if (body.whatsAppAlertApiKey !== undefined) {
+                    const { updated, critical } = applyIntegrationSecretUpdate(
+                        settings,
+                        'whatsAppAlertApiKey',
+                        body.whatsAppAlertApiKey
+                    );
+                    if (updated) {
+                        changes.push('WhatsApp alert API key updated');
+                        if (critical) criticalSecretChange = true;
+                    }
+                }
+
+                if (body.whatsAppAlertInstanceId !== undefined) {
+                    settings.whatsAppAlertInstanceId = String(body.whatsAppAlertInstanceId ?? '').trim();
+                    changes.push(`WhatsApp alert instance: ${settings.whatsAppAlertInstanceId || 'none'}`);
+                }
+
+                if (body.whatsAppAlertWebhookUrl !== undefined) {
+                    settings.whatsAppAlertWebhookUrl = String(body.whatsAppAlertWebhookUrl ?? '').trim();
+                    changes.push(`WhatsApp webhook: ${settings.whatsAppAlertWebhookUrl ? 'configured' : 'cleared'}`);
+                }
+
+                const hasNonNumericDiscount = body.announcementDiscount !== undefined
+                    && Number.isNaN(Number(body.announcementDiscount));
+                if (hasNonNumericDiscount) {
+                    settings.announcementDiscount = String(body.announcementDiscount).trim();
+                } else if (settings.freeShippingThreshold !== null && settings.freeShippingThreshold !== undefined) {
+                    settings.announcementDiscount = String(settings.freeShippingThreshold);
+                }
+
+                if (changes.length === 0) {
+                    throw settingsValidationError('No settings were provided to update.');
+                }
+
+                mirrorFreeShippingFields(settings);
+                syncTaxSettingsFromLegacyFields(settings);
+                return { changes, criticalSecretChange };
             }
-            settings.publicSupportWhatsApp = normalizedPublic;
-        } else {
-            settings.publicSupportWhatsApp = '';
+        });
+    } catch (error) {
+        if (error.code === 'SETTINGS_VALIDATION') {
+            return res.status(400).json({ success: false, message: error.message });
         }
-        changes.push(`Public WhatsApp: ${settings.publicSupportWhatsApp || 'none'}`);
+        throw error;
     }
 
-    if (body.privateAdminAlertWhatsApp !== undefined) {
-        const rawPrivate = String(body.privateAdminAlertWhatsApp ?? '').trim();
-        if (rawPrivate) {
-            const normalizedPrivate = sanitizeWhatsAppInput(rawPrivate);
-            if (!normalizedPrivate) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid private admin alert WhatsApp number.'
-                });
-            }
-            settings.privateAdminAlertWhatsApp = normalizedPrivate;
-        } else {
-            settings.privateAdminAlertWhatsApp = '';
-        }
-        changes.push(`Admin alert WhatsApp: ${settings.privateAdminAlertWhatsApp ? 'configured' : 'cleared'}`);
-    }
-
-    if (body.enableWhatsAppOrderAlerts !== undefined) {
-        settings.enableWhatsAppOrderAlerts = parseBoolean(body.enableWhatsAppOrderAlerts, false);
-        changes.push(`WhatsApp order alerts: ${settings.enableWhatsAppOrderAlerts}`);
-    }
-
-    if (body.whatsAppAlertProvider !== undefined) {
-        const provider = String(body.whatsAppAlertProvider || '').trim();
-        if (provider && !VALID_ALERT_PROVIDERS.includes(provider)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid WhatsApp alert provider selected.'
-            });
-        }
-        settings.whatsAppAlertProvider = provider;
-        changes.push(`WhatsApp alert provider: ${provider || 'none'}`);
-    }
-
-    if (body.whatsAppAlertApiKey !== undefined) {
-        settings.whatsAppAlertApiKey = String(body.whatsAppAlertApiKey ?? '').trim();
-        changes.push('WhatsApp alert API key updated');
-    }
-
-    if (body.whatsAppAlertInstanceId !== undefined) {
-        settings.whatsAppAlertInstanceId = String(body.whatsAppAlertInstanceId ?? '').trim();
-        changes.push(`WhatsApp alert instance: ${settings.whatsAppAlertInstanceId || 'none'}`);
-    }
-
-    if (body.whatsAppAlertWebhookUrl !== undefined) {
-        settings.whatsAppAlertWebhookUrl = String(body.whatsAppAlertWebhookUrl ?? '').trim();
-        changes.push(`WhatsApp webhook: ${settings.whatsAppAlertWebhookUrl ? 'configured' : 'cleared'}`);
-    }
-
-    // The legacy free-text field stays in sync with the numeric threshold so
-    // old announcement payloads keep resolving to the same offer.
-    const hasNonNumericDiscount = body.announcementDiscount !== undefined
-        && Number.isNaN(Number(body.announcementDiscount));
-    if (hasNonNumericDiscount) {
-        settings.announcementDiscount = String(body.announcementDiscount).trim();
-    } else if (settings.freeShippingThreshold !== null && settings.freeShippingThreshold !== undefined) {
-        settings.announcementDiscount = String(settings.freeShippingThreshold);
-    }
-
-    if (changes.length === 0) {
-        return res.status(400).json({
+    if (!saveResult.ok) {
+        return res.status(409).json({
             success: false,
-            message: 'No settings were provided to update.'
+            reason: 'REVISION_MISMATCH',
+            message: 'Settings have been updated by another admin. Please refresh and try again.',
+            currentRevision: saveResult.currentRevision
         });
     }
 
-    mirrorFreeShippingFields(settings);
-    await dualWriteSettingsUpsert(settings);
-    clearWhatsAppSettingsCache();
+    const { changes, criticalSecretChange } = saveResult.meta || {};
+    const settings = saveResult.settings;
 
+    clearWhatsAppSettingsCache();
     await invalidate(CACHE_KEYS.STORE_SETTINGS);
     await invalidate(CACHE_KEYS.FLASH_SALE);
 
     await logSecurityEvent({
-        action: `${scope} Settings Updated`,
+        action: criticalSecretChange ? 'CRITICAL_SETTINGS_UPDATE' : `${scope} Settings Updated`,
         actor: req.admin?.username || 'admin',
+        actorId: req.adminId != null ? String(req.adminId) : undefined,
         actorType: 'admin',
         ipAddress: getClientIp(req),
-        details: changes.join(', ')
+        details: (changes || []).join(', '),
+        resourceType: 'setting',
+        resourceId: criticalSecretChange ? 'integration-secrets' : 'master'
     });
 
     return res.status(200).json({
         success: true,
         message: 'Master settings saved successfully.',
+        revisionId: saveResult.revisionId,
         data: await buildUnifiedPayload(settings)
     });
 };

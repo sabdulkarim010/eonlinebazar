@@ -1,8 +1,8 @@
 # SETTINGS MODULE AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-26  
+**Last updated:** 2026-09-27 (Phase 5 — encrypted disaster recovery backups)  
 **Scope:** System Settings hub (`view-settings.html`), Settings Hub routing, Sidebar Labels, Finance/Security/Notifications/Utilities tabs, and all related backend APIs (`/api/admin/settings*`, `/api/admin/platform-settings`, `/api/admin/master-settings`, `/api/admin/sidebar-labels`, `/api/admin/settings-history`, footer/payment/expense settings).  
-**Status:** ✅ COMPLETE — Phase 1–3 enterprise settings suite complete (history, export/import, Ctrl+S quick save)
+**Status:** ✅ COMPLETE — Settings security (Phase 1), PG-primary writes (Phase 2), structured `taxSettings` + checkout snapshots (Phase 3)
 
 ---
 
@@ -44,7 +44,15 @@
 | `backend/src/repositories/settingsRepository.js` | PG Settings singleton |
 | `backend/src/models/SidebarLabel.js` | Mongoose SidebarLabel (Mongo fallback + mirror) |
 | `backend/src/repositories/sidebarLabelRepository.js` | PG primary + Mongo fallback/mirror |
-| `backend/src/services/settingsReadService.js` | PG read router + Mongo fallback (Settings singleton reads) |
+| `backend/src/services/settingsReadService.js` | PG read router + Mongo fallback; `getTaxSettings()` safe defaults |
+| `backend/src/services/taxSettingsService.js` | Canonical `taxSettings`, category rules, `computeOrderTaxSnapshot()` |
+| `backend/src/config/settingsDefaults.js` | Hardcoded settings + default `taxSettings` when DB offline |
+| `backend/src/services/settingsService.js` | PG-primary `saveSettings()` + revision locking |
+| `tests/services/taxSettingsService.test.js` | Unit tests — tax read fallback, inclusive/exclusive snapshots |
+| `backend/src/utils/secretMasking.js` | `maskSecretKey()` + masked-placeholder detection for API reads |
+| `backend/src/utils/settingsIntegrationSecrets.js` | Encrypt/mask SMS/courier/WhatsApp alert credentials |
+| `backend/src/middlewares/rbac.js` | `checkSensitiveSettingsAccess()` — Super Admin or `manage_security` |
+| `tests/utils/secretMasking.test.js` | Unit tests — mask, encrypt round-trip, skip masked writes |
 | `backend/src/services/platformSettingsReadService.js` | PG-first platform admin read + Mongo fallback + safe defaults |
 | `tests/services/platformSettingsReadService.test.js` | Unit tests — PG/Mongo routing and DB failure defaults |
 | `backend/src/services/dualWriteService.js` | Mongo-first writes; PG mirror best-effort |
@@ -68,7 +76,9 @@
 - [x] System Utilities — GA link, cache, sandbox (super-admin), backup links
 - [x] Sidebar label customization (Super Admin) — Settings → Security
 - [x] Sidebar label reset — `DELETE /api/admin/sidebar-labels`
-- [x] Dual-write on Settings singleton writes (Mongo → PG)
+- [x] Structured global `taxSettings` (enabled, defaultVatRate, pricesIncludeTax, category rules) — `taxSettingsService.js`
+- [x] `getTaxSettings()` — PG → Mongo → defaults; legacy `vat*` fields bridged on read/save
+- [x] Dual-write on Settings singleton writes (PG-primary via `saveSettings()`)
 - [x] PG read fallback to Mongo via `readRouter` / `fetchSettingsDocumentSafe`
 - [x] Sidebar label Mongo fallback + PG mirror — `SidebarLabel.js`, `sidebarLabelRepository.js`
 - [x] Batch sidebar label save — `PUT /api/admin/sidebar-labels` + `settings-menu-labels.js`
@@ -94,7 +104,8 @@
 | # | Issue | Severity | Root cause | Evidence |
 |---|-------|----------|------------|----------|
 | A1 | **`PUT /api/admin/sidebar-labels/:key` → 500 on save** | **High** | **Fixed 2026-09-24** — PG primary + Mongo fallback; batch `PUT /api/admin/sidebar-labels`. | `sidebarLabelRepository.js`, `sidebarLabelController.js` |
-| A2 | **No Mongo model for SidebarLabel** | **High** | **Fixed 2026-09-24** — `backend/src/models/SidebarLabel.js` added. | `SidebarLabel.js` |
+| A2 | **Plaintext SMS/courier keys in master-settings API** | **High** | **Fixed 2026-09-27** — mask on read, encrypt at rest, skip masked writes. | `settingsIntegrationSecrets.js`, `masterSettingsController.js` |
+| A2b | **No Mongo model for SidebarLabel** | **High** | **Fixed 2026-09-24** — `backend/src/models/SidebarLabel.js` added. | `SidebarLabel.js` |
 | A3 | **Partial save on menu labels** | **Medium** | **Fixed 2026-09-24** — single batch PUT from frontend. | `settings-menu-labels.js` |
 | A4 | **`getMasterSettings` / `getAnnouncementSettings` can 500** | **Medium** | Read uses `fetchSettingsDocument()` (has PG→Mongo fallback), but controller catch still returns 500 if **both** DBs fail. No safe-default payload. | `masterSettingsController.js:238-255` |
 | A5 | **`getNotificationConfig` returns 500 on read failure** | **Medium** | Controller has no safe fallback (unlike `getGatewayStatus` which returns defaults on 200). Service uses `fetchSettingsDocumentSafe` internally but outer controller catch is 500. | `settingsController.js:268-276` |
@@ -278,6 +289,59 @@ Repository tests **pass locally** against Neon (`tests/repositories/sidebarLabel
 ---
 
 ## Change Log
+
+### Phase 5 — Encrypted DR backup & validate/restore — 2026-09-27
+
+- AES-256-GCM encrypted `.eobk` backups (Mongo essential collections + PG table snapshot in payload).
+- Daily cron (`backupScheduler.js`, 03:00 default) + 30-day retention pruning.
+- `POST /api/admin/system/backup/validate` dry-run decrypt + schema check; `POST .../restore` with Super Admin password step-up.
+- Audit: `SYSTEM_BACKUP_CREATED`, `SYSTEM_BACKUP_RESTORED`.
+- Super Admin only on all backup/restore routes; UI in `view-system-backup.html`.
+- Tests: `backupDisasterRecovery.test.js` **7/7**; full suite **380/380**.
+
+### Phase 4 Part 2 — System health diagnostics & live monitoring — 2026-09-27
+
+- `GET /api/admin/system/health` — Mongo/PG latency, memory, load, sync queue, Redis cache status (`manage_security` / Super Admin).
+- `POST /api/admin/system/purge-cache` — scoped Redis invalidation + audit `SYSTEM_CACHE_PURGE`.
+- `POST /api/admin/system/trigger-sync` — manual `reconcileFailedSyncs()` + audit `SYSTEM_MANUAL_SYNC`.
+- System Health view wired to live metrics, 30s auto-refresh, purge/sync confirmation modals.
+- Tests: `tests/services/systemHealth.test.js` **8/8**; full suite **372/372**.
+
+### Phase 4 Part 1 — Sidebar restructure & premium Settings hub UI — 2026-09-27
+
+- System Settings accordion: Configuration Hub, Security & Access, Security & Audit Logs, Backup & Recovery (Super Admin), System Health — RBAC via `data-permission` / `data-role="super_admin"`.
+- Deep links: `#settings-hub`, `#settings-security`, `#activity-feed`, `#settings-backup`, `#settings-health`.
+- Sticky bottom action bar when any hub form is dirty; `beforeunload` guard (all tabs); Save / Cancel-Reset wired to existing dirty tracker + save handlers.
+- Integration secret fields: eye toggle + masked-placeholder UX (`settings-secret-fields.js`).
+- New `view-settings-health` partial + `settings-health.js` (rate limits, cache build, sync failures, security snapshot).
+- Tests: **364/364** pass.
+
+### Phase 3 Global Tax & VAT Engine — 2026-09-27
+
+- Added structured `taxSettings` on Settings (Mongo Mixed + Prisma JSON); defaults in `settingsDefaults.js`.
+- Added `taxSettingsService.js` — normalize legacy `vat*` fields, category VAT rules, `computeOrderTaxSnapshot()` for checkout.
+- `settingsReadService.getTaxSettings()` — never throws; hardcoded fallback when DB offline.
+- Master settings save syncs `taxSettings` ↔ legacy VAT fields via `syncTaxSettingsFromLegacyFields()`.
+- Checkout persists order tax snapshots: `taxAmount`, `taxableAmount`, `vatRate`, `priceTaxMode` (+ legacy `vatAmount`/`vatPercentage`).
+- Prisma migration `20260927133000_tax_settings_engine` — Settings.taxSettings + Order tax snapshot columns.
+- Export/import allowlist includes `taxSettings` (`settingsExportSanitizer.js`).
+- Tests: `taxSettingsService.test.js`, `taxVatService.test.js`; order API VAT snapshot test; full suite **364/364**.
+
+### Phase 2 Dual-DB Resilience & Revision Locking — 2026-09-27
+
+- Added `backend/src/services/settingsService.js` — PG-primary `saveSettings()`, Mongo mirror with `MONGO_SETTINGS_MIRROR_FAILED` tolerance, Mongo fallback + `pendingPgSync` when PG down.
+- Added `revisionId` on Settings (Mongo + Prisma migration `20260927120000_settings_revision_id`); API responses include `revisionId`; writes accept `expectedRevision` / `revisionId` → HTTP 409 `REVISION_MISMATCH`.
+- Enhanced `settingsReadService.js` — PG → Mongo → `settingsDefaults.js` hardcoded safe document (no unhandled 500 on reads).
+- `settingsRepository.upsertPrimary()` transactional revision increment; legacy `upsertFromMongo` delegates without bumping revision.
+- Tests: `tests/services/settingsService.test.js` **4/4**; full suite **358/358**.
+
+### Phase 1 Settings Security Lockdown — 2026-09-27
+
+- Added `maskSecretKey()` / `settingsIntegrationSecrets.js` — SMS, courier, WhatsApp alert keys encrypted (`enc:`) at rest, masked in all master/announcement read payloads, masked placeholder writes ignored.
+- Added `checkSensitiveSettingsAccess()` — payment methods, notification config, rate limits, settings export/import/history, announcement GET require Super Admin or `manage_security`; logs `UNAUTHORIZED_SETTINGS_ACCESS`.
+- Master credential field updates require Super Admin or `manage_security`; logs `CRITICAL_SETTINGS_UPDATE`.
+- Runtime services (`smsService`, `courierService`, `gatewayStatusService`) decrypt integration secrets via `resolveIntegrationSecret()`.
+- Tests: `tests/utils/secretMasking.test.js` **4/4**; full suite **354/354**.
 
 ### Sidebar category section labels — 2026-09-26
 

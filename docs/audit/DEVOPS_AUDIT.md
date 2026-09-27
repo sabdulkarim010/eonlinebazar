@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-25 (BullMQ Redis connection hardening + outbox cron resilience)  
+**Last updated:** 2026-09-27 (Encrypted DR backup engine)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -101,6 +101,18 @@
 ---
 
 ## Change Log
+
+### Encrypted disaster recovery backups — 2026-09-27
+
+- AES-256-GCM `.eobk` archives, daily cron, retention prune, validate/restore APIs (Super Admin).
+- Storage: `data/encrypted-backups/` (override via `BACKUP_STORAGE_DIR`).
+- Tests **380/380**.
+
+### Admin system health diagnostics — 2026-09-27
+
+- `GET /api/admin/system/health` — authenticated DB latency, memory, sync queue, Redis (RBAC: `manage_security`).
+- `POST /api/admin/system/purge-cache` / `trigger-sync` — scoped cache purge + manual dual-write reconcile with SecurityLog audit.
+- Complements public `GET /health`; tests **372/372**.
 
 ### Group 3 — Health check + error logging — 2026-09-20
 

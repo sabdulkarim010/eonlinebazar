@@ -19,6 +19,10 @@ const SETTINGS_EMBED_MAP = {
 };
 
 const SETTINGS_HASH_PREFIX = 'settings-';
+const SETTINGS_HASH_TAB_ALIASES = Object.freeze({
+    hub: 'branding',
+    security: 'security'
+});
 const VALID_SETTINGS_TABS = Object.freeze([
     'branding',
     'general',
@@ -31,8 +35,13 @@ const VALID_SETTINGS_TABS = Object.freeze([
 
 function getSettingsTabFromHash(hash = window.location.hash) {
     const raw = String(hash || '').replace(/^#/, '').trim().toLowerCase();
+    if (raw === 'activity-feed') return null;
+    if (raw === 'settings-backup' || raw === 'settings-health') return null;
     if (!raw.startsWith(SETTINGS_HASH_PREFIX)) return null;
     const tabId = raw.slice(SETTINGS_HASH_PREFIX.length);
+    if (SETTINGS_HASH_TAB_ALIASES[tabId]) {
+        return SETTINGS_HASH_TAB_ALIASES[tabId];
+    }
     return VALID_SETTINGS_TABS.includes(tabId) ? tabId : null;
 }
 
@@ -54,7 +63,28 @@ function updateSettingsTabHash(tabId, { replace = true } = {}) {
     }
 }
 
+const SYSTEM_SETTINGS_HASH_ROUTES = Object.freeze({
+    'activity-feed': 'view-activity-feed',
+    'settings-backup': 'view-system-backup',
+    'settings-health': 'view-settings-health'
+});
+
+function applySystemSettingsHashRoute() {
+    const raw = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+    const sectionId = SYSTEM_SETTINGS_HASH_ROUTES[raw];
+    if (!sectionId) return false;
+
+    const navItem = document.querySelector(`.sidebar-menu li[data-target="${sectionId}"]`);
+    if (navItem && typeof navigateAdminSection === 'function') {
+        navigateAdminSection(sectionId, navItem);
+        return true;
+    }
+    return false;
+}
+
 function applySettingsHashOnInit() {
+    if (applySystemSettingsHashRoute()) return;
+
     const tabId = getSettingsTabFromHash();
     if (!tabId) return;
 
@@ -76,6 +106,8 @@ function bindSettingsHashNavigation() {
     window.__settingsHashNavBound = true;
 
     window.addEventListener('hashchange', () => {
+        if (applySystemSettingsHashRoute()) return;
+
         const tabId = getSettingsTabFromHash();
         if (!tabId) return;
 

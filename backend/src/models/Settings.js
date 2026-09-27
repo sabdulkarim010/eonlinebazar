@@ -324,6 +324,16 @@ const settingsSchema = new mongoose.Schema({
         default: '',
         trim: true
     },
+    taxSettings: {
+        type: mongoose.Schema.Types.Mixed,
+        default: () => ({
+            enabled: false,
+            defaultVatRate: 0,
+            pricesIncludeTax: true,
+            taxRegistrationNumber: '',
+            categoryTaxRules: []
+        })
+    },
     lastBackupAt: {
         type: Date,
         default: null
@@ -350,6 +360,16 @@ const settingsSchema = new mongoose.Schema({
     maintenanceAllowedIPs: {
         type: [String],
         default: []
+    },
+    revisionId: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    /** True when PG primary write failed and Mongo holds the latest snapshot. */
+    pendingPgSync: {
+        type: Boolean,
+        default: false
     },
     /** HRM attendance defaults — office hours, grace, weekend rules. */
     attendanceSettings: {

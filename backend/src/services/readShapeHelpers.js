@@ -697,6 +697,9 @@ function settingsToMongoShape(pgRow) {
     maintenanceMode: pgRow.maintenanceMode === true,
     maintenanceMessage: String(pgRow.maintenanceMessage || '').trim()
       || 'We are currently performing scheduled maintenance. Please check back soon.',
+    revisionId: Number(pgRow.revisionId) || 0,
+    pendingPgSync: false,
+    taxSettings: pgRow.taxSettings && typeof pgRow.taxSettings === 'object' ? pgRow.taxSettings : {},
     createdAt: pgRow.createdAt,
     updatedAt: pgRow.updatedAt
   };

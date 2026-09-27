@@ -6,7 +6,7 @@
 
 const Settings = require('../models/Settings');
 const { fetchSettingsDocumentSafe } = require('./settingsReadService');
-const { dualWrite } = require('./dualWriteService');
+const { saveSettings } = require('./settingsService');
 const { encryptSecret, decryptSecret } = require('../utils/cryptoVault');
 const {
     sendEmail,
@@ -57,19 +57,21 @@ function encryptForStorage(plain) {
     return `enc:${encryptSecret(value)}`;
 }
 
-async function dualWriteSettingsUpsert(settings) {
-    await dualWrite(
-        () => settings.save(),
-        async (saved) => {
-            const plain = saved.toObject ? saved.toObject() : saved;
-            await getSettingsRepository().upsertFromMongo(plain);
-        },
-        {
-            model: 'Settings',
-            operation: 'update',
-            mongoId: (saved) => String(saved._id)
+async function persistNotificationPatch(patchFn, expectedRevision = null) {
+    const saveResult = await saveSettings({
+        expectedRevision,
+        mutate: async (doc) => {
+            patchFn(doc);
+            doc.markModified('notificationSettings');
         }
-    );
+    });
+    if (!saveResult.ok) {
+        const err = new Error('REVISION_MISMATCH');
+        err.code = 'REVISION_MISMATCH';
+        err.currentRevision = saveResult.currentRevision;
+        throw err;
+    }
+    return saveResult;
 }
 
 function buildEffectiveSecrets(doc) {
@@ -126,8 +128,9 @@ async function getNotificationConfig() {
 }
 
 async function saveNotificationConfig(payload = {}) {
-    const settings = await Settings.getOrCreate();
-    const current = settings.notificationSettings || {};
+    const expectedRevision = payload.expectedRevision ?? payload.revisionId;
+    const seedDoc = await Settings.getOrCreate();
+    const current = seedDoc.notificationSettings || {};
     const next = { ...current };
 
     if (payload.emailProvider !== undefined) {
@@ -168,10 +171,10 @@ async function saveNotificationConfig(payload = {}) {
         setWhatsAppEnabledFlag(next.waEnabled);
     }
 
-    settings.notificationSettings = next;
-    settings.markModified('notificationSettings');
-    await dualWriteSettingsUpsert(settings);
-    applyRuntimeEmailFromDoc(settings.toObject ? settings.toObject() : settings);
+    await persistNotificationPatch((doc) => {
+        doc.notificationSettings = next;
+    }, expectedRevision);
+    applyRuntimeEmailFromDoc({ notificationSettings: next });
 
     const { clearGatewayStatusCache } = require('./gatewayStatusService');
     clearGatewayStatusCache();
@@ -227,13 +230,12 @@ async function sendTestWhatsApp() {
 
 async function enableWhatsAppConnection() {
     setWhatsAppEnabledFlag(true);
-    const settings = await Settings.getOrCreate();
-    settings.notificationSettings = {
-        ...(settings.notificationSettings || {}),
-        waEnabled: true
-    };
-    settings.markModified('notificationSettings');
-    await dualWriteSettingsUpsert(settings);
+    await persistNotificationPatch((doc) => {
+        doc.notificationSettings = {
+            ...(doc.notificationSettings || {}),
+            waEnabled: true
+        };
+    });
     await initWhatsApp();
     return getWhatsAppStatus();
 }
@@ -241,13 +243,12 @@ async function enableWhatsAppConnection() {
 async function disableWhatsAppConnection() {
     setWhatsAppEnabledFlag(false);
     await disconnectWhatsApp();
-    const settings = await Settings.getOrCreate();
-    settings.notificationSettings = {
-        ...(settings.notificationSettings || {}),
-        waEnabled: false
-    };
-    settings.markModified('notificationSettings');
-    await dualWriteSettingsUpsert(settings);
+    await persistNotificationPatch((doc) => {
+        doc.notificationSettings = {
+            ...(doc.notificationSettings || {}),
+            waEnabled: false
+        };
+    });
     return getWhatsAppStatus();
 }
 

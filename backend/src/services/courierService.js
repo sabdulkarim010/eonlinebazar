@@ -150,15 +150,16 @@ async function loadCourierConfig(overrideProvider) {
 
     const preset = COURIER_PROVIDERS[provider] || COURIER_PROVIDERS.steadfast;
 
+    const { resolveIntegrationSecret } = require('../utils/settingsIntegrationSecrets');
     const apiKey = String(
-        dbSettings.courierApiKey
+        resolveIntegrationSecret(dbSettings.courierApiKey)
         || process.env.STEADFAST_API_KEY
         || process.env.COURIER_API_KEY
         || ''
     ).trim();
 
     const secretKey = String(
-        dbSettings.courierSecretKey
+        resolveIntegrationSecret(dbSettings.courierSecretKey)
         || process.env.STEADFAST_API_SECRET
         || process.env.STEADFAST_SECRET_KEY
         || process.env.COURIER_SECRET_KEY

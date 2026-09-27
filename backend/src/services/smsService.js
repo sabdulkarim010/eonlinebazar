@@ -92,8 +92,9 @@ async function loadSmsGatewayConfig() {
         || ''
     ).trim();
 
+    const { resolveIntegrationSecret } = require('../utils/settingsIntegrationSecrets');
     const apiKey = String(
-        dbSettings.smsApiKey
+        resolveIntegrationSecret(dbSettings.smsApiKey)
         || process.env.SMS_API_KEY
         || ''
     ).trim();

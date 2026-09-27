@@ -431,6 +431,26 @@ describe('Admin API', () => {
             expect(res.status).toBe(403);
             expect(res.body.success).toBe(false);
         });
+
+        test('POST /api/admin/system/backup/generate rejects non-superadmin', async () => {
+            const { username } = await createTestAdmin({
+                role: 'staff',
+                permissions: ['manage_settings'],
+                twoFactorEnabled: false
+            });
+            const token = jwt.sign(
+                { username, role: 'staff' },
+                process.env.JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+
+            const res = await request(app)
+                .post('/api/admin/system/backup/generate')
+                .set('Authorization', `Bearer ${token}`)
+                .send({});
+
+            expect(res.status).toBe(403);
+        });
     });
 
     test('GET /api/admin/accounts-summary returns cash flow and balance metrics', async () => {
