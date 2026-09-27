@@ -280,6 +280,11 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 
 ## Change Log
 
+### Apply Leave searchable staff picker — 2026-09-27
+
+- Staff options labeled `Name - ID`; inline searchable select via `createSearchableSelect`.
+- `ensureLeaveApplyStaffDropdown` + `hrmRefreshStaffSearchSelect` after option load; empty-cache fallback fetch.
+
 ### Leave & attendance database indexes — 2026-09-27
 
 - Mongo compound indexes on Leave/Attendance; boot-time `ensureHrmMongoIndexes`.

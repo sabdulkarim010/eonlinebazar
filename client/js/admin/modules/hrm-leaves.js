@@ -69,29 +69,69 @@ function removePendingLeaveRow(leaveId) {
     }
 }
 
+const LEAVE_APPLY_STAFF_SEARCH_PLACEHOLDER = 'Search by staff name or ID…';
+
+function applyLeaveStaffSelectHasOptions() {
+    const select = document.getElementById('applyLeaveStaff');
+    if (!select) return false;
+    return [...select.options].some((opt) => Boolean(opt.value));
+}
+
+/**
+ * Load active staff for Apply Leave modal (Name - ID labels) + refresh searchable UI.
+ * @param {{ force?: boolean }} options — force refetch when cache empty or stale
+ */
+async function ensureLeaveApplyStaffDropdown({ force = false } = {}) {
+    if (!canApplyLeaveForStaff() || typeof window.hrmLoadStaffOptions !== 'function') {
+        return;
+    }
+
+    const needsFetch = force
+        || !leaveStaffPickerReady
+        || !applyLeaveStaffSelectHasOptions();
+
+    if (needsFetch) {
+        if (force && typeof window.hrmInvalidateStaffPickerCache === 'function') {
+            window.hrmInvalidateStaffPickerCache();
+        }
+        await window.hrmLoadStaffOptions(['applyLeaveStaff'], {
+            placeholder: LEAVE_APPLY_STAFF_SEARCH_PLACEHOLDER,
+            forStaffPicker: true,
+            labelFormat: 'name-id'
+        });
+    }
+
+    if (!applyLeaveStaffSelectHasOptions()) {
+        await window.hrmLoadStaffOptions(['applyLeaveStaff'], {
+            placeholder: LEAVE_APPLY_STAFF_SEARCH_PLACEHOLDER,
+            forStaffPicker: true,
+            labelFormat: 'name-id'
+        });
+    }
+
+    if (typeof window.hrmRefreshStaffSearchSelect === 'function') {
+        window.hrmRefreshStaffSearchSelect('applyLeaveStaff', {
+            placeholder: LEAVE_APPLY_STAFF_SEARCH_PLACEHOLDER
+        });
+    } else if (typeof window.hrmMountStaffSearchSelect === 'function') {
+        window.hrmMountStaffSearchSelect('applyLeaveStaff', {
+            placeholder: LEAVE_APPLY_STAFF_SEARCH_PLACEHOLDER
+        });
+    }
+
+    leaveStaffPickerReady = applyLeaveStaffSelectHasOptions();
+}
+
 async function prefetchLeaveApplyResources() {
-    if (leaveStaffPickerReady) return;
+    if (leaveStaffPickerReady && applyLeaveStaffSelectHasOptions()) return;
     if (leaveApplyResourcesPrefetchPromise) {
         await leaveApplyResourcesPrefetchPromise;
         return;
     }
 
-    if (!canApplyLeaveForStaff() || typeof window.hrmLoadStaffOptions !== 'function') {
-        return;
-    }
-
     leaveApplyResourcesPrefetchPromise = (async () => {
         try {
-            await window.hrmLoadStaffOptions(['applyLeaveStaff'], {
-                placeholder: 'Select staff member',
-                forStaffPicker: true
-            });
-            if (typeof window.hrmMountStaffSearchSelect === 'function') {
-                window.hrmMountStaffSearchSelect('applyLeaveStaff', {
-                    placeholder: 'Search staff by name or ID…'
-                });
-            }
-            leaveStaffPickerReady = true;
+            await ensureLeaveApplyStaffDropdown({ force: false });
         } catch (err) {
             hrmHandleLoadError(err, { context: 'prefetchLeaveApplyResources', silent: true });
         } finally {
@@ -578,7 +618,9 @@ async function loadLeaveCalendar() {
 
 function resetApplyLeaveForm() {
     window.hrmResetFormById?.('applyLeaveForm');
-    window.hrmClearStaffSearchSelect?.('applyLeaveStaff', { placeholder: 'Select staff member' });
+    window.hrmClearStaffSearchSelect?.('applyLeaveStaff', {
+        placeholder: LEAVE_APPLY_STAFF_SEARCH_PLACEHOLDER
+    });
     applyLeaveSelfMode = false;
     const start = document.getElementById('applyLeaveStartDate');
     const end = document.getElementById('applyLeaveEndDate');
@@ -619,9 +661,9 @@ async function openApplyLeaveModal(isSelf = false, triggerBtn = null) {
                 const adminName = window.currentAdmin?.name || window.currentAdmin?.username || 'Your account';
                 if (selfName) selfName.textContent = adminName;
             } else {
-                if (!leaveStaffPickerReady) {
-                    await prefetchLeaveApplyResources();
-                }
+                await ensureLeaveApplyStaffDropdown({
+                    force: !leaveStaffPickerReady || !applyLeaveStaffSelectHasOptions()
+                });
                 if (staffGroup) staffGroup.style.display = '';
                 if (selfInfo) selfInfo.style.display = 'none';
                 if (staffSelect) staffSelect.required = true;
@@ -770,3 +812,4 @@ window.submitLeaveApplication = submitLeaveApplication;
 window.hrmInvalidateLeaveStaffPicker = function hrmInvalidateLeaveStaffPicker() {
     leaveStaffPickerReady = false;
 };
+window.ensureLeaveApplyStaffDropdown = ensureLeaveApplyStaffDropdown;

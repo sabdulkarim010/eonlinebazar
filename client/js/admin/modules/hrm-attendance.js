@@ -186,11 +186,31 @@ function hrmInvalidateEmployeeCache() {
     }
 }
 
+function hrmInvalidateStaffPickerCache() {
+    hrmEmployeePickerCache = [];
+    if (typeof window.hrmInvalidateLeaveStaffPicker === 'function') {
+        window.hrmInvalidateLeaveStaffPicker();
+    }
+}
+
+/** Display label for leave/staff pickers: "Full Name - ID". */
+function hrmStaffPickerNameIdLabel(kind, row) {
+    if (kind === 'admin') {
+        const name = String(row.name || row.username || 'Staff').trim();
+        const id = String(row.username || '').trim();
+        return id ? `${name} - ${id}` : name;
+    }
+    const name = String(row.fullName || 'Employee').trim();
+    const id = String(row.employeeId || '').trim();
+    return id ? `${name} - ${id}` : name;
+}
+
 /** Load admin staff + operational employees into grouped optgroups. */
 async function hrmLoadStaffOptions(selectIds = [], {
     placeholder = 'All staff',
     includeEmployees = true,
-    forStaffPicker = false
+    forStaffPicker = false,
+    labelFormat = 'default'
 } = {}) {
     const employeeListRef = forStaffPicker ? hrmEmployeePickerCache : hrmEmployeeCache;
     const staffNeeded = !hrmStaffCache.length;
@@ -242,8 +262,10 @@ async function hrmLoadStaffOptions(selectIds = [], {
             html += `<optgroup label="System Staff">`;
             html += hrmStaffCache
                 .map((s) => {
-                    const roleLabel = s.department || s.username || 'Staff';
-                    return `<option value="admin:${hrmEscape(s.username)}">${hrmEscape(s.name || s.username)} — ${hrmEscape(roleLabel)}</option>`;
+                    const label = labelFormat === 'name-id'
+                        ? hrmStaffPickerNameIdLabel('admin', s)
+                        : `${s.name || s.username} — ${s.department || s.username || 'Staff'}`;
+                    return `<option value="admin:${hrmEscape(s.username)}">${hrmEscape(label)}</option>`;
                 })
                 .join('');
             html += `</optgroup>`;
@@ -253,8 +275,10 @@ async function hrmLoadStaffOptions(selectIds = [], {
             html += `<optgroup label="Operational Employees">`;
             html += activeEmployeeCache
                 .map((e) => {
-                    const designation = e.designation || e.role || 'Employee';
-                    return `<option value="employee:${hrmEscape(e.employeeId)}">${hrmEscape(e.fullName)} — ${hrmEscape(designation)}</option>`;
+                    const label = labelFormat === 'name-id'
+                        ? hrmStaffPickerNameIdLabel('employee', e)
+                        : `${e.fullName} — ${e.designation || e.role || 'Employee'}`;
+                    return `<option value="employee:${hrmEscape(e.employeeId)}">${hrmEscape(label)}</option>`;
                 })
                 .join('');
             html += `</optgroup>`;
@@ -292,6 +316,24 @@ function hrmMountStaffSearchSelect(selectId, { placeholder = 'Search staff by na
 
     hrmStaffSearchInstances[selectId] = instance;
     return instance;
+}
+
+/** Re-index searchable select options after `<select>` innerHTML changes. */
+function hrmRefreshStaffSearchSelect(selectId, { placeholder = 'Search staff by name or ID…' } = {}) {
+    const select = document.getElementById(selectId);
+    if (!select) return null;
+
+    const options = [...select.options]
+        .filter((opt) => opt.value)
+        .map((opt) => ({ value: opt.value, label: opt.textContent.trim() }));
+
+    const instance = hrmStaffSearchInstances[selectId];
+    if (instance?.setOptions) {
+        instance.setOptions(options);
+        return instance;
+    }
+
+    return hrmMountStaffSearchSelect(selectId, { placeholder });
 }
 
 function hrmGetStaffSearchValue(selectId) {
@@ -2064,6 +2106,8 @@ Object.assign(window, {
     hrmFillYearInput,
     hrmLoadStaffOptions,
     hrmMountStaffSearchSelect,
+    hrmRefreshStaffSearchSelect,
+    hrmInvalidateStaffPickerCache,
     hrmGetStaffSearchValue,
     hrmSetStaffSearchValue,
     hrmClearStaffSearchSelect,

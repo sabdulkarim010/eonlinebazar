@@ -3322,6 +3322,11 @@ client/js/admin/modules/hrm-leaves.js [MOD] prefetch staff, 8s timeout, optimist
 client/js/admin/modules/hrm-attendance.js [MOD] invalidate leave staff picker on employee cache clear
 docs/audit/HRM_AUDIT.md [MOD]
 
+# Apply Leave staff searchable select — 2026-09-27
+client/js/admin/modules/hrm-leaves.js [MOD] ensureLeaveApplyStaffDropdown, Name - ID labels
+client/js/admin/modules/hrm-attendance.js [MOD] labelFormat name-id, hrmRefreshStaffSearchSelect
+client/admin/partials/view-hrm-leaves.html [MOD] staff search hint + aria-label
+
 # HRM leave/attendance indexes + query batching — 2026-09-27
 backend/src/models/leave.js [MOD] compound indexes
 backend/src/models/attendance.js [MOD] compound indexes

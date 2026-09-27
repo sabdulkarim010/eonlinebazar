@@ -149,8 +149,9 @@
             <div class="modal-body">
                 <div class="form-group" id="applyLeaveStaffGroup">
                     <label for="applyLeaveStaff">Staff *</label>
-                    <select id="applyLeaveStaff" required>
-                        <option value="">Select staff member</option>
+                    <p class="table-subtext" id="applyLeaveStaffHint">Type a name or staff ID to search, then pick a result.</p>
+                    <select id="applyLeaveStaff" required aria-label="Search staff by name or ID">
+                        <option value="">Search by staff name or ID…</option>
                     </select>
                 </div>
                 <div class="form-group" id="applyLeaveSelfInfo" style="display:none">
