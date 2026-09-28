@@ -3734,6 +3734,28 @@ docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
 
+# Dashboard Phase 5.1 — Quick action DB sync + overview layout — 2026-09-28
+backend/src/config/dashboardQuickActions.js [NEW]
+backend/src/models/admin.js [MOD] quickActionPreferences
+prisma/schema.prisma [MOD] Admin.quickActionPreferences
+backend/src/repositories/adminRepository.js [MOD] map + update field
+backend/src/controllers/admin/dashboardQuickActionsController.js [MOD] GET/PUT preferences
+backend/src/routes/adminRoutes.js [MOD] preferences routes
+client/js/admin/modules/dashboard-quick-actions.js [MOD] API hydrate + debounced PUT
+client/admin/partials/view-overview.html [MOD] order grid + enterprise container
+client/css/admin/_layout.css [MOD] equal-height KPIs + grid layout
+tests/dashboardQuickActions.test.js [MOD] preferences tests
+
+# Dashboard Phase 5 — Dynamic quick actions + SaaS UI — 2026-09-28
+client/js/admin/modules/dashboard-quick-actions.js [NEW] command palette + localStorage pins
+client/admin/partials/view-overview.html [MOD] dynamic shortcut bar, palette modal, enterprise widgets
+client/js/admin/admin-dashboard.js [MOD] wire quick-actions module + enterprise nav links
+client/css/admin/_layout.css [MOD] SaaS KPI/widget/chart + palette styles
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
 # Backend repair — SecurityLog, settings middleware, dual-write, backup — 2026-09-28
 backend/src/models/securityLog.js [MOD] WarehouseTransfer resourceType enum
 backend/src/middlewares/storeSettingsMiddleware.js [MOD] safe getPublicWhatsAppSettings loader

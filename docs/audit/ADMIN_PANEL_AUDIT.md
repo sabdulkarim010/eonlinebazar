@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-28 (Dashboard Phase 4.3 — financial RBAC masking)  
+**Last updated:** 2026-09-28 (Dashboard Phase 5.1 — quick action DB sync + layout)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -35,8 +35,10 @@
 | `client/js/admin/admin-orders.js` | Orders barrel |
 | `client/js/admin/admin-settings.js` | Settings barrel |
 | `client/js/admin/admin-dashboard.js` | Analytics widgets |
+| `client/js/admin/modules/dashboard-quick-actions.js` | Dynamic quick action chips + command palette (localStorage) |
 | `backend/src/controllers/admin/dashboardOverviewBffController.js` | Unified PG dashboard BFF (`GET /api/admin/dashboard/overview`) |
-| `backend/src/controllers/admin/dashboardQuickActionsController.js` | Quick action status + maintenance toggle |
+| `backend/src/controllers/admin/dashboardQuickActionsController.js` | Quick action status, maintenance toggle, preferences GET/PUT |
+| `backend/src/config/dashboardQuickActions.js` | Valid quick action IDs + sanitization |
 | `client/js/admin/modules/core-nav.js` | Accordion nav, mobile drawer, section routing |
 | `client/js/admin/modules/admin-url-routing.js` | `?view=` deep links (replaces `#hash` routes) |
 | `client/js/admin/modules/core-breadcrumb.js` | Dashboard > Group > Section breadcrumbs |
@@ -66,6 +68,10 @@
 - [x] BFF chart engine: dual-axis sales trend, order funnel, top products — Phase 3.3
 - [x] Global date range selector (presets + custom) wired to overview BFF — Phase 3.4
 - [x] Executive quick action toolbar (orders, products, payroll, maintenance) — Phase 4.1
+- [x] Dynamic quick actions + command palette (`Ctrl+K`) with localStorage pins — Phase 5
+- [x] Quick action preferences API + Mongo/PG dual-write per admin — Phase 5.1
+- [x] Overview layout — equal-height KPI grids, order 2×3 matrix, unified enterprise panel — Phase 5.1
+- [x] Enterprise SaaS dashboard visual system (KPI cards, widgets, charts) — Phase 5
 - [x] Live pulse badge + 60s background overview refresh — Phase 4.2
 - [x] Financial zone RBAC — BFF masking + locked KPI overlays (`view_financial_reports`) — Phase 4.3
 - [x] Dashboard BFF PG overview + AbortController dedup — `admin-dashboard.js` + Redis cache on overview API
@@ -115,6 +121,25 @@
 ---
 
 ## Change Log
+
+### Dashboard layout alignment — 2026-09-28
+
+- `.enterprise-summary-wrapper` single outer box; analytics split into 3 explicit equal-height rows; order pipeline 5+1 grid with **Refunded** under **Pending**.
+- Backend quick-action preferences unchanged (GET/PUT already live).
+
+### Dashboard Phase 5.1 — Preferences DB sync + layout polish — 2026-09-28
+
+- `GET/PUT /api/admin/dashboard/quick-actions/preferences` with `Admin.quickActionPreferences` (Mongo + Prisma).
+- Frontend hydrates from API on load; pin/unpin debounces PUT + updates localStorage.
+- Order stats: TOTAL ORDERS hero + 2×3 pipeline grid; unified enterprise summary container.
+- Tests: **405/405** Jest.
+
+### Dashboard Phase 5 — Dynamic quick actions + SaaS UI — 2026-09-28
+
+- Pinned shortcut chips (removable), **Add Action**, searchable command palette (`Ctrl+K` / `Cmd+K`).
+- Catalog of 14 admin actions with RBAC filtering; persistence key `eob_admin_dashboard_quick_actions_v1`.
+- Enterprise widget cards with status dots, footer links, Plus Jakarta typography on overview KPI/chart surfaces.
+- Tests: **403/403** Jest (unchanged).
 
 ### Dashboard Phase 4.3 — Granular financial RBAC — 2026-09-28
 

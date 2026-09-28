@@ -121,6 +121,7 @@ const SAFE_SELECT = {
   department: true,
   joiningDate: true,
   employeeId: true,
+  quickActionPreferences: true,
   createdAt: true,
   updatedAt: true
 };
@@ -326,6 +327,11 @@ async function update(id, data) {
   if (data.department !== undefined) fields.department = String(data.department).trim();
   if (data.joiningDate !== undefined) fields.joiningDate = data.joiningDate;
   if (data.employeeId !== undefined) fields.employeeId = String(data.employeeId).trim();
+  if (data.quickActionPreferences !== undefined) {
+    fields.quickActionPreferences = Array.isArray(data.quickActionPreferences)
+      ? data.quickActionPreferences.map((id) => String(id).trim()).filter(Boolean)
+      : [];
+  }
 
   // Secret fields — only written when explicitly supplied (internal 2FA flows).
   if (data.otp !== undefined) fields.otp = data.otp;
@@ -442,7 +448,10 @@ function mapMongoDocToWriteInput(mongoDoc, options = {}) {
     baseSalary: plain.baseSalary,
     department: plain.department,
     joiningDate: plain.joiningDate ?? null,
-    employeeId: plain.employeeId
+    employeeId: plain.employeeId,
+    quickActionPreferences: Array.isArray(plain.quickActionPreferences)
+      ? plain.quickActionPreferences
+      : undefined
   };
 
   if (options.plainPassword) {

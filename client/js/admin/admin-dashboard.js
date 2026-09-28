@@ -6,6 +6,11 @@
 
 import './admin-core.js';
 import { renderInventoryAlertsList } from './modules/admin-stock-alerts.js';
+import {
+    initDashboardQuickActions,
+    applyDynamicQuickActionPermissions,
+    updateDynamicMaintenanceLabel
+} from './modules/dashboard-quick-actions.js';
 
 /* ==========================================================================
    SECTION 5: OVERVIEW & ANALYTICS (ড্যাশবোর্ড ওভারভিউ এবং স্ট্যাটিস্টিকস)
@@ -354,28 +359,11 @@ function quickActionCan(permissionKey) {
 }
 
 function applyDashboardQuickActionPermissions() {
-    document.querySelectorAll('.dashboard-quick-actions-bar [data-permission]').forEach((el) => {
-        const key = el.getAttribute('data-permission');
-        el.style.display = quickActionCan(key) ? '' : 'none';
-    });
-
-    const bar = document.querySelector('.dashboard-quick-actions-bar');
-    if (!bar) return;
-    const anyVisible = [...bar.querySelectorAll('[data-permission]')]
-        .some((el) => el.style.display !== 'none');
-    bar.style.display = anyVisible ? '' : 'none';
+    applyDynamicQuickActionPermissions();
 }
 
 function updateMaintenanceQuickActionLabel(enabled) {
-    const label = document.getElementById('lbl-maintenance-status');
-    const btn = document.getElementById('btn-toggle-maintenance');
-    if (label) {
-        label.textContent = enabled ? 'Maintenance On' : 'Maintenance Off';
-    }
-    if (btn) {
-        btn.classList.toggle('is-active', enabled === true);
-        btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-    }
+    updateDynamicMaintenanceLabel(enabled);
 }
 
 async function fetchQuickActionsStatus(fetchSignal) {
@@ -446,7 +434,9 @@ async function toggleMaintenanceFromQuickAction() {
 
     if (typeof Swal !== 'undefined') {
         const label = document.getElementById('lbl-maintenance-status');
-        const turningOn = label?.textContent?.includes('Off');
+        const maintenanceLabel = document.querySelector('[data-maintenance-label]');
+        const turningOn = maintenanceLabel?.textContent?.includes('Off')
+            || label?.textContent?.includes('Off');
         const result = await Swal.fire({
             title: turningOn ? 'Enable maintenance mode?' : 'Disable maintenance mode?',
             text: turningOn
@@ -480,47 +470,38 @@ function navigateAdminQuickAction(sectionId) {
     return false;
 }
 
+async function runQuickActionCreateOrder() {
+    if (!quickActionCan('view_orders')) return;
+    navigateAdminQuickAction('view-orders');
+    if (typeof window.openManualOrderModal === 'function') {
+        await window.openManualOrderModal();
+    } else {
+        navigateAdminQuickAction('view-pos');
+    }
+}
+
+function bindEnterpriseWidgetLinks() {
+    document.querySelectorAll('#view-overview [data-enterprise-nav]').forEach((btn) => {
+        if (btn.dataset.boundEnterpriseNav) return;
+        btn.dataset.boundEnterpriseNav = '1';
+        btn.addEventListener('click', () => {
+            const sectionId = btn.getAttribute('data-enterprise-nav');
+            if (sectionId) navigateAdminQuickAction(sectionId);
+        });
+    });
+}
+
 function setupDashboardQuickActions() {
+    initDashboardQuickActions({
+        can: quickActionCan,
+        navigate: navigateAdminQuickAction,
+        onCreateOrder: runQuickActionCreateOrder,
+        onToggleMaintenance: toggleMaintenanceFromQuickAction,
+        updateMaintenanceLabel: updateMaintenanceQuickActionLabel,
+        authHeaders: adminDashboardAuthHeaders
+    });
+    bindEnterpriseWidgetLinks();
     applyDashboardQuickActionPermissions();
-
-    const createOrderBtn = document.getElementById('btn-quick-create-order');
-    const addProductBtn = document.getElementById('btn-quick-add-product');
-    const payoutBtn = document.getElementById('btn-quick-payout');
-    const maintenanceBtn = document.getElementById('btn-toggle-maintenance');
-
-    if (createOrderBtn && !createOrderBtn.dataset.boundQuickAction) {
-        createOrderBtn.dataset.boundQuickAction = '1';
-        createOrderBtn.addEventListener('click', async () => {
-            if (!quickActionCan('view_orders')) return;
-            navigateAdminQuickAction('view-orders');
-            if (typeof window.openManualOrderModal === 'function') {
-                await window.openManualOrderModal();
-            } else {
-                navigateAdminQuickAction('view-pos');
-            }
-        });
-    }
-
-    if (addProductBtn && !addProductBtn.dataset.boundQuickAction) {
-        addProductBtn.dataset.boundQuickAction = '1';
-        addProductBtn.addEventListener('click', () => {
-            if (!quickActionCan('edit_products')) return;
-            navigateAdminQuickAction('view-add-product');
-        });
-    }
-
-    if (payoutBtn && !payoutBtn.dataset.boundQuickAction) {
-        payoutBtn.dataset.boundQuickAction = '1';
-        payoutBtn.addEventListener('click', () => {
-            if (!quickActionCan('view_payroll')) return;
-            navigateAdminQuickAction('view-hrm-payroll');
-        });
-    }
-
-    if (maintenanceBtn && !maintenanceBtn.dataset.boundQuickAction) {
-        maintenanceBtn.dataset.boundQuickAction = '1';
-        maintenanceBtn.addEventListener('click', () => toggleMaintenanceFromQuickAction());
-    }
 }
 
 function syncOverviewPeriodStateToWindow() {

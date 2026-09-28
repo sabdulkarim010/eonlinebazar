@@ -4256,6 +4256,28 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 
 ---
 
+## Dashboard Phase 5.1 — Quick action preferences + layout — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Per-admin quick action prefs | ✅ | Mongo + PG dual-write |
+| Overview order pipeline grid | ✅ | Hero + 2×3 matrix |
+| Unified enterprise summary | ✅ | Single bordered container |
+| Tests | ✅ | **405/405** Jest |
+
+---
+
+## Dashboard Phase 5 — Dynamic quick actions + SaaS UI — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Command palette | ✅ | Search, pin, `Ctrl+K`; localStorage persistence |
+| RBAC on shortcuts | ✅ | Catalog filtered by granular permissions |
+| Enterprise overview UI | ✅ | KPI cards, widgets, chart containers restyled |
+| Tests | ✅ | **403/403** Jest |
+
+---
+
 ## Backend repair batch — SecurityLog, middleware, dual-write, backup — 2026-09-28
 
 | Item | Status | Notes |

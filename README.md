@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-28 (Backend repair — SecurityLog, dual-write, backup)
+**Last updated:** 2026-09-28 (Dashboard Phase 5.1 — quick action DB sync + layout)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/ERP-100%25-0ea5e9" alt="ERP Complete">
   <img src="https://img.shields.io/badge/CRM-100%25-8b5cf6" alt="CRM Complete">
   <img src="https://img.shields.io/badge/HRM-100%25-f59e0b" alt="HRM Complete">
-  <img src="https://img.shields.io/badge/tests-403%2F403-brightgreen" alt="403/403 Tests Passing">
+  <img src="https://img.shields.io/badge/tests-405%2F405-brightgreen" alt="405/405 Tests Passing">
   <img src="https://img.shields.io/badge/node-20+-43853d" alt="Node.js 20+">
   <img src="https://img.shields.io/badge/express-5-black" alt="Express 5">
   <img src="https://img.shields.io/badge/mongodb-Atlas-47A248" alt="MongoDB Atlas">

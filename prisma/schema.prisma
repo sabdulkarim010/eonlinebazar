@@ -771,6 +771,8 @@ model Admin {
   joiningDate DateTime?
   employeeId  String    @default("")
 
+  quickActionPreferences String[] @default(["create-order", "add-product", "process-payout", "toggle-maintenance"])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

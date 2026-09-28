@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { ROLES, ROLE_VALUES, ACCOUNT_STATUS, STATUS_VALUES, accountHasPermission } = require('../config/permissions');
+const { DEFAULT_QUICK_ACTION_PREFERENCES } = require('../config/dashboardQuickActions');
 
 const BCRYPT_ROUNDS = 12;
 
@@ -141,7 +142,13 @@ const adminSchema = new mongoose.Schema({
     joiningDate: { type: Date, default: null },
     employeeId: { type: String, default: '', trim: true },
     /** Employee record _id when this admin was provisioned from HRM. */
-    employeeRef: { type: String, default: null }
+    employeeRef: { type: String, default: null },
+
+    /** Pinned dashboard quick action IDs (overview toolbar). */
+    quickActionPreferences: {
+        type: [String],
+        default: () => [...DEFAULT_QUICK_ACTION_PREFERENCES]
+    }
 }, { timestamps: true }); // এটি অটোমেটিক অ্যাকাউন্ট তৈরি ও আপডেটের সময় রেকর্ড রাখবে
 
 // ============================================================

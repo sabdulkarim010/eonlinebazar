@@ -42,7 +42,8 @@ client/
 
 │   │   ├── admin-settings.js  ← BARREL → modules/settings-*.js
 
-│   │   ├── admin-dashboard.js ← analytics widgets
+│   │   ├── admin-dashboard.js ← analytics widgets + overview BFF
+│   │   │   └── modules/dashboard-quick-actions.js ← pinned shortcuts + command palette
 
 │   │   └── modules/           ← Actual logic files (incl. admin-url-routing.js — ?view= SPA deep links; adminSidebar.js — merged sidebar profile; sidebarLabels.js — Super Admin menu rename; settings-utils.js — settingsFetchJson 25s timeout + GET retry; settings-dirty-tracker.js — unsaved-changes guard + save chips; pagination-util.js — unified AdminPagination)
 

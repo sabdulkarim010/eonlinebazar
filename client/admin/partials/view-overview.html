@@ -1,25 +1,36 @@
-            <section id="view-overview" class="admin-section active">
+            <section id="view-overview" class="admin-section active view-overview-saas">
 
-                <div class="dashboard-quick-actions-bar" data-dashboard-zone="erp,finance,crm,hrm">
-                    <div class="dashboard-quick-actions-bar__label">
-                        <i class="fa-solid fa-bolt quick-action-icon-accent" aria-hidden="true"></i>
-                        Quick Actions:
+                <div class="dashboard-quick-actions-bar dashboard-saas-quick-bar" data-dashboard-zone="erp,finance,crm,hrm">
+                    <div class="dashboard-quick-actions-bar__head">
+                        <div class="dashboard-quick-actions-bar__label">
+                            <i class="fa-solid fa-bolt quick-action-icon-accent" aria-hidden="true"></i>
+                            <span>Shortcuts</span>
+                        </div>
+                        <span class="dashboard-quick-actions-bar__hint" aria-hidden="true">
+                            <kbd>Ctrl</kbd><span>+</span><kbd>K</kbd>
+                        </span>
                     </div>
-                    <div class="dashboard-quick-actions-bar__buttons">
-                        <button type="button" id="btn-quick-create-order" class="quick-action-btn quick-action-btn--indigo" data-permission="view_orders">
-                            <i class="fa-solid fa-circle-plus" aria-hidden="true"></i> Create Order
-                        </button>
-                        <button type="button" id="btn-quick-add-product" class="quick-action-btn quick-action-btn--emerald" data-permission="edit_products">
-                            <i class="fa-solid fa-bag-shopping" aria-hidden="true"></i> Add Product
-                        </button>
-                        <button type="button" id="btn-quick-payout" class="quick-action-btn quick-action-btn--blue" data-permission="view_payroll">
-                            <i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> Process Payout
-                        </button>
-                        <span class="dashboard-quick-actions-divider" aria-hidden="true"></span>
-                        <button type="button" id="btn-toggle-maintenance" class="quick-action-btn quick-action-btn--maintenance" data-permission="manage_settings">
-                            <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-                            <span id="lbl-maintenance-status">Maintenance Off</span>
-                        </button>
+                    <div id="dashboard-quick-actions-chips" class="dashboard-quick-actions-chips" aria-label="Pinned quick actions"></div>
+                    <button type="button" id="btn-quick-actions-add" class="quick-action-chip quick-action-chip--add" aria-label="Add quick action">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                        <span>Add Action</span>
+                    </button>
+                </div>
+
+                <div id="dashboard-command-palette" class="dashboard-command-palette" hidden role="dialog" aria-modal="true" aria-labelledby="dashboard-command-palette-title">
+                    <div id="dashboard-command-palette-backdrop" class="dashboard-command-palette__backdrop"></div>
+                    <div class="dashboard-command-palette__panel">
+                        <div class="dashboard-command-palette__header">
+                            <h3 id="dashboard-command-palette-title">Quick actions</h3>
+                            <button type="button" id="dashboard-command-palette-close" class="dashboard-command-palette__close" aria-label="Close">
+                                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div class="dashboard-command-palette__search">
+                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                            <input type="search" id="dashboard-command-palette-input" placeholder="Search actions… Create order, coupon, report" autocomplete="off" aria-label="Search quick actions">
+                        </div>
+                        <div id="dashboard-command-palette-list" class="dashboard-command-palette__list" role="listbox"></div>
                     </div>
                 </div>
 
@@ -56,70 +67,90 @@
                     </div>
                 </div>
 
-                <div class="dashboard-section-label" data-dashboard-zone="erp,crm,hrm">
-                    <h2><i class="fa-solid fa-building"></i> Enterprise Summary</h2>
+                <div class="dashboard-section-label dashboard-section-label--saas" data-dashboard-zone="erp,crm,hrm">
+                    <h2>Enterprise Summary</h2>
+                    <p class="dashboard-section-subtitle">Operations snapshot across ERP, CRM, and HRM</p>
                 </div>
 
-                <div class="enterprise-widgets-grid">
-                    <div class="enterprise-widget-card enterprise-widget-card--erp" data-dashboard-zone="erp">
+                <div class="enterprise-summary-wrapper enterprise-summary-container" data-dashboard-zone="erp,crm,hrm">
+                    <div class="enterprise-summary-columns">
+                    <div class="enterprise-summary-column enterprise-widget-card--erp" data-dashboard-zone="erp">
                         <div class="enterprise-widget-head">
-                            <span class="enterprise-widget-icon" aria-hidden="true">🏭</span>
-                            <h3>ERP</h3>
+                            <span class="enterprise-widget-badge enterprise-widget-badge--indigo" aria-hidden="true"><i class="fa-solid fa-industry"></i></span>
+                            <div>
+                                <h3>ERP</h3>
+                                <p class="enterprise-widget-tagline">Inventory &amp; fulfillment</p>
+                            </div>
+                            <span class="enterprise-status-dot enterprise-status-dot--emerald" title="Live"></span>
                         </div>
-                        <ul class="enterprise-widget-stats">
-                            <li><span>Orders today</span><strong id="erp-stat-orders-today">0</strong></li>
-                            <li><span>Low stock items</span><strong id="erp-stat-low-stock">0</strong></li>
-                            <li><span>Pending POs</span><strong id="erp-stat-pending-pos">0</strong></li>
+                        <ul class="enterprise-widget-stats enterprise-widget-stats--saas">
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--emerald"></span>Orders today</span><strong id="erp-stat-orders-today">0</strong></li>
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--amber"></span>Low stock items</span><strong id="erp-stat-low-stock">0</strong></li>
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--amber"></span>Pending POs</span><strong id="erp-stat-pending-pos">0</strong></li>
                         </ul>
+                        <button type="button" class="enterprise-widget-link" data-enterprise-nav="view-purchase-orders">Open purchase orders <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
                     </div>
-                    <div class="enterprise-widget-card enterprise-widget-card--crm" data-dashboard-zone="crm">
+                    <div class="enterprise-summary-column enterprise-widget-card--crm" data-dashboard-zone="crm">
                         <div class="enterprise-widget-head">
-                            <span class="enterprise-widget-icon" aria-hidden="true">🤝</span>
-                            <h3>CRM</h3>
+                            <span class="enterprise-widget-badge enterprise-widget-badge--blue" aria-hidden="true"><i class="fa-solid fa-handshake"></i></span>
+                            <div>
+                                <h3>CRM</h3>
+                                <p class="enterprise-widget-tagline">Customers &amp; support</p>
+                            </div>
+                            <span class="enterprise-status-dot enterprise-status-dot--emerald" title="Live"></span>
                         </div>
-                        <ul class="enterprise-widget-stats">
-                            <li><span>Abandoned carts</span><strong id="crm-stat-abandoned">0</strong></li>
-                            <li><span>Open tickets</span><strong id="crm-stat-tickets">0</strong></li>
-                            <li><span>New customers today</span><strong id="crm-stat-new-customers">0</strong></li>
-                            <li><span>Silver members</span><strong id="crm-stat-silver">0</strong></li>
-                            <li><span>Gold members</span><strong id="crm-stat-gold">0</strong></li>
-                            <li><span>Platinum members</span><strong id="crm-stat-platinum">0</strong></li>
+                        <ul class="enterprise-widget-stats enterprise-widget-stats--saas">
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--amber"></span>Abandoned carts</span><strong id="crm-stat-abandoned">0</strong></li>
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--rose"></span>Open tickets</span><strong id="crm-stat-tickets">0</strong></li>
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--emerald"></span>New customers today</span><strong id="crm-stat-new-customers">0</strong></li>
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--slate"></span>Silver members</span><strong id="crm-stat-silver">0</strong></li>
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--slate"></span>Gold members</span><strong id="crm-stat-gold">0</strong></li>
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--slate"></span>Platinum members</span><strong id="crm-stat-platinum">0</strong></li>
                         </ul>
+                        <button type="button" class="enterprise-widget-link" data-enterprise-nav="view-crm-abandoned">Recover abandoned carts <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
                     </div>
-                    <div class="enterprise-widget-card enterprise-widget-card--hrm" data-dashboard-zone="hrm">
+                    <div class="enterprise-summary-column enterprise-widget-card--hrm" data-dashboard-zone="hrm">
                         <div class="enterprise-widget-head">
-                            <span class="enterprise-widget-icon" aria-hidden="true">👥</span>
-                            <h3>HRM</h3>
+                            <span class="enterprise-widget-badge enterprise-widget-badge--violet" aria-hidden="true"><i class="fa-solid fa-users"></i></span>
+                            <div>
+                                <h3>HRM</h3>
+                                <p class="enterprise-widget-tagline">People &amp; payroll</p>
+                            </div>
+                            <span class="enterprise-status-dot enterprise-status-dot--emerald" title="Live"></span>
                         </div>
-                        <ul class="enterprise-widget-stats">
-                            <li><span>System staff</span><strong id="hrm-stat-staff">0</strong></li>
-                            <li><span>Employees</span><strong id="hrm-stat-employees">0</strong></li>
+                        <ul class="enterprise-widget-stats enterprise-widget-stats--saas">
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--emerald"></span>System staff</span><strong id="hrm-stat-staff">0</strong></li>
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--emerald"></span>Employees</span><strong id="hrm-stat-employees">0</strong></li>
                             <li class="enterprise-widget-stat-stack">
-                                <span>Attendance today</span>
+                                <span class="enterprise-stat-label">Attendance today</span>
                                 <div class="kpi-sub-stats" aria-label="Attendance breakdown">
                                     <div class="kpi-sub-stat-row"><span>Present</span><strong id="hrm-stat-present">0</strong></div>
                                     <div class="kpi-sub-stat-row"><span>Absent</span><strong id="hrm-stat-absent">0</strong></div>
                                     <div class="kpi-sub-stat-row"><span>Late</span><strong id="hrm-stat-late">0</strong></div>
                                 </div>
                             </li>
-                            <li><span>Pending leave approvals</span><strong id="hrm-stat-pending-leaves">0</strong></li>
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--amber"></span>Pending leave approvals</span><strong id="hrm-stat-pending-leaves">0</strong></li>
                             <li class="enterprise-widget-stat-stack">
-                                <span>Payroll this month</span>
+                                <span class="enterprise-stat-label">Payroll this month</span>
                                 <div class="kpi-sub-stats" aria-label="Payroll breakdown">
                                     <div class="kpi-sub-stat-row"><span>Paid</span><strong id="hrm-stat-payroll-paid">0</strong></div>
                                     <div class="kpi-sub-stat-row"><span>Pending</span><strong id="hrm-stat-payroll-pending">0</strong></div>
                                 </div>
                             </li>
-                            <li><span>Security events (7d)</span><strong id="hrm-stat-security">0</strong></li>
+                            <li><span class="enterprise-stat-label"><span class="enterprise-status-dot enterprise-status-dot--slate"></span>Security events (7d)</span><strong id="hrm-stat-security">0</strong></li>
                         </ul>
+                        <button type="button" class="enterprise-widget-link" data-enterprise-nav="view-hrm-payroll">Process payroll <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+                    </div>
                     </div>
                 </div>
 
-                <div class="dashboard-section-label" data-dashboard-zone="erp,finance,crm">
-                    <h2><i class="fa-solid fa-chart-line"></i> Sales &amp; Order Analytics</h2>
+                <div class="dashboard-section-label dashboard-section-label--saas" data-dashboard-zone="erp,finance,crm">
+                    <h2>Sales &amp; Order Analytics</h2>
+                    <p class="dashboard-section-subtitle">Revenue, pipeline, and payment performance for the selected period</p>
                 </div>
 
-                <div class="metrics-grid dashboard-kpi-grid financial-metrics-grid" data-dashboard-zone="analytics">
+                <div class="dashboard-analytics-rows" data-dashboard-zone="analytics">
+                <div class="dashboard-kpi-row dashboard-kpi-row--4 financial-metrics-row-1">
                     <div class="metric-card revenue kpi-card-enhanced zone-sensitive" data-permission="view_financial_reports">
                         <div class="icon"><i class="fa-solid fa-chart-column"></i></div>
                         <div class="data">
@@ -175,6 +206,8 @@
                             <span>Access Restricted</span>
                         </div>
                     </div>
+                </div>
+                <div class="dashboard-kpi-row dashboard-kpi-row--2 financial-metrics-row-2">
                     <div class="metric-card mini zone-sensitive" data-permission="view_financial_reports">
                         <div class="icon"><i class="fa-solid fa-credit-card"></i></div>
                         <div class="data">
@@ -203,8 +236,9 @@
                         </div>
                     </div>
                 </div>
+                </div>
 
-                <div class="metrics-grid dashboard-kpi-grid sales-metrics-grid">
+                <div class="dashboard-kpi-row dashboard-kpi-row--4 sales-metrics-grid" data-dashboard-zone="erp,finance,crm,analytics">
                     <div class="metric-card revenue kpi-card-enhanced zone-sensitive" data-dashboard-zone="analytics" data-permission="view_financial_reports">
                         <div class="icon"><i class="fa-solid fa-sack-dollar"></i></div>
                         <div class="data">
@@ -249,8 +283,8 @@
                     </div>
                 </div>
 
-                <div class="metrics-grid dashboard-kpi-grid order-status-grid" data-dashboard-zone="erp">
-                    <div class="metric-card mini kpi-card-enhanced">
+                <div class="order-status-grid order-status-grid--saas order-status-grid--pipeline" data-dashboard-zone="erp">
+                    <div class="order-status-grid__hero metric-card mini kpi-card-enhanced">
                         <div class="icon"><i class="fa-solid fa-box"></i></div>
                         <div class="data">
                             <div class="kpi-card-head">
@@ -262,42 +296,42 @@
                             <span class="metric-sub">All-time count · daily trend for period</span>
                         </div>
                     </div>
-                    <div class="metric-card mini warning">
+                    <div class="metric-card mini warning order-status-grid__cell order-status-grid__cell--pending">
                         <div class="icon"><i class="fa-solid fa-hourglass-half"></i></div>
                         <div class="data">
                             <p>PENDING</p>
                             <h3 id="stat-pipeline-pending">0</h3>
                         </div>
                     </div>
-                    <div class="metric-card mini">
+                    <div class="metric-card mini order-status-grid__cell order-status-grid__cell--processing">
                         <div class="icon"><i class="fa-solid fa-gears"></i></div>
                         <div class="data">
                             <p>PROCESSING</p>
                             <h3 id="stat-processing-orders">0</h3>
                         </div>
                     </div>
-                    <div class="metric-card mini">
+                    <div class="metric-card mini order-status-grid__cell order-status-grid__cell--shipped">
                         <div class="icon"><i class="fa-solid fa-truck"></i></div>
                         <div class="data">
                             <p>SHIPPED</p>
                             <h3 id="stat-pipeline-shipped">0</h3>
                         </div>
                     </div>
-                    <div class="metric-card mini success">
+                    <div class="metric-card mini success order-status-grid__cell order-status-grid__cell--delivered">
                         <div class="icon"><i class="fa-solid fa-truck-fast"></i></div>
                         <div class="data">
                             <p>DELIVERED</p>
                             <h3 id="stat-delivered-orders">0</h3>
                         </div>
                     </div>
-                    <div class="metric-card mini danger">
+                    <div class="metric-card mini danger order-status-grid__cell order-status-grid__cell--cancelled">
                         <div class="icon"><i class="fa-solid fa-ban"></i></div>
                         <div class="data">
                             <p>CANCELLED</p>
                             <h3 id="stat-pipeline-cancelled">0</h3>
                         </div>
                     </div>
-                    <div class="metric-card mini">
+                    <div class="metric-card mini order-status-grid__cell order-status-grid__cell--refunded">
                         <div class="icon"><i class="fa-solid fa-rotate-left"></i></div>
                         <div class="data">
                             <p>REFUNDED</p>

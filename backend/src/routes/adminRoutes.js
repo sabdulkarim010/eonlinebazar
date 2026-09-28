@@ -245,6 +245,20 @@ router.post(
     dashboardQuickActionsController.toggleMaintenanceMode
 );
 
+router.get(
+    '/dashboard/quick-actions/preferences',
+    verifyAdmin,
+    checkPermission('view_analytics'),
+    dashboardQuickActionsController.getQuickActionPreferences
+);
+
+router.put(
+    '/dashboard/quick-actions/preferences',
+    verifyAdmin,
+    checkPermission('view_analytics'),
+    dashboardQuickActionsController.saveQuickActionPreferences
+);
+
 // ১ঘ. Finance date-range analytics (GET)
 // URL: GET /api/admin/analytics?period=&startDate=&endDate=
 router.get('/analytics', verifyAdmin, checkPermission('manage_settings', 'view_financial_reports', 'view_analytics'), getFinanceAnalytics);
