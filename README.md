@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-28 (Jest log hygiene — dual-write, order, WhatsApp console gating)
+**Last updated:** 2026-09-28 (Attendance lock calendar-date guard + Jest log hygiene)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 

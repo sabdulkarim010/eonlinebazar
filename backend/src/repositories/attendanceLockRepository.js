@@ -20,6 +20,9 @@ function formatDateKey(input) {
   const raw = String(input || '').trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
 
+  const isoDay = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDay) return isoDay[1];
+
   const d = input ? new Date(input) : new Date();
   if (Number.isNaN(d.getTime())) return null;
   d.setHours(0, 0, 0, 0);
@@ -27,9 +30,32 @@ function formatDateKey(input) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+function localTodayDateKey() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Compare calendar YYYY-MM-DD keys (local today vs target); no timezone shift on plain keys. */
+function compareDateKeys(a, b) {
+  const parse = (key) => {
+    const m = String(key).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    return { y: Number(m[1]), mo: Number(m[2]), d: Number(m[3]) };
+  };
+  const pa = parse(a);
+  const pb = parse(b);
+  if (!pa || !pb) return 0;
+  if (pa.y !== pb.y) return pa.y - pb.y;
+  if (pa.mo !== pb.mo) return pa.mo - pb.mo;
+  return pa.d - pb.d;
+}
+
 function isFutureDateKey(dateKey) {
-  const todayKey = formatDateKey(new Date());
-  return String(dateKey) > String(todayKey);
+  const key = formatDateKey(dateKey);
+  if (!key) return false;
+  const todayKey = localTodayDateKey();
+  return compareDateKeys(key, todayKey) > 0;
 }
 
 async function getLockStatus(date) {

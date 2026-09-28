@@ -4037,6 +4037,15 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 
 ---
 
+## Attendance Lock Future-Date Fix — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `lockDate` future guard | ✅ | Calendar YYYY-MM-DD compare vs local today; `FUTURE_DATE` preserved |
+| Repository test fixtures | ✅ | `attendanceLock.repository.test.js` uses fixed past/future dates |
+
+---
+
 ## Jest Log Hygiene — Dual-Write FK, Sessions, Orders, WhatsApp — 2026-09-28
 
 | Item | Status | Notes |

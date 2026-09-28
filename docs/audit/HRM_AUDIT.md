@@ -280,6 +280,12 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 
 ## Change Log
 
+### Attendance lock future-date guard — 2026-09-28
+
+- `attendanceLockRepository.js`: calendar-day compare (`compareDateKeys` / `localTodayDateKey`); today and past lockable; `FUTURE_DATE` unchanged
+- `attendanceLock.repository.test.js`: stable `2025-01-01` / `2099-12-31` fixtures
+- Repository tests: attendance lock suite **3/3** pass
+
 ### Jest log hygiene — leave conflicts + employee PG sync — 2026-09-28
 
 - `leaveController.js`: not-pending + approve/reject conflict warns gated outside test

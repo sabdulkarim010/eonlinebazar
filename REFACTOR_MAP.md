@@ -3586,6 +3586,13 @@ docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
 
+# Attendance lock future-date calendar compare — 2026-09-28
+backend/src/repositories/attendanceLockRepository.js [MOD] localTodayDateKey + compareDateKeys; ISO day prefix in formatDateKey
+tests/repositories/attendanceLock.repository.test.js [MOD] fixed past/future date fixtures
+docs/audit/HRM_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
 # Jest log hygiene — dual-write / order / WhatsApp console gating — 2026-09-28
 backend/src/repositories/userRepository.js [MOD] FK-missing logs gated in test
 backend/src/repositories/orderRepository.js [MOD] logOrderFkMissing gated

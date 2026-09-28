@@ -11,11 +11,13 @@ const {
   lockDate,
   unlockDate,
   getLockStatus,
-  isDateLocked,
-  formatDateKey
+  isDateLocked
 } = require('../../backend/src/repositories/attendanceLockRepository');
 
 const PREFIX = `__test_attlock_${Date.now()}_`;
+/** Fixed past calendar day — avoids flaky FUTURE_DATE from random 2026-* fixtures. */
+const PAST_LOCK_DATE = '2025-01-01';
+const FUTURE_LOCK_DATE = '2099-12-31';
 const createdLockDates = [];
 
 async function cleanup() {
@@ -34,7 +36,7 @@ afterAll(async () => { await cleanup(); });
 
 describe('AttendanceLock repository', () => {
   test('lockDate() / isDateLocked() / getLockStatus() work correctly', async () => {
-    const dateKey = `2026-${String((Date.now() % 12) + 1).padStart(2, '0')}-${String((Date.now() % 27) + 1).padStart(2, '0')}`;
+    const dateKey = PAST_LOCK_DATE;
     createdLockDates.push(dateKey);
 
     await withRepositoryRetry(async () => {
@@ -55,7 +57,7 @@ describe('AttendanceLock repository', () => {
   });
 
   test('unlockDate() removes the lock row', async () => {
-    const dateKey = `2026-${String((Date.now() % 12) + 1).padStart(2, '0')}-${String((Date.now() % 26) + 2).padStart(2, '0')}`;
+    const dateKey = '2025-01-02';
     createdLockDates.push(dateKey);
 
     await lockDate(dateKey, 'admin-id', 'Super Admin');
@@ -66,12 +68,9 @@ describe('AttendanceLock repository', () => {
   });
 
   test('lockDate() rejects future dates', async () => {
-    const future = new Date();
-    future.setDate(future.getDate() + 5);
-    const dateKey = formatDateKey(future);
-
-    await expect(lockDate(dateKey, 'admin-id', 'Super Admin')).rejects.toMatchObject({
-      code: 'FUTURE_DATE'
+    await expect(lockDate(FUTURE_LOCK_DATE, 'admin-id', 'Super Admin')).rejects.toMatchObject({
+      code: 'FUTURE_DATE',
+      message: 'Future dates cannot be locked.'
     });
   });
 });
