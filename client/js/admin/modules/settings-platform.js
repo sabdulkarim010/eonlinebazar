@@ -414,7 +414,22 @@ async function checkGAStatus() {
     }
 }
 
+let fetchAdminSettingsInFlight = null;
+
 async function fetchAdminSettings() {
+    if (fetchAdminSettingsInFlight) {
+        return fetchAdminSettingsInFlight;
+    }
+
+    fetchAdminSettingsInFlight = fetchAdminSettingsImpl();
+    try {
+        return await fetchAdminSettingsInFlight;
+    } finally {
+        fetchAdminSettingsInFlight = null;
+    }
+}
+
+async function fetchAdminSettingsImpl() {
     if (typeof window.applySuperAdminOnlyVisibility === 'function') {
         window.applySuperAdminOnlyVisibility();
     }

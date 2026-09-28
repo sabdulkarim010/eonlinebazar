@@ -8,6 +8,7 @@
  ********************************************************************/
 
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/user');
 const UserSession = require('../models/userSession');
 const AdminSession = require('../models/adminSession');
@@ -58,20 +59,22 @@ const verifyAdmin = async (req, res, next) => {
         // রিমোট লগআউট করলে status 'revoked' হয়ে যায় → পরের রিকোয়েস্টেই 401 (forced logout)।
         // পুরোনো টোকেনে sid না থাকলে ব্যাকওয়ার্ড কম্প্যাটিবিলিটির জন্য অনুমোদিত।
         if (decoded.sid) {
-            const session = await AdminSession.findOneAndUpdate(
-                { sessionId: decoded.sid, status: 'active' },
-                { $set: { lastActive: new Date() } },
-                { returnDocument: 'after' }
-            );
-            if (!session) {
-                return res.status(401).json({
-                    success: false,
-                    message: "This admin session was logged out or expired. Please log in again.",
-                    redirect: "/admin-login"
-                });
-            }
+            if (mongoose.connection.readyState === 1) {
+                const session = await AdminSession.findOneAndUpdate(
+                    { sessionId: decoded.sid, status: 'active' },
+                    { $set: { lastActive: new Date() } },
+                    { returnDocument: 'after', maxTimeMS: 5000 }
+                );
+                if (!session) {
+                    return res.status(401).json({
+                        success: false,
+                        message: "This admin session was logged out or expired. Please log in again.",
+                        redirect: "/admin-login"
+                    });
+                }
 
-            adminSessionRepo.mirrorAdminSessionBestEffort(session, 'heartbeat');
+                adminSessionRepo.mirrorAdminSessionBestEffort(session, 'heartbeat');
+            }
         }
 
         // 🛡️ RBAC: টোকেনের পেলোডে ভরসা না করে প্রতিটি রিকোয়েস্টে ডাটাবেজ থেকে

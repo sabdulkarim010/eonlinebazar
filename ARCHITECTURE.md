@@ -44,7 +44,7 @@ client/
 
 │   │   ├── admin-dashboard.js ← analytics widgets
 
-│   │   └── modules/           ← Actual logic files (incl. adminSidebar.js — merged sidebar profile; sidebarLabels.js — Super Admin menu rename; settings-utils.js — settingsFetchJson 15s timeout; settings-dirty-tracker.js — unsaved-changes guard + save chips; pagination-util.js — unified AdminPagination)
+│   │   └── modules/           ← Actual logic files (incl. admin-url-routing.js — ?view= SPA deep links; adminSidebar.js — merged sidebar profile; sidebarLabels.js — Super Admin menu rename; settings-utils.js — settingsFetchJson 25s timeout + GET retry; settings-dirty-tracker.js — unsaved-changes guard + save chips; pagination-util.js — unified AdminPagination)
 
 │   ├── profile.js         ← BARREL → js/profile/*.js
 

@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-28 (Jest — session mirror + 2FA diag log gating)  
+**Last updated:** 2026-09-28 (verifyAdmin Mongo session maxTimeMS + offline skip)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -232,6 +232,12 @@
 - No changes to `client/js/admin-login.js` or `/api/admin/login` contract; all preserved element IDs and inline handlers intact
 - CSS fix: `#adminLoginStep.is-hidden` (was non-matching `.admin-login-step.is-hidden`)
 - Tests: `npm test` (unchanged backend surface)
+
+### verifyAdmin session heartbeat fail-fast — 2026-09-28
+
+- `AdminSession.findOneAndUpdate` uses `maxTimeMS: 5000`; skipped when Mongo is not connected (JWT still validated)
+- Reduces hung `/api/admin/settings` and `/api/admin/sidebar-labels` when Mongo is slow/offline
+- Tests: **381/381** Jest pass
 
 ### System Settings Phase 1 — sensitive route lockdown — 2026-09-27
 

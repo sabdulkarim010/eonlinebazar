@@ -16,7 +16,13 @@ function getSettingsRepository() {
 }
 
 async function readFromPostgres() {
-  const row = await getSettingsRepository().findByKey();
+  const { withAsyncTimeout } = require('../utils/asyncTimeout');
+  const pgReadMs = Number(process.env.PG_ADMIN_READ_TIMEOUT_MS || 8000);
+  const row = await withAsyncTimeout(
+    getSettingsRepository().findByKey(),
+    pgReadMs,
+    'settings.findByKey'
+  );
   if (!row) return null;
   return settingsToMongoShape(row);
 }

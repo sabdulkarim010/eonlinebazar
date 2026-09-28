@@ -4095,5 +4095,17 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Admin filter UI | ✅ | `view-accounts.html` + `erp-accounts.js` |
 | Tests | ✅ | **343/343** Jest |
 
+---
+
+## Admin deep links & settings API reliability — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Admin SPA routing | ✅ | `?view=` query params; legacy `#hash` migrated on load |
+| Settings fetch client | ✅ | `settingsFetchJson` 25s + one GET retry |
+| Settings/sidebar PG reads | ✅ | `PG_ADMIN_READ_TIMEOUT_MS` (default 8s) → Mongo/empty fallback |
+| verifyAdmin session check | ✅ | `maxTimeMS` + skip when Mongo disconnected |
+| Tests | ✅ | **381/381** Jest |
+
 
 

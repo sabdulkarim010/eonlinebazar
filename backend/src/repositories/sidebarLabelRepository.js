@@ -46,15 +46,19 @@ function validateMenuKey(menuKey) {
 }
 
 async function findAllMapPg() {
+  const { withAsyncTimeout } = require('../utils/asyncTimeout');
   const prisma = getPrisma();
   if (!prisma?.sidebarLabel?.findMany) {
     const err = new Error('SidebarLabel model not available on Prisma client');
     err.code = 'SIDEBAR_LABEL_UNAVAILABLE';
     throw err;
   }
-  const rows = await prisma.sidebarLabel.findMany({
-    orderBy: { menuKey: 'asc' }
-  });
+  const pgReadMs = Number(process.env.PG_ADMIN_READ_TIMEOUT_MS || 8000);
+  const rows = await withAsyncTimeout(
+    prisma.sidebarLabel.findMany({ orderBy: { menuKey: 'asc' } }),
+    pgReadMs,
+    'sidebarLabel.findMany'
+  );
   return Object.fromEntries(rows.map((row) => [row.menuKey, row.label]));
 }
 

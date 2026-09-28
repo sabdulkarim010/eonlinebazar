@@ -1,7 +1,7 @@
 /**
  * Shared fetch helper for System Settings modules — timeout + graceful errors.
  */
-export const SETTINGS_FETCH_TIMEOUT_MS = 15000;
+export const SETTINGS_FETCH_TIMEOUT_MS = 25000;
 
 export const SETTINGS_TIMEOUT_MESSAGE =
     'Request timed out. Please check connection and retry.';
@@ -21,7 +21,7 @@ function settingsNotify(message, type = 'error') {
  *   { success: false, timeout?: boolean, error: string, res?: Response, data?: any }
  * >}
  */
-export async function settingsFetchJson(url, options = {}, config = {}) {
+async function settingsFetchJsonOnce(url, options = {}, config = {}) {
     const timeoutMs = config.timeoutMs ?? SETTINGS_FETCH_TIMEOUT_MS;
     const showToastOnError = config.showToast !== false;
     const controller = new AbortController();
@@ -87,6 +87,26 @@ export async function settingsFetchJson(url, options = {}, config = {}) {
     } finally {
         clearTimeout(timer);
     }
+}
+
+export async function settingsFetchJson(url, options = {}, config = {}) {
+    const method = String(options.method || 'GET').toUpperCase();
+    const maxAttempts = config.retries != null
+        ? Number(config.retries) + 1
+        : (method === 'GET' ? 2 : 1);
+
+    let lastResult;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        lastResult = await settingsFetchJsonOnce(url, options, {
+            ...config,
+            showToast: attempt >= maxAttempts - 1 ? config.showToast : false
+        });
+        if (lastResult.success) return lastResult;
+        const isRetriable = lastResult.timeout === true
+            || lastResult.error === SETTINGS_TIMEOUT_MESSAGE;
+        if (!isRetriable || attempt >= maxAttempts - 1) break;
+    }
+    return lastResult;
 }
 
 /** @param {any} response */

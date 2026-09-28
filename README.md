@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-28 (Attendance lock calendar-date guard + Jest log hygiene)
+**Last updated:** 2026-09-28 (Admin ?view= routing + settings API timeout fixes)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 

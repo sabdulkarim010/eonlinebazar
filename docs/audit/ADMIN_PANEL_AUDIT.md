@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-27 (System Settings Phase 4 Part 1 — sidebar & hub UI)  
+**Last updated:** 2026-09-28 (Admin ?view= deep links + settings API timeout hardening)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -36,9 +36,10 @@
 | `client/js/admin/admin-settings.js` | Settings barrel |
 | `client/js/admin/admin-dashboard.js` | Analytics widgets |
 | `client/js/admin/modules/core-nav.js` | Accordion nav, mobile drawer, section routing |
+| `client/js/admin/modules/admin-url-routing.js` | `?view=` deep links (replaces `#hash` routes) |
 | `client/js/admin/modules/core-breadcrumb.js` | Dashboard > Group > Section breadcrumbs |
 | `client/js/admin/modules/settings-hub.js` | Settings tab routing |
-| `client/js/admin/modules/settings-utils.js` | Shared `settingsFetchJson` (15s timeout) |
+| `client/js/admin/modules/settings-utils.js` | Shared `settingsFetchJson` (25s + GET retry) |
 | `client/js/admin/modules/orders-pos.js` | POS checkout, barcode, multi-line split payment, wallet |
 | `client/js/admin/modules/pos-shift-ui.js` | POS shift open/close + offline batch sync queue |
 | `client/js/admin/modules/notifications.js` | In-app notification center |
@@ -58,6 +59,7 @@
 - [x] Mobile sidebar drawer + accordion groups — `core-nav.js`, `_responsive.css`
 - [x] Dashboard KPIs + enterprise summary widgets — `view-overview.html`, `admin-dashboard.js`
 - [x] Unified settings hub (tabbed) — `view-settings.html`, `settings-hub.js`
+- [x] Clean admin deep links (`/admin?view=settings-security`) — `admin-url-routing.js`, `core-nav.js`
 - [x] Order management + master editor — `view-orders.html`, `orders-table.js`, `orders-editor.js`
 - [x] Full-page POS — `view-pos.html`, `orders-pos.js`
 - [x] Product CRUD + variants + bulk import — `view-products.html`, `products-*.js`
@@ -226,6 +228,13 @@
 - Sidebar: Chart of Accounts between Financial Reports and Expense Tracking
 - `view-chart-of-accounts` registered in `adminPageBuilder.js`; `loadChartOfAccountsSection` in `core-nav.js`
 - Tests: Jest **344/344**
+
+### Admin URL routing + settings fetch reliability — 2026-09-28
+
+- Replaced hash fragments with `?view=` query params; legacy `#settings-*` migrated on load
+- `ensureCleanAdminUrl` no longer strips deep-link params (only legacy `section`/`page`)
+- Settings GETs: PG read deadline (`PG_ADMIN_READ_TIMEOUT_MS`), deduped `fetchAdminSettings`, client retry
+- Tests: **381/381** Jest pass
 
 ### Audit system initialized — codebase scan — 2026-09-20
 

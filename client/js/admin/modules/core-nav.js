@@ -670,6 +670,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     initAdminPaginationInstances();
     await initDashboard();
     setupSidebarNavigation();
+    if (typeof window.bindAdminUrlPopState === 'function') {
+        window.bindAdminUrlPopState();
+    }
+    if (typeof window.applyAdminRouteFromUrl === 'function') {
+        window.applyAdminRouteFromUrl();
+    }
     setupGlobalSearch();
     setupSyncButton();
 
@@ -810,10 +816,8 @@ function navigateAdminSection(targetId, clickedItem) {
     }
     syncNavAccordionState(sectionId, resolvedItem);
 
-    const navHash = resolvedItem?.getAttribute?.('data-nav-hash');
-    if (navHash && navHash.startsWith('#')) {
-        const url = `${window.location.pathname}${window.location.search}${navHash}`;
-        history.replaceState(null, '', url);
+    if (typeof window.syncAdminRouteUrl === 'function') {
+        window.syncAdminRouteUrl({ sectionId, settingsTab, navItem: resolvedItem });
     }
 
     const refreshMap = {
@@ -898,19 +902,20 @@ function navigateAdminSection(targetId, clickedItem) {
     }
 
     if (sectionId === 'view-settings') {
-        const hashTab = typeof window.getSettingsTabFromHash === 'function'
-            ? window.getSettingsTabFromHash()
+        const urlTab = typeof window.getSettingsTabFromUrl === 'function'
+            ? window.getSettingsTabFromUrl()
             : null;
-        const pendingHashTab = window.__pendingSettingsTabFromHash || null;
-        const tabTarget = hashTab || pendingHashTab || settingsTab || 'branding';
-        if (pendingHashTab) window.__pendingSettingsTabFromHash = null;
+        const pendingUrlTab = window.__pendingSettingsTabFromUrl || null;
+        const tabTarget = urlTab || pendingUrlTab || settingsTab || 'branding';
+        if (pendingUrlTab) window.__pendingSettingsTabFromUrl = null;
 
         const tryActivateTab = (attempts = 0) => {
             const switchTab = window.requestSettingsTabSwitch || window.activateUnifiedSettingsTab;
             if (typeof switchTab === 'function') {
                 const tabEl = document.querySelector(`.admin-settings-tab[data-tab="${tabTarget}"]`);
                 if (tabEl) {
-                    switchTab(tabTarget, { skipDirtyCheck: true, updateHash: !hashTab && !pendingHashTab });
+                    const skipUrlSync = Boolean(urlTab || pendingUrlTab);
+                    switchTab(tabTarget, { skipDirtyCheck: true, updateUrl: !skipUrlSync });
                     return;
                 }
             }

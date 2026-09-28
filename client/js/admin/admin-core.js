@@ -8,6 +8,7 @@ import './modules/core-auth.js';
 import './modules/core-helpers.js';
 import './modules/core-toasts.js';
 import './modules/core-realtime.js';
+import './modules/admin-url-routing.js';
 import './modules/core-nav.js';
 import './modules/core-breadcrumb.js';
 import './modules/core-boot.js';

@@ -3643,3 +3643,24 @@ docs/audit/SETTINGS_AUDIT.md [MOD]
 DATABASE_MIGRATION_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
+
+### Admin ?view= routing + settings API timeouts — 2026-09-28
+
+client/js/admin/modules/admin-url-routing.js [NEW] ?view= deep links, hash migration, popstate
+client/js/admin/admin-core.js [MOD] import admin-url-routing before core-nav
+client/js/admin/modules/core-nav.js [MOD] syncAdminRouteUrl, applyAdminRouteFromUrl on boot
+client/js/admin/modules/core-realtime.js [MOD] ensureCleanAdminUrl → migrateAdminLegacyUrl
+client/js/admin/modules/settings-hub.js [MOD] query-param tab sync (replaces hash)
+client/js/admin/modules/settings-utils.js [MOD] 25s timeout + GET retry
+client/js/admin/modules/settings-platform.js [MOD] dedupe fetchAdminSettings in-flight
+client/js/admin/modules/orders-pos.js [MOD] ?view=pos deep link
+client/admin/partials/sidebar.html [MOD] data-admin-view replaces data-nav-hash
+backend/src/utils/asyncTimeout.js [NEW] PG read deadline helper
+backend/src/services/settingsReadService.js [MOD] findByKey PG deadline
+backend/src/repositories/sidebarLabelRepository.js [MOD] findMany PG deadline
+backend/src/middlewares/authMiddleware.js [MOD] admin session maxTimeMS + mongo skip
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]

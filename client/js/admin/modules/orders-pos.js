@@ -1770,9 +1770,11 @@ window.downloadPOSInvoice = function downloadPOSInvoice(orderId) {
     return downloadPosInvoicePdf(orderId);
 };
 
-function handlePosHashRoute() {
-    const hash = String(window.location.hash || '').replace('#', '').trim().toLowerCase();
-    if (hash === 'pos') openPOSModal();
+function handlePosDeepLinkRoute() {
+    const view = typeof window.getAdminViewFromUrl === 'function'
+        ? window.getAdminViewFromUrl()
+        : String(window.location.hash || '').replace('#', '').trim().toLowerCase();
+    if (view === 'pos') openPOSModal();
 }
 
 function setupManualOrderEngine() {
@@ -1784,8 +1786,8 @@ function setupManualOrderEngine() {
 
     initBarcodeSearch();
     initPosCustomerLookup();
-    handlePosHashRoute();
-    window.addEventListener('hashchange', handlePosHashRoute);
+    handlePosDeepLinkRoute();
+    window.addEventListener('popstate', handlePosDeepLinkRoute);
 
     const searchInput = document.getElementById('manualProductSearch');
     if (searchInput) {

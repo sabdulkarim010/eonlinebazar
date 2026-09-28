@@ -593,12 +593,11 @@ function persistProductListSessionState(force = false) {
     } catch (_) { /* ignore quota / private mode */ }
 }
 
-/** Strip legacy ?section= / ?page= query params so /admin stays clean on reload */
+/** Migrate legacy hash / ?section= links to ?view= and strip obsolete params. */
 function ensureCleanAdminUrl() {
-    if (!window.location.search && !window.location.hash) return;
-    try {
-        window.history.replaceState({}, document.title, window.location.pathname);
-    } catch (_) { /* ignore */ }
+    if (typeof window.migrateAdminLegacyUrl === 'function') {
+        window.migrateAdminLegacyUrl();
+    }
 }
 
 /** Instant product list sync after edit/delete */

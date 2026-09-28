@@ -18,12 +18,7 @@ const SETTINGS_EMBED_MAP = {
     shipping: 'view-shipping-payments'
 };
 
-const SETTINGS_HASH_PREFIX = 'settings-';
-const SETTINGS_HASH_TAB_ALIASES = Object.freeze({
-    hub: 'branding',
-    security: 'security'
-});
-const VALID_SETTINGS_TABS = Object.freeze([
+const VALID_SETTINGS_TABS = window.VALID_SETTINGS_TABS || Object.freeze([
     'branding',
     'general',
     'shipping',
@@ -33,64 +28,33 @@ const VALID_SETTINGS_TABS = Object.freeze([
     'utilities'
 ]);
 
-function getSettingsTabFromHash(hash = window.location.hash) {
-    const raw = String(hash || '').replace(/^#/, '').trim().toLowerCase();
-    if (raw === 'activity-feed') return null;
-    if (raw === 'settings-backup' || raw === 'settings-health') return null;
-    if (!raw.startsWith(SETTINGS_HASH_PREFIX)) return null;
-    const tabId = raw.slice(SETTINGS_HASH_PREFIX.length);
-    if (SETTINGS_HASH_TAB_ALIASES[tabId]) {
-        return SETTINGS_HASH_TAB_ALIASES[tabId];
+function readSettingsTabFromLocation() {
+    if (typeof window.getSettingsTabFromUrl === 'function') {
+        return window.getSettingsTabFromUrl();
     }
-    return VALID_SETTINGS_TABS.includes(tabId) ? tabId : null;
+    return null;
 }
 
-function hashForSettingsTab(tabId) {
-    return `#${SETTINGS_HASH_PREFIX}${tabId}`;
-}
-
-function updateSettingsTabHash(tabId, { replace = true } = {}) {
+function updateSettingsTabUrl(tabId, { replace = true } = {}) {
     if (!tabId || !VALID_SETTINGS_TABS.includes(tabId)) return;
-
-    const nextHash = hashForSettingsTab(tabId);
-    if (window.location.hash === nextHash) return;
-
-    const url = `${window.location.pathname}${window.location.search}${nextHash}`;
-    if (replace) {
-        history.replaceState(null, '', url);
-    } else {
-        history.pushState(null, '', url);
+    if (typeof window.viewKeyForSettingsTab !== 'function'
+        || typeof window.updateAdminViewUrl !== 'function') {
+        return;
     }
+    window.updateAdminViewUrl(window.viewKeyForSettingsTab(tabId), { replace });
 }
 
-const SYSTEM_SETTINGS_HASH_ROUTES = Object.freeze({
-    'activity-feed': 'view-activity-feed',
-    'settings-backup': 'view-system-backup',
-    'settings-health': 'view-settings-health'
-});
-
-function applySystemSettingsHashRoute() {
-    const raw = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
-    const sectionId = SYSTEM_SETTINGS_HASH_ROUTES[raw];
-    if (!sectionId) return false;
-
-    const navItem = document.querySelector(`.sidebar-menu li[data-target="${sectionId}"]`);
-    if (navItem && typeof navigateAdminSection === 'function') {
-        navigateAdminSection(sectionId, navItem);
-        return true;
+function applySettingsUrlOnInit() {
+    if (typeof window.applyAdminRouteFromUrl === 'function' && window.applyAdminRouteFromUrl()) {
+        return;
     }
-    return false;
-}
 
-function applySettingsHashOnInit() {
-    if (applySystemSettingsHashRoute()) return;
-
-    const tabId = getSettingsTabFromHash();
+    const tabId = readSettingsTabFromLocation();
     if (!tabId) return;
 
     const viewSettings = document.getElementById('view-settings');
     if (!viewSettings?.classList.contains('active')) {
-        window.__pendingSettingsTabFromHash = tabId;
+        window.__pendingSettingsTabFromUrl = tabId;
         const settingsNav = document.querySelector('.sidebar-menu li[data-target="view-settings"]');
         if (settingsNav && typeof navigateAdminSection === 'function') {
             navigateAdminSection('view-settings', settingsNav);
@@ -98,24 +62,7 @@ function applySettingsHashOnInit() {
         return;
     }
 
-    requestSettingsTabSwitch(tabId, { skipDirtyCheck: true, updateHash: false });
-}
-
-function bindSettingsHashNavigation() {
-    if (window.__settingsHashNavBound) return;
-    window.__settingsHashNavBound = true;
-
-    window.addEventListener('hashchange', () => {
-        if (applySystemSettingsHashRoute()) return;
-
-        const tabId = getSettingsTabFromHash();
-        if (!tabId) return;
-
-        const viewSettings = document.getElementById('view-settings');
-        if (!viewSettings?.classList.contains('active')) return;
-
-        requestSettingsTabSwitch(tabId, { updateHash: false });
-    });
+    requestSettingsTabSwitch(tabId, { skipDirtyCheck: true, updateUrl: false });
 }
 
 const embeddedSectionState = new Map();
@@ -256,8 +203,8 @@ function activateUnifiedSettingsTab(tabId, options = {}) {
 
     notifySettingsTabActivated(target);
 
-    if (options.updateHash !== false) {
-        updateSettingsTabHash(target);
+    if (options.updateUrl !== false) {
+        updateSettingsTabUrl(target);
     }
 }
 
@@ -299,9 +246,8 @@ function setupUnifiedSettingsHub() {
     shell.dataset.hubBound = '1';
 
     setupSettingsDirtyTracker(shell);
-    bindSettingsHashNavigation();
     bindSettingsQuickSaveShortcut();
-    applySettingsHashOnInit();
+    applySettingsUrlOnInit();
 
     shell.querySelectorAll('.admin-settings-tab').forEach((tab) => {
         tab.addEventListener('click', async () => {
@@ -372,8 +318,9 @@ function setupUnifiedSettingsHub() {
 
 window.activateUnifiedSettingsTab = activateUnifiedSettingsTab;
 window.requestSettingsTabSwitch = requestSettingsTabSwitch;
-window.getSettingsTabFromHash = getSettingsTabFromHash;
-window.updateSettingsTabHash = updateSettingsTabHash;
+window.updateSettingsTabUrl = updateSettingsTabUrl;
+window.getSettingsTabFromHash = readSettingsTabFromLocation;
+window.updateSettingsTabHash = updateSettingsTabUrl;
 window.setupUnifiedSettingsHub = setupUnifiedSettingsHub;
 window.restoreAllEmbeddedSettingsSections = restoreAllEmbeddedSections;
 window.openSettingsHubSection = openSettingsHubSection;
@@ -384,8 +331,9 @@ document.addEventListener('DOMContentLoaded', setupUnifiedSettingsHub);
 Object.assign(window, {
     activateUnifiedSettingsTab,
     requestSettingsTabSwitch,
-    getSettingsTabFromHash,
-    updateSettingsTabHash,
+    updateSettingsTabUrl,
+    getSettingsTabFromHash: readSettingsTabFromLocation,
+    updateSettingsTabHash: updateSettingsTabUrl,
     setupUnifiedSettingsHub,
     restoreAllEmbeddedSettingsSections: restoreAllEmbeddedSections,
     openSettingsHubSection,
