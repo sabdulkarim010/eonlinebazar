@@ -10,6 +10,8 @@
 const { describe, test, expect, afterEach, afterAll } = require('./jestCompat');
 
 require('dotenv').config();
+// ⏱️ Neon DB কানেকশন টাইমআউট এড়াতে ৩০ সেকেন্ড করা হলো
+jest.setTimeout(30000);
 
 const prisma = require('../../backend/src/config/prismaClient');
 const {
