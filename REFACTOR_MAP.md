@@ -3734,6 +3734,11 @@ docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
 
+# Order pipeline grid Image 2 revert + admin quickActionPreferences migration — 2026-09-28
+client/admin/partials/view-overview.html [MOD] dashboard-kpi-grid pipeline 6-col layout
+client/css/admin/_layout.css [MOD] repeat(6,1fr), mini-card sizing reset, Refunded r2c2
+prisma/migrations/20260928163000_admin_quick_action_preferences/migration.sql [NEW]
+
 # Dashboard Phase 5.1 — Quick action DB sync + overview layout — 2026-09-28
 backend/src/config/dashboardQuickActions.js [NEW]
 backend/src/models/admin.js [MOD] quickActionPreferences

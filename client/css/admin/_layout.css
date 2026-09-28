@@ -2018,8 +2018,7 @@ body.dashboard-command-palette-open {
     justify-content: space-between;
 }
 
-#view-overview.view-overview-saas .dashboard-kpi-grid > .metric-card,
-#view-overview.view-overview-saas .order-status-grid--pipeline > .metric-card {
+#view-overview.view-overview-saas .dashboard-kpi-grid > .metric-card {
     height: 100%;
 }
 
@@ -2050,18 +2049,16 @@ body.dashboard-command-palette-open {
     margin-top: auto;
 }
 
-/* Order pipeline — 6 equal columns (Image 2 baseline), hero spans 2 rows in col 1 */
-.order-status-grid--saas.order-status-grid--pipeline {
+/* Order pipeline — Image 2 baseline: 6× equal 1fr columns, hero col 1 spans 2 rows */
+.order-status-grid.order-status-grid--pipeline {
     display: grid;
-    gap: 1.25rem;
-    margin-bottom: 1.75rem;
     align-items: stretch;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 @media (min-width: 900px) {
-    .order-status-grid--saas.order-status-grid--pipeline {
-        grid-template-columns: repeat(6, minmax(0, 1fr));
+    .order-status-grid.order-status-grid--pipeline {
+        grid-template-columns: repeat(6, 1fr);
         grid-template-rows: repeat(2, auto);
     }
 
@@ -2101,14 +2098,38 @@ body.dashboard-command-palette-open {
     }
 }
 
-.order-status-grid--pipeline .order-status-grid__hero,
-.order-status-grid--pipeline .order-status-grid__cell {
-    height: 100%;
-    min-width: 0;
+/* Restore legacy mini-card sizing inside pipeline (overrides SaaS KPI typography) */
+#view-overview.view-overview-saas .order-status-grid--pipeline .metric-card.mini {
+    padding: 16px;
+    gap: 20px;
 }
 
-.order-status-grid--pipeline .metric-card.mini .data p {
+#view-overview.view-overview-saas .order-status-grid--pipeline .metric-card.mini .icon {
+    width: 42px;
+    height: 42px;
+    font-size: 17px;
+    border-radius: 50%;
+}
+
+#view-overview.view-overview-saas .order-status-grid--pipeline .metric-card.mini .data p {
+    font-size: 12px;
+    letter-spacing: normal;
+    text-transform: none;
+    font-weight: 600;
+    margin-bottom: 5px;
     white-space: nowrap;
+}
+
+#view-overview.view-overview-saas .order-status-grid--pipeline .metric-card.mini .data h3 {
+    font-size: 20px;
+    font-weight: 400;
+    letter-spacing: normal;
+    line-height: normal;
+    color: var(--secondary-color);
+}
+
+#view-overview.view-overview-saas .order-status-grid--pipeline .order-status-grid__cell {
+    min-width: 0;
 }
 
 /* Unified enterprise summary panel */
