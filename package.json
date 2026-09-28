@@ -10,7 +10,7 @@
     "dev:chat": "node --watch ecommerce-chat/server.js",
     "dev:store": "nodemon backend/src/server.js",
     "test": "jest --runInBand",
-    "test:repositories": "node scripts/run-repository-tests.js",
+    "test:repositories": "node --test-timeout=60000 scripts/run-repository-tests.js",
     "seed:products": "node scripts/seedDemoProducts.js",
     "migrate:indexes": "node scripts/addEnterpriseIndexes.js",
     "kill-port": "npx kill-port 5000"

@@ -12,8 +12,7 @@ const { mirrorOrderCreate } = require('../../backend/src/utils/orderDualWriteHel
 const { dualWrite } = require('../../backend/src/services/dualWriteService');
 
 require('dotenv').config();
-// ⏱️ Neon DB কানেকশন টাইমআউট এড়াতে ৩০ সেকেন্ড করা হলো
-jest.setTimeout(30000);
+
 
 const prisma = require('../../backend/src/config/prismaClient');
 const {
