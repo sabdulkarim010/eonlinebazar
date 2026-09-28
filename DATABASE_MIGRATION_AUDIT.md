@@ -3859,6 +3859,18 @@ Full **HTTP-level** verification via supertest against `tests/app`, toggling `RE
 
 ---
 
+## Jest log hygiene — PG fallback + admin dual-write logs — 2026-09-28
+
+| Item | Change |
+|------|--------|
+| `neonRetry.js` | `logPgFallback` no-op when `NODE_ENV=test` |
+| `adminDualWriteHelpers.js` | `logAdminDualWriteFailure` no-op in test env |
+| Tests | `readRouter.test.js` split silent vs `development` log assertions; admin repo dual-write test sets `development` |
+
+**Tests:** Jest **381/381**.
+
+---
+
 ## User UUID lookup + async dual-write — 2026-09-27
 
 | Item | Change |

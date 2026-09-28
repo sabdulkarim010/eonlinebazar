@@ -18,7 +18,9 @@ function dispatchAdminWhatsAppAlertSafely(order) {
     try {
         notifyAdminOrderPlaced(order);
     } catch (err) {
-        console.error('[Order] WhatsApp alert scheduling failed (non-blocking):', err.message);
+        if (process.env.NODE_ENV !== 'test') {
+            console.error('[Order] WhatsApp alert scheduling failed (non-blocking):', err.message);
+        }
     }
 }
 

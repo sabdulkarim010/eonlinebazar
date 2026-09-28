@@ -24,6 +24,9 @@
     "moduleNameMapper": {
       "^(.+/)?generated/prisma/client\\.mts$": "<rootDir>/tests/mocks/prismaGeneratedClient.js"
     },
+    "setupFiles": [
+      "<rootDir>/tests/env-quiet.js"
+    ],
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.js"
     ]

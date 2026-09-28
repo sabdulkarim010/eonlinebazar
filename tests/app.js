@@ -3,7 +3,7 @@
  * or security middleware (helmet/cors packages are optional in dev).
  ********************************************************************/
 
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 // dotenv reloads production READ_PG_* flags — Jest must read from in-memory Mongo only.
 const { GROUP_ENV } = require('../backend/src/config/readCutoverFlags');

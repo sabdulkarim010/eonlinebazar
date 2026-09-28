@@ -94,7 +94,9 @@ exports.deleteSession = async (req, res) => {
         try {
             await userSessionRepo.deleteUserSessionInPG(target._id);
         } catch (pgErr) {
-            console.error('[DUAL-WRITE-USERSESSION-FAIL] delete:', pgErr);
+            if (process.env.NODE_ENV !== 'test') {
+                console.error('[DUAL-WRITE-USERSESSION-FAIL] delete:', pgErr);
+            }
         }
 
         res.status(200).json({
@@ -127,7 +129,9 @@ exports.logoutOtherSessions = async (req, res) => {
         try {
             await userSessionRepo.deleteUserSessionsExceptSessionIdInPG(req.user.id, currentSid);
         } catch (pgErr) {
-            console.error('[DUAL-WRITE-USERSESSION-FAIL] logoutOthers:', pgErr);
+            if (process.env.NODE_ENV !== 'test') {
+                console.error('[DUAL-WRITE-USERSESSION-FAIL] logoutOthers:', pgErr);
+            }
         }
 
         res.status(200).json({
@@ -253,7 +257,9 @@ exports.loginUser = async (req, res) => {
         try {
             await userSessionRepo.upsertUserSessionInPG(userSession);
         } catch (pgErr) {
-            console.error('[DUAL-WRITE-USERSESSION-FAIL] create:', pgErr);
+            if (process.env.NODE_ENV !== 'test') {
+                console.error('[DUAL-WRITE-USERSESSION-FAIL] create:', pgErr);
+            }
         }
 
         const token = jwt.sign(
@@ -376,7 +382,9 @@ exports.deleteAccount = async (req, res) => {
         try {
             await userSessionRepo.deleteUserSessionsByUserIdInPG(userId);
         } catch (pgErr) {
-            console.error('[DUAL-WRITE-USERSESSION-FAIL] deleteAll:', pgErr);
+            if (process.env.NODE_ENV !== 'test') {
+                console.error('[DUAL-WRITE-USERSESSION-FAIL] deleteAll:', pgErr);
+            }
         }
 
         const { dualWrite } = require('../../services/dualWriteService');

@@ -51,7 +51,7 @@ async function safeMetric(label, fn, fallback = 0) {
             if (isNeonTimeoutError(err)) recordPgTimeout();
             else recordPgNonTimeoutFailure();
             logPgFallback(label.replace('(pg)', ''), err);
-        } else {
+        } else if (process.env.NODE_ENV !== 'test') {
             console.warn(`[PG-FALLBACK] enterprise-summary ${label} failed -> using default`);
         }
         return { value: fallback, error: err.message };
@@ -65,7 +65,9 @@ async function safeMetric(label, fn, fallback = 0) {
 async function collectMetric(label, pgFn, mongoFn, fallback = 0, errors = [], { preferPg = true } = {}) {
     if (preferPg && pgFn) {
         if (shouldBypassPg()) {
-            console.warn(`[PG-FALLBACK] ${label} circuit open -> served via Mongo`);
+            if (process.env.NODE_ENV !== 'test') {
+                console.warn(`[PG-FALLBACK] ${label} circuit open -> served via Mongo`);
+            }
             if (mongoFn) {
                 const mongoResult = await safeMetric(`${label}(mongo-fallback)`, mongoFn, fallback);
                 if (mongoResult.error) {

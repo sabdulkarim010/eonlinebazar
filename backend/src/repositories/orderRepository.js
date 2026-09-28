@@ -33,13 +33,15 @@ function attachDualWriteStage(err, stage, postgresOrderId) {
 }
 
 function logOrderFkMissing(field, mongoRefId) {
-  console.error('[DUAL-WRITE-FK-MISSING]', {
-    timestamp: new Date().toISOString(),
-    model: 'Order',
-    field,
-    mongoRefId: String(mongoRefId),
-    message: `${field === 'userId' ? 'User' : 'Product'} not yet in Postgres`
-  });
+  if (process.env.NODE_ENV !== 'test') {
+    console.error('[DUAL-WRITE-FK-MISSING]', {
+      timestamp: new Date().toISOString(),
+      model: 'Order',
+      field,
+      mongoRefId: String(mongoRefId),
+      message: `${field === 'userId' ? 'User' : 'Product'} not yet in Postgres`
+    });
+  }
 }
 
 async function resolveMongoUserLegacyId(postgresOrMongoUserId) {

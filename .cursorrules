@@ -165,12 +165,27 @@ These 5 steps happen IN THE SAME RESPONSE as the code change — never in a sepa
 
 ---
 
+## Code Change Safety (MANDATORY)
+
+These rules apply to every code change — features, fixes, refactors, and one-line edits.
+
+1. **Context Analysis First:** Before modifying any function, API route, service, or shared utility, search and trace all callers, imports, re-exports, and dependent test files. Never make blind edits or guess implementation details from memory.
+
+2. **Surgical & Minimal Edits:** Keep changes focused exclusively on the requested task. Do NOT refactor unrelated files, overhaul function signatures, rename identifiers without a repo-wide search, or rewrite working logic speculatively.
+
+3. **Zero Regression / Test Integrity:** All modifications must pass existing unit and integration tests (`npm test`). Never change test assertions, expectations, or mocks solely to force a pass. Fix production code or document intentional behavior changes with updated tests.
+
+4. **Clean Environment Logging:** Do NOT introduce unfiltered `console.log`, `console.debug`, or verbose diagnostic output inside hot paths, database seeds, bootstrap routines, or code that runs during test execution. When informational logging is needed in seeds or init code, guard it with `process.env.NODE_ENV !== 'test'` (match `paymentMethodService.js` seed pattern). Production checklist still applies: no debug logging left in shipped paths.
+
+---
+
 ## Testing Rules
 
 - Run `npm test` after every code change.
 - Repository tests run with: `node --test --test-concurrency=1 tests/repositories/{file}.test.js`
 - All tests must pass before marking a task complete.
 - New repository = new test file required.
+- Follow **Code Change Safety** above: no test-only log noise; do not weaken tests to greenwash failures.
 
 ---
 

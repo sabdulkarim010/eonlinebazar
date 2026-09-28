@@ -31,7 +31,9 @@ async function safeMongoRead(group, mongoReadFn) {
     return await mongoReadFn();
   } catch (err) {
     if (isMongoCastError(err)) {
-      console.warn(`[PG-FALLBACK] ${group} mongo cast suppressed -> served via Mongo`);
+      if (process.env.NODE_ENV !== 'test') {
+        console.warn(`[PG-FALLBACK] ${group} mongo cast suppressed -> served via Mongo`);
+      }
       return null;
     }
     throw err;
@@ -50,7 +52,9 @@ async function safeMongoRead(group, mongoReadFn) {
 async function routedRead(group, mongoReadFn, postgresReadFn) {
   if (isPgReadEnabled(group)) {
     if (shouldBypassPg()) {
-      console.warn(`[PG-FALLBACK] ${group} circuit open -> served via Mongo`);
+      if (process.env.NODE_ENV !== 'test') {
+        console.warn(`[PG-FALLBACK] ${group} circuit open -> served via Mongo`);
+      }
       return safeMongoRead(group, mongoReadFn);
     }
 

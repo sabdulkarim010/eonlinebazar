@@ -27,7 +27,9 @@ async function resolveAuthoritativeRevision(settingsDoc) {
             return pgRev;
         }
     } catch (err) {
-        console.warn('[settingsService] PG revision read failed:', err.message);
+        if (process.env.NODE_ENV !== 'test') {
+            console.warn('[settingsService] PG revision read failed:', err.message);
+        }
     }
     return Number(settingsDoc?.revisionId) || 0;
 }
@@ -70,7 +72,9 @@ async function saveSettings({ expectedRevision = null, mutate }) {
             return { ok: false, conflict: true, currentRevision: err.currentRevision };
         }
 
-        console.warn('[settingsService] PG primary write failed — Mongo fallback:', err.message);
+        if (process.env.NODE_ENV !== 'test') {
+            console.warn('[settingsService] PG primary write failed — Mongo fallback:', err.message);
+        }
         revisionId = (Number(settings.revisionId) || 0) + 1;
         settings.revisionId = revisionId;
         settings.pendingPgSync = true;
@@ -82,7 +86,9 @@ async function saveSettings({ expectedRevision = null, mutate }) {
         await settings.save();
     } catch (mongoErr) {
         if (pgWritten) {
-            console.warn('MONGO_SETTINGS_MIRROR_FAILED', mongoErr.message);
+            if (process.env.NODE_ENV !== 'test') {
+                console.warn('MONGO_SETTINGS_MIRROR_FAILED', mongoErr.message);
+            }
             return {
                 ok: true,
                 revisionId,

@@ -594,7 +594,9 @@ const createManualOrder = async (req, res) => {
             createdAt: newOrder.createdAt
         });
 
-        console.log(`[Order] ✓ Manual order #${newOrder.orderId} saved — scheduling background WhatsApp alert`);
+        if (process.env.NODE_ENV !== 'test') {
+            console.log(`[Order] ✓ Manual order #${newOrder.orderId} saved — scheduling background WhatsApp alert`);
+        }
         dispatchAdminWhatsAppAlertSafely(newOrder);
 
         await logSecurityEvent({

@@ -34,7 +34,7 @@ describe('dualWriteService', () => {
     expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
 
-  test('Mongo succeeds, Postgres throws → returns Mongo result unchanged, logs [DUAL-WRITE-FAILURE], does not throw', async () => {
+  test('Mongo succeeds, Postgres throws → returns Mongo result unchanged, silent in test env, does not throw', async () => {
     const mongoResult = { _id: '507f1f77bcf86cd799439011', name: 'Electronics' };
     const mongoWriteFn = jest.fn().mockResolvedValue(mongoResult);
     const postgresWriteFn = jest.fn().mockRejectedValue(new Error('Neon connection failed'));
@@ -50,17 +50,7 @@ describe('dualWriteService', () => {
     );
 
     expect(result).toBe(mongoResult);
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-
-    const [prefix, entry] = consoleErrorSpy.mock.calls[0];
-    expect(prefix).toBe('[DUAL-WRITE-FAILURE]');
-    expect(entry).toMatchObject({
-      model: 'Category',
-      operation: 'update',
-      mongoId: '507f1f77bcf86cd799439011',
-      error: 'Neon connection failed'
-    });
-    expect(entry.timestamp).toEqual(expect.any(String));
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
 
   test('Mongo throws → Postgres write is never attempted and Mongo error propagates', async () => {

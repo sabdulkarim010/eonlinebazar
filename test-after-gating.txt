@@ -1,0 +1,56 @@
+﻿node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm 
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+> eonlinebazar-fullstack@1.0.0 test
+> jest --runInBand
+
+FAIL tests/services/readRouter.test.js
+  ÔùÅ routedRead ÔÇ║ circuit open ÔåÆ skips Postgres and reads Mongo directly
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      126 |     expect(pgFn).not.toHaveBeenCalled();
+      127 |     expect(mongoFn).toHaveBeenCalledTimes(1);
+    > 128 |     expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('circuit open'))).toBe(true);
+          |                                                                                                ^
+      129 |
+      130 |     consoleWarnSpy.mockRestore();
+      131 |   });
+
+      at Object.toBe (tests/services/readRouter.test.js:128:96)
+
+
+Summary of all failing tests
+FAIL tests/services/readRouter.test.js
+  ÔùÅ routedRead ÔÇ║ circuit open ÔåÆ skips Postgres and reads Mongo directly
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      126 |     expect(pgFn).not.toHaveBeenCalled();
+      127 |     expect(mongoFn).toHaveBeenCalledTimes(1);
+    > 128 |     expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('circuit open'))).toBe(true);
+          |                                                                                                ^
+      129 |
+      130 |     consoleWarnSpy.mockRestore();
+      131 |   });
+
+      at Object.toBe (tests/services/readRouter.test.js:128:96)
+
+
+Test Suites: 1 failed, 60 passed, 61 total
+Tests:       1 failed, 380 passed, 381 total
+Snapshots:   0 total
+Time:        219.561 s
+Ran all test suites.

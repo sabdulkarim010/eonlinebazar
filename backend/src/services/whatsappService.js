@@ -22,6 +22,18 @@ const { normalizePhoneNumber } = require('./smsService');
 const AUTH_DIR = path.join(__dirname, '../../../.wa-auth');
 const VALID_ALERT_PROVIDERS = ['Baileys', 'CallMeBot', 'UltraMsg', 'Green API', 'Generic', 'Webhook', ''];
 
+function waOpsLog(...args) {
+    if (process.env.NODE_ENV !== 'test') console.log(...args);
+}
+
+function waOpsWarn(...args) {
+    if (process.env.NODE_ENV !== 'test') console.warn(...args);
+}
+
+function waOpsError(...args) {
+    if (process.env.NODE_ENV !== 'test') console.error(...args);
+}
+
 const DEFAULT_PUBLIC_WHATSAPP = String(
     process.env.PUBLIC_SUPPORT_WHATSAPP
     || process.env.WHATSAPP_PUBLIC_NUMBER
@@ -407,7 +419,7 @@ async function sendAdminOrderAlert(order) {
     const orderId = order?.orderId || order?._id || 'unknown';
 
     try {
-        console.log(`[WhatsApp] ▶ Background alert job started for order #${orderId}`);
+        waOpsLog(`[WhatsApp] ▶ Background alert job started for order #${orderId}`);
 
         if (!order) {
             return { delivered: false, reason: 'No order payload' };
@@ -417,18 +429,18 @@ async function sendAdminOrderAlert(order) {
         try {
             config = await loadWhatsAppSettingsFromDb();
         } catch (err) {
-            console.error('[WhatsApp] ✗ Failed to load settings:', err.message);
+            waOpsError('[WhatsApp] ✗ Failed to load settings:', err.message);
             return { delivered: false, reason: 'Could not load WhatsApp settings' };
         }
 
         if (!config.enableWhatsAppOrderAlerts) {
-            console.warn('[WhatsApp] ✗ Skipped — enableWhatsAppOrderAlerts is false');
+            waOpsWarn('[WhatsApp] ✗ Skipped — enableWhatsAppOrderAlerts is false');
             return { delivered: false, reason: 'WhatsApp order alerts disabled in Master Settings' };
         }
 
         const adminPhone = sanitizeWhatsAppInput(config.privateAdminAlertWhatsApp);
         if (!adminPhone) {
-            console.warn('[WhatsApp] ✗ Skipped — privateAdminAlertWhatsApp is empty or invalid');
+            waOpsWarn('[WhatsApp] ✗ Skipped — privateAdminAlertWhatsApp is empty or invalid');
             return { delivered: false, reason: 'Private admin WhatsApp number not configured' };
         }
 
@@ -438,11 +450,11 @@ async function sendAdminOrderAlert(order) {
 
         if (result.delivered) {
             markPendingAlertDelivered(orderId);
-            console.log(`[WhatsApp] ✓ Background alert delivered via ${result.provider} → ${adminPhone}`);
+            waOpsLog(`[WhatsApp] ✓ Background alert delivered via ${result.provider} → ${adminPhone}`);
             return { ...result, waMeUrl, fallbackQueued: false };
         }
 
-        console.warn(`[WhatsApp] ⚠ Delivery failed for #${orderId}: ${result.reason}`);
+        waOpsWarn(`[WhatsApp] ⚠ Delivery failed for #${orderId}: ${result.reason}`);
 
         const pending = queuePendingWhatsAppAlert({
             orderId,
@@ -468,7 +480,7 @@ async function sendAdminOrderAlert(order) {
             pendingAlertId: pending.id
         };
     } catch (err) {
-        console.error(`[WhatsApp] ✗ Unexpected background job error for #${orderId}:`, err.message);
+        waOpsError(`[WhatsApp] ✗ Unexpected background job error for #${orderId}:`, err.message);
         return { delivered: false, reason: err.message };
     }
 }
@@ -478,7 +490,7 @@ function dispatchWhatsAppNotification(task) {
         Promise.resolve()
             .then(task)
             .catch((err) => {
-                console.error('[WhatsApp] Async background job error:', err.message);
+                waOpsError('[WhatsApp] Async background job error:', err.message);
             });
     });
 }
@@ -487,11 +499,11 @@ function notifyAdminOrderPlaced(order) {
     const payload = order && typeof order.toObject === 'function' ? order.toObject() : order;
     const orderId = payload?.orderId || payload?._id || 'unknown';
 
-    console.log(`[WhatsApp] Scheduling background dispatch for order #${orderId}`);
+    waOpsLog(`[WhatsApp] Scheduling background dispatch for order #${orderId}`);
 
     dispatchWhatsAppNotification(async () => {
         const result = await sendAdminOrderAlert(payload);
-        console.log(`[WhatsApp] Background job finished for #${orderId}:`, JSON.stringify({
+        waOpsLog(`[WhatsApp] Background job finished for #${orderId}:`, JSON.stringify({
             delivered: result.delivered,
             provider: result.provider || null,
             reason: result.reason || null,
@@ -526,7 +538,7 @@ async function sendAdminCustomAlert(body) {
 
         return result;
     } catch (err) {
-        console.error('[WhatsApp] Custom admin alert error:', err.message);
+        waOpsError('[WhatsApp] Custom admin alert error:', err.message);
         return { delivered: false, reason: err.message };
     }
 }
@@ -585,7 +597,7 @@ async function sendBroadcast(recipients, templateMessage) {
             await new Promise((resolve) => setTimeout(resolve, 350));
         }
 
-        console.log(`[WhatsApp] Broadcast complete — ${sent} sent, ${failed} failed of ${numbers.length}`);
+        waOpsLog(`[WhatsApp] Broadcast complete — ${sent} sent, ${failed} failed of ${numbers.length}`);
         return {
             success: sent > 0,
             sent,

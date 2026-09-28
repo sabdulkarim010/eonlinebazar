@@ -17,13 +17,15 @@ function toShape(record) {
 }
 
 function logFkMissing(field, mongoRefId) {
-  console.error('[DUAL-WRITE-FK-MISSING]', {
-    timestamp: new Date().toISOString(),
-    model: 'Review',
-    field,
-    mongoRefId: String(mongoRefId),
-    message: `${field === 'userId' ? 'User' : 'Product'} not yet in Postgres`
-  });
+  if (process.env.NODE_ENV !== 'test') {
+    console.error('[DUAL-WRITE-FK-MISSING]', {
+      timestamp: new Date().toISOString(),
+      model: 'Review',
+      field,
+      mongoRefId: String(mongoRefId),
+      message: `${field === 'userId' ? 'User' : 'Product'} not yet in Postgres`
+    });
+  }
 }
 
 async function resolveUserId(mongoUserId) {

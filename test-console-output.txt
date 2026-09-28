@@ -1,0 +1,18 @@
+﻿node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm 
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+> eonlinebazar-fullstack@1.0.0 test
+> jest --runInBand
+
+
+Test Suites: 61 passed, 61 total
+Tests:       381 passed, 381 total
+Snapshots:   0 total
+Time:        213.304 s
+Ran all test suites.

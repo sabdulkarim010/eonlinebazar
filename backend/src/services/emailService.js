@@ -106,10 +106,14 @@ async function sendEmail({ to, subject, html, text, from, headers } = {}) {
                 }
                 const result = await client.emails.send(payload);
                 if (result.error) throw new Error(result.error.message || 'Resend error');
-                console.log(`[EMAIL-RESEND] Sent to ${recipients.join(', ')}: ${subject}`);
+                if (process.env.NODE_ENV !== 'test') {
+                    console.log(`[EMAIL-RESEND] Sent to ${recipients.join(', ')}: ${subject}`);
+                }
                 return { success: true, provider: 'resend', id: result.data?.id || null };
             } catch (err) {
-                console.error('[EMAIL-RESEND] Failed:', err.message);
+                if (process.env.NODE_ENV !== 'test') {
+                    console.error('[EMAIL-RESEND] Failed:', err.message);
+                }
             }
         }
 

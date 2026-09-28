@@ -1,6 +1,6 @@
 # PAYMENTS & FINANCE AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-27 (System Settings Phase 3 — tax ledger snapshot parity)  
+**Last updated:** 2026-09-28 (test-run seed log silence — expense categories)  
 **Scope:** Payment gateways, reconciliation, wallet, expenses, P&L, finance analytics, accounts summary, VAT  
 **Status:** ✅ COMPLETE
 
@@ -28,6 +28,7 @@
 | `backend/src/controllers/admin/financeReportController.js` | Balance sheet + tax/VAT API |
 | `backend/src/controllers/admin/expenseController.js` | Expense ledger CRUD |
 | `backend/src/controllers/admin/expenseCategoryController.js` | Expense category catalog |
+| `backend/src/services/expenseCategoryService.js` | Default expense category seed + slug helpers |
 | `backend/src/controllers/admin/walletAdminController.js` | Admin wallet credit + transaction history |
 | `backend/src/controllers/walletCustomerController.js` | Customer wallet balance + transactions |
 | `backend/src/models/posShift.js` | POS cash register shift schema |
@@ -146,6 +147,11 @@
 - `profitLossController.js` + `accountsSummaryController.js` delegate to ledger service
 - `expenseRepository.js` strict PG read helpers (paginated list, category breakdown, monthly totals)
 - Tests: Jest **342/342**
+
+### Test-run seed log silence — expense categories — 2026-09-28
+
+- `expenseCategoryService.js`: guard default-category seed `console.log` with `NODE_ENV !== 'test'` (matches `paymentMethodService` pattern); reduces repetitive log noise during Jest runs
+- Tests: `npm test` — all pass
 
 ### Finance API resilience — accounts summary + P&L — 2026-09-27
 

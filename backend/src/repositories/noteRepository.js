@@ -10,6 +10,10 @@
 
 const prisma = require('../config/prismaClient');
 
+function logNoteDualWriteError(...args) {
+  if (process.env.NODE_ENV !== 'test') console.error(...args);
+}
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function toNoteTypeEnum(value) {
@@ -103,14 +107,14 @@ async function syncShoppingItems(noteId, items) {
 async function upsertNoteInPG(mongoDoc) {
   try {
     if (!mongoDoc || !mongoDoc._id) {
-      console.error('[DUAL-WRITE-NOTE-FAIL] Missing mongoDoc or _id');
+      logNoteDualWriteError('[DUAL-WRITE-NOTE-FAIL] Missing mongoDoc or _id');
       return null;
     }
 
     const userRef = mongoDoc.user || mongoDoc.userId;
     const userId = await resolveUserId(userRef);
     if (!userId) {
-      console.error('[DUAL-WRITE-NOTE-FAIL] User not found in PG', userRef);
+      logNoteDualWriteError('[DUAL-WRITE-NOTE-FAIL] User not found in PG', userRef);
       return null;
     }
 
@@ -148,7 +152,7 @@ async function upsertNoteInPG(mongoDoc) {
 
     return toShape(withItems);
   } catch (err) {
-    console.error('[DUAL-WRITE-NOTE-FAIL]', err.message, mongoDoc?._id);
+    logNoteDualWriteError('[DUAL-WRITE-NOTE-FAIL]', err.message, mongoDoc?._id);
     return null;
   }
 }
@@ -164,7 +168,7 @@ async function getNoteByMongoId(mongoId) {
 
     return toShape(record);
   } catch (err) {
-    console.error('[DUAL-WRITE-NOTE-FAIL] getByMongoId:', err.message);
+    logNoteDualWriteError('[DUAL-WRITE-NOTE-FAIL] getByMongoId:', err.message);
     return null;
   }
 }
@@ -190,7 +194,7 @@ async function listNotesFromPG(filters = {}) {
 
     return records.map(toShape);
   } catch (err) {
-    console.error('[DUAL-WRITE-NOTE-FAIL] list:', err.message);
+    logNoteDualWriteError('[DUAL-WRITE-NOTE-FAIL] list:', err.message);
     return [];
   }
 }
@@ -203,7 +207,7 @@ async function deleteNoteInPG(mongoId) {
     return true;
   } catch (err) {
     if (err.code === 'P2025') return true;
-    console.error('[DUAL-WRITE-NOTE-FAIL] delete:', err.message, mongoId);
+    logNoteDualWriteError('[DUAL-WRITE-NOTE-FAIL] delete:', err.message, mongoId);
     return false;
   }
 }

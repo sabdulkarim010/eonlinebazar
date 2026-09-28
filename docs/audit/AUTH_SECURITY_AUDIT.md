@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-27 (System Settings Phase 1 sensitive-route lockdown)  
+**Last updated:** 2026-09-28 (Jest — session mirror + 2FA diag log gating)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -114,6 +114,17 @@
 ---
 
 ## Change Log
+
+### Jest log hygiene — user session dual-write + 2FA diagnostics — 2026-09-28
+
+- `userSessionRepository.js`, `authMiddleware.js`, `loginController.js`, `authHelpers.js`, `customerAdminController.js`: `[DUAL-WRITE-USERSESSION-FAIL]` silent when `NODE_ENV=test`
+- `authController.js`: `[2FA DIAG]`, TOTP missing/fail warns gated outside test
+- Tests: Jest **381/381**
+
+### Jest log hygiene — admin TOTP debug — 2026-09-28
+
+- `authController.js`: `[TOTP LOGIN CHECK]` `console.log` only when `NODE_ENV !== 'test'`
+- Tests: Jest **381/381**
 
 ### Phase 4 — Payment status override audit trail — 2026-09-27
 

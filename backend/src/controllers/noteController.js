@@ -198,12 +198,14 @@ exports.createNote = async (req, res) => {
         try {
             await noteRepo.upsertNoteInPG(note);
         } catch (pgErr) {
-            console.error('[DUAL-WRITE-NOTE-FAIL] create:', pgErr);
+            if (process.env.NODE_ENV !== 'test') {
+                console.error('[DUAL-WRITE-NOTE-FAIL] create:', pgErr);
+            }
         }
 
         res.status(201).json({ success: true, message: 'Note saved.', note: toNoteDto(note) });
     } catch (error) {
-        console.error('Create Note Error:', error);
+        if (process.env.NODE_ENV !== 'test') console.error('Create Note Error:', error);
         res.status(500).json({ success: false, message: 'Failed to save note.' });
     }
 };
@@ -231,12 +233,14 @@ exports.updateNote = async (req, res) => {
         try {
             await noteRepo.upsertNoteInPG(note);
         } catch (pgErr) {
-            console.error('[DUAL-WRITE-NOTE-FAIL] update:', pgErr);
+            if (process.env.NODE_ENV !== 'test') {
+                console.error('[DUAL-WRITE-NOTE-FAIL] update:', pgErr);
+            }
         }
 
         res.status(200).json({ success: true, message: 'Note updated.', note: toNoteDto(note) });
     } catch (error) {
-        console.error('Update Note Error:', error);
+        if (process.env.NODE_ENV !== 'test') console.error('Update Note Error:', error);
         res.status(500).json({ success: false, message: 'Failed to update note.' });
     }
 };
@@ -252,12 +256,14 @@ exports.deleteNote = async (req, res) => {
         try {
             await noteRepo.deleteNoteInPG(note._id);
         } catch (pgErr) {
-            console.error('[DUAL-WRITE-NOTE-FAIL] delete:', pgErr);
+            if (process.env.NODE_ENV !== 'test') {
+                console.error('[DUAL-WRITE-NOTE-FAIL] delete:', pgErr);
+            }
         }
 
         res.status(200).json({ success: true, message: 'Note deleted.' });
     } catch (error) {
-        console.error('Delete Note Error:', error);
+        if (process.env.NODE_ENV !== 'test') console.error('Delete Note Error:', error);
         res.status(500).json({ success: false, message: 'Failed to delete note.' });
     }
 };

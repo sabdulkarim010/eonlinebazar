@@ -107,7 +107,9 @@ async function fetchPlatformAdminSettings(username) {
     try {
       return await fetchAdminByUsernameMongo(resolvedUsername);
     } catch (mongoErr) {
-      console.warn('[platformSettingsRead] Mongo secondary read failed:', mongoErr.message);
+      if (process.env.NODE_ENV !== 'test') {
+        console.warn('[platformSettingsRead] Mongo secondary read failed:', mongoErr.message);
+      }
       return null;
     }
   }
@@ -129,7 +131,9 @@ async function fetchPlatformAdminSettingsSafe(username) {
     }
     return { admin: null, fallback: false, notFound: true };
   } catch (primaryErr) {
-    console.warn('[platformSettingsRead] routed read failed:', primaryErr.message);
+    if (process.env.NODE_ENV !== 'test') {
+      console.warn('[platformSettingsRead] routed read failed:', primaryErr.message);
+    }
   }
 
   try {
@@ -138,7 +142,9 @@ async function fetchPlatformAdminSettingsSafe(username) {
       return { admin: mongoAdmin, fallback: false };
     }
   } catch (mongoErr) {
-    console.warn('[platformSettingsRead] Mongo fallback failed:', mongoErr.message);
+    if (process.env.NODE_ENV !== 'test') {
+      console.warn('[platformSettingsRead] Mongo fallback failed:', mongoErr.message);
+    }
   }
 
   try {
@@ -147,7 +153,9 @@ async function fetchPlatformAdminSettingsSafe(username) {
       return { admin: pgAdmin, fallback: false };
     }
   } catch (pgErr) {
-    console.warn('[platformSettingsRead] PG fallback failed:', pgErr.message);
+    if (process.env.NODE_ENV !== 'test') {
+      console.warn('[platformSettingsRead] PG fallback failed:', pgErr.message);
+    }
   }
 
   return {

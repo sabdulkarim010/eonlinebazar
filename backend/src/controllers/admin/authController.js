@@ -550,13 +550,15 @@ exports.loginAdmin = async (req, res) => {
         let admin = await Admin.findOne({ username })
             .select('+totpSecret +totpPendingSecret +password +loginOtpHash +loginOtpExpires +otp +otpExpiry');
 
-        console.log('[TOTP LOGIN CHECK]', {
-            username: admin?.username,
-            secretLoaded: !!admin?.totpSecret,
-            secretLen: admin?.totpSecret?.length ?? 0,
-            method: admin?.twoFactorMethod,
-            verified: admin?.totpVerified
-        });
+        if (process.env.NODE_ENV !== 'test') {
+            console.log('[TOTP LOGIN CHECK]', {
+                username: admin?.username,
+                secretLoaded: !!admin?.totpSecret,
+                secretLen: admin?.totpSecret?.length ?? 0,
+                method: admin?.twoFactorMethod,
+                verified: admin?.totpVerified
+            });
+        }
 
         // Bootstrap: প্রথমবার সঠিক ক্রেডেনশিয়ালে অ্যাডমিন তৈরি
         // (এই অ্যাকাউন্টটি সব সময় সুপার অ্যাডমিন — মালিকের অ্যাক্সেস)
@@ -614,7 +616,9 @@ exports.loginAdmin = async (req, res) => {
         }
 
         if ((admin.twoFactorMethod === 'totp' || admin.totpVerified === true) && !admin.totpSecret) {
-            console.error('[TOTP] totpSecret missing for', admin.username);
+            if (process.env.NODE_ENV !== 'test') {
+                console.error('[TOTP] totpSecret missing for', admin.username);
+            }
             return res.status(500).json({
                 success: false,
                 message: 'Authenticator not configured. Contact support.'
@@ -638,11 +642,13 @@ exports.loginAdmin = async (req, res) => {
             // TOTP stays enrolled but is not forced
             method = admin.twoFactorMethod || 'email';
         } else if (admin.totpSecret && admin.totpVerified !== true) {
-            console.warn('[2FA DIAG] Discarding unverified totpSecret — falling back to email/SMS', {
-                username: admin.username,
-                previousMethod: method,
-                totpSecretLength: String(admin.totpSecret || '').length
-            });
+            if (process.env.NODE_ENV !== 'test') {
+                console.warn('[2FA DIAG] Discarding unverified totpSecret — falling back to email/SMS', {
+                    username: admin.username,
+                    previousMethod: method,
+                    totpSecretLength: String(admin.totpSecret || '').length
+                });
+            }
             await discardUnverifiedTotp(admin);
             if (method === 'totp') method = 'email';
         } else if (method === 'totp') {
@@ -667,26 +673,28 @@ exports.loginAdmin = async (req, res) => {
 
         // TEMPORARY production diagnosis — remove extractedCode after the
         // eonlinebazar.com TOTP failure is confirmed and re-enrollment is done.
-        console.log('[2FA DIAG]', {
-            username: admin.username,
-            twoFactorEnabled: admin.twoFactorEnabled,
-            twoFactorMethod: admin.twoFactorMethod,
-            effectiveMethod: method,
-            totpVerified: admin.totpVerified === true,
-            totpSecretLength: cleanSecret.length,
-            pendingSecretLength: admin.totpPendingSecret ? String(admin.totpPendingSecret).length : 0,
-            secretPrefix,
-            secretCharset: !cleanSecret
-                ? 'empty'
-                : cleanSecret.startsWith('pmv1.')
-                    ? 'vault'
-                    : /^[A-Z2-7]+=*$/i.test(cleanSecret) ? 'base32' : 'other',
-            extractedCodeLength: twoFactorCode ? twoFactorCode.length : 0,
-            extractedCode: twoFactorCode, // TEMPORARY — remove after diagnosis
-            bodyKeys: Object.keys(req.body || {}),
-            totpWindowSeconds: TOTP_WINDOW * 30,
-            serverTimeUtc: new Date().toISOString()
-        });
+        if (process.env.NODE_ENV !== 'test') {
+            console.log('[2FA DIAG]', {
+                username: admin.username,
+                twoFactorEnabled: admin.twoFactorEnabled,
+                twoFactorMethod: admin.twoFactorMethod,
+                effectiveMethod: method,
+                totpVerified: admin.totpVerified === true,
+                totpSecretLength: cleanSecret.length,
+                pendingSecretLength: admin.totpPendingSecret ? String(admin.totpPendingSecret).length : 0,
+                secretPrefix,
+                secretCharset: !cleanSecret
+                    ? 'empty'
+                    : cleanSecret.startsWith('pmv1.')
+                        ? 'vault'
+                        : /^[A-Z2-7]+=*$/i.test(cleanSecret) ? 'base32' : 'other',
+                extractedCodeLength: twoFactorCode ? twoFactorCode.length : 0,
+                extractedCode: twoFactorCode, // TEMPORARY — remove after diagnosis
+                bodyKeys: Object.keys(req.body || {}),
+                totpWindowSeconds: TOTP_WINDOW * 30,
+                serverTimeUtc: new Date().toISOString()
+            });
+        }
 
         if (twoFactorCode) {
             if (twoFactorCode.length !== 6) {
@@ -702,12 +710,14 @@ exports.loginAdmin = async (req, res) => {
                 const mismatch = totpSecret
                     ? describeTotpMismatch(totpSecret, twoFactorCode)
                     : { providedCode: twoFactorCode, hasTotpSecret: false };
-                console.warn('[Admin Login 2FA] TOTP verification FAILED', {
-                    username: admin.username,
-                    method,
-                    reason: verified.reason || null,
-                    ...mismatch
-                });
+                if (process.env.NODE_ENV !== 'test') {
+                    console.warn('[Admin Login 2FA] TOTP verification FAILED', {
+                        username: admin.username,
+                        method,
+                        reason: verified.reason || null,
+                        ...mismatch
+                    });
+                }
                 await recordLoginAttempt({
                     fingerprint: fp,
                     username: admin.username,
@@ -849,13 +859,15 @@ exports.verifyOtp = async (req, res) => {
             return otpFail(res, 404, 'USER_NOT_FOUND', 'Admin account not found.', { restart: true });
         }
 
-        console.log('[TOTP LOGIN CHECK]', {
-            username: user?.username,
-            secretLoaded: !!user?.totpSecret,
-            secretLen: user?.totpSecret?.length ?? 0,
-            method: user?.twoFactorMethod,
-            verified: user?.totpVerified
-        });
+        if (process.env.NODE_ENV !== 'test') {
+            console.log('[TOTP LOGIN CHECK]', {
+                username: user?.username,
+                secretLoaded: !!user?.totpSecret,
+                secretLen: user?.totpSecret?.length ?? 0,
+                method: user?.twoFactorMethod,
+                verified: user?.totpVerified
+            });
+        }
 
         // 🚫 The Super Admin may have blocked this account between step 1 and step 2.
         if (await rejectIfBlocked(res, user, fp)) return;
@@ -866,7 +878,9 @@ exports.verifyOtp = async (req, res) => {
         if (method === 'totp') {
             // ── Google Authenticator (TOTP) verification via speakeasy ──
             if (!user.totpSecret) {
-                console.error('[TOTP] totpSecret missing for', user.username);
+                if (process.env.NODE_ENV !== 'test') {
+                    console.error('[TOTP] totpSecret missing for', user.username);
+                }
                 return res.status(500).json({
                     success: false,
                     message: 'Authenticator not configured. Contact support.'
@@ -885,10 +899,12 @@ exports.verifyOtp = async (req, res) => {
             const totpOk = verifyTotpToken(user.totpSecret, inputOtp);
 
             if (!totpOk) {
-                console.warn('[Admin Login 2FA] TOTP verification FAILED (verify-otp)', {
-                    username: user.username,
-                    ...describeTotpMismatch(user.totpSecret, inputOtp)
-                });
+                if (process.env.NODE_ENV !== 'test') {
+                    console.warn('[Admin Login 2FA] TOTP verification FAILED (verify-otp)', {
+                        username: user.username,
+                        ...describeTotpMismatch(user.totpSecret, inputOtp)
+                    });
+                }
                 await recordLoginAttempt({ fingerprint: fp, username: user.username, status: 'otp_failed', details: 'Incorrect TOTP code' });
                 await logSecurityEvent({
                     action: 'Admin OTP Failed',

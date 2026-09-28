@@ -3578,3 +3578,61 @@ docs/audit/AUTH_SECURITY_AUDIT.md [MOD]
 SYSTEM_SETTINGS_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
+
+# Agent safety rules + test seed log silence — 2026-09-28
+.cursorrules [MOD] Code Change Safety (context-first, minimal edits, test integrity, clean test logging)
+backend/src/services/expenseCategoryService.js [MOD] mute seed console.log when NODE_ENV=test
+docs/audit/PAYMENTS_FINANCE_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Jest log hygiene — dual-write / order / WhatsApp console gating — 2026-09-28
+backend/src/repositories/userRepository.js [MOD] FK-missing logs gated in test
+backend/src/repositories/orderRepository.js [MOD] logOrderFkMissing gated
+backend/src/repositories/reviewRepository.js [MOD] logFkMissing gated
+backend/src/repositories/userSessionRepository.js [MOD] logUserSessionDualWriteError helper
+backend/src/repositories/noteRepository.js [MOD] note dual-write error helper
+backend/src/middlewares/authMiddleware.js [MOD] session heartbeat PG errors gated
+backend/src/controllers/auth/loginController.js [MOD] USERSESSION mirror errors gated
+backend/src/controllers/auth/authHelpers.js [MOD] USERSESSION create error gated
+backend/src/controllers/admin/customerAdminController.js [MOD] USERSESSION delete error gated
+backend/src/controllers/noteController.js [MOD] note PG + handler errors gated
+backend/src/controllers/orderAdminController.js [MOD] manual order log gated
+backend/src/controllers/orderCheckoutController.js [MOD] order + mock + notification logs gated
+backend/src/controllers/orderControllerHelpers.js [MOD] WhatsApp dispatch error gated
+backend/src/services/whatsappService.js [MOD] waOpsLog/Warn/Error for order alert pipeline
+backend/src/services/emailService.js [MOD] EMAIL-RESEND logs gated
+backend/src/services/dualWriteService.js [MOD] DUAL-WRITE-FAILURE logs gated
+backend/src/services/readRouter.js [MOD] PG-FALLBACK circuit/cast warns gated
+backend/src/controllers/admin/enterpriseSummaryController.js [MOD] PG-FALLBACK warns gated
+backend/src/controllers/admin/authController.js [MOD] 2FA DIAG / TOTP fail logs gated
+backend/src/controllers/admin/leaveController.js [MOD] leave pending + conflict warns gated
+backend/src/controllers/admin/employeeController.js [MOD] GRANT-ACCESS + DELETE-EMP-PG gated
+tests/services/dualWriteService.test.js [MOD] expect silent mirror failure in test
+tests/services/readRouter.test.js [MOD] circuit-open warn silent in test
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD]
+docs/audit/ORDERS_AUDIT.md [MOD]
+docs/audit/HRM_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Jest log hygiene — dotenv quiet + guarded fallbacks — 2026-09-28
+tests/env-quiet.js [NEW] DOTENV_CONFIG_QUIET before test file load
+tests/setup.js [MOD] DOTENV_CONFIG_QUIET
+tests/app.js [MOD] dotenv.config({ quiet: true })
+package.json [MOD] jest setupFiles → env-quiet.js
+backend/src/controllers/admin/authController.js [MOD] TOTP debug log gated
+backend/src/controllers/admin/leaveController.js [MOD] leave lookup warn gated
+backend/src/utils/adminDualWriteHelpers.js [MOD] dual-write failure log silent in test
+backend/src/config/neonRetry.js [MOD] PG-FALLBACK warn silent in test
+backend/src/services/platformSettingsReadService.js [MOD] fallback warns gated
+backend/src/services/settingsService.js [MOD] fallback warns gated
+backend/src/services/settingsReadService.js [MOD] fallback warns gated
+tests/services/readRouter.test.js [MOD] PG-FALLBACK assertions split by NODE_ENV
+tests/repositories/admin.repository.test.js [MOD] dual-write log test uses development env
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD]
+docs/audit/HRM_AUDIT.md [MOD]
+docs/audit/SETTINGS_AUDIT.md [MOD]
+DATABASE_MIGRATION_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]

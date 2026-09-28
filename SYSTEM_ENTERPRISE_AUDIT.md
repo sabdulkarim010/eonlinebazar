@@ -4016,6 +4016,42 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 
 ---
 
+## Test Run Hygiene — Expense Category Seed Logging — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `.cursorrules` Code Change Safety | ✅ | Context-first edits, minimal diffs, test integrity, no test-env log spam |
+| `expenseCategoryService` seed logging | ✅ | Silent when `NODE_ENV=test` |
+| Tests | ✅ | `npm test` all pass |
+
+---
+
+## Jest Log Hygiene — Dotenv Quiet + Guarded Fallback Logs — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `tests/env-quiet.js` + dotenv `{ quiet: true }` | ✅ | Suppresses dotenv 17 injection/tip spam |
+| Auth TOTP debug + leave lookup warns | ✅ | Gated outside `NODE_ENV=test` |
+| PG fallback + admin dual-write + settings read warns | ✅ | Silent during Jest; dedicated tests use `development` |
+| Tests | ✅ | **381/381** Jest |
+
+---
+
+## Jest Log Hygiene — Dual-Write FK, Sessions, Orders, WhatsApp — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `[DUAL-WRITE-FK-MISSING]` user/order/review repos | ✅ | `logUserFkMissing` / `logOrderFkMissing` / `logFkMissing` silent in test |
+| `[DUAL-WRITE-USERSESSION-FAIL]` + auth heartbeats | ✅ | Repository helper + middleware/controllers gated |
+| `[DUAL-WRITE-NOTE-FAIL]` + note controller | ✅ | Repository helper + controller catches gated |
+| `[Order]` + `[WhatsApp]` + `[EMAIL-RESEND]` checkout/POS | ✅ | Order controllers + `whatsappService` waOps* helpers |
+| `dualWriteService` `[DUAL-WRITE-FAILURE]` | ✅ | Matches `adminDualWriteHelpers` test silence |
+| `readRouter` / enterprise-summary `[PG-FALLBACK]` | ✅ | Circuit/cast + summary warns gated |
+| Admin 2FA DIAG / leave / employee PG sync logs | ✅ | `authController`, `leaveController`, `employeeController` |
+| Tests | ✅ | **381/381** Jest; POS/note/order spot-checks show no `console.*` |
+
+---
+
 ## Phase 3 Part 2 — Balance Sheet & Tax/VAT Ledger — 2026-09-27
 
 | Item | Status | Notes |

@@ -42,14 +42,18 @@ async function fetchSettingsDocumentSafe() {
     );
     if (doc) return doc;
   } catch (err) {
-    console.warn('[settingsReadService] routed read failed:', err.message);
+    if (process.env.NODE_ENV !== 'test') {
+      console.warn('[settingsReadService] routed read failed:', err.message);
+    }
   }
 
   try {
     const mongoDoc = await readFromMongo();
     if (mongoDoc) return mongoDoc;
   } catch (mongoErr) {
-    console.warn('[settingsReadService] Mongo Settings fallback failed:', mongoErr.message);
+    if (process.env.NODE_ENV !== 'test') {
+      console.warn('[settingsReadService] Mongo Settings fallback failed:', mongoErr.message);
+    }
   }
 
   return getDefaultSettingsDocument();

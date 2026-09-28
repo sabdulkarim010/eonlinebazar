@@ -1,6 +1,6 @@
 # HRM AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-27 (Leave approve/reject UI sync + 400 handling)  
+**Last updated:** 2026-09-28 (Jest — leave + employee PG sync log gating)  
 **Scope:** HR module — employees, designations, attendance, shifts, payroll, leave, admin–employee profile link; `/api/admin/hrm/*`  
 **Status:** ✅ COMPLETE — Two-stage delete, SweetAlert2 z-index fix, Super Admin terminate guard, 6-tab profile modal
 
@@ -279,6 +279,17 @@ Routes require `manage_staff` permission (`adminRoutes.js:592–598`), not super
 ---
 
 ## Change Log
+
+### Jest log hygiene — leave conflicts + employee PG sync — 2026-09-28
+
+- `leaveController.js`: not-pending + approve/reject conflict warns gated outside test
+- `employeeController.js`: `[GRANT-ACCESS-PG-SYNC]` and `[DELETE-EMP-PG]` gated outside test
+- Tests: Jest **381/381**
+
+### Jest log hygiene — leave lookup warn — 2026-09-28
+
+- `leaveController.js`: `Leave lookup failed` `console.warn` gated outside test env
+- Tests: Jest **381/381**
 
 ### Leave approve/reject UI sync + 400 handling — 2026-09-27
 

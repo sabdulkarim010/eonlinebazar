@@ -49,7 +49,7 @@ async function seedDefaultExpenseCategories() {
         seeded += 1;
     }
 
-    if (seeded > 0) {
+    if (seeded > 0 && process.env.NODE_ENV !== 'test') {
         console.log(`💰 Seeded ${seeded} default expense categor${seeded === 1 ? 'y' : 'ies'}.`);
     }
 

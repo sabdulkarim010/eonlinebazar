@@ -1,6 +1,6 @@
 # ORDERS & CHECKOUT AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (Phase 3 Part 3 POS offline batch sync)  
+**Last updated:** 2026-09-28 (Jest — order + WhatsApp console gating)  
 **Scope:** Order lifecycle, checkout, tracking, returns, refunds, POS, couriers, invoices  
 **Status:** ✅ COMPLETE
 
@@ -95,6 +95,13 @@
 ---
 
 ## Change Log
+
+### Jest log hygiene — checkout/POS order alerts — 2026-09-28
+
+- `orderAdminController.js`, `orderCheckoutController.js`, `orderControllerHelpers.js`: `[Order]` logs gated outside test
+- `whatsappService.js`: order background alert pipeline uses `waOpsLog` / `waOpsWarn` / `waOpsError`
+- `emailService.js`: `[EMAIL-RESEND]` gated outside test
+- Tests: Jest **381/381**; `tests/pos.test.js`, `tests/order.test.js` run quiet
 
 ### Phase 3 Part 3 — POS offline batch sync — 2026-09-24
 

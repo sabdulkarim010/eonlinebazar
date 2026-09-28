@@ -40,20 +40,24 @@ async function resolveLeaveActionTarget(req, actionLabel) {
     const routeId = String(req.params.id || '').trim();
     const target = await resolveLeaveRouteTarget(routeId);
     if (target.error) {
-        console.warn(`[${actionLabel}] Leave lookup failed`, {
-            routeId,
-            status: target.error.status,
-            code: target.error.code
-        });
+        if (process.env.NODE_ENV !== 'test') {
+            console.warn(`[${actionLabel}] Leave lookup failed`, {
+                routeId,
+                status: target.error.status,
+                code: target.error.code
+            });
+        }
         return { error: target.error };
     }
 
     if (target.leave.status !== 'pending') {
-        console.warn(`[${actionLabel}] Leave not pending`, {
-            routeId,
-            mongoId: target.mongoId,
-            status: target.leave.status
-        });
+        if (process.env.NODE_ENV !== 'test') {
+            console.warn(`[${actionLabel}] Leave not pending`, {
+                routeId,
+                mongoId: target.mongoId,
+                status: target.leave.status
+            });
+        }
         return {
             error: {
                 status: 400,
@@ -279,11 +283,13 @@ exports.approveLeave = async (req, res) => {
             leave = await approveLeaveApplication(mongoId, approvedBy, note);
         } catch (error) {
             if (error.status === 400 || error.code === 'ALREADY_PROCESSED') {
-                console.warn('[approveLeave] Concurrent update conflict', {
-                    routeId: req.params.id,
-                    mongoId,
-                    message: error.message
-                });
+                if (process.env.NODE_ENV !== 'test') {
+                    console.warn('[approveLeave] Concurrent update conflict', {
+                        routeId: req.params.id,
+                        mongoId,
+                        message: error.message
+                    });
+                }
                 return res.status(400).json({
                     success: false,
                     message: error.message || 'Leave request has already been processed.',
@@ -344,11 +350,13 @@ exports.rejectLeave = async (req, res) => {
             leave = await rejectLeaveApplication(mongoId, approvedBy, reason);
         } catch (error) {
             if (error.status === 400 || error.code === 'ALREADY_PROCESSED') {
-                console.warn('[rejectLeave] Concurrent update conflict', {
-                    routeId: req.params.id,
-                    mongoId,
-                    message: error.message
-                });
+                if (process.env.NODE_ENV !== 'test') {
+                    console.warn('[rejectLeave] Concurrent update conflict', {
+                        routeId: req.params.id,
+                        mongoId,
+                        message: error.message
+                    });
+                }
                 return res.status(400).json({
                     success: false,
                     message: error.message || 'Leave request has already been processed',

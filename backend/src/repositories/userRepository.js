@@ -348,13 +348,15 @@ async function findByLegacyId(legacyId) {
 }
 
 function logUserFkMissing(mongoRefId) {
-  console.error('[DUAL-WRITE-FK-MISSING]', {
-    timestamp: new Date().toISOString(),
-    model: 'User',
-    field: 'userId',
-    mongoRefId: String(mongoRefId),
-    message: 'User not yet in Postgres'
-  });
+  if (process.env.NODE_ENV !== 'test') {
+    console.error('[DUAL-WRITE-FK-MISSING]', {
+      timestamp: new Date().toISOString(),
+      model: 'User',
+      field: 'userId',
+      mongoRefId: String(mongoRefId),
+      message: 'User not yet in Postgres'
+    });
+  }
 }
 
 async function resolvePostgresUserId(mongoUserId) {
@@ -795,7 +797,7 @@ async function addToWishlist(userId, productId, snapshot = {}) {
     });
   }
   if (product) productFk = product.id;
-  else {
+  else if (process.env.NODE_ENV !== 'test') {
     console.error('[DUAL-WRITE-FK-MISSING]', {
       timestamp: new Date().toISOString(),
       model: 'WishlistItem',

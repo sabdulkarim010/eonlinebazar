@@ -70,7 +70,7 @@ describe('routedRead', () => {
     expect(mongoFn).not.toHaveBeenCalled();
   });
 
-  test('flag ON + Postgres throws → falls back to Mongo with compact [PG-FALLBACK] log', async () => {
+  test('flag ON + Postgres throws → falls back to Mongo (PG-FALLBACK silent in test env)', async () => {
     process.env.READ_PG_CATEGORY = 'true';
     process.env.NEON_READ_ROUTER_ATTEMPTS = '1';
     const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -83,11 +83,30 @@ describe('routedRead', () => {
 
     expect(result).toBe(mongoResult);
     expect(mongoFn).toHaveBeenCalledTimes(1);
+    expect(pgFn).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('[PG-FALLBACK]'))).toBe(false);
+
+    consoleWarnSpy.mockRestore();
+  });
+
+  test('flag ON + Postgres throws → emits compact [PG-FALLBACK] log outside test env', async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    process.env.READ_PG_CATEGORY = 'true';
+    process.env.NEON_READ_ROUTER_ATTEMPTS = '1';
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const mongoFn = jest.fn().mockResolvedValue([{ _id: 'mongo-id' }]);
+    const pgFn = jest.fn().mockRejectedValue(new Error('Neon timeout'));
+
+    await routedRead('category', mongoFn, pgFn);
+
     expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('[PG-FALLBACK]'))).toBe(true);
     expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('category'))).toBe(true);
     expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('served via Mongo'))).toBe(true);
 
     consoleWarnSpy.mockRestore();
+    process.env.NODE_ENV = prevNodeEnv;
   });
 
   test('circuit open → skips Postgres and reads Mongo directly', async () => {
@@ -106,7 +125,7 @@ describe('routedRead', () => {
     expect(result).toEqual([{ _id: 'mongo-only' }]);
     expect(pgFn).not.toHaveBeenCalled();
     expect(mongoFn).toHaveBeenCalledTimes(1);
-    expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('circuit open'))).toBe(true);
+    expect(consoleWarnSpy.mock.calls.some((call) => String(call[0]).includes('circuit open'))).toBe(false);
 
     consoleWarnSpy.mockRestore();
   });

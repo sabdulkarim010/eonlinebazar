@@ -1,0 +1,137 @@
+﻿node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm 
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  console.error
+    [DUAL-WRITE-FK-MISSING] {
+      timestamp: '2026-09-28T05:07:25.419Z',
+      model: 'Order',
+      field: 'productId',
+      mongoRefId: 'POS-1790572045255-a8jo',
+      message: 'Product not yet in Postgres'
+    }
+
+      34 |
+      35 | function logOrderFkMissing(field, mongoRefId) {
+    > 36 |   console.error('[DUAL-WRITE-FK-MISSING]', {
+         |           ^
+      37 |     timestamp: new Date().toISOString(),
+      38 |     model: 'Order',
+      39 |     field,
+
+      at error (backend/src/repositories/orderRepository.js:36:11)
+      at logOrderFkMissing (backend/src/repositories/orderRepository.js:83:5)
+      at mapItemsWithResolvedProducts (backend/src/repositories/orderRepository.js:907:25)
+      at buildCreateInputFromMongo (backend/src/repositories/orderRepository.js:920:17)
+      at Object.createFromMongo (backend/src/repositories/orderRepository.js:995:17)
+      at Object.mirrorOrderCreate (backend/src/utils/orderDualWriteHelpers.js:25:5)
+      at dualWrite.model (backend/src/controllers/orderAdminController.js:555:17)
+      at mirrorPostgresWrite (backend/src/services/dualWriteService.js:29:9)
+      at dualWrite (backend/src/services/dualWriteService.js:71:9)
+      at createManualOrder (backend/src/controllers/orderAdminController.js:552:9)
+
+  console.log
+    [Order] Ô£ô Manual order #ORD-501859 saved ÔÇö scheduling background WhatsApp alert
+
+      at log (backend/src/controllers/orderAdminController.js:597:17)
+
+  console.log
+    [WhatsApp] Scheduling background dispatch for order #ORD-501859
+
+      at log (backend/src/services/whatsappService.js:490:13)
+
+  console.log
+    [WhatsApp] ÔûÂ Background alert job started for order #ORD-501859
+
+      at log (backend/src/services/whatsappService.js:410:17)
+
+  console.warn
+    [WhatsApp] Ô£ù Skipped ÔÇö enableWhatsAppOrderAlerts is false
+
+      423 |
+      424 |         if (!config.enableWhatsAppOrderAlerts) {
+    > 425 |             console.warn('[WhatsApp] Ô£ù Skipped ÔÇö enableWhatsAppOrderAlerts is false');
+          |                     ^
+      426 |             return { delivered: false, reason: 'WhatsApp order alerts disabled in Master Settings' };
+      427 |         }
+      428 |
+
+      at warn (backend/src/services/whatsappService.js:425:21)
+      at backend/src/services/whatsappService.js:493:24
+
+  console.log
+    [WhatsApp] Background job finished for #ORD-501859: {"delivered":false,"provider":null,"reason":"WhatsApp order alerts disabled in Master Settings","fallbackQueued":false}
+
+      at log (backend/src/services/whatsappService.js:494:17)
+
+  console.error
+    [DUAL-WRITE-FK-MISSING] {
+      timestamp: '2026-09-28T05:07:26.641Z',
+      model: 'Order',
+      field: 'productId',
+      mongoRefId: 'POS-1790572046619-97hx',
+      message: 'Product not yet in Postgres'
+    }
+
+      34 |
+      35 | function logOrderFkMissing(field, mongoRefId) {
+    > 36 |   console.error('[DUAL-WRITE-FK-MISSING]', {
+         |           ^
+      37 |     timestamp: new Date().toISOString(),
+      38 |     model: 'Order',
+      39 |     field,
+
+      at error (backend/src/repositories/orderRepository.js:36:11)
+      at logOrderFkMissing (backend/src/repositories/orderRepository.js:83:5)
+      at mapItemsWithResolvedProducts (backend/src/repositories/orderRepository.js:907:25)
+      at buildCreateInputFromMongo (backend/src/repositories/orderRepository.js:920:17)
+      at Object.createFromMongo (backend/src/repositories/orderRepository.js:995:17)
+      at Object.mirrorOrderCreate (backend/src/utils/orderDualWriteHelpers.js:25:5)
+      at dualWrite.model (backend/src/controllers/orderAdminController.js:555:17)
+      at mirrorPostgresWrite (backend/src/services/dualWriteService.js:29:9)
+      at dualWrite (backend/src/services/dualWriteService.js:71:9)
+      at createManualOrder (backend/src/controllers/orderAdminController.js:552:9)
+
+  console.log
+    [Order] Ô£ô Manual order #ORD-170744 saved ÔÇö scheduling background WhatsApp alert
+
+      at log (backend/src/controllers/orderAdminController.js:597:17)
+
+  console.log
+    [WhatsApp] Scheduling background dispatch for order #ORD-170744
+
+      at log (backend/src/services/whatsappService.js:490:13)
+
+  console.log
+    [WhatsApp] ÔûÂ Background alert job started for order #ORD-170744
+
+      at log (backend/src/services/whatsappService.js:410:17)
+
+  console.warn
+    [WhatsApp] Ô£ù Skipped ÔÇö enableWhatsAppOrderAlerts is false
+
+      423 |
+      424 |         if (!config.enableWhatsAppOrderAlerts) {
+    > 425 |             console.warn('[WhatsApp] Ô£ù Skipped ÔÇö enableWhatsAppOrderAlerts is false');
+          |                     ^
+      426 |             return { delivered: false, reason: 'WhatsApp order alerts disabled in Master Settings' };
+      427 |         }
+      428 |
+
+      at warn (backend/src/services/whatsappService.js:425:21)
+      at backend/src/services/whatsappService.js:493:24
+
+  console.log
+    [WhatsApp] Background job finished for #ORD-170744: {"delivered":false,"provider":null,"reason":"WhatsApp order alerts disabled in Master Settings","fallbackQueued":false}
+
+      at log (backend/src/services/whatsappService.js:494:17)
+
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        7.333 s
+Ran all test suites matching tests/pos.test.js.

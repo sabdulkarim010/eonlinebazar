@@ -342,6 +342,9 @@ describe('Admin dual-write — upsertFromMongo and status patches', () => {
   });
 
   test('[DUAL-WRITE-FAILURE] log for Admin never includes secret field values', async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+
     const logs = [];
     const origError = console.error;
     console.error = (...args) => {
@@ -357,6 +360,7 @@ describe('Admin dual-write — upsertFromMongo and status patches', () => {
     );
 
     console.error = origError;
+    process.env.NODE_ENV = prevNodeEnv;
 
     const entry = logs.find((row) => row[0] === '[DUAL-WRITE-FAILURE]');
     expect(entry).toBeTruthy();

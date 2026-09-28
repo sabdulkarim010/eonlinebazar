@@ -771,7 +771,9 @@ const deleteCustomer = async (req, res) => {
                     try {
                         await userSessionRepo.deleteUserSessionsByUserIdInPG(mongoId);
                     } catch (pgErr) {
-                        console.error('[DUAL-WRITE-USERSESSION-FAIL] adminDeleteCustomer:', pgErr);
+                        if (process.env.NODE_ENV !== 'test') {
+                            console.error('[DUAL-WRITE-USERSESSION-FAIL] adminDeleteCustomer:', pgErr);
+                        }
                     }
                 }
 

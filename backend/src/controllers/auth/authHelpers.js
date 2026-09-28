@@ -108,7 +108,9 @@ async function createCustomerLoginSession(req, user) {
     try {
         await userSessionRepo.upsertUserSessionInPG(userSession);
     } catch (pgErr) {
-        console.error('[DUAL-WRITE-USERSESSION-FAIL] create:', pgErr);
+        if (process.env.NODE_ENV !== 'test') {
+            console.error('[DUAL-WRITE-USERSESSION-FAIL] create:', pgErr);
+        }
     }
 
     const token = jwt.sign(

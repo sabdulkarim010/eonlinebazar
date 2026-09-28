@@ -54,9 +54,13 @@ async function syncLinkedAdminIdToPostgres(employeeLegacyId, mongoAdminId) {
             where: { legacyId: employeeId },
             data: { linkedAdminId: pgAdminId }
         });
-        console.log(`[GRANT-ACCESS-PG-SYNC] ${employeeId}`);
+        if (process.env.NODE_ENV !== 'test') {
+            console.log(`[GRANT-ACCESS-PG-SYNC] ${employeeId}`);
+        }
     } catch (err) {
-        console.warn(`[GRANT-ACCESS-PG-SYNC] ${employeeId} failed:`, err.message);
+        if (process.env.NODE_ENV !== 'test') {
+            console.warn(`[GRANT-ACCESS-PG-SYNC] ${employeeId} failed:`, err.message);
+        }
     }
 }
 
@@ -684,7 +688,9 @@ async function performPermanentEmployeeDelete(id, req) {
             await prisma.employee.deleteMany({ where: { legacyId } });
         }
     } catch (pgErr) {
-        console.warn('[DELETE-EMP-PG]', pgErr.message);
+        if (process.env.NODE_ENV !== 'test') {
+            console.warn('[DELETE-EMP-PG]', pgErr.message);
+        }
     }
 
     await logSecurityEvent({

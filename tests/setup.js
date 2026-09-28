@@ -2,6 +2,8 @@
  * Jest global setup — in-memory MongoDB, mocks, and shared helpers.
  ********************************************************************/
 
+process.env.DOTENV_CONFIG_QUIET = 'true';
+
 jest.mock('../backend/src/utils/redisClient', () => {
   const mockClient = {
     isReady: false,

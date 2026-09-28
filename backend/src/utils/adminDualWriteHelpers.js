@@ -21,6 +21,7 @@ function sanitizeAdminFailureLog() {
 }
 
 function logAdminDualWriteFailure(context, err) {
+  if (process.env.NODE_ENV === 'test') return;
   console.error('[DUAL-WRITE-FAILURE]', {
     timestamp: new Date().toISOString(),
     model: 'Admin',

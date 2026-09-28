@@ -1,6 +1,6 @@
 # SETTINGS MODULE AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-27 (Phase 5 — encrypted disaster recovery backups)  
+**Last updated:** 2026-09-28 (Jest — settings read fallback warns gated)  
 **Scope:** System Settings hub (`view-settings.html`), Settings Hub routing, Sidebar Labels, Finance/Security/Notifications/Utilities tabs, and all related backend APIs (`/api/admin/settings*`, `/api/admin/platform-settings`, `/api/admin/master-settings`, `/api/admin/sidebar-labels`, `/api/admin/settings-history`, footer/payment/expense settings).  
 **Status:** ✅ COMPLETE — Settings security (Phase 1), PG-primary writes (Phase 2), structured `taxSettings` + checkout snapshots (Phase 3)
 
@@ -289,6 +289,11 @@ Repository tests **pass locally** against Neon (`tests/repositories/sidebarLabel
 ---
 
 ## Change Log
+
+### Jest log hygiene — settings read fallbacks — 2026-09-28
+
+- `platformSettingsReadService.js`, `settingsService.js`, `settingsReadService.js`: fallback `console.warn` only when `NODE_ENV !== 'test'`
+- Tests: Jest **381/381**
 
 ### Phase 5 — Encrypted DR backup & validate/restore — 2026-09-27
 

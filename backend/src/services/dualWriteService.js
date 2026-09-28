@@ -40,7 +40,9 @@ async function mirrorPostgresWrite(postgresWriteFn, result, context) {
             stack: error && error.stack ? String(error.stack).split('\n').slice(0, 4).join(' | ') : undefined
         };
 
-        console.error('[DUAL-WRITE-FAILURE]', reconciliationEntry);
+        if (process.env.NODE_ENV !== 'test') {
+            console.error('[DUAL-WRITE-FAILURE]', reconciliationEntry);
+        }
 
         void recordFailedSync({
             entity: reconciliationEntry.model,
@@ -49,7 +51,9 @@ async function mirrorPostgresWrite(postgresWriteFn, result, context) {
             error: reconciliationEntry.error,
             payload: buildFailurePayload(context, result)
         }).catch((trackErr) => {
-            console.error('[DUAL-WRITE] Could not track failure:', trackErr.message || trackErr);
+            if (process.env.NODE_ENV !== 'test') {
+                console.error('[DUAL-WRITE] Could not track failure:', trackErr.message || trackErr);
+            }
         });
     }
 }

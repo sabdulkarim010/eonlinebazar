@@ -641,7 +641,9 @@ const createOrder = async (req, res) => {
 
         if (!isMockOrder) {
             notifyOrderPlaced(newOrder);
-            console.log(`[Order] ✓ Order #${newOrder.orderId} saved — scheduling background WhatsApp alert`);
+            if (process.env.NODE_ENV !== 'test') {
+                console.log(`[Order] ✓ Order #${newOrder.orderId} saved — scheduling background WhatsApp alert`);
+            }
             dispatchAdminWhatsAppAlertSafely(newOrder);
             notifyOrderConfirmationEmail({ to: recipientEmail, order: newOrder.toObject() });
             await invalidate(CACHE_KEYS.POPULAR_PRODUCTS);
@@ -664,7 +666,7 @@ const createOrder = async (req, res) => {
                     console.error('[Referral] First-order check failed:', referralErr.message);
                 }
             }
-        } else {
+        } else if (process.env.NODE_ENV !== 'test') {
             console.log(`[Order] ✓ Mock order #${newOrder.orderId} saved (catalog ids not in MongoDB)`);
         }
 
@@ -684,7 +686,9 @@ const createOrder = async (req, res) => {
                 `Order #${newOrder.orderId} from ${newOrder.customerName} — ৳${Number(newOrder.grandTotal || 0).toLocaleString('en-BD')}`,
                 'view-orders'
             ).catch((err) => {
-                console.warn('[Order] In-app notification failed:', err.message);
+                if (process.env.NODE_ENV !== 'test') {
+                    console.warn('[Order] In-app notification failed:', err.message);
+                }
             });
         }
 

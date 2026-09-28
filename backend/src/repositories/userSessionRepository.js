@@ -12,6 +12,10 @@ const prisma = require('../config/prismaClient');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function logUserSessionDualWriteError(...args) {
+  if (process.env.NODE_ENV !== 'test') console.error(...args);
+}
+
 async function resolveUserId(mongoRef) {
   if (mongoRef == null || mongoRef === '') return null;
   const ref = String(mongoRef);
@@ -39,13 +43,13 @@ function toShape(record) {
 async function upsertUserSessionInPG(mongoDoc) {
   try {
     if (!mongoDoc || !mongoDoc._id) {
-      console.error('[DUAL-WRITE-USERSESSION-FAIL] Missing mongoDoc or _id');
+      logUserSessionDualWriteError('[DUAL-WRITE-USERSESSION-FAIL] Missing mongoDoc or _id');
       return null;
     }
 
     const userId = await resolveUserId(mongoDoc.userId);
     if (!userId) {
-      console.error('[DUAL-WRITE-USERSESSION-FAIL] User not found in PG', mongoDoc.userId);
+      logUserSessionDualWriteError('[DUAL-WRITE-USERSESSION-FAIL] User not found in PG', mongoDoc.userId);
       return null;
     }
 
@@ -63,7 +67,7 @@ async function upsertUserSessionInPG(mongoDoc) {
     };
 
     if (!data.sessionId) {
-      console.error('[DUAL-WRITE-USERSESSION-FAIL] Missing sessionId', legacyId);
+      logUserSessionDualWriteError('[DUAL-WRITE-USERSESSION-FAIL] Missing sessionId', legacyId);
       return null;
     }
 
@@ -75,7 +79,7 @@ async function upsertUserSessionInPG(mongoDoc) {
 
     return toShape(record);
   } catch (err) {
-    console.error('[DUAL-WRITE-USERSESSION-FAIL]', err.message, mongoDoc?._id);
+    logUserSessionDualWriteError('[DUAL-WRITE-USERSESSION-FAIL]', err.message, mongoDoc?._id);
     return null;
   }
 }
@@ -90,7 +94,7 @@ async function getUserSessionByToken(token) {
 
     return toShape(record);
   } catch (err) {
-    console.error('[DUAL-WRITE-USERSESSION-FAIL] getByToken:', err.message);
+    logUserSessionDualWriteError('[DUAL-WRITE-USERSESSION-FAIL] getByToken:', err.message);
     return null;
   }
 }
@@ -103,7 +107,7 @@ async function deleteUserSessionInPG(mongoId) {
     return true;
   } catch (err) {
     if (err.code === 'P2025') return true;
-    console.error('[DUAL-WRITE-USERSESSION-FAIL] delete:', err.message, mongoId);
+    logUserSessionDualWriteError('[DUAL-WRITE-USERSESSION-FAIL] delete:', err.message, mongoId);
     return false;
   }
 }
@@ -116,7 +120,7 @@ async function deleteUserSessionBySessionIdInPG(sessionId) {
     return true;
   } catch (err) {
     if (err.code === 'P2025') return true;
-    console.error('[DUAL-WRITE-USERSESSION-FAIL] deleteBySessionId:', err.message, sessionId);
+    logUserSessionDualWriteError('[DUAL-WRITE-USERSESSION-FAIL] deleteBySessionId:', err.message, sessionId);
     return false;
   }
 }
@@ -134,7 +138,7 @@ async function deleteUserSessionsExceptSessionIdInPG(userMongoId, keepSessionId)
     });
     return result.count;
   } catch (err) {
-    console.error('[DUAL-WRITE-USERSESSION-FAIL] deleteExceptSessionId:', err.message);
+    logUserSessionDualWriteError('[DUAL-WRITE-USERSESSION-FAIL] deleteExceptSessionId:', err.message);
     return 0;
   }
 }
@@ -147,7 +151,7 @@ async function deleteUserSessionsByUserIdInPG(userMongoId) {
     const result = await prisma.userSession.deleteMany({ where: { userId } });
     return result.count;
   } catch (err) {
-    console.error('[DUAL-WRITE-USERSESSION-FAIL] deleteByUserId:', err.message);
+    logUserSessionDualWriteError('[DUAL-WRITE-USERSESSION-FAIL] deleteByUserId:', err.message);
     return 0;
   }
 }
@@ -160,7 +164,7 @@ async function deleteExpiredUserSessionsFromPG(beforeDate = new Date()) {
     });
     return result.count;
   } catch (err) {
-    console.error('[DUAL-WRITE-USERSESSION-FAIL] deleteExpired:', err.message);
+    logUserSessionDualWriteError('[DUAL-WRITE-USERSESSION-FAIL] deleteExpired:', err.message);
     return 0;
   }
 }

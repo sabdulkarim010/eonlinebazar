@@ -62,6 +62,7 @@ function getPgFallbackReason(err) {
 }
 
 function logPgFallback(model, err, extra) {
+  if (process.env.NODE_ENV === 'test') return;
   const suffix = extra ? ` (${extra})` : '';
   console.warn(`[PG-FALLBACK] ${model} ${getPgFallbackReason(err)} -> served via Mongo${suffix}`);
 }
