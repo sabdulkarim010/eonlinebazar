@@ -129,6 +129,8 @@ financial data and needs rollback history.
 
 ## Admin Navigation (Enterprise SaaS — 7 modules)
 
+**Dashboard BFF (Phase 1–2.3):** `GET /api/admin/dashboard/overview?period=…` — Prisma KPIs, financials, period Δ%, **orderPipeline** (SLA lifecycle counts), **crm** (repeat purchase rate + ContactMessage open tickets/SLA); Redis cache keyed by period scope (60s).
+
 The admin sidebar uses **7 primary modules** plus **Dashboard** (`client/admin/partials/sidebar.html`): **Sales & Orders**, **Product & Stock Operations**, **Marketing & Content**, **HRM & Staff**, **Accounts & Finance**, and **System Settings** (unified tabbed hub). Breadcrumbs are rendered by `client/js/admin/modules/core-breadcrumb.js`; tab routing lives in `client/js/admin/modules/settings-hub.js`.
 
 

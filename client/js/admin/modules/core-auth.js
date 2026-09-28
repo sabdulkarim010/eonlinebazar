@@ -24,6 +24,7 @@ const SILENT_403_PATHS = [
     '/api/admin/enterprise-summary',
     '/api/admin/analytics',
     '/api/admin/dashboard-analytics',
+    '/api/admin/dashboard/overview',
     '/api/admin/platform-settings',
     '/api/admin/categories',
     '/api/admin/customers',

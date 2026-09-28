@@ -25,7 +25,8 @@ const CACHE_KEYS = {
     PRODUCT: (id) => `products:detail:${id}`,
     SEARCH_RESULTS: (queryHash) => `search:${queryHash}`,
     HRM_ENTERPRISE_SUMMARY: (year, month, dayKey, source) =>
-        `enterprise:hrm:${year}-${month}:${dayKey}:${source}`
+        `enterprise:hrm:${year}-${month}:${dayKey}:${source}`,
+    ADMIN_DASHBOARD_OVERVIEW: (scope = '30d') => `admin:dashboard:overview:${scope}`
 };
 
 async function getOrSet(key, fetchFn, ttlSeconds = DEFAULT_TTL) {
@@ -123,7 +124,8 @@ const PURGE_CACHE_PATTERNS = Object.freeze([
     'cms:*',
     'products:*',
     'search:*',
-    'enterprise:*'
+    'enterprise:*',
+    'admin:dashboard:*'
 ]);
 
 /**

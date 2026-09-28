@@ -1,12 +1,31 @@
 const { DEFAULT_SETTINGS, getStoreSettings } = require('../services/storeSettingsService');
-const { getPublicWhatsAppSettings } = require('../services/whatsappService');
+const whatsappService = require('../services/whatsappService');
+const { DEFAULT_PUBLIC_WHATSAPP } = whatsappService;
 const { getPublicPaymentPayload } = require('../services/paymentMethodService');
+
+const FALLBACK_WHATSAPP_SETTINGS = Object.freeze({
+    publicSupportWhatsApp: DEFAULT_PUBLIC_WHATSAPP || '',
+    privateAdminAlertWhatsApp: '',
+    enableWhatsAppOrderAlerts: false
+});
+
+async function loadPublicWhatsAppSettings() {
+    const fn = whatsappService.getPublicWhatsAppSettings;
+    if (typeof fn !== 'function') {
+        return { ...FALLBACK_WHATSAPP_SETTINGS };
+    }
+    try {
+        return await fn();
+    } catch (_err) {
+        return { ...FALLBACK_WHATSAPP_SETTINGS };
+    }
+}
 
 async function storeSettingsMiddleware(req, res, next) {
     try {
         const [settings, whatsappSettings, paymentSettings] = await Promise.all([
             getStoreSettings(),
-            getPublicWhatsAppSettings(),
+            loadPublicWhatsAppSettings(),
             getPublicPaymentPayload()
         ]);
         const storeLogo = settings.logoPath || settings.logoUrl || settings.storeLogo || '';

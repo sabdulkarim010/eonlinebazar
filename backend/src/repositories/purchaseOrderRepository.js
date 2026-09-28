@@ -12,6 +12,7 @@
 'use strict';
 
 const prisma = require('../config/prismaClient');
+const { logDualWriteFailure } = require('../utils/dualWriteLogHelpers');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PO_STATUSES = ['draft', 'sent', 'partial', 'received', 'cancelled'];
@@ -175,7 +176,9 @@ async function syncPurchaseOrderItems(purchaseOrderId, mongoItems) {
 async function buildPurchaseOrderData(mongoDoc) {
   const supplierId = await resolveSupplierId(mongoDoc.supplierId);
   if (!supplierId) {
-    throw new Error(`Supplier not found in PG for mongoId ${mongoDoc.supplierId}`);
+    const err = new Error(`Supplier not found in PG for mongoId ${mongoDoc.supplierId}`);
+    err.missingParent = true;
+    throw err;
   }
 
   const warehouseId = await resolveWarehouseId(mongoDoc.warehouseId);
@@ -204,7 +207,7 @@ async function buildPurchaseOrderData(mongoDoc) {
 async function upsertPurchaseOrderInPG(mongoDoc) {
   try {
     if (!mongoDoc || !mongoDoc._id) {
-      console.error('[DUAL-WRITE-PURCHASEORDER-FAIL] Missing mongoDoc or _id');
+      logDualWriteFailure('[DUAL-WRITE-PURCHASEORDER-FAIL] Missing mongoDoc or _id', null, null);
       return null;
     }
 
@@ -212,7 +215,7 @@ async function upsertPurchaseOrderInPG(mongoDoc) {
     const data = await buildPurchaseOrderData(mongoDoc);
 
     if (!data.poNumber) {
-      console.error('[DUAL-WRITE-PURCHASEORDER-FAIL] Missing poNumber', legacyId);
+      logDualWriteFailure('[DUAL-WRITE-PURCHASEORDER-FAIL] Missing poNumber', legacyId, null);
       return null;
     }
 
@@ -235,7 +238,7 @@ async function upsertPurchaseOrderInPG(mongoDoc) {
 
     return toMongoDetailShape(withItems);
   } catch (err) {
-    console.error('[DUAL-WRITE-PURCHASEORDER-FAIL]', err.message, mongoDoc?._id);
+    logDualWriteFailure('[DUAL-WRITE-PURCHASEORDER-FAIL]', mongoDoc?._id, err);
     return null;
   }
 }

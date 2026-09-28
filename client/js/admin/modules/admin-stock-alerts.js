@@ -84,6 +84,56 @@ function renderStockAlertsPage(page, limit) {
     renderStockAlertItems(slice);
 }
 
+/**
+ * Render alerts from BFF `inventory.alertsList` (PG-primary).
+ * @param {Array<object>} alertsList
+ * @param {{ totalAlerts?: number }} [options]
+ */
+function renderInventoryAlertsList(alertsList, options = {}) {
+    const container = document.getElementById('inventoryAlertsList');
+    const countLabel = document.getElementById('inventoryAlertCount');
+    if (!container) return;
+
+    stockAlertsCache = (alertsList || []).map((product) => ({
+        ...product,
+        alertType: product.alertType || (Number(product.stock ?? product.stockQuantity) <= 0 ? 'out' : 'low'),
+        stock: product.stock ?? product.stockQuantity ?? 0,
+        _id: product._id || product.legacyId || product.id
+    }));
+
+    const totalForLabel = options.totalAlerts != null ? options.totalAlerts : stockAlertsCache.length;
+
+    if (countLabel) {
+        if (totalForLabel === 0) {
+            countLabel.textContent = 'All clear';
+        } else if (totalForLabel > stockAlertsCache.length && stockAlertsCache.length > 0) {
+            countLabel.textContent = `${totalForLabel} alerts · showing ${stockAlertsCache.length}`;
+        } else {
+            countLabel.textContent = `${totalForLabel} alert${totalForLabel === 1 ? '' : 's'}`;
+        }
+    }
+
+    ensureStockAlertPagination();
+
+    if (stockAlertsCache.length === 0) {
+        renderStockAlertItems([]);
+        AdminPagination.render('stockAlertPaginationContainer', {
+            total: 0,
+            page: 1,
+            limit: stockAlertPg?.currentLimit || 10,
+            onPageChange: (p, l) => renderStockAlertsPage(p, l)
+        });
+        return;
+    }
+
+    if (stockAlertPg) {
+        stockAlertPg.stayOnPage();
+    } else {
+        renderStockAlertsPage(1, 10);
+    }
+}
+
+/** @deprecated Legacy Mongo dashboard-analytics shape — prefer renderInventoryAlertsList */
 function renderInventoryAlerts(inventoryAlerts) {
     const container = document.getElementById('inventoryAlertsList');
     const countLabel = document.getElementById('inventoryAlertCount');
@@ -123,9 +173,11 @@ function renderInventoryAlerts(inventoryAlerts) {
 }
 
 window.renderInventoryAlerts = renderInventoryAlerts;
+window.renderInventoryAlertsList = renderInventoryAlertsList;
 
 export {
     ensureStockAlertPagination,
     renderInventoryAlerts,
+    renderInventoryAlertsList,
     renderStockAlertsPage
 };

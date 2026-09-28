@@ -20,6 +20,16 @@ const {
 } = require('../../services/backupArchiveService');
 const { logSecurityEvent, getClientIp } = require('../../utils/securityLogger');
 
+const SETTINGS_DOCUMENT_KEY = 'global';
+
+async function persistBackupTimestamps(fields) {
+    await Settings.findOneAndUpdate(
+        { key: SETTINGS_DOCUMENT_KEY },
+        { $set: fields },
+        { upsert: true, setDefaultsOnInsert: true }
+    );
+}
+
 async function verifySuperAdminStepUp(req) {
     const password = String(req.body?.currentPassword || req.body?.password || '').trim();
     if (!password) {
@@ -66,11 +76,11 @@ async function triggerBackup(req, res) {
 
         stream.on('end', async () => {
             try {
-                const settings = await Settings.getOrCreate();
-                settings.lastBackupAt = new Date();
-                await settings.save();
+                await persistBackupTimestamps({ lastBackupAt: new Date() });
             } catch (saveErr) {
-                console.warn('[Backup] Could not persist lastBackupAt:', saveErr.message);
+                if (process.env.NODE_ENV !== 'test') {
+                    console.warn('[Backup] Could not persist lastBackupAt:', saveErr.message);
+                }
             }
             if (backup?.cleanup) await backup.cleanup();
         });
@@ -115,15 +125,14 @@ async function streamBackupFile(req, res, backup, logLabel) {
 
     stream.on('end', async () => {
         try {
-            const settings = await Settings.getOrCreate();
-            if (logLabel.includes('PostgreSQL')) {
-                settings.lastPostgresBackupAt = new Date();
-            } else {
-                settings.lastBackupAt = new Date();
-            }
-            await settings.save();
+            const patch = logLabel.includes('PostgreSQL')
+                ? { lastPostgresBackupAt: new Date() }
+                : { lastBackupAt: new Date() };
+            await persistBackupTimestamps(patch);
         } catch (saveErr) {
-            console.warn('[Backup] Could not persist lastBackupAt:', saveErr.message);
+            if (process.env.NODE_ENV !== 'test') {
+                console.warn('[Backup] Could not persist lastBackupAt:', saveErr.message);
+            }
         }
         if (backup?.cleanup) await backup.cleanup();
     });
@@ -205,9 +214,7 @@ async function generateInstantEncryptedBackup(req, res) {
             resourceId: 'backup'
         });
 
-        const settings = await Settings.getOrCreate();
-        settings.lastBackupAt = new Date();
-        await settings.save();
+        await persistBackupTimestamps({ lastBackupAt: new Date() });
 
         return res.status(201).json({
             success: true,

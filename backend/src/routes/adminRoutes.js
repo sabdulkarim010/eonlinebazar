@@ -88,6 +88,8 @@ const exportController = require('../controllers/admin/exportController');
 const notificationController = require('../controllers/admin/notificationController');
 const productController = require('../controllers/productController');
 const enterpriseSummaryController = require('../controllers/admin/enterpriseSummaryController');
+const dashboardOverviewBffController = require('../controllers/admin/dashboardOverviewBffController');
+const dashboardQuickActionsController = require('../controllers/admin/dashboardQuickActionsController');
 const accountsSummaryController = require('../controllers/admin/accountsSummaryController');
 const chartOfAccountsController = require('../controllers/admin/chartOfAccountsController');
 const financeReportController = require('../controllers/admin/financeReportController');
@@ -220,6 +222,28 @@ router.get('/accounts-summary', verifyAdmin, checkPermission('view_accounts', 'v
 
 // ১গ. Sales & Order Analytics Dashboard (GET)
 router.get('/dashboard-analytics', verifyAdmin, checkPermission('view_analytics'), getDashboardAnalytics);
+
+// Unified dashboard BFF — PostgreSQL/Prisma overview (Phase 1.1; legacy routes unchanged)
+router.get(
+    '/dashboard/overview',
+    verifyAdmin,
+    checkPermission('view_analytics'),
+    dashboardOverviewBffController.getDashboardOverview
+);
+
+router.get(
+    '/dashboard/quick-actions/status',
+    verifyAdmin,
+    checkPermission('view_analytics'),
+    dashboardQuickActionsController.getQuickActionsStatus
+);
+
+router.post(
+    '/dashboard/quick-actions/maintenance-toggle',
+    verifyAdmin,
+    checkPermission('manage_settings'),
+    dashboardQuickActionsController.toggleMaintenanceMode
+);
 
 // ১ঘ. Finance date-range analytics (GET)
 // URL: GET /api/admin/analytics?period=&startDate=&endDate=

@@ -3664,3 +3664,139 @@ docs/audit/AUTH_SECURITY_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
 ARCHITECTURE.md [MOD]
+
+# Dashboard BFF Phase 1.1 — 2026-09-28
+backend/src/controllers/admin/dashboardOverviewBffController.js [NEW] Prisma-only overview aggregates for admin dashboard BFF
+backend/src/routes/adminRoutes.js [MOD] GET /api/admin/dashboard/overview (view_analytics)
+tests/dashboardOverviewBff.test.js [NEW] unit tests for computeDashboardOverviewMetrics
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Dashboard BFF Phase 1.2 — 2026-09-28
+backend/src/controllers/admin/dashboardOverviewBffController.js [MOD] loadDashboardOverviewCached + Redis 60s TTL
+backend/src/services/cacheService.js [MOD] ADMIN_DASHBOARD_OVERVIEW key + purge pattern
+client/js/admin/admin-dashboard.js [MOD] AbortController, fetchDashboardOverviewBff, applyDashboardOverviewBff
+client/js/admin/modules/core-auth.js [MOD] silent 403 for /dashboard/overview
+tests/dashboardOverviewBff.test.js [MOD] Redis cache hit/fallback tests
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# Dashboard BFF Phase 1.3 — 2026-09-28
+backend/src/controllers/admin/dashboardOverviewBffController.js [MOD] registrationTrend, alertsList, dynamic low-stock count
+client/js/admin/admin-dashboard.js [MOD] BFF chart/insights; removed customers limit=50 on overview
+client/js/admin/modules/admin-stock-alerts.js [MOD] renderInventoryAlertsList from BFF
+client/admin/partials/view-overview.html [MOD] chart period label default 30 days
+tests/dashboardOverviewBff.test.js [MOD] trend + inventory mapping tests
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# Dashboard BFF Phase 2.1 — 2026-09-28
+backend/src/controllers/admin/dashboardOverviewBffController.js [MOD] financials GMV/net/AOV/paymentSplit
+client/admin/partials/view-overview.html [MOD] financial KPI cards
+client/js/admin/admin-dashboard.js [MOD] applyDashboardOverviewBff financial bindings
+tests/dashboardOverviewBff.test.js [MOD] payment split + financial aggregates
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# Dashboard BFF Phase 2.2 — 2026-09-28
+backend/src/controllers/admin/dashboardOverviewBffController.js [MOD] period windows + growth deltas
+backend/src/services/cacheService.js [MOD] scoped ADMIN_DASHBOARD_OVERVIEW cache key
+client/js/admin/admin-dashboard.js [MOD] period=30d fetch + Δ% labels
+client/admin/partials/view-overview.html [MOD] growth metric-sub spans
+tests/dashboardOverviewBff.test.js [MOD] calcGrowthDelta + period window tests
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# Dashboard BFF Phase 2.3 — 2026-09-28
+backend/src/controllers/admin/dashboardOverviewBffController.js [MOD] orderPipeline + crm retention/support SLA
+client/admin/partials/view-overview.html [MOD] pipeline + CRM retention cards
+client/js/admin/admin-dashboard.js [MOD] applyDashboardOverviewBff pipeline/crm bindings
+tests/dashboardOverviewBff.test.js [MOD] pipeline + repeat purchase tests
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# Dashboard Phase 3.1 — KPI grid & sub-stat layout — 2026-09-28
+client/css/admin/_layout.css [MOD] dashboard-kpi-grid, kpi-sub-stats, enterprise widget stack
+client/admin/partials/view-overview.html [MOD] HRM + payment split vertical sub-stats; payment mix card
+client/js/admin/admin-dashboard.js [MOD] applyHrmEnterpriseWidgetStats, renderPaymentSplitBreakdown
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Backend repair — SecurityLog, settings middleware, dual-write, backup — 2026-09-28
+backend/src/models/securityLog.js [MOD] WarehouseTransfer resourceType enum
+backend/src/middlewares/storeSettingsMiddleware.js [MOD] safe getPublicWhatsAppSettings loader
+backend/src/utils/dualWriteLogHelpers.js [NEW] test-quiet missing-parent PG failures
+backend/src/repositories/productRepository.js [MOD] resolve PG FKs + quiet dual-write logs
+backend/src/repositories/purchaseOrderRepository.js [MOD] missing-parent dual-write handling
+backend/src/controllers/admin/backupController.js [MOD] Settings upsert for lastBackupAt
+tests/services/phase3Part3.test.js [MOD] whatsapp mock exports getPublicWhatsAppSettings
+
+# Dashboard Phase 4.3 — Financial RBAC zone masking — 2026-09-28
+backend/src/controllers/admin/dashboardOverviewBffController.js [MOD] applyDashboardFinancialMask per request
+client/admin/partials/view-overview.html [MOD] zone-sensitive overlays + analytics zones
+client/css/admin/_layout.css [MOD] restricted-overlay / zone-locked
+client/js/admin/admin-dashboard.js [MOD] financial zone locks + chart dataset gating
+tests/dashboardOverviewBff.test.js [MOD] mask + permission tests
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Dashboard Phase 4.2 — Live auto-pulse refresh — 2026-09-28
+client/admin/partials/view-overview.html [MOD] dashboard-live-pulse controls
+client/css/admin/_layout.css [MOD] pulse animation + toolbar layout
+client/js/admin/admin-dashboard.js [MOD] 60s auto-refresh engine
+client/js/admin/modules/core-nav.js [MOD] admin:section-changed event
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+
+# Dashboard Phase 4.1 — Executive quick actions — 2026-09-28
+backend/src/controllers/admin/dashboardQuickActionsController.js [NEW]
+backend/src/routes/adminRoutes.js [MOD] quick-actions routes
+client/admin/partials/view-overview.html [MOD] dashboard-quick-actions-bar
+client/css/admin/_layout.css [MOD] quick-action-btn styles
+client/js/admin/admin-dashboard.js [MOD] setupDashboardQuickActions + maintenance toggle
+tests/dashboardQuickActions.test.js [NEW]
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Dashboard Phase 3.4 — Global date range selector — 2026-09-28
+backend/src/controllers/admin/dashboardOverviewBffController.js [MOD] yesterday + cache scope period:from:to
+client/admin/partials/view-overview.html [MOD] dashboard-period-toolbar
+client/css/admin/_layout.css [MOD] period toolbar styles
+client/js/admin/admin-dashboard.js [MOD] period state, BFF query builder, URL sync
+tests/dashboardOverviewBff.test.js [MOD] yesterday + custom window tests
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Dashboard Phase 3.3 — Advanced Chart.js analytics — 2026-09-28
+backend/src/controllers/admin/dashboardOverviewBffController.js [MOD] charts.salesTrend, orderFunnel, topProducts
+client/admin/partials/view-overview.html [MOD] chart-sales-trend, funnel, top products layout
+client/css/admin/_layout.css [MOD] chart-card-wrapper, chart-canvas-container
+client/js/admin/admin-dashboard.js [MOD] renderDashboardOverviewCharts + dual-axis/funnel/bar renderers
+tests/dashboardOverviewBff.test.js [MOD] chart aggregation tests
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Dashboard Phase 3.2 — Sparklines & growth badges — 2026-09-28
+backend/src/controllers/admin/dashboardOverviewBffController.js [MOD] period daily trends
+client/css/admin/_layout.css [MOD] kpi-growth-badge, sparkline-container
+client/admin/partials/view-overview.html [MOD] enhanced KPI cards + canvas sparklines
+client/js/admin/admin-dashboard.js [MOD] applyKpiGrowthBadge, renderKpiSparkline
+tests/dashboardOverviewBff.test.js [MOD] trend series tests
+docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]

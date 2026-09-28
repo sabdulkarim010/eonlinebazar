@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-28 (Admin ?view= deep links + settings API timeout hardening)  
+**Last updated:** 2026-09-28 (Dashboard Phase 4.3 — financial RBAC masking)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -35,6 +35,8 @@
 | `client/js/admin/admin-orders.js` | Orders barrel |
 | `client/js/admin/admin-settings.js` | Settings barrel |
 | `client/js/admin/admin-dashboard.js` | Analytics widgets |
+| `backend/src/controllers/admin/dashboardOverviewBffController.js` | Unified PG dashboard BFF (`GET /api/admin/dashboard/overview`) |
+| `backend/src/controllers/admin/dashboardQuickActionsController.js` | Quick action status + maintenance toggle |
 | `client/js/admin/modules/core-nav.js` | Accordion nav, mobile drawer, section routing |
 | `client/js/admin/modules/admin-url-routing.js` | `?view=` deep links (replaces `#hash` routes) |
 | `client/js/admin/modules/core-breadcrumb.js` | Dashboard > Group > Section breadcrumbs |
@@ -46,6 +48,7 @@
 | `client/js/admin/modules/adminSidebar.js` | Sidebar profile — merged Admin + linked Employee via `/api/admin/profile/me/full` |
 | `client/js/admin/modules/admin-stock-alerts.js` | Dashboard inventory alerts client-side pagination |
 | `client/js/admin/modules/pagination-util.js` | Shared AdminPagination.ensure / render for list sections |
+| `client/css/admin/_layout.css` | Dashboard grids, enterprise widgets, KPI sub-stat stacks |
 | `client/css/admin/` | Module CSS (never edit `admin.css` barrel directly) |
 
 **Counts (verified 2026-09-20):** 46 HTML partials, 53 JS modules under `client/js/admin/modules/`.
@@ -58,6 +61,17 @@
 - [x] Breadcrumb trail — `core-breadcrumb.js`
 - [x] Mobile sidebar drawer + accordion groups — `core-nav.js`, `_responsive.css`
 - [x] Dashboard KPIs + enterprise summary widgets — `view-overview.html`, `admin-dashboard.js`
+- [x] Dashboard responsive KPI grid + vertical sub-stats (HRM attendance/payroll, payment split) — `_layout.css`, Phase 3.1
+- [x] KPI sparklines + color-coded growth badges (GMV, revenue, orders, customers) — Phase 3.2
+- [x] BFF chart engine: dual-axis sales trend, order funnel, top products — Phase 3.3
+- [x] Global date range selector (presets + custom) wired to overview BFF — Phase 3.4
+- [x] Executive quick action toolbar (orders, products, payroll, maintenance) — Phase 4.1
+- [x] Live pulse badge + 60s background overview refresh — Phase 4.2
+- [x] Financial zone RBAC — BFF masking + locked KPI overlays (`view_financial_reports`) — Phase 4.3
+- [x] Dashboard BFF PG overview + AbortController dedup — `admin-dashboard.js` + Redis cache on overview API
+- [x] Customer growth chart + insights from BFF (no `customers?limit=50` on overview)
+- [x] Inventory alerts list from BFF PG thresholds (`admin-stock-alerts.js`)
+- [ ] Dashboard full cutover — sales charts still on legacy `dashboard-analytics`; enterprise widgets on `enterprise-summary`
 - [x] Unified settings hub (tabbed) — `view-settings.html`, `settings-hub.js`
 - [x] Clean admin deep links (`/admin?view=settings-security`) — `admin-url-routing.js`, `core-nav.js`
 - [x] Order management + master editor — `view-orders.html`, `orders-table.js`, `orders-editor.js`
@@ -101,6 +115,88 @@
 ---
 
 ## Change Log
+
+### Dashboard Phase 4.3 — Granular financial RBAC — 2026-09-28
+
+- BFF masks GMV/revenue/AOV/payment split when admin lacks `view_financial_reports` / `view_accounts` (post-cache per request).
+- `meta.maskedZones: ['financials']` + `permissions.canViewFinancials`.
+- Overview: `zone-locked` overlays on sensitive KPI cards; charts omit revenue datasets when masked.
+- Tests: **403/403** Jest.
+
+### Dashboard Phase 4.2 — Live auto-pulse refresh — 2026-09-28
+
+- Date toolbar: live pulse indicator, relative “last updated” label, manual refresh control.
+- Background polling every 60s on overview (pauses when tab hidden, section inactive, or rate-limited).
+- `admin:section-changed` event from `core-nav.js` for pulse lifecycle.
+- Tests: **401/401** Jest (unchanged).
+
+### Dashboard Phase 4.1 — Executive quick actions — 2026-09-28
+
+- Overview toolbar: create order, add product, payroll, maintenance toggle (`data-permission` gated).
+- API: `GET /api/admin/dashboard/quick-actions/status`, `POST .../maintenance-toggle` (dual-write settings).
+- Tests: **401/401** Jest.
+
+### Dashboard Phase 3.4 — Global date range selector — 2026-09-28
+
+- Toolbar: `#dashboard-period-select`, custom from/to + Apply; URL `period`/`from`/`to` sync.
+- BFF: `yesterday` preset; cache scope `period:from:to`; prior window length matches selection.
+- Tests: **399/399** Jest.
+
+### Dashboard Phase 3.3 — Advanced visual analytics — 2026-09-28
+
+- BFF `charts`: `salesTrend`, `orderFunnel`, `topProducts` (PG aggregates, Redis-cached with overview).
+- Overview: full-width dual-axis sales chart + 2-col funnel / top products grid (`chart-sales-trend`, etc.).
+- Tests: **396/396** Jest.
+
+### Dashboard Phase 3.2 — Sparklines & growth badges — 2026-09-28
+
+- BFF: period-scoped `revenueTrend`, `ordersTrend`, `gmvTrend`; `registrationTrend` uses `{ date, value, count }`.
+- Overview KPI cards: Chart.js mini sparklines + `.kpi-growth-badge` pills.
+- Tests: **394/394** Jest.
+
+### Dashboard Phase 3.1 — Modern grid & truncation fixes — 2026-09-28
+
+- CSS: `.dashboard-kpi-grid`, `.kpi-sub-stats`, `.kpi-sub-stat-row`; enterprise widget stack rows; `auto-fit` enterprise grid.
+- Overview: HRM attendance/payroll as vertical rows; COD/digital share rows + **Payment mix** card (`byMethod`).
+- JS: `applyHrmEnterpriseWidgetStats`, `renderPaymentSplitBreakdown` (BFF + enterprise summary HRM).
+- Tests: **392/392** Jest (unchanged).
+
+### Dashboard BFF Phase 2.3 — Order pipeline & CRM — 2026-09-28
+
+- BFF: `orderPipeline` lifecycle counts + `crm` repeat purchase rate & ContactMessage SLA metrics.
+- Overview UI: expanded SLA pipeline cards + CRM retention row.
+- Tests: **392/392** Jest.
+
+### Dashboard BFF Phase 2.2 — Period growth (Δ%) — 2026-09-28
+
+- Query params: `?period=7d|30d|this_month|today` (+ optional `from`/`to`); scoped Redis cache keys.
+- Prior-period windows + `calcGrowthDelta` on revenue, orders, customers, GMV.
+- Overview UI shows Δ% labels (default fetch `period=30d`).
+- Tests: **390/390** Jest.
+
+### Dashboard BFF Phase 2.1 — Advanced financial KPIs — 2026-09-28
+
+- BFF `financials`: GMV, net revenue, AOV, COD vs digital + `byMethod` breakdown (Prisma).
+- Overview UI: financial metrics row in `view-overview.html`; bound in `applyDashboardOverviewBff`.
+- Tests: **388/388** Jest.
+
+### Dashboard BFF Phase 1.3 — Chart & inventory divergence fix — 2026-09-28
+
+- BFF: 30-day `registrationTrend`, customer insight counts, dynamic `alertsList` (enterprise low-stock rules).
+- Frontend: `renderRegistrationTrendChart`, `renderInventoryAlertsList`; removed overview `limit=50` fetch.
+- Tests: **387/387** Jest.
+
+### Dashboard BFF Phase 1.2 — Redis cache + frontend fetch — 2026-09-28
+
+- Overview API: Redis key `admin:dashboard:overview`, 60s TTL, `source: "cache"` on hits; Prisma fallback if Redis down.
+- `admin-dashboard.js`: `AbortController` cancels in-flight dashboard loads; BFF KPIs applied after parallel legacy chart/summary fetches.
+- Tests: **385/385** Jest (dashboardOverviewBff cache tests).
+
+### Dashboard BFF Phase 1.1 — Prisma overview API — 2026-09-28
+
+- Added `dashboardOverviewBffController.js` — parallel Prisma aggregates (orders, revenue, customers, low stock).
+- Route: `GET /api/admin/dashboard/overview` (`view_analytics`); legacy `dashboard-analytics` / `enterprise-summary` unchanged.
+- Tests: `tests/dashboardOverviewBff.test.js` — **383/383** Jest passing.
 
 ### System Settings Phase 4 Part 1 — Sidebar & hub UI — 2026-09-27
 

@@ -17,8 +17,53 @@
 
 const prisma = require('../config/prismaClient');
 const { slugifyBrand } = require('./brandRepository');
+const { logDualWriteFailure } = require('../utils/dualWriteLogHelpers');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveByLegacyId(model, mongoRef) {
+  if (mongoRef == null || mongoRef === '') return null;
+  const ref = String(mongoRef);
+
+  let row = await prisma[model].findUnique({ where: { legacyId: ref } });
+  if (row) return row.id;
+
+  if (UUID_PATTERN.test(ref)) {
+    row = await prisma[model].findUnique({ where: { id: ref } });
+    if (row) return row.id;
+  }
+
+  return null;
+}
+
+async function resolveProductMainForeignKeys(main) {
+  const [
+    categoryId,
+    brandId,
+    supplierId,
+    warehouseId,
+    createdById
+  ] = await Promise.all([
+    main.categoryId ? resolveByLegacyId('category', main.categoryId) : null,
+    main.brandId ? resolveByLegacyId('brand', main.brandId) : null,
+    main.supplierId ? resolveByLegacyId('supplier', main.supplierId) : null,
+    main.warehouseId ? resolveByLegacyId('warehouse', main.warehouseId) : null,
+    main.createdById ? resolveByLegacyId('admin', main.createdById) : null
+  ]);
+
+  return {
+    ...main,
+    categoryId,
+    brandId,
+    supplierId,
+    warehouseId,
+    createdById
+  };
+}
+
+function logProductDualWriteFail(payload, err) {
+  logDualWriteFailure('[DUAL-WRITE-PRODUCT-FAIL]', payload, err);
+}
 
 // productController.js slugify — same algorithm as brand.js (Bengali U+0980–U+09FF).
 const slugifyProduct = slugifyBrand;
@@ -415,7 +460,8 @@ const { mongoProductToPrismaShape } = require('../utils/productDualWriteHelpers'
 async function createProductInPG(mongoDoc) {
   try {
     const shape = mongoProductToPrismaShape(mongoDoc);
-    const { main, variants, costHistory, embeddedReviews } = shape;
+    const { variants, costHistory, embeddedReviews } = shape;
+    const main = await resolveProductMainForeignKeys(shape.main);
 
     // Create main product row
     const product = await prisma.product.create({
@@ -488,12 +534,16 @@ async function createProductInPG(mongoDoc) {
 
     // Create cost history
     for (const entry of costHistory) {
+      const costSupplierId = entry.supplierId
+        ? await resolveByLegacyId('supplier', entry.supplierId)
+        : null;
+      // eslint-disable-next-line no-await-in-loop
       await prisma.productCostHistory.create({
         data: {
           productId: product.id,
           cost: entry.cost,
           date: entry.date,
-          supplierId: entry.supplierId
+          supplierId: costSupplierId
         }
       });
     }
@@ -513,12 +563,12 @@ async function createProductInPG(mongoDoc) {
       });
     }
   } catch (err) {
-    console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+    logProductDualWriteFail({
       timestamp: new Date().toISOString(),
       operation: 'create',
       mongoId: String(mongoDoc._id || ''),
       error: err.message || String(err)
-    });
+    }, err);
   }
 }
 
@@ -534,12 +584,12 @@ async function updateProductInPG(mongoId, updateData) {
     });
 
     if (!product) {
-      console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+      logProductDualWriteFail({
         timestamp: new Date().toISOString(),
         operation: 'update',
         mongoId: legacyId,
         error: 'Product not found in Postgres'
-      });
+      }, Object.assign(new Error('Product not found in Postgres'), { missingParent: true }));
       return;
     }
 
@@ -551,16 +601,36 @@ async function updateProductInPG(mongoId, updateData) {
     if (updateData.buyingPrice !== undefined) fields.buyingPrice = Number(updateData.buyingPrice);
     if (updateData.category !== undefined) fields.categoryName = String(updateData.category).trim();
     if (updateData.categoryName !== undefined) fields.categoryName = String(updateData.categoryName).trim();
-    if (updateData.categoryId !== undefined) fields.categoryId = updateData.categoryId;
-    if (updateData.brand !== undefined) fields.brandId = updateData.brand;
-    if (updateData.brandId !== undefined) fields.brandId = updateData.brandId;
+    if (updateData.categoryId !== undefined) {
+      fields.categoryId = updateData.categoryId
+        ? await resolveByLegacyId('category', updateData.categoryId)
+        : null;
+    }
+    if (updateData.brand !== undefined) {
+      fields.brandId = updateData.brand
+        ? await resolveByLegacyId('brand', updateData.brand)
+        : null;
+    }
+    if (updateData.brandId !== undefined) {
+      fields.brandId = updateData.brandId
+        ? await resolveByLegacyId('brand', updateData.brandId)
+        : null;
+    }
     if (updateData.brandName !== undefined) fields.brandName = String(updateData.brandName).trim();
     if (updateData.hasVariants !== undefined) fields.hasVariants = Boolean(updateData.hasVariants);
     if (updateData.stockQuantity !== undefined) fields.stockQuantity = Number(updateData.stockQuantity);
     if (updateData.lowStockThreshold !== undefined) fields.lowStockThreshold = Number(updateData.lowStockThreshold);
     if (updateData.stock !== undefined) fields.stock = Number(updateData.stock);
-    if (updateData.supplierId !== undefined) fields.supplierId = updateData.supplierId;
-    if (updateData.warehouseId !== undefined) fields.warehouseId = updateData.warehouseId;
+    if (updateData.supplierId !== undefined) {
+      fields.supplierId = updateData.supplierId
+        ? await resolveByLegacyId('supplier', updateData.supplierId)
+        : null;
+    }
+    if (updateData.warehouseId !== undefined) {
+      fields.warehouseId = updateData.warehouseId
+        ? await resolveByLegacyId('warehouse', updateData.warehouseId)
+        : null;
+    }
     if (updateData.reorderPoint !== undefined) fields.reorderPoint = Number(updateData.reorderPoint);
     if (updateData.description !== undefined) fields.description = String(updateData.description).trim();
     if (updateData.detailedDescription !== undefined) fields.detailedDescription = String(updateData.detailedDescription).trim();
@@ -637,12 +707,12 @@ async function updateProductInPG(mongoId, updateData) {
       }
     }
   } catch (err) {
-    console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+    logProductDualWriteFail({
       timestamp: new Date().toISOString(),
       operation: 'update',
       mongoId: String(mongoId),
       error: err.message || String(err)
-    });
+    }, err);
   }
 }
 
@@ -658,12 +728,12 @@ async function deleteProductInPG(mongoId) {
     });
 
     if (!product) {
-      console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+      logProductDualWriteFail({
         timestamp: new Date().toISOString(),
         operation: 'delete',
         mongoId: legacyId,
         error: 'Product not found in Postgres'
-      });
+      }, Object.assign(new Error('Product not found in Postgres'), { missingParent: true }));
       return;
     }
 
@@ -672,12 +742,12 @@ async function deleteProductInPG(mongoId) {
       where: { legacyId }
     });
   } catch (err) {
-    console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+    logProductDualWriteFail({
       timestamp: new Date().toISOString(),
       operation: 'delete',
       mongoId: String(mongoId),
       error: err.message || String(err)
-    });
+    }, err);
   }
 }
 
@@ -694,25 +764,25 @@ async function updateStockInPG(mongoId, variantSku, newQty) {
     });
 
     if (!product) {
-      console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+      logProductDualWriteFail({
         timestamp: new Date().toISOString(),
         operation: 'updateStock',
         mongoId: legacyId,
         variantSku: String(variantSku),
         error: 'Product not found in Postgres'
-      });
+      }, Object.assign(new Error('Product not found in Postgres'), { missingParent: true }));
       return;
     }
 
     const variant = product.variants.find(v => v.sku === String(variantSku));
     if (!variant) {
-      console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+      logProductDualWriteFail({
         timestamp: new Date().toISOString(),
         operation: 'updateStock',
         mongoId: legacyId,
         variantSku: String(variantSku),
         error: 'Variant not found'
-      });
+      }, Object.assign(new Error('Variant not found'), { missingParent: true }));
       return;
     }
 
@@ -732,13 +802,13 @@ async function updateStockInPG(mongoId, variantSku, newQty) {
       data: { stock: totalStock, stockQuantity: totalStock }
     });
   } catch (err) {
-    console.error('[DUAL-WRITE-PRODUCT-FAIL]', {
+    logProductDualWriteFail({
       timestamp: new Date().toISOString(),
       operation: 'updateStock',
       mongoId: String(mongoId),
       variantSku: String(variantSku),
       error: err.message || String(err)
-    });
+    }, err);
   }
 }
 

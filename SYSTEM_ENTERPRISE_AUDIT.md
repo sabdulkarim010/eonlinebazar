@@ -175,6 +175,7 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 | Feature | Status | Files | Notes |
 |---------|--------|-------|-------|
 | Admin dashboard analytics | ✅ | `analyticsController.js`, `view-overview.html`, `admin-dashboard.js` | KPIs, charts |
+| Admin dashboard BFF (PG overview) | ⚠️ PARTIAL | `dashboardOverviewBffController.js`, `admin-dashboard.js` | PG KPIs + Redis cache + AbortController; charts/enterprise still legacy APIs |
 | Finance analytics | ✅ | `financeAnalyticsController.js`, `finance-analytics.html` | Profit/margin — separate login |
 | Advanced P&L report | ✅ | `profitLossController.js`, `exportController.js`, `erp-profit-loss.js`, `view-finance.html` | Embedded SPA — revenue/COGS/courier/expenses/margin, SVG charts, PDF/CSV export (superadmin) |
 | Expense ledger | ✅ | `expense.js`, `expenseCategory.js`, `expenseController.js`, `expenseCategoryController.js` | Dynamic category catalog + expense CRUD + summary; feeds P&L |
@@ -4106,6 +4107,164 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | Settings/sidebar PG reads | ✅ | `PG_ADMIN_READ_TIMEOUT_MS` (default 8s) → Mongo/empty fallback |
 | verifyAdmin session check | ✅ | `maxTimeMS` + skip when Mongo disconnected |
 | Tests | ✅ | **381/381** Jest |
+
+---
+
+## Dashboard BFF Phase 1.1 — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Prisma overview controller | ✅ | `dashboardOverviewBffController.js` — orders, delivered revenue, customers, low stock |
+| Route | ✅ | `GET /api/admin/dashboard/overview` (`view_analytics`); legacy analytics routes unchanged |
+| Redis overview cache | ✅ | `admin:dashboard:overview`, 60s TTL, graceful PG fallback |
+| Frontend BFF + dedup | ✅ | `fetchDashboardOverviewBff`, `AbortController` in `fetchDashboardData` |
+| Frontend cutover | ❌ | Charts/enterprise widgets still use legacy endpoints |
+| Tests | ✅ | **385/385** Jest (`tests/dashboardOverviewBff.test.js`) |
+
+---
+
+## Dashboard BFF Phase 1.2 — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Redis overview cache | ✅ | 60s TTL; `source: "cache"` on hits |
+| AbortController | ✅ | Cancels stale dashboard fetches on nav/sync |
+| BFF KPI wiring | ✅ | Revenue, orders, customers, low stock from PG overview |
+
+---
+
+## Dashboard BFF Phase 1.3 — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Registration trend (30d) | ✅ | PG `$queryRaw` daily user signups in BFF + Chart.js |
+| Customer insights | ✅ | Verified/unverified/blocked counts from PG; no `limit=50` on overview |
+| Inventory alerts list | ✅ | Dynamic threshold query; UI via `renderInventoryAlertsList` |
+| Tests | ✅ | **387/387** Jest |
+
+---
+
+## Dashboard BFF Phase 2.1 — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Financial KPIs (PG) | ✅ | GMV, net revenue, AOV, payment split in `dashboardOverviewBffController.js` |
+| Overview UI | ✅ | Financial metrics row — `view-overview.html`, `applyDashboardOverviewBff` |
+| Tests | ✅ | **388/388** Jest |
+
+---
+
+## Dashboard BFF Phase 2.2 — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Period query params | ✅ | `7d`, `30d`, `this_month`, `today`, custom `from`/`to` |
+| Prior-period Δ% | ✅ | Revenue, orders, new customers, GMV |
+| Scoped Redis cache | ✅ | Per-period cache keys |
+| Tests | ✅ | **390/390** Jest |
+
+---
+
+## Dashboard BFF Phase 2.3 — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Order SLA pipeline | ✅ | PG `groupBy` status — pending → refunded |
+| CRM repeat purchase | ✅ | Unique purchasers with >1 valid order |
+| Support tickets | ✅ | `ContactMessage` open count + avg response/resolution SLA |
+| Tests | ✅ | **392/392** Jest |
+
+---
+
+## Dashboard Phase 3.1 — KPI grid & truncation fixes — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Responsive KPI grid | ✅ | `.dashboard-kpi-grid` on finance/sales/pipeline/CRM metric rows |
+| HRM widget sub-stats | ✅ | Present/absent/late + paid/pending rows (no ellipsis cramming) |
+| Payment split UI | ✅ | COD/digital share + top `byMethod` list via `renderPaymentSplitBreakdown` |
+| Enterprise widget grid | ✅ | `auto-fit minmax(280px)` + stacked stat rows |
+| Tests | ✅ | **392/392** Jest |
+
+---
+
+## Dashboard Phase 3.2 — Sparklines & growth badges — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Period daily trends in BFF | ✅ | `revenueTrend`, `ordersTrend`, `gmvTrend`, scoped `registrationTrend` |
+| KPI growth badges | ✅ | Green/red/neutral Δ% on GMV, revenue, orders, customers |
+| Mini sparklines | ✅ | Chart.js in `.sparkline-container` |
+| Tests | ✅ | **394/394** Jest |
+
+---
+
+## Dashboard Phase 3.3 — Advanced visual analytics — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| BFF chart payloads | ✅ | `charts.salesTrend`, `orderFunnel`, `topProducts` |
+| Dual-axis sales chart | ✅ | Delivered revenue vs daily order count |
+| Order lifecycle funnel | ✅ | Pending → cancelled with conversion/drop-off |
+| Top products chart | ✅ | Top 5 by revenue + units (period-scoped) |
+| Tests | ✅ | **396/396** Jest |
+
+---
+
+## Dashboard Phase 3.4 — Global date range selector — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Period presets | ✅ | today, yesterday, 7d, 30d, this_month, custom |
+| Prior window parity | ✅ | Same duration for growth comparisons |
+| Redis cache scope | ✅ | `admin:dashboard:overview:{period}:{from}:{to}` |
+| Overview toolbar + URL sync | ✅ | Reactive BFF refetch without reload |
+| Tests | ✅ | **399/399** Jest |
+
+---
+
+## Dashboard Phase 4.1 — Executive quick actions — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Quick action toolbar | ✅ | Overview bar with RBAC `data-permission` |
+| Maintenance toggle API | ✅ | Dual-write settings + cache invalidation |
+| Navigation shortcuts | ✅ | Orders modal, add product, payroll views |
+| Tests | ✅ | **401/401** Jest |
+
+---
+
+## Dashboard Phase 4.2 — Live auto-pulse refresh — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Live pulse UI | ✅ | Last updated label + manual refresh in period toolbar |
+| Background polling | ✅ | 60s interval aligned with BFF Redis TTL |
+| Smart pause | ✅ | Hidden tab, non-overview section, 429 backoff |
+| Tests | ✅ | **401/401** Jest |
+
+---
+
+## Dashboard Phase 4.3 — Financial RBAC zone masking — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| BFF financial masking | ✅ | Post-cache per admin; `view_financial_reports` / `view_accounts` |
+| Sensitive KPI locks | ✅ | Overlays on GMV, revenue, AOV, payment mix |
+| Chart revenue gating | ✅ | Orders/units visible; revenue series hidden when masked |
+| Tests | ✅ | **403/403** Jest |
+
+---
+
+## Backend repair batch — SecurityLog, middleware, dual-write, backup — 2026-09-28
+
+| Item | Status | Notes |
+|------|--------|-------|
+| SecurityLog `WarehouseTransfer` enum | ✅ | WMS audit events persist |
+| Store settings middleware WhatsApp | ✅ | Fallback when mock/incomplete export |
+| Product/PO dual-write FK noise | ✅ | Resolve PG FKs; quiet missing-parent in test |
+| Backup `lastBackupAt` upsert | ✅ | `findOneAndUpdate` on settings singleton |
+| Tests | ✅ | **403/403** Jest |
 
 
 

@@ -12,7 +12,13 @@ jest.mock('../../backend/src/services/smsService', () => ({
 }));
 
 jest.mock('../../backend/src/services/whatsappService', () => ({
-    sendWhatsAppMessage: jest.fn().mockResolvedValue({ success: true })
+    DEFAULT_PUBLIC_WHATSAPP: '8801521377735',
+    sendWhatsAppMessage: jest.fn().mockResolvedValue({ success: true }),
+    getPublicWhatsAppSettings: jest.fn().mockResolvedValue({
+        publicSupportWhatsApp: '8801521377735',
+        privateAdminAlertWhatsApp: '',
+        enableWhatsAppOrderAlerts: false
+    })
 }));
 
 const request = require('supertest');

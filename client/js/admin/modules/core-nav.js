@@ -820,6 +820,10 @@ function navigateAdminSection(targetId, clickedItem) {
         window.syncAdminRouteUrl({ sectionId, settingsTab, navItem: resolvedItem });
     }
 
+    window.dispatchEvent(new CustomEvent('admin:section-changed', {
+        detail: { sectionId, previousSectionId }
+    }));
+
     const refreshMap = {
         'view-orders': () => {
             if (typeof window.canFetchLiveOrders === 'function' && window.canFetchLiveOrders()) {

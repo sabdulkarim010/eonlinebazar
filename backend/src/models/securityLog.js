@@ -13,6 +13,7 @@ const RESOURCE_TYPES = [
     // ERP (Phase 2)
     'supplier',
     'warehouse',
+    'WarehouseTransfer',
     'purchase_order',
     // ERP Finance
     'expense',
