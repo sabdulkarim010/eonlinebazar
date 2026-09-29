@@ -8,7 +8,7 @@
  * never click into an Access Denied wall.
  */
 
-const staffToken = () => localStorage.getItem('adminToken');
+const staffToken = () => window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
 
 /** Bearer token headers for every /api/admin/* request (verifyAdmin reads Authorization header). */
 function authHeaders(json = true) {
@@ -1966,7 +1966,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // browser where to go, so honour the redirect instead of showing a panel.
         const redirect = error.payload && error.payload.redirect;
         if (error.status === 401 || error.status === 403) {
-            localStorage.removeItem('adminToken');
+            window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_TOKEN);
             window.location.replace(redirect || '/admin-login');
             return;
         }

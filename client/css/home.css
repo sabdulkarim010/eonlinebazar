@@ -623,6 +623,8 @@
     position: relative;
     width: 100%;
     height: 120px;
+    aspect-ratio: 1 / 1;
+    max-height: 120px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -692,33 +694,58 @@
     margin-right: 3px;
 }
 
-/* Add to Cart — always visible below title & price */
-.product-card > .add-to-cart-btn {
+/* Add to Cart — full-width primary CTA on grid cards */
+.product-card > .product-card-actions {
     display: block;
-    flex-shrink: 0;
     width: calc(100% - 16px);
-    margin: 0 8px 8px;
-    padding: 7px 8px;
+    margin: 0 8px 10px;
+}
+
+.product-card > .product-card-actions .add-to-cart-btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 9px 10px;
     background: #f97316;
     border: none;
     color: #fff;
-    font-size: clamp(10px, 1.1vw, 12px);
+    font-size: clamp(11px, 1.2vw, 13px);
     font-weight: 600;
-    line-height: 1.2;
+    line-height: 1.25;
     border-radius: 8px;
     cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    text-align: center;
+    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.product-card > .product-card-actions .add-to-cart-btn:hover {
+    background: #ea580c;
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
+}
+
+.product-card > .product-card-actions .add-to-cart-btn:active {
+    transform: scale(0.98);
+}
+
+/* Legacy: direct child add button (older markup) */
+.product-card > .add-to-cart-btn {
+    display: block;
+    width: calc(100% - 16px);
+    margin: 0 8px 10px;
+    padding: 9px 10px;
+    background: #f97316;
+    border: none;
+    color: #fff;
+    font-size: clamp(11px, 1.2vw, 13px);
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
     transition: background 0.2s ease, transform 0.15s ease;
 }
 
 .product-card > .add-to-cart-btn:hover {
     background: #ea580c;
-}
-
-.product-card > .add-to-cart-btn:active {
-    transform: scale(0.98);
 }
 
 /* Wishlist heart button on product cards */
@@ -945,9 +972,15 @@
         padding: 8px 8px 4px;
     }
 
-    .product-card > .add-to-cart-btn {
+    .product-card > .product-card-actions {
         width: calc(100% - 12px);
-        margin: 0 6px 6px;
+        margin: 0 6px 8px;
+    }
+
+    .product-card > .product-card-actions .add-to-cart-btn,
+    .product-card > .add-to-cart-btn {
+        width: 100%;
+        margin: 0;
         padding: 8px 6px;
         font-size: 11px;
     }

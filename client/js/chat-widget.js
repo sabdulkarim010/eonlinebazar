@@ -18,8 +18,8 @@
             var token = null;
             try {
                 token =
-                    localStorage.getItem('token') ||
-                    localStorage.getItem('customerToken');
+                    window.EOBStorage.get(window.EOBStorageKeys.TOKEN) ||
+                    window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
             } catch (e) { /* ignore */ }
             return !!token;
         } catch (e2) {
@@ -92,6 +92,9 @@
     }
 
     function esc(str) {
+        if (global.EOBSanitizer && typeof global.EOBSanitizer.escapeHtml === 'function') {
+            return global.EOBSanitizer.escapeHtml(str);
+        }
         return String(str == null ? '' : str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -229,10 +232,10 @@
 
     function getOrCreateSessionId() {
         try {
-            var existing = localStorage.getItem(STORAGE_SESSION);
+            var existing = window.EOBStorage.get(STORAGE_SESSION);
             if (existing) return existing;
             var id = uuid();
-            localStorage.setItem(STORAGE_SESSION, id);
+            window.EOBStorage.set(STORAGE_SESSION, id);
             return id;
         } catch (e) {
             return uuid();
@@ -246,14 +249,14 @@
     function persistRoom(id) {
         state.roomId = id;
         try {
-            localStorage.setItem(roomStorageKey(), id);
-            localStorage.setItem('chatConversationId', id);
+            window.EOBStorage.set(roomStorageKey(), id);
+            window.EOBStorage.set(window.EOBStorageKeys.CHAT_CONVERSATION_ID, id);
         } catch (e) { /* ignore */ }
     }
 
     function readPersistedRoom() {
         try {
-            return localStorage.getItem(roomStorageKey()) || localStorage.getItem('chatConversationId');
+            return window.EOBStorage.get(roomStorageKey()) || window.EOBStorage.get(window.EOBStorageKeys.CHAT_CONVERSATION_ID);
         } catch (e) {
             return null;
         }
@@ -261,7 +264,7 @@
 
     function getRatedRooms() {
         try {
-            var raw = localStorage.getItem(STORAGE_RATED);
+            var raw = window.EOBStorage.get(STORAGE_RATED);
             var arr = raw ? JSON.parse(raw) : [];
             return Array.isArray(arr) ? arr : [];
         } catch (e) {
@@ -274,7 +277,7 @@
             var rooms = getRatedRooms();
             if (rooms.indexOf(String(id)) === -1) {
                 rooms.push(String(id));
-                localStorage.setItem(STORAGE_RATED, JSON.stringify(rooms));
+                window.EOBStorage.setJSON(STORAGE_RATED, rooms);
             }
         } catch (e) { /* ignore */ }
     }
@@ -492,9 +495,9 @@
 
     function clearPersistedRoom() {
         try {
-            localStorage.removeItem(roomStorageKey());
-            localStorage.removeItem('chatConversationId');
-            localStorage.removeItem('cw_room_id');
+            window.EOBStorage.remove(roomStorageKey());
+            window.EOBStorage.remove(window.EOBStorageKeys.CHAT_CONVERSATION_ID);
+            window.EOBStorage.remove(window.EOBStorageKeys.CHAT_ROOM_ID);
         } catch (e) { /* ignore */ }
     }
 
@@ -1127,12 +1130,12 @@
             state.guestSessionId = getOrCreateSessionId();
             if (!state.authToken) {
                 try {
-                    state.authToken = localStorage.getItem('token') || localStorage.getItem('customerToken');
+                    state.authToken = window.EOBStorage.get(window.EOBStorageKeys.TOKEN) || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
                 } catch (e) { /* ignore */ }
             }
             if (!state.userId) {
                 try {
-                    var raw = localStorage.getItem('customerData') || localStorage.getItem('userInfo') || localStorage.getItem('user');
+                    var raw = window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_DATA) || window.EOBStorage.get(window.EOBStorageKeys.USER_INFO) || window.EOBStorage.get(window.EOBStorageKeys.USER);
                     if (raw) {
                         var u = JSON.parse(raw);
                         state.userId = u._id || u.id || state.userId;
@@ -1162,9 +1165,9 @@
         linkRegisteredUser: async function (options) {
             options = options || {};
             try {
-                var raw = localStorage.getItem('customerData') || localStorage.getItem('userInfo') || localStorage.getItem('user');
+                var raw = window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_DATA) || window.EOBStorage.get(window.EOBStorageKeys.USER_INFO) || window.EOBStorage.get(window.EOBStorageKeys.USER);
                 var user = options.user || (raw ? JSON.parse(raw) : null);
-                var token = options.token || localStorage.getItem('token') || localStorage.getItem('customerToken');
+                var token = options.token || window.EOBStorage.get(window.EOBStorageKeys.TOKEN) || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
                 if (user) {
                     state.userId = user._id || user.id || state.userId;
                     state.guestName = user.name || state.guestName;

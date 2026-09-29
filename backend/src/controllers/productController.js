@@ -15,7 +15,11 @@ const { upload } = require('../middlewares/uploadMiddleware'); // এখান�
 const cloudinary = require('cloudinary').v2; // ক্লাউডিনারি সরাসরি এখান থেকে ইমপোর্ট করুন
 const mongoose = require('mongoose');
 const { parseVariants, applyProductStockFields, computeMinVariantPrice, applyPrimaryImageToVariants } = require('../utils/variantHelpers');
-const { loadFlashSaleSettings, applyFlashSaleToProducts } = require('../services/flashSaleService');
+const {
+    loadFlashSaleSettings,
+    applyFlashSaleToProducts,
+    isFlashSaleActive
+} = require('../services/flashSaleService');
 const productReadService = require('../services/productReadService');
 const { getOrSet, invalidateProductCaches, CACHE_KEYS } = require('../services/cacheService');
 const { logSecurityEvent, getClientIp } = require('../utils/securityLogger');
@@ -181,11 +185,19 @@ function buildProductListSearchFilter(searchTerm) {
 // ১. প্রোডাক্ট লিস্ট (পাবলিক) — ?page=1&limit=24&search=keyword&sort=popular
 const getProducts = async (req, res) => {
     try {
-        const { page, limit, skip } = await parseProductPagination(req);
+        let { page, limit, skip } = await parseProductPagination(req);
         const searchTerm = String(req.query.search || req.query.q || '').trim();
         const sortParam = String(req.query.sort || '').trim();
+        const featured = String(req.query.featured || '').toLowerCase() === 'true';
         const filter = buildProductListSearchFilter(searchTerm) || {};
-        const sortOption = sortParam ? buildSortOption(sortParam) : { createdAt: -1 };
+        let sortOption = sortParam ? buildSortOption(sortParam) : { createdAt: -1 };
+        if (featured && !sortParam) {
+            sortOption = buildSortOption('top');
+        }
+        if (featured) {
+            limit = Math.min(limit, 10);
+            skip = (page - 1) * limit;
+        }
 
         const [totalProducts, products, flashSettings] = await Promise.all([
             Product.countDocuments(filter),
@@ -832,6 +844,81 @@ const deleteProduct = async (req, res) => {
 };
 
 // ৫. সিঙ্গেল প্রোডাক্টের বিস্তারিত তথ্য দেখা (পাবলিক)
+function buildProductIdsLookupFilter(ids) {
+    const or = [];
+    (ids || []).forEach((raw) => {
+        const id = String(raw || '').trim();
+        if (!id) return;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            or.push({ _id: id });
+        }
+        or.push({ productId: id });
+    });
+    return or.length ? { $or: or } : { _id: null };
+}
+
+const getProductsLookup = async (req, res) => {
+    try {
+        const rawIds = String(req.query.ids || '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .slice(0, 30);
+
+        if (!rawIds.length) {
+            return res.json({ products: [], pagination: buildPaginationMeta(0, 1, 0) });
+        }
+
+        const filter = buildProductIdsLookupFilter(rawIds);
+        const [products, flashSettings] = await Promise.all([
+            Product.find(filter).limit(30).lean(),
+            loadFlashSaleSettings()
+        ]);
+        const enriched = applyFlashSaleToProducts(products, flashSettings);
+        res.json({
+            products: enriched,
+            pagination: buildPaginationMeta(enriched.length, 1, enriched.length)
+        });
+    } catch (err) {
+        console.error('Error fetching product lookup:', err);
+        res.status(500).json({ success: false, message: 'Failed to fetch products' });
+    }
+};
+
+const getFlashDealProducts = async (req, res) => {
+    try {
+        const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 8));
+        const flashSettings = await loadFlashSaleSettings();
+
+        if (!isFlashSaleActive(flashSettings)) {
+            return res.json({
+                products: [],
+                pagination: buildPaginationMeta(0, 1, limit)
+            });
+        }
+
+        const idList = (flashSettings.flashSaleProductIds || []).slice(0, limit);
+        if (!idList.length) {
+            return res.json({
+                products: [],
+                pagination: buildPaginationMeta(0, 1, limit)
+            });
+        }
+
+        const filter = buildProductIdsLookupFilter(idList);
+        const products = await Product.find(filter).limit(limit).lean();
+        const enriched = applyFlashSaleToProducts(products, flashSettings);
+
+        res.json({
+            products: enriched,
+            pagination: buildPaginationMeta(enriched.length, 1, limit)
+        });
+    } catch (err) {
+        console.error('Error fetching flash deal products:', err);
+        res.status(500).json({ success: false, message: 'Failed to fetch flash deals' });
+    }
+};
+
 const getProductById = async (req, res) => {
     try {
         const productIdParam = req.params.id;
@@ -882,6 +969,8 @@ const getAdminProductById = async (req, res) => {
 module.exports = { 
     getProducts, 
     searchProducts, // 🌟 অ্যাডভান্সড সার্চ এক্সপোর্ট
+    getProductsLookup,
+    getFlashDealProducts,
     createProduct, 
     updateProduct, 
     deleteProduct, 

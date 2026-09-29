@@ -5,6 +5,9 @@
     'use strict';
 
     function escapeHtml(str) {
+        if (global.EOBSanitizer && typeof global.EOBSanitizer.escapeHtml === 'function') {
+            return global.EOBSanitizer.escapeHtml(str);
+        }
         return String(str == null ? '' : str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -14,6 +17,9 @@
     }
 
     function escapeUrlForAttr(url) {
+        if (global.EOBSanitizer && typeof global.EOBSanitizer.escapeUrlForAttr === 'function') {
+            return global.EOBSanitizer.escapeUrlForAttr(url);
+        }
         return String(url == null ? '' : url).replace(/"/g, '&quot;');
     }
 
@@ -329,8 +335,170 @@
         return '';
     }
 
+    function resolveLinePriceFromCatalog(item, catalogProduct) {
+        if (!catalogProduct) return Number(item?.price) || 0;
+        const VU = global.VariantUtils;
+        if (VU && typeof VU.matchVariantInProduct === 'function') {
+            const matched = VU.matchVariantInProduct(catalogProduct, item);
+            if (matched && matched.price != null && Number(matched.price) >= 0) {
+                return Number(matched.price);
+            }
+        }
+        const base = Number(catalogProduct.price);
+        return Number.isFinite(base) ? base : Number(item?.price) || 0;
+    }
+
+    /** POST /api/cart/add — identifiers, qty, variant/options only (no client pricing). */
+    function buildCartAddPayload(input) {
+        const src = input && typeof input === 'object' ? input : {};
+        const productId = String(src.productId || src.id || '').trim();
+        const quantity = Math.max(1, Number(src.quantity) || 1);
+        const payload = { productId, quantity };
+
+        [
+            'variantId', 'variantLabel', 'variantAttribute', 'variantValue', 'variantSku',
+            'selectedColor', 'selectedSize', 'selectedVariant',
+            'image', 'selectedImage', 'variantImage', 'images'
+        ].forEach((key) => {
+            if (src[key] !== undefined && src[key] !== null && src[key] !== '') {
+                payload[key] = src[key];
+            }
+        });
+
+        return payload;
+    }
+
+    /** Sum unit quantities across cart lines (badge counter). */
+    function computeTotalCartQuantity(items, options) {
+        const opts = options || {};
+        const list = Array.isArray(items) ? items : [];
+        const source = opts.selectedOnly
+            ? list.filter((item) => item.selected !== false)
+            : list;
+        return source.reduce(
+            (total, item) => total + Math.max(0, Number(item.quantity) || 0),
+            0
+        );
+    }
+
+    function resolveCartBadgeCount(payload, itemsFallback) {
+        if (payload && typeof payload.badgeCount === 'number') {
+            return Math.max(0, payload.badgeCount);
+        }
+        if (Array.isArray(itemsFallback)) {
+            return computeTotalCartQuantity(itemsFallback);
+        }
+        return 0;
+    }
+
+    function applyCartBadgeCount(count) {
+        const safe = Math.max(0, Number(count) || 0);
+        const label = String(safe);
+        const selectors = [
+            '#cartCountBadge',
+            '#nav-cart-count',
+            '#cartDrawerCount',
+            '#navDrawerCartCount',
+            '.cart-count',
+            '.cart-count-badge'
+        ];
+        const seen = new Set();
+        selectors.forEach((selector) => {
+            document.querySelectorAll(selector).forEach((el) => {
+                if (seen.has(el)) return;
+                seen.add(el);
+                el.textContent = label;
+                if (safe <= 0) {
+                    el.style.display = 'none';
+                    el.setAttribute('hidden', 'hidden');
+                    el.setAttribute('aria-hidden', 'true');
+                } else {
+                    el.style.display = '';
+                    el.removeAttribute('hidden');
+                    el.setAttribute('aria-hidden', 'false');
+                }
+            });
+        });
+        return safe;
+    }
+
+    const CART_CROSS_TAB_CHANNEL = 'eob_cart_sync';
+    let cartCrossTabChannel = null;
+    let suppressCartCrossTabBroadcast = false;
+
+    function getCartCrossTabChannel() {
+        if (cartCrossTabChannel !== null) return cartCrossTabChannel;
+        try {
+            cartCrossTabChannel = typeof BroadcastChannel !== 'undefined'
+                ? new BroadcastChannel(CART_CROSS_TAB_CHANNEL)
+                : false;
+        } catch (_) {
+            cartCrossTabChannel = false;
+        }
+        return cartCrossTabChannel;
+    }
+
+    function broadcastCartCrossTabChange() {
+        if (suppressCartCrossTabBroadcast) return;
+        const channel = getCartCrossTabChannel();
+        if (channel) {
+            try {
+                channel.postMessage({ type: 'cart:updated', at: Date.now() });
+            } catch (_) { /* ignore */ }
+        }
+    }
+
+    function initCartCrossTabSync(onRemoteChange) {
+        const handler = typeof onRemoteChange === 'function' ? onRemoteChange : null;
+        if (!handler) return;
+
+        const channel = getCartCrossTabChannel();
+        if (channel) {
+            channel.onmessage = () => {
+                suppressCartCrossTabBroadcast = true;
+                try {
+                    handler({ source: 'broadcast' });
+                } finally {
+                    suppressCartCrossTabBroadcast = false;
+                }
+            };
+        }
+
+        global.addEventListener('storage', (event) => {
+            const cartKey = global.EOBStorageKeys && global.EOBStorageKeys.CART;
+            if (!event.key || (event.key !== cartKey && event.key !== 'cart')) return;
+            suppressCartCrossTabBroadcast = true;
+            try {
+                handler({ source: 'storage' });
+            } finally {
+                suppressCartCrossTabBroadcast = false;
+            }
+        });
+    }
+
+    /** POST /api/cart/merge — identity + quantity only (server reprices). */
+    function stripGuestCartItemForMerge(item) {
+        const src = item && typeof item === 'object' ? item : {};
+        const productId = src.productId || src.id;
+        if (!productId) return null;
+        const out = {
+            productId,
+            quantity: Math.max(1, Number(src.quantity) || 1)
+        };
+        const variantId = src.variantId != null ? String(src.variantId).trim() : '';
+        if (variantId) out.variantId = variantId;
+        return out;
+    }
+
+    function stripGuestCartForMerge(items) {
+        return (Array.isArray(items) ? items : [])
+            .map(stripGuestCartItemForMerge)
+            .filter(Boolean);
+    }
+
     /** Normalize legacy/localStorage cart rows to a consistent image + metadata shape. */
-    function normalizeCartItem(item, catalogProduct) {
+    function normalizeCartItem(item, catalogProduct, opts) {
+        const options = opts || {};
         const catalog = catalogProduct || null;
         const id = extractItemProductId(item);
         let resolvedImage = resolveCartLineImageUrl(item, catalog);
@@ -362,11 +530,17 @@
             emoji = String(catalog.emojiIcon || catalog.icon || catalog.emoji || '').trim();
         }
 
+        const preferServerPrice = options.preferServerPrice === true || item.__serverSynced === true;
+        const price = preferServerPrice
+            ? Number(item?.price) || 0
+            : resolveLinePriceFromCatalog(item, catalog);
+
         return {
             id,
             productId: id,
             name: item?.name || catalog?.name || '',
-            price: Number(item?.price) || 0,
+            price,
+            __serverSynced: preferServerPrice,
             image: displayImage,
             products: displayImage,
             selectedImage: displayImage,
@@ -413,6 +587,7 @@
 
             const merged = {
                 ...serverCopy,
+                __serverSynced: true,
                 id: serverCopy.id || serverCopy.productId,
                 image: (
                     serverCopy.image
@@ -441,7 +616,7 @@
                 )
             };
 
-            return normalizeCartItem(merged, findCatalogProduct(merged, catalog));
+            return normalizeCartItem(merged, findCatalogProduct(merged, catalog), { preferServerPrice: true });
         });
     }
 
@@ -459,10 +634,10 @@
     function getNormalizedGuestCart(catalog) {
         let raw = [];
         try {
-            raw = JSON.parse(localStorage.getItem('cart') || '[]');
+            raw = window.EOBStorage.getJSON(window.EOBStorageKeys.CART, []);
             if (!Array.isArray(raw)) raw = [];
         } catch (_) {
-            localStorage.removeItem('cart');
+            window.EOBStorage.remove(window.EOBStorageKeys.CART);
             return [];
         }
 
@@ -471,14 +646,15 @@
         const normalized = normalizeCartArray(raw, catalog);
         const needsPersist = normalized.some((item, index) => cartItemNeedsMigration(raw[index]));
         if (needsPersist) {
-            localStorage.setItem('cart', JSON.stringify(normalized));
+            window.EOBStorage.setJSON(window.EOBStorageKeys.CART, normalized);
         }
         return normalized;
     }
 
     function persistGuestCart(items) {
         const normalized = normalizeCartArray(items, global.globalProductCatalog || []);
-        localStorage.setItem('cart', JSON.stringify(normalized));
+        window.EOBStorage.setJSON(window.EOBStorageKeys.CART, normalized);
+        broadcastCartCrossTabChange();
         return normalized;
     }
 
@@ -523,6 +699,142 @@
             'onerror="' + onerrorHandler + '">';
     }
 
+    function cartLineKey(productId, variantId) {
+        return `${String(productId)}::${String(variantId || '')}`;
+    }
+
+    function createCartQtySyncManager(options) {
+        const opts = options || {};
+        const debounceMs = Number(opts.debounceMs) > 0 ? Number(opts.debounceMs) : 350;
+        const lines = new Map();
+
+        function lineState(key) {
+            if (!lines.has(key)) {
+                lines.set(key, {
+                    timer: null,
+                    confirmedQty: null,
+                    pendingTarget: null,
+                    inflight: false,
+                    lastParams: null
+                });
+            }
+            return lines.get(key);
+        }
+
+        function setLineLoading(key, loading) {
+            if (typeof document === 'undefined' || !key) return;
+            const selector = `[data-cart-line-key="${String(key).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
+            document.querySelectorAll(selector).forEach((el) => {
+                el.classList.toggle('is-loading', !!loading);
+                el.querySelectorAll('.qty-control-btn').forEach((btn) => {
+                    btn.disabled = !!loading;
+                });
+                const display = el.querySelector('.qty-display-number');
+                if (display) display.setAttribute('aria-busy', loading ? 'true' : 'false');
+            });
+        }
+
+        function enqueue(params) {
+            if (!params || !params.lineKey) return;
+            const st = lineState(params.lineKey);
+            const beforeQty = Number(params.beforeQty);
+            if (st.confirmedQty == null && Number.isFinite(beforeQty)) {
+                st.confirmedQty = beforeQty;
+            }
+
+            st.pendingTarget = Number(params.targetQty);
+            st.lastParams = params;
+
+            if (typeof params.applyOptimistic === 'function') {
+                params.applyOptimistic(st.pendingTarget);
+            }
+
+            clearTimeout(st.timer);
+            st.timer = setTimeout(() => {
+                flush(params.lineKey);
+            }, debounceMs);
+        }
+
+        async function flush(lineKey) {
+            const st = lineState(lineKey);
+            const params = st.lastParams;
+            if (!params || st.pendingTarget == null) return;
+
+            if (st.inflight) {
+                st.timer = setTimeout(() => flush(lineKey), 50);
+                return;
+            }
+
+            const targetQty = st.pendingTarget;
+            const baseline = st.confirmedQty != null ? st.confirmedQty : targetQty;
+
+            st.inflight = true;
+            setLineLoading(lineKey, true);
+
+            const commerce = global.EOBCommerce;
+            if (commerce && typeof commerce.beginCartMutation === 'function') {
+                commerce.beginCartMutation();
+            }
+
+            let success = false;
+            try {
+                const result = await params.syncFn(targetQty);
+                if (!result || result.ok === false) {
+                    const err = new Error((result && result.message) || 'Could not update quantity');
+                    err.status = result && result.status;
+                    throw err;
+                }
+                st.confirmedQty = targetQty;
+                success = true;
+                if (typeof params.onSuccess === 'function') {
+                    params.onSuccess(targetQty, result);
+                }
+            } catch (err) {
+                st.pendingTarget = baseline;
+                if (typeof params.applyOptimistic === 'function') {
+                    params.applyOptimistic(baseline);
+                }
+                if (typeof params.onRollback === 'function') {
+                    params.onRollback(baseline, err);
+                }
+                const msg = typeof params.formatError === 'function'
+                    ? params.formatError(err)
+                    : (err && err.message) || 'Could not update quantity';
+                if (typeof global.showToast === 'function') {
+                    global.showToast(msg, 'error');
+                }
+            } finally {
+                st.inflight = false;
+                setLineLoading(lineKey, false);
+                if (commerce && typeof commerce.endCartMutation === 'function') {
+                    commerce.endCartMutation();
+                }
+            }
+
+            if (success && st.pendingTarget !== st.confirmedQty) {
+                clearTimeout(st.timer);
+                st.timer = setTimeout(() => flush(lineKey), debounceMs);
+            }
+        }
+
+        return {
+            enqueue,
+            flush,
+            setLineLoading,
+            cartLineKey,
+            debounceMs,
+            _lines: lines
+        };
+    }
+
+    let defaultQtySync = null;
+    function getCartQtySync(options) {
+        if (!defaultQtySync) {
+            defaultQtySync = createCartQtySyncManager(options);
+        }
+        return defaultQtySync;
+    }
+
     global.CartDisplayUtils = {
         escapeHtml,
         parseCartApiResponse,
@@ -544,6 +856,18 @@
         isInvalidImageValue,
         getAbsoluteAssetUrl,
         getCartImagePlaceholderUrl,
+        buildCartAddPayload,
+        stripGuestCartItemForMerge,
+        stripGuestCartForMerge,
+        computeTotalCartQuantity,
+        resolveCartBadgeCount,
+        applyCartBadgeCount,
+        initCartCrossTabSync,
+        broadcastCartCrossTabChange,
+        resolveLinePriceFromCatalog,
+        cartLineKey,
+        createCartQtySyncManager,
+        getCartQtySync,
         CART_IMAGE_PLACEHOLDER,
         CART_IMAGE_FALLBACK
     };

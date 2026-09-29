@@ -218,7 +218,7 @@ function actionAllowed(def, can) {
 
 function loadPinnedStateFromLocal() {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = window.EOBStorage.get(STORAGE_KEY);
         if (!raw) {
             return { version: STORAGE_VERSION, pinnedIds: [...DEFAULT_PINNED_IDS] };
         }
@@ -236,10 +236,10 @@ function loadPinnedStateFromLocal() {
 function savePinnedState(pinnedIds) {
     const trimmed = pinnedIds.slice(0, MAX_PINNED);
     pinnedIdsOverride = [...trimmed];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    window.EOBStorage.setJSON(STORAGE_KEY, {
         version: STORAGE_VERSION,
         pinnedIds: trimmed
-    }));
+    });
     schedulePersistPreferences(trimmed);
 }
 
@@ -302,7 +302,7 @@ function buildAuthHeaders() {
     if (typeof runtimeDeps?.authHeaders === 'function') {
         return runtimeDeps.authHeaders();
     }
-    const authToken = window.token || localStorage.getItem('adminToken') || '';
+    const authToken = window.token || window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || '';
     return { Authorization: `Bearer ${authToken}` };
 }
 

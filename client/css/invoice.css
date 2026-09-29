@@ -1,0 +1,165 @@
+.eob-invoice {
+    position: relative;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 24px;
+    color: #0f172a;
+    font-family: Inter, system-ui, sans-serif;
+    background: #fff;
+}
+
+.eob-invoice-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    border-bottom: 2px solid #2563eb;
+    padding-bottom: 16px;
+    margin-bottom: 18px;
+}
+
+.eob-invoice-header h1 {
+    margin: 0;
+    font-size: 1.6rem;
+    color: #2563eb;
+}
+
+.eob-invoice-company-meta {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 2px 0;
+}
+
+.eob-invoice-meta p {
+    margin: 4px 0;
+    font-size: 0.9rem;
+    text-align: right;
+}
+
+.eob-invoice-addresses {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.eob-invoice-addresses h2 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.eob-invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 18px;
+    font-size: 0.9rem;
+}
+
+.eob-invoice-table th,
+.eob-invoice-table td {
+    border: 1px solid #e2e8f0;
+    padding: 8px 10px;
+    vertical-align: top;
+}
+
+.eob-invoice-table th {
+    background: #eff6ff;
+    text-align: left;
+}
+
+.eob-invoice-table td.num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.eob-invoice-variant {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.eob-invoice-summary {
+    margin-left: auto;
+    max-width: 360px;
+}
+
+.eob-invoice-summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #e2e8f0;
+}
+
+.eob-invoice-summary-row--total {
+    font-size: 1.05rem;
+    font-weight: 700;
+    border-bottom: none;
+    padding-top: 10px;
+}
+
+.eob-invoice-payment-status {
+    margin-top: 10px;
+    font-size: 0.9rem;
+}
+
+.eob-invoice-stamp {
+    position: absolute;
+    top: 40px;
+    right: 40px;
+    transform: rotate(-12deg);
+    border: 3px solid currentColor;
+    padding: 8px 16px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    font-size: 1rem;
+    opacity: 0.85;
+    pointer-events: none;
+}
+
+.eob-invoice-stamp--paid { color: #16a34a; }
+.eob-invoice-stamp--cod { color: #d97706; }
+.eob-invoice-stamp--pending { color: #dc2626; }
+
+.order-invoice-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.btn-invoice-download,
+.btn-invoice-print {
+    border: none;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-invoice-download {
+    background: #2563eb;
+    color: #fff;
+}
+
+.btn-invoice-print {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+@media print {
+    body.eob-invoice-print-body {
+        margin: 0;
+        background: #fff;
+    }
+
+    .eob-invoice {
+        box-shadow: none;
+        max-width: none;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+}

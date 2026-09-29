@@ -12,7 +12,7 @@
     let loadPromise = null;
 
     function getCustomerToken() {
-        return localStorage.getItem('customerToken');
+        return window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
     }
 
     function normalizeId(id) {
@@ -58,7 +58,9 @@
         const toast = document.createElement('div');
         toast.className = `store-toast ${type === 'error' ? 'error' : 'success'}`;
         const iconClass = type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check';
-        toast.innerHTML = `<i class="fa-solid ${iconClass}"></i><span>${message}</span>`;
+        const safeMsg = (window.EOBSanitizer && window.EOBSanitizer.escapeHtml(message))
+            || String(message == null ? '' : message);
+        toast.innerHTML = `<i class="fa-solid ${iconClass}"></i><span>${safeMsg}</span>`;
         container.appendChild(toast);
 
         requestAnimationFrame(() => toast.classList.add('show'));

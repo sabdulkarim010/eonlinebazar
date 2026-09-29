@@ -71,8 +71,8 @@ function handleCheckoutDistrictChange() {
     selectedShippingDistrict = selectEl.value.trim();
     validationState.district = Boolean(selectedShippingDistrict);
     if (!isGuestCheckoutUser()) {
-        localStorage.setItem('shippingDistrict', selectedShippingDistrict);
-        localStorage.setItem('checkout_district', selectedShippingDistrict);
+        window.EOBStorage.set(window.EOBStorageKeys.SHIPPING_DISTRICT, selectedShippingDistrict);
+        window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_DISTRICT, selectedShippingDistrict);
     }
 
     selectedShippingUpazila = '';
@@ -96,7 +96,7 @@ function handleCheckoutUpazilaChange() {
     validationState.upazila = Boolean(selectedShippingUpazila);
     updateCheckoutSelectPlaceholder(selectEl);
     if (!isGuestCheckoutUser()) {
-        localStorage.setItem('checkout_upazila', selectedShippingUpazila);
+        window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_UPAZILA, selectedShippingUpazila);
     }
 }
 
@@ -216,7 +216,7 @@ function clearGuestCheckoutStorage() {
         'checkout_name', 'checkout_phone', 'checkout_address', 'checkout_email',
         'checkout_district', 'checkout_upazila', 'checkout_full_address',
         'shippingDistrict', 'shippingFullName', 'shippingMobile', 'shippingAddress', 'shippingCourierNote'
-    ].forEach((key) => localStorage.removeItem(key));
+    ].forEach((key) => window.EOBStorage.remove(key));
 }
 
 function clearGuestCheckoutFormFields() {
@@ -289,11 +289,11 @@ function applyCheckoutAddressFallback() {
 
     isApplyingSavedAddress = true;
 
-    const district = localStorage.getItem('checkout_district')
-        || localStorage.getItem('shippingDistrict')
+    const district = window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_DISTRICT)
+        || window.EOBStorage.get(window.EOBStorageKeys.SHIPPING_DISTRICT)
         || '';
-    const upazila = localStorage.getItem('checkout_upazila') || '';
-    const fullAddress = localStorage.getItem('checkout_full_address') || '';
+    const upazila = window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_UPAZILA) || '';
+    const fullAddress = window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_FULL_ADDRESS) || '';
 
     if (district) {
         populateCheckoutDistrictOptions(district);
@@ -310,9 +310,9 @@ function applyCheckoutAddressFallback() {
     const phoneEl = document.getElementById('shippingMobile');
     const addressEl = document.getElementById('shippingAddress');
 
-    const cachedName = localStorage.getItem('checkout_name');
-    const cachedPhone = localStorage.getItem('checkout_phone');
-    const cachedEmail = localStorage.getItem('checkout_email');
+    const cachedName = window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_NAME);
+    const cachedPhone = window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_PHONE);
+    const cachedEmail = window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_EMAIL);
 
     if (nameEl && cachedName) {
         nameEl.value = cachedName;
@@ -338,6 +338,9 @@ function applyCheckoutAddressFallback() {
 function recalculateCheckoutDelivery() {
     updateDeliveryZoneHint();
     updateCheckoutTotals(getCheckoutSubtotal());
+    if (typeof requestOrderQuoteRefresh === 'function') {
+        requestOrderQuoteRefresh();
+    }
 }
 
 /* =========================================================================
@@ -354,7 +357,10 @@ function updateFieldUI(input, errorEl, isValid, currentCount, max) {
         wrapper.appendChild(iconCounterWrapper);
     }
 
+    const esc = (v) => (window.EOBSanitizer && window.EOBSanitizer.escapeHtml(v))
+        || String(v == null ? '' : v);
     let counterText = max ? `${currentCount}/${max}` : `${currentCount}`;
+    const safeCounterText = esc(counterText);
     
     if (input.value.trim() === "") {
         input.style.borderColor = "#cbd5e1";
@@ -365,12 +371,12 @@ function updateFieldUI(input, errorEl, isValid, currentCount, max) {
         input.style.borderColor = "#10b981";
         input.style.backgroundColor = "#f0fdf4";
         errorEl.innerText = "";
-        iconCounterWrapper.innerHTML = `<span style="font-size:12px; color:#64748b;">${counterText}</span> <i class="fa-solid fa-check-circle" style="color:#10b981;"></i>`;
+        iconCounterWrapper.innerHTML = `<span style="font-size:12px; color:#64748b;">${safeCounterText}</span> <i class="fa-solid fa-check-circle" style="color:#10b981;"></i>`;
     } else {
         input.style.borderColor = "#ef4444";
         input.style.backgroundColor = "#fef2f2";
         errorEl.innerText = ""; 
-        iconCounterWrapper.innerHTML = `<span style="font-size:12px; color:#ef4444;">${counterText}</span>`;
+        iconCounterWrapper.innerHTML = `<span style="font-size:12px; color:#ef4444;">${safeCounterText}</span>`;
     }
 }
 
@@ -395,19 +401,19 @@ function initLiveValidationEngine() {
         if (field.max > 0) input.setAttribute('maxlength', field.max);
 
         if (!isGuest) {
-            let savedValue = localStorage.getItem(field.id);
+            let savedValue = window.EOBStorage.get(field.id);
 
             if (!savedValue) {
-                if (field.id === 'shippingFullName') savedValue = localStorage.getItem('checkout_name');
-                if (field.id === 'shippingMobile') savedValue = localStorage.getItem('checkout_phone');
+                if (field.id === 'shippingFullName') savedValue = window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_NAME);
+                if (field.id === 'shippingMobile') savedValue = window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_PHONE);
                 if (field.id === 'shippingAddress') {
-                    const fullAddress = localStorage.getItem('checkout_full_address') || '';
-                    const upazila = localStorage.getItem('checkout_upazila') || '';
+                    const fullAddress = window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_FULL_ADDRESS) || '';
+                    const upazila = window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_UPAZILA) || '';
                     savedValue = buildStreetAddressText({
                         fullAddress,
                         upazila,
                         thana: upazila
-                    }) || localStorage.getItem('checkout_address');
+                    }) || window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_ADDRESS);
                 }
             }
 
@@ -419,7 +425,7 @@ function initLiveValidationEngine() {
 
         input.addEventListener('input', () => {
             if (!isGuestCheckoutUser()) {
-                localStorage.setItem(field.id, input.value);
+                window.EOBStorage.set(field.id, input.value);
             }
             let val = input.value.trim();
             let len = val.length;

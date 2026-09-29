@@ -5,7 +5,7 @@ import '../admin-core.js';
 import { settingsFetchJson, isSettingsFetchFailure } from './settings-utils.js';
 
 function menuLabelsAuthHeaders(json = false) {
-    const headers = { Authorization: `Bearer ${localStorage.getItem('adminToken')}` };
+    const headers = { Authorization: `Bearer ${window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN)}` };
     if (json) headers['Content-Type'] = 'application/json';
     return headers;
 }
@@ -153,7 +153,7 @@ async function saveMenuLabelsSettings() {
             throw new Error(data.message || 'Failed to save menu labels.');
         }
 
-        sessionStorage.removeItem('adminSidebarLabels');
+        window.EOBStorage.session.remove('adminSidebarLabels');
         if (typeof window.loadSidebarLabels === 'function') {
             await window.loadSidebarLabels(true);
         }
@@ -204,7 +204,7 @@ async function resetMenuLabelsSettings() {
             throw new Error(data.message || 'Reset failed');
         }
 
-        sessionStorage.removeItem('adminSidebarLabels');
+        window.EOBStorage.session.remove('adminSidebarLabels');
         if (typeof window.loadSidebarLabels === 'function') {
             await window.loadSidebarLabels(true);
         }

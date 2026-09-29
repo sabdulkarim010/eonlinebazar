@@ -19,7 +19,7 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    const token = localStorage.getItem('token') || localStorage.getItem('customerToken');
+    const token = window.EOBStorage.get(window.EOBStorageKeys.TOKEN) || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
     
     if (!token) {
         window.location.href = '/login.html';
@@ -29,7 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // লগইন করা ইউজারের তথ্য (রিভিউ এডিট প্রি-লোড করার জন্য প্রয়োজন)
     let currentUser = null;
     try {
-        currentUser = JSON.parse(localStorage.getItem('userInfo') || localStorage.getItem('user') || 'null');
+        currentUser = window.EOBStorage.getJSON(window.EOBStorageKeys.USER_INFO, null)
+            || window.EOBStorage.getJSON(window.EOBStorageKeys.USER, null);
     } catch (e) {
         currentUser = null;
     }
@@ -186,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ৩. ডায়নামিক থিম সিস্টেম (Dark Mode Switcher)
     // =================================================================
     function initTheme() {
-        const savedTheme = localStorage.getItem('eob_theme') || 'light';
+        const savedTheme = window.EOBStorage.get(window.EOBStorageKeys.EOB_THEME) || 'light';
         document.documentElement.setAttribute('data-theme', savedTheme);
         if (themeToggleBtn) {
             const icon = themeToggleBtn.querySelector('i');
@@ -201,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
             const newTheme = isDark ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('eob_theme', newTheme);
+            window.EOBStorage.set(window.EOBStorageKeys.EOB_THEME, newTheme);
             const icon = themeToggleBtn.querySelector('i');
             if (icon) {
                 icon.className = isDark ? 'fa-solid fa-moon' : 'fa-solid fa-sun';

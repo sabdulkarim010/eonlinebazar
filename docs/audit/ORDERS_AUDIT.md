@@ -1,6 +1,6 @@
 # ORDERS & CHECKOUT AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-28 (Jest — order + WhatsApp console gating)  
+**Last updated:** 2026-09-29 (Step 4.2.2 — customer invoice PDF & print)  
 **Scope:** Order lifecycle, checkout, tracking, returns, refunds, POS, couriers, invoices  
 **Status:** ✅ COMPLETE
 
@@ -11,6 +11,9 @@
 | Path | Role |
 |------|------|
 | `backend/src/routes/orderRoutes.js` | All customer + admin order endpoints |
+| `backend/src/controllers/orderQuoteController.js` | Pre-checkout quote (`POST /api/orders/quote`) |
+| `backend/src/services/orderQuoteService.js` | Server pricing/stock/coupon/VAT quote builder |
+| `backend/src/services/orderIdempotencyService.js` | `X-Idempotency-Key` replay for checkout |
 | `backend/src/controllers/orderCheckoutController.js` | Create order at checkout |
 | `backend/src/controllers/orderCustomerController.js` | Customer orders, track, cancel, return, invoice |
 | `backend/src/services/invoiceService.js` | Branded PDF invoice generation |
@@ -31,7 +34,11 @@
 | `backend/src/config/readCutoverFlags.js` | `READ_PG_ORDER` flag |
 | `tests/repositories/order.repository.test.js` | Order repo tests |
 | `tests/repositories/order.readcutover.test.js` | Mongo vs PG shape comparison |
-| `client/js/checkout.js` + `client/js/checkout/` | Checkout UI modules |
+| `client/js/checkout.js` + `client/js/checkout/` | Checkout UI modules + cross-tab sync |
+| `client/js/checkout/checkoutCrossTabSync.js` | Multi-tab `ORDER_COMPLETED` / session invalidation |
+| `client/js/orderSuccess.js` | Post-checkout outcome UI + compact success timeline |
+| `client/js/orderStatusTimeline.js` | Shared 5-step visual timeline (`payment` + fulfillment) |
+| `client/js/expressCheckout.js` | Express Buy Now checkout bypass (cart preserved) |
 | `client/js/order-details.js` / `order-track.js` | Order view + tracking |
 | `client/js/profile/orders.js` | Profile order history |
 | `client/js/admin/modules/orders-table.js` | Admin order table |
@@ -47,6 +54,9 @@
 
 ## Feature Checklist
 
+- [x] Multi-tab checkout stale guard — cross-tab events disable submit + quote refresh on cart drift
+- [x] Checkout idempotency — `X-Idempotency-Key` on `POST /api/orders`; `checkoutIdempotencyKey` on Order; client submit lock
+- [x] Pre-checkout order quote — `POST /api/orders/quote`, `orderQuoteService.js` + storefront `checkout/quote.js`
 - [x] Checkout order creation — `POST /api/orders`, `orderCheckoutController.js`
 - [x] Customer order list — `GET /api/orders/my-orders`
 - [x] Public order tracking — `GET /api/orders/track`
@@ -58,6 +68,8 @@
 - [x] PDF invoice download — `GET /api/orders/:id/invoice`, `GET /api/orders/my-orders/:id/invoice`
 - [x] Admin PDF invoice — `GET /api/admin/orders/:id/invoice`
 - [x] Persisted order status timeline — `statusHistory[]` + admin vertical timeline UI
+- [x] Customer 5-step order progress timeline — `orderStatusTimeline.js` on order details + payment success modal
+- [x] Express Buy Now checkout bypass — `expressCheckout.js` (isolated session; main cart untouched)
 - [x] Admin order list + status update — `GET/PUT /api/orders`
 - [x] Bulk order status update — `PUT /api/admin/orders/bulk-status`; `orders-actions.js` bulk Apply
 - [x] Admin manual POS orders — `orders-pos.js`, `createManualOrder`
@@ -95,6 +107,43 @@
 ---
 
 ## Change Log
+
+### Step 4.2.2 — Customer invoice PDF & print — 2026-09-29
+
+- Storefront `EOBInvoice` uses canonical order financial fields (no client grand-total recompute); server PDF generation unchanged (`invoiceService`); profile + order-details triggers.
+
+### Step 4.1.3 — Customer return workflow on order details — 2026-09-29
+
+- Storefront `orderReturnWorkflow.js` + order details modal wired to `POST /api/orders/:id/return-request`; notes persisted on `returnRequest.note`; dual-write via existing `mirrorOrderReturnFlow`.
+- Return progress UI (Pending → Approved → Received → Refunded / Rejected); **501/501** tests.
+
+### Step 4.1.2 — Cart quote tax breakdown + voucher wallet sync — 2026-09-29
+
+- Quote API exposes `priceTaxMode` + `taxableAmount`; cart page debounced quote preview mirrors checkout totals (discount + VAT + grand total).
+- Voucher apply/remove triggers coupon storage update + quote re-fetch; tests `taxVoucherWallet.test.js`; **495/495** passing.
+
+### Step 4.1.1 — Customer order timeline + express Buy Now — 2026-09-29
+
+- Enhanced `orderStatusTimeline.js`: payment + fulfillment mapping, carrier/ETA meta, success modal hook in `orderSuccess.js`.
+- `expressCheckout.js` for PDP/home/search Buy Now without mutating main cart; tests `orderTrackingTimeline.test.js`; **490/490** passing.
+
+### Step 2.2.3 — Multi-tab checkout + payment verify client — 2026-09-29
+
+- Storefront: `checkoutCrossTabSync.js`, `paymentStatusSync.js`, `orderSuccess.js`; `payment.js` gateway return handling.
+- Related API: `GET /api/payments/verify/:orderId` (see `PAYMENTS_FINANCE_AUDIT.md`).
+- Tests: `tests/multiTabCheckout.test.js`, `tests/paymentStatusSync.test.js`.
+
+### Step 2.2.2 — Idempotency key + duplicate submit guard — 2026-09-29
+
+- Client: `checkout/idempotency.js`, `EOBCheckoutState.idempotencyKey`, header on order + payment initiate; lock on `#confirmOrderFinalBtn`.
+- Backend: early replay in `orderCheckoutController`; sparse unique `checkoutIdempotencyKey`.
+- Tests: `tests/idempotency.test.js`.
+
+### Step 2.2.1 — Pre-checkout quote API + storefront lock — 2026-09-29
+
+- Backend: `POST /api/orders/quote` (read-only pricing: subtotal, shipping, VAT, coupon, stock checks).
+- Client: `client/js/checkout/quote.js`, `EOBCheckoutState.activeQuote`, checkout/payment summary bound to server quote; proceed blocked on item errors.
+- Tests: `tests/orderQuote.test.js`; full suite green.
 
 ### Jest log hygiene — checkout/POS order alerts — 2026-09-28
 

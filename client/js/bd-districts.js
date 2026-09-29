@@ -83,9 +83,11 @@ function initDistrictSearch(inputId, hiddenInputId, listId) {
         const filtered = BD_DISTRICTS.filter((d) =>
             d.toLowerCase().includes(String(query || '').toLowerCase())
         );
+        const esc = (v) => (window.EOBSanitizer && window.EOBSanitizer.escapeHtml(v))
+            || String(v == null ? '' : v);
         list.innerHTML = filtered.map((d) => {
             const safe = d.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-            return `<div class="district-option" onclick="selectDistrict('${safe}', '${inputId}', '${hiddenInputId}', '${listId}')">${d}</div>`;
+            return `<div class="district-option" onclick="selectDistrict('${safe}', '${inputId}', '${hiddenInputId}', '${listId}')">${esc(d)}</div>`;
         }).join('') || '<div class="district-option-empty">No district found</div>';
     }
 }

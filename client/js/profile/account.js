@@ -135,13 +135,13 @@ document.addEventListener('DOMContentLoaded', () => {
             district: user.district || ''
         }) || user.address || '';
 
-        localStorage.setItem('checkout_name', user.name || '');
-        localStorage.setItem('checkout_phone', user.phone || user.mobile || '');
-        localStorage.setItem('checkout_address', composite);
-        localStorage.setItem('checkout_district', user.district || '');
-        localStorage.setItem('checkout_upazila', user.upazila || user.thana || '');
-        localStorage.setItem('checkout_full_address', user.fullAddress || '');
-        localStorage.setItem('shippingDistrict', user.district || '');
+        window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_NAME, user.name || '');
+        window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_PHONE, user.phone || user.mobile || '');
+        window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_ADDRESS, composite);
+        window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_DISTRICT, user.district || '');
+        window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_UPAZILA, user.upazila || user.thana || '');
+        window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_FULL_ADDRESS, user.fullAddress || '');
+        window.EOBStorage.set(window.EOBStorageKeys.SHIPPING_DISTRICT, user.district || '');
     }
 
     function applyProfileAddressToUI(user = {}) {
@@ -168,12 +168,68 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function applyUserProfileData(data, meta = {}) {
+        if (!data) return;
+        const fromCache = meta.source === 'cache';
+
+        if (sidebarName) sidebarName.textContent = data.name || 'User';
+        if (sidebarEmail) sidebarEmail.textContent = data.email || '';
+
+        if (data.avatar) {
+            setAvatarSrc(sidebarAvatar, data.avatar);
+            setAvatarSrc(navAvatar, data.avatar);
+        }
+
+        if (profileName) profileName.value = data.name || '';
+        if (profileEmail) profileEmail.value = data.email || '';
+        if (profilePhone) profilePhone.value = data.phone || data.mobile || '';
+        if (typeof window.updateSecurityContactDisplays === 'function') {
+            window.updateSecurityContactDisplays(data);
+        }
+        if (profileGender) profileGender.value = data.gender || '';
+        if (profileDob) profileDob.value = formatDateForInput(data.dateOfBirth);
+
+        const addressPayload = data.address
+            ? { ...data, ...data.address }
+            : data;
+        applyProfileAddressToUI(addressPayload);
+
+        document.querySelectorAll('.user-display-name').forEach((el) => {
+            el.textContent = data.name || 'User';
+        });
+
+        if (typeof window.updateWalletDisplay === 'function') {
+            window.updateWalletDisplay(data.walletBalance || 0, data.loyaltyPoints || 0);
+        }
+        if (typeof window.renderCashbackHistory === 'function') {
+            window.renderCashbackHistory(data.walletHistory || []);
+        }
+        if (typeof window.applyRewardSettingsUI === 'function') {
+            window.applyRewardSettingsUI(data.rewardSettings);
+        }
+        if (typeof window.applyAnnouncementUI === 'function') {
+            window.applyAnnouncementUI(data.announcement);
+        }
+
+        renderLoyaltyDashboardCard({
+            ...data,
+            loyaltyPoints: data.loyaltyPoints,
+            loyaltySummary: data.loyaltySummary,
+            pointsHistory: data.pointsHistory
+        });
+
+        if (!fromCache) {
+            cacheProfileAddressForCheckout(addressPayload);
+        }
+    }
+
     async function fetchUserProfile() {
+        const cacheApi = window.EOBProfileCache;
         try {
             const res = await fetch('/api/customer/profile', {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
             });
@@ -181,54 +237,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
 
             if (res.ok) {
-                if (sidebarName) sidebarName.textContent = data.name || 'User';
-                if (sidebarEmail) sidebarEmail.textContent = data.email || '';
-                
-                // সাইডবার এবং টপ নেভবার উভয় জায়গায় অবতার আপডেট
-                if (data.avatar) {
-                    setAvatarSrc(sidebarAvatar, data.avatar);
-                    setAvatarSrc(navAvatar, data.avatar);
+                applyUserProfileData(data, { source: 'network' });
+                if (cacheApi && currentUserId) {
+                    const snap = cacheApi.readSnapshot(currentUserId) || {};
+                    cacheApi.writeSnapshot(currentUserId, {
+                        cachedAt: new Date().toISOString(),
+                        profile: cacheApi.normalizeProfilePayload(data),
+                        dashboard: snap.dashboard || null
+                    });
                 }
-
-                if (profileName) profileName.value = data.name || '';
-                if (profileEmail) profileEmail.value = data.email || '';
-                if (profilePhone) profilePhone.value = data.phone || data.mobile || '';
-                if (typeof window.updateSecurityContactDisplays === 'function') {
-                    window.updateSecurityContactDisplays(data);
-                }
-                if (profileGender) profileGender.value = data.gender || '';
-                if (profileDob) profileDob.value = formatDateForInput(data.dateOfBirth);
-                applyProfileAddressToUI(data);
-
-                const displayNameEls = document.querySelectorAll('.user-display-name');
-                displayNameEls.forEach(el => {
-                    el.textContent = data.name || 'User';
-                });
-
-                // ওয়ালেট ও পয়েন্ট ডিসপ্লে আপডেট (Wallet tab)
-                if (typeof window.updateWalletDisplay === 'function') {
-                    window.updateWalletDisplay(data.walletBalance || 0, data.loyaltyPoints || 0);
-                }
-                if (typeof window.renderCashbackHistory === 'function') {
-                    window.renderCashbackHistory(data.walletHistory || []);
-                }
-                if (typeof window.applyRewardSettingsUI === 'function') {
-                    window.applyRewardSettingsUI(data.rewardSettings);
-                }
-                if (typeof window.applyAnnouncementUI === 'function') {
-                    window.applyAnnouncementUI(data.announcement);
-                }
-
-                renderLoyaltyDashboardCard(data);
-
-                cacheProfileAddressForCheckout(data);
-
-            } else {
+            } else if (!cacheApi?.readSnapshot(currentUserId)) {
                 showToast(data.message || 'Failed to load profile.', 'danger');
             }
         } catch (error) {
             console.error('Fetch Profile Error:', error);
-            showToast('Server error while loading profile.', 'danger');
+            if (!window.EOBProfileCache?.readSnapshot(currentUserId)) {
+                showToast('Server error while loading profile.', 'danger');
+            }
         }
     }
 
@@ -283,69 +308,108 @@ document.addEventListener('DOMContentLoaded', () => {
         dashboardTableBody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-error-cell"><i class="fa-solid fa-triangle-exclamation"></i> ${text}</td></tr>`;
     }
 
+    function applyDashboardMetrics(metrics, meta = {}) {
+        if (!metrics) return;
+        const cacheApi = window.EOBProfileCache;
+        if (cacheApi) {
+            cacheApi.applyDashboardMetricsToDom(metrics);
+        }
+
+        const dashboardTableBody = document.getElementById('dashboard-orders-tbody');
+        if (!dashboardTableBody) return;
+
+        const recentOrders = metrics.recentOrders || [];
+        const buildRow = window.buildOrderRowHtml;
+
+        if (recentOrders.length === 0) {
+            dashboardTableBody.innerHTML = '<tr class="orders-state-row"><td colspan="6" class="text-center orders-empty-cell"><i class="fa-solid fa-box-open orders-empty-icon"></i>No recent orders yet.</td></tr>';
+        } else if (typeof buildRow !== 'function') {
+            if (meta.source !== 'cache') {
+                renderDashboardActivityFallback('Unable to load recent activity.');
+            }
+        } else {
+            try {
+                dashboardTableBody.innerHTML = recentOrders.map((order) => buildRow(order)).join('');
+            } catch (rowError) {
+                console.error('Error rendering recent orders:', rowError);
+                if (meta.source !== 'cache') {
+                    renderDashboardActivityFallback('Unable to load recent activity.');
+                }
+            }
+        }
+    }
+
     async function fetchDashboardStats() {
+        const cacheApi = window.EOBProfileCache;
         try {
-            console.log("ড্যাশবোর্ড ফেচ রিকোয়েস্ট পাঠানো হচ্ছে...");
-            
             const res = await fetch('/api/orders/dashboard-stats', {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
             });
 
             const rawData = await res.json();
-            console.log("সার্ভার থেকে পাওয়া আসল ডাটা:", rawData);
 
-            if (res.ok && rawData.success) {
-                const totalOrdersEl = document.getElementById('stat-total-orders');
-                const pendingOrdersEl = document.getElementById('stat-pending-orders');
-                const balanceEl = document.getElementById('stat-wallet-balance');
-                const pointsEl = document.getElementById('stat-loyalty-points');
-
-                if (totalOrdersEl) {
-                    totalOrdersEl.textContent = (rawData.totalOrders !== undefined) ? rawData.totalOrders : (rawData.data?.totalOrders || 0);
+            if (res.ok && rawData.success !== false) {
+                const metrics = cacheApi
+                    ? cacheApi.normalizeDashboardPayload(rawData)
+                    : rawData;
+                applyDashboardMetrics(metrics, { source: 'network' });
+                if (cacheApi && currentUserId) {
+                    const snap = cacheApi.readSnapshot(currentUserId) || {};
+                    cacheApi.writeSnapshot(currentUserId, {
+                        cachedAt: new Date().toISOString(),
+                        profile: snap.profile || null,
+                        dashboard: metrics
+                    });
                 }
-                if (pendingOrdersEl) {
-                    pendingOrdersEl.textContent = (rawData.pendingOrders !== undefined) ? rawData.pendingOrders : (rawData.data?.pendingOrders || 0);
-                }
-                if (balanceEl) {
-                    const currentBalance = (rawData.balance !== undefined) ? rawData.balance : (rawData.data?.balance || 0);
-                    balanceEl.textContent = '৳' + currentBalance.toLocaleString();
-                }
-                if (pointsEl) {
-                    pointsEl.textContent = (rawData.loyaltyPoints !== undefined) ? rawData.loyaltyPoints : (rawData.data?.loyaltyPoints || 0);
-                }
-                
-                const dashboardTableBody = document.getElementById('dashboard-orders-tbody'); 
-                
-                if (dashboardTableBody) {
-                    const recentOrders = rawData.recentOrders || rawData.data?.recentOrders || [];
-                    const buildRow = window.buildOrderRowHtml;
-
-                    if (recentOrders.length === 0) {
-                        dashboardTableBody.innerHTML = `<tr class="orders-state-row"><td colspan="6" class="text-center orders-empty-cell"><i class="fa-solid fa-box-open orders-empty-icon"></i>No recent orders yet.</td></tr>`;
-                    } else if (typeof buildRow !== 'function') {
-                        renderDashboardActivityFallback('Unable to load recent activity.');
-                    } else {
-                        try {
-                            dashboardTableBody.innerHTML = recentOrders.map(order => buildRow(order)).join('');
-                        } catch (rowError) {
-                            console.error('Error rendering recent orders:', rowError);
-                            renderDashboardActivityFallback('Unable to load recent activity.');
-                        }
-                    }
-                }
-
-            } else {
-                console.error("সার্ভার রেসপন্স ওকে নয়:", rawData.message);
+            } else if (!cacheApi?.readSnapshot(currentUserId)?.dashboard) {
                 renderDashboardActivityFallback(rawData.message || 'Unable to load recent activity.');
             }
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
-            renderDashboardActivityFallback('Unable to load recent activity.');
+            if (!cacheApi?.readSnapshot(currentUserId)?.dashboard) {
+                renderDashboardActivityFallback('Unable to load recent activity.');
+            }
         }
+    }
+
+    function bootstrapProfileDashboardSwr(options = {}) {
+        const cacheApi = window.EOBProfileCache;
+        if (!cacheApi || !currentUserId) {
+            fetchUserProfile();
+            fetchDashboardStats();
+            return;
+        }
+
+        cacheApi.bindRetryButton(() => bootstrapProfileDashboardSwr({ force: true }));
+
+        cacheApi.loadProfileDashboardMetrics({
+            userId: currentUserId,
+            token,
+            force: options.force === true,
+            onProfile: (profile, meta) => applyUserProfileData(profile, meta),
+            onDashboard: (dashboard, meta) => applyDashboardMetrics(dashboard, meta),
+            onNetworkState: (state) => {
+                if (state.mode === 'loading') {
+                    cacheApi.setStatusBanner({ mode: 'error' });
+                    return;
+                }
+                if (state.mode === 'online') {
+                    cacheApi.setStatusBanner({ mode: 'online' });
+                    return;
+                }
+                if (state.mode === 'offline') {
+                    cacheApi.setStatusBanner({ mode: 'offline', cachedAt: state.cachedAt });
+                    return;
+                }
+                if (state.mode === 'error') {
+                    cacheApi.setStatusBanner({ mode: 'error' });
+                }
+            }
+        });
     }
 
     // =================================================================
@@ -497,8 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    fetchUserProfile();
-    fetchDashboardStats();
+    bootstrapProfileDashboardSwr();
     if (typeof window.fetchUserOrders === 'function') window.fetchUserOrders();
     if (typeof window.fetchWishlist === 'function') window.fetchWishlist();
 
@@ -512,7 +575,10 @@ Object.assign(window, {
     cacheProfileAddressForCheckout,
     applyProfileAddressToUI,
     fetchUserProfile,
-    fetchDashboardStats
+    fetchDashboardStats,
+    bootstrapProfileDashboardSwr,
+    applyUserProfileData,
+    applyDashboardMetrics
 });
 
 });

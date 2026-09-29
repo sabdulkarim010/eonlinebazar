@@ -277,8 +277,22 @@ function initProductImageCarousel(product, imagesArray) {
             img.id = 'mainProductImg';
             img.setAttribute('data-role', 'main-product-image');
         }
-        img.loading = index === 0 ? 'eager' : 'lazy';
         img.draggable = false;
+        const IU = window.EOBImageUtils;
+        if (IU && typeof IU.applyToImgElement === 'function') {
+            IU.applyToImgElement(img, {
+                src: displayUrl,
+                variant: 'detail',
+                alt: img.alt,
+                priority: index === 0 ? 'lcp' : 'lazy'
+            });
+        } else {
+            img.loading = index === 0 ? 'eager' : 'lazy';
+            img.decoding = 'async';
+            img.width = 480;
+            img.height = 480;
+            if (index === 0) img.setAttribute('fetchpriority', 'high');
+        }
         attachMainImageFallback(img, product, mainBox);
 
         slide.appendChild(img);
@@ -297,6 +311,11 @@ function initProductImageCarousel(product, imagesArray) {
     }
 
     goToGalleryIndex(0, { skipScrollAnimation: true, syncColor: false });
+
+    if (window.PdpGalleryEnhancements?.mount) {
+        window.PdpGalleryEnhancements.mount();
+        window.PdpGalleryEnhancements.onGalleryUpdated?.();
+    }
 }
 
 function goToGalleryIndex(index, options = {}) {
@@ -330,6 +349,8 @@ function goToGalleryIndex(index, options = {}) {
             syncColorVariantFromGallery(colorEntry.colorValue);
         }
     }
+
+    window.PdpGalleryEnhancements?.onIndexChange?.(safeIndex);
 }
 
 /** Swap main carousel slide + sticky image instantly */
@@ -475,6 +496,10 @@ function renderProductImages(product) {
             imgBtn.setAttribute('role', 'button');
             imgBtn.setAttribute('tabindex', '0');
             imgBtn.setAttribute('aria-label', `View product image ${index + 1}`);
+            imgBtn.loading = 'lazy';
+            imgBtn.decoding = 'async';
+            imgBtn.width = 64;
+            imgBtn.height = 64;
 
             const PT = window.ProductThumbnail;
             if (PT && typeof PT.attachImageFallback === 'function') {
@@ -492,6 +517,11 @@ function renderProductImages(product) {
 
             gallery.appendChild(imgBtn);
         });
+    }
+
+    if (window.PdpGalleryEnhancements?.mount) {
+        window.PdpGalleryEnhancements.mount();
+        window.PdpGalleryEnhancements.onGalleryUpdated?.();
     }
 }
 Object.assign(window, {

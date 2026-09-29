@@ -124,9 +124,9 @@
   function readUser() {
     try {
       var raw =
-        localStorage.getItem('customerData') ||
-        localStorage.getItem('userInfo') ||
-        localStorage.getItem('user');
+        window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_DATA) ||
+        window.EOBStorage.get(window.EOBStorageKeys.USER_INFO) ||
+        window.EOBStorage.get(window.EOBStorageKeys.USER);
       if (!raw) return null;
       var user = JSON.parse(raw);
       if (!user.name && (user.firstName || user.lastName)) {
@@ -141,7 +141,7 @@
 
   function readAuthToken() {
     try {
-      return localStorage.getItem('token') || localStorage.getItem('customerToken') || null;
+      return window.EOBStorage.get(window.EOBStorageKeys.TOKEN) || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN) || null;
     } catch (e) {
       return null;
     }

@@ -268,6 +268,10 @@ const orderSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    checkoutIdempotencyKey: {
+        type: String,
+        trim: true
+    },
     orderSource: {
         type: String,
         enum: ['online', 'manual', 'offline_pos'],
@@ -300,6 +304,7 @@ orderSchema.index({ 'payment.methodId': 1, createdAt: -1 });
 // Order lookup, user history, status filters, and recent-first sorting.
 orderSchema.index({ orderId: 1 });
 orderSchema.index({ offlineOrderId: 1 }, { unique: true, sparse: true });
+orderSchema.index({ checkoutIdempotencyKey: 1 }, { unique: true, sparse: true });
 orderSchema.index({ user: 1 });
 orderSchema.index({ status: 1 });
 orderSchema.index({ createdAt: -1 });

@@ -7,6 +7,251 @@
 
 ---
 
+## Cart/commerce fixes + telemetry ingest + grid cards — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| `commerceState.js` duplicate `CDU` parse fix | ✅ |
+| `cart.js` `getCartRef` / `getActiveCartLines` (no bare `cart`) | ✅ |
+| PDP toast recursion fix (`fetch-render.js`) | ✅ |
+| PDP add-to-cart sync via `applyCartSnapshot` | ✅ |
+| Home/search grid: Add to Cart only (Buy Now on PDP) | ✅ |
+| `POST /api/telemetry/errors` backend ingest | ✅ |
+| `npm test` | ✅ 514/514 |
+
+## Customer Storefront Step 4.2.2 — PDF invoice & print receipt — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| `EOBInvoice` client render + print receipt layout | ✅ |
+| 1-click PDF download via server `/api/orders/:id/invoice` (canonical totals) | ✅ |
+| Order details + profile order list PDF/Print actions | ✅ |
+| Itemized tax/discount/shipping summary parity with order payload | ✅ |
+| `npm test` | ✅ 512/512 |
+
+## Customer Storefront Step 4.2.1 — Profile dashboard SWR cache — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Per-user persisted profile metrics cache (`EOBProfileCache`) | ✅ |
+| Instant hydrate + background revalidate (profile + dashboard-stats) | ✅ |
+| Offline banner + retry + skeleton when no cache | ✅ |
+| Cache purge on logout / `auth:changed` | ✅ |
+| `npm test` | ✅ 507/507 |
+
+## Customer Storefront Step 4.1.3 — Order return & refund workflow — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Return eligibility (delivered + 7-day window, no duplicate request) | ✅ |
+| Accessible return modal (items/qty, reason codes, notes, proof URL) | ✅ |
+| Per-line + order-level return triggers on order details | ✅ |
+| POST `/api/orders/:id/return-request` structured payload + dual-write | ✅ |
+| Live return progress track + status badge on order details | ✅ |
+| `npm test` | ✅ 501/501 |
+
+## Customer Storefront Step 4.1.2 — Itemized tax + voucher wallet — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Itemized VAT/tax labels (inclusive vs exclusive) on cart + checkout summaries | ✅ |
+| Debounced cart `POST /api/orders/quote` preview aligned with checkout quote | ✅ |
+| Voucher wallet UI + one-click apply/remove (cart + checkout) | ✅ |
+| Storefront `POST /api/coupons/wallet` eligibility + savings preview | ✅ |
+| Quote payload includes `priceTaxMode` + `taxableAmount` | ✅ |
+| `npm test` | ✅ 495/495 |
+
+## Customer Storefront Step 4.1.1 — Order timeline + express Buy Now — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Visual timeline (Placed → Payment Verified → Processing → Shipped → Delivered) | ✅ |
+| Cancelled / returned fallback states + carrier + ETA meta | ✅ |
+| Express Buy Now on PDP + product cards (isolated buy-now session) | ✅ |
+| Stock + variant guards; quote session reset; no main cart overwrite | ✅ |
+| `npm test` | ✅ 490/490 |
+
+## Customer Storefront Step 3.2.3 — Search debounce + URL catalog sync — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| ~280ms debounced query/filter inputs | ✅ |
+| AbortController on stale search fetches | ✅ |
+| URL params (`q`, category/subCategory, price, sort, page, limit=20) | ✅ |
+| `popstate` back/forward re-run search | ✅ |
+| Active filter chips + Clear All Filters | ✅ |
+| `npm test` | ✅ 482/482 |
+
+## Customer Storefront Step 3.2.2 — PDP variant stock + CTA sync — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Matrix option states (in-stock / oos / unavailable strikethrough) | ✅ |
+| Dynamic stock badge (in / low / out / select options) | ✅ |
+| Add to Cart disabled + label (Out of Stock / Select options) | ✅ |
+| Notify-me placeholder when OOS variant selected | ✅ |
+| Stock fields aligned (`stockQuantity` + legacy `stock`) | ✅ |
+| `npm test` | ✅ 476/476 |
+
+## Customer Storefront Step 3.2.1 — PDP hover zoom + lightbox — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Desktop hover zoom lens (`requestAnimationFrame`, hidden on touch/coarse pointer) | ✅ |
+| Full-screen lightbox (ESC, arrows, thumbs, counter, focus trap, ARIA) | ✅ |
+| Gallery / variant index sync (`onGalleryUpdated`, `onIndexChange`, `syncImagesFromVariant`) | ✅ |
+| Client-only; no product image API/schema changes | ✅ |
+| `npm test` | ✅ 470/470 |
+
+## Customer Storefront Step 3.1.3 — Bounded catalog fetch + SWR cache — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Removed storefront bulk `limit=500` catalog prefetch | ✅ |
+| Home modular fetches (featured / trending / flash-deals) | ✅ |
+| Cart/checkout hydrate via `/api/products/lookup` | ✅ |
+| `EOBApiCache` TTL + stale revalidate; auth invalidates cache | ✅ |
+| Search default pagination limit 20 (client cap 20) | ✅ |
+| `npm test` | ✅ 465/465 |
+
+## Customer Storefront Step 3.1.2 — Image pipeline (LCP + CLS) — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| `loading="lazy"` + `decoding="async"` on cards, cart, thumbs, categories | ✅ |
+| LCP hero banner + PDP main image: `eager` + `fetchpriority="high"` | ✅ |
+| Explicit width/height + aspect-ratio on product cards | ✅ |
+| Cloudinary `srcset`/`sizes` when URLs are CDN-hosted | ✅ |
+| Branded placeholder onerror via ProductThumbnail | ✅ |
+| Backend API changes | ✅ None |
+| `npm test` | ✅ 459/459 |
+
+## Customer Storefront Step 3.1.1 — Skeleton loaders (CLS) — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Shared `EOBSkeletons` utilities + shimmer CSS | ✅ |
+| Home banner, categories, product grid skeletons | ✅ |
+| Search/catalog grid skeletons during fetch | ✅ |
+| PDP gallery + info skeleton before product API | ✅ |
+| Checkout/cart line + quote summary skeletons | ✅ |
+| Backend API changes | ✅ None (client-only) |
+| `npm test` | ✅ 452/452 |
+
+## Customer Storefront Step 2.2.3 — Multi-tab checkout + payment status sync — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Cross-tab checkout (`eob_checkout_sync` + storage on cart/session keys) | ✅ |
+| Stale tab blocks submit; `ORDER_COMPLETED` redirects payment tab | ✅ |
+| Cart/coupon drift → `CHECKOUT_SESSION_INVALIDATED` + quote refresh | ✅ |
+| Payment FSM + `GET /api/payments/verify/:orderId` polling | ✅ |
+| No false gateway success before verified `paid` | ✅ |
+| Session idempotency / gateway context cleanup on success | ✅ |
+| `npm test` | ✅ 447/447 |
+
+## Customer Storefront Step 2.2.2 — Order idempotency + submit lock — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Client `X-Idempotency-Key` on order placement (+ payment initiate) | ✅ |
+| Submit button in-flight lock (double-click → single request) | ✅ |
+| Backend replay same key without duplicate Mongo order | ✅ |
+| `npm test` | ✅ 438/438 |
+
+## Customer Storefront Step 2.2.1 — Pre-checkout order quote — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| `POST /api/orders/quote` server-authoritative totals | ✅ |
+| Checkout/payment UI bound to `EOBCheckoutState.activeQuote` | ✅ |
+| Proceed blocked on quote item/stock errors | ✅ |
+| `npm test` | ✅ 430/430 |
+
+## Customer Storefront Step 2.1.3 — Cart badge + guest merge sync — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Header/nav badge = sum of line `quantity` (not line count) | ✅ |
+| Guest merge via `POST /api/cart/merge` with `{ productId, variantId, quantity }` only | ✅ |
+| Post-login merge clears guest storage; server cart + prices replace local | ✅ |
+| Cross-tab cart sync (`BroadcastChannel` + `storage` on `cart` key) | ✅ |
+| `npm test` | ✅ 425/425 |
+
+## Customer Storefront Step 2.1.2 — Cart qty debounce — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Debounced qty API (350ms) + single in-flight per line | ✅ |
+| Optimistic UI + rollback on 4xx/5xx | ✅ |
+| `EOBCommerce` `CART_MUTATING` + silent commit during optimistic | ✅ |
+| `npm test` | ✅ 419/419 |
+
+## Customer Storefront Step 2.1.1 — Server-authoritative cart pricing — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Cart add/merge payloads omit client `price` | ✅ |
+| Backend add/merge resolve catalog variant price | ✅ |
+| Local cart sync from API + catalog for guests | ✅ |
+| `npm test` | ✅ 417/417 |
+
+## Customer Storefront Step 1.2.3 — XSS sanitization — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| `EOBSanitizer` (`escapeHtml`, `sanitizeRichText`, `sanitizeDisplayText`) | ✅ |
+| Reflected search `?q=` sanitized before render | ✅ |
+| CMS / PDP rich HTML via `sanitizeRichText` | ✅ |
+| Backend API/schema changes | ✅ None |
+| `npm test` | ✅ 414/414 |
+
+## Customer Storefront Step 1.2.2 — Telemetry & error recovery — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| `EOBTelemetry` global handlers (`error`, `unhandledrejection`) | ✅ |
+| Buffered reports → `POST /api/telemetry/errors` (sendBeacon / fetch; backend returns 200) | ✅ |
+| Extension / noise filtering | ✅ |
+| Checkout/cart/payment frozen UI recovery | ✅ |
+| Backend schema changes | ✅ None (frontend-only) |
+| `npm test` | ✅ 409/409 |
+
+## Customer Storefront Step 1.2.1 — Session guard 401 — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Fetch 401 intercept on customer `/api/*` (excludes public auth + admin) | ✅ |
+| Single-flight silent refresh + one retry (`_eobAuthRetried`) | ✅ |
+| Checkout/payment non-destructive expiry (cart + `activeCheckoutSession` preserved) | ✅ |
+| `EOBCommerce.dropAuthPreservingCommerce` + inline re-auth modal | ✅ |
+| Backend refresh-token route | ❌ Not present (graceful fallback) |
+| `npm test` | ✅ 405/405 |
+
+## Customer Storefront Step 1.1.2 — State machine & pub/sub — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Commerce FSM (`GUEST_ANONYMOUS` → … → `ORDER_PROCESSING`) | ✅ |
+| Invalid transition guard (no throw; failed `beginOrderProcessing` blocks payment) | ✅ |
+| Pub/sub (`subscribe`, `cart:updated`, `auth:changed`, `checkout:session_changed`) | ✅ |
+| UI subscribers (`cart.js`, `header.js`, `sidebarDrawer.js`) | ✅ |
+| Checkout draft hydrate on boot (`hydrateFromStorage`) | ✅ |
+| `npm test` | ✅ 405/405 |
+
+## Customer Storefront Step 1.1.1 — Storage & state — 2026-09-29
+
+| Item | Status |
+|------|--------|
+| Central `EOBStorage` + `EOBStorageKeys` (`client/js/utils/storage.js`) | ✅ |
+| Commerce cart/catalog encapsulation (`EOBCommerce`, `client/js/store/commerceState.js`) | ✅ |
+| Checkout UI state module (`EOBCheckoutState`, `client/js/store/checkoutState.js`) | ✅ |
+| Direct `localStorage`/`sessionStorage` in `client/js` (except storage impl) | ✅ None |
+| REST checkout/cart payloads unchanged | ✅ |
+| `npm test` | ✅ 405/405 |
+
+---
+
 ## SECTION 1 — PROJECT OVERVIEW
 
 ### Tech Stack

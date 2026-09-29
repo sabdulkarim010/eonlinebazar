@@ -104,7 +104,7 @@ function normalizeAdminRole(raw) {
 
 function syncWindowAdminRoleFromCache() {
     try {
-        const cached = sessionStorage.getItem('adminProfile');
+        const cached = window.EOBStorage.session.get('adminProfile');
         if (cached) {
             window.adminRole = normalizeAdminRole(JSON.parse(cached).role);
         }

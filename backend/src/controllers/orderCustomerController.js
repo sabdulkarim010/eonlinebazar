@@ -554,7 +554,8 @@ const returnOrderItems = async (req, res) => {
         order.status = 'Return Requested';
         order.returnRequestedAt = new Date();
         const { buildReturnRequestFromOrder } = require('../utils/returnRequestHelpers');
-        order.returnRequest = buildReturnRequestFromOrder(order, { status: 'pending' });
+        const detailNotes = String(req.body.notes || req.body.detailNotes || '').trim();
+        order.returnRequest = buildReturnRequestFromOrder(order, { status: 'pending', note: detailNotes });
         order.markModified('returnRequest');
         if (!order.notificationsSent) order.notificationsSent = {};
         order.notificationsSent.returnReceived = true;

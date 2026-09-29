@@ -18,7 +18,7 @@ let waPollTimer = null;
 function authHeaders() {
     return {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${window.token || localStorage.getItem('adminToken') || ''}`
+        Authorization: `Bearer ${window.token || window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || ''}`
     };
 }
 

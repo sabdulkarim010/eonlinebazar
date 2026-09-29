@@ -33,8 +33,9 @@ const {
     mergeGuestCartIntoUserCart
 } = require('../services/cartMergeService');
 const { isValidImagePath } = require('../utils/orderItemImages');
+const { resolveSellingPriceFromSettings } = require('./orderControllerHelpers');
 
-const PRODUCT_MEDIA_SELECT = 'name price images image thumbnail icon productId stockQuantity stock';
+const PRODUCT_MEDIA_SELECT = 'name price images image thumbnail icon productId stockQuantity stock variants';
 
 /** Undo legacy HTML entity encoding that broke stored Cloudinary / absolute URLs. */
 function repairHtmlEncodedUrl(url) {
@@ -163,6 +164,31 @@ async function loadProductsForCartItems(items = []) {
     return new Map(products.map((product) => [String(product._id), product]));
 }
 
+/** Never trust client-supplied line prices — resolve from catalog + variant (+ flash when configured). */
+function resolveAuthoritativeCartLinePrice(product, lineContext = {}) {
+    const price = resolveSellingPriceFromSettings(product, lineContext, null);
+    if (Number.isFinite(price) && price >= 0) return price;
+    return Number(product?.price) || 0;
+}
+
+async function applyAuthoritativePricesToGuestItems(guestItems = []) {
+    const list = Array.isArray(guestItems) ? guestItems : [];
+    if (list.length === 0) return list;
+
+    const productIds = [...new Set(list.map((item) => String(item.productId)).filter(Boolean))];
+    const products = await Product.find({ _id: { $in: productIds } }).select(PRODUCT_MEDIA_SELECT);
+    const byId = new Map(products.map((p) => [String(p._id), p]));
+
+    return list.map((item) => {
+        const product = byId.get(String(item.productId));
+        if (!product) return item;
+        return {
+            ...item,
+            price: resolveAuthoritativeCartLinePrice(product, item)
+        };
+    });
+}
+
 function extractEmbeddedProduct(plain) {
     const pid = plain?.productId;
     if (pid && typeof pid === 'object' && pid._id) {
@@ -246,7 +272,8 @@ exports.mergeCart = async (req, res) => {
     try {
         const { cartItems } = req.body;
         const userId = req.user.id;
-        const guestItems = normalizeGuestCartItems(cartItems);
+        let guestItems = normalizeGuestCartItems(cartItems);
+        guestItems = await applyAuthoritativePricesToGuestItems(guestItems);
 
         if (guestItems.length === 0) {
             const existing = await Cart.findOne({ userId });
@@ -314,16 +341,16 @@ function resolveCartItemImage(body = {}, product = null) {
 
 exports.addToCart = async (req, res) => {
     try {
-        const { productId, quantity, name, price, icon } = req.body;
+        const { productId, quantity, name, icon } = req.body;
         const userId = req.user.id;
         const variant = normalizeVariant(req.body);
 
         const product = await Product.findById(productId)
-            .select('images emojiIcon icon name price image thumbnail');
+            .select('images emojiIcon icon name price image thumbnail variants');
         const displayImage = resolveCartItemImage(req.body, product);
         const displayIcon = icon || product?.emojiIcon || product?.icon || '📦';
         const displayName = name || product?.name || 'Product';
-        const displayPrice = price != null ? Number(price) : Number(product?.price) || 0;
+        const displayPrice = resolveAuthoritativeCartLinePrice(product, { ...req.body, ...variant });
 
         let userCart = await Cart.findOne({ userId });
 

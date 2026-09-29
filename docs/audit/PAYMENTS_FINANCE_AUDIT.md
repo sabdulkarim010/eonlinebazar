@@ -1,6 +1,6 @@
 # PAYMENTS & FINANCE AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-28 (test-run seed log silence — expense categories)  
+**Last updated:** 2026-09-29 (Step 2.2.3 — payment verify API + storefront FSM)  
 **Scope:** Payment gateways, reconciliation, wallet, expenses, P&L, finance analytics, accounts summary, VAT  
 **Status:** ✅ COMPLETE
 
@@ -12,7 +12,8 @@
 |------|------|
 | `backend/src/routes/paymentRoutes.js` | Gateway init + IPN callbacks |
 | `backend/src/routes/financeRoutes.js` | Finance dashboard auth + analytics |
-| `backend/src/controllers/paymentIpnController.js` | SSLCommerz, Aamarpay, ShurjoPay IPN |
+| `backend/src/controllers/paymentIpnController.js` | SSLCommerz, Aamarpay, ShurjoPay IPN + `verifyPaymentStatus` |
+| `backend/src/services/paymentStatusService.js` | `resolvePaymentPhase`, verify payload for storefront polling |
 | `backend/src/controllers/paymentReconciliationController.js` | Manual payment reconciliation |
 | `backend/src/controllers/paymentMethodController.js` | Payment method CRUD |
 | `backend/src/controllers/financeAnalyticsController.js` | Finance KPI metrics |
@@ -40,7 +41,9 @@
 | `backend/src/repositories/expenseRepository.js` | PG expenses |
 | `backend/src/services/accountingLedgerService.js` | Unified revenue/COGS/expense calculations + PG expense read routing |
 | `backend/src/repositories/expenseCategoryRepository.js` | PG expense categories |
-| `client/payment.html` / `client/js/payment.js` | Customer payment redirect page |
+| `client/payment.html` / `client/js/payment.js` | Customer payment redirect + gateway return verify flow |
+| `client/js/checkout/paymentStatusSync.js` | Payment flow state machine + poll verify |
+| `client/js/orderSuccess.js` | Verified success vs pending/failed outcome UI |
 | `client/finance-analytics.html` / `finance-login.html` | Separate finance dashboard apps |
 | `client/payment-reconciliation.html` | Reconciliation standalone app |
 | `client/js/admin/modules/erp-expenses.js` | Expense ledger UI |
@@ -64,6 +67,8 @@
 - [x] SSLCommerz / Aamarpay / ShurjoPay gateways — `paymentGatewayService.js`
 - [x] Manual bKash/Nagad/COD — settings + checkout flow
 - [x] Payment IPN handling — `paymentIpnController.js`
+- [x] Storefront payment verify polling — `GET /api/payments/verify/:orderId` + `paymentStatusService.js`
+- [x] Gateway return UI state machine (no false success before verify) — `paymentStatusSync.js`, `orderSuccess.js`
 - [x] Payment proof upload (manual) — order payment proof flow
 - [x] Payment reconciliation app — `payment-reconciliation.html`
 - [x] Payment method seed + admin CRUD — `paymentMethodController.js`
@@ -104,6 +109,12 @@
 ---
 
 ## Change Log
+
+### Step 2.2.3 — Payment verify endpoint + storefront FSM — 2026-09-29
+
+- `GET /api/payments/verify/:orderId` with optional auth or checkout phone match for guests.
+- `paymentStatusService.js`: phases `COD_PENDING`, `GATEWAY_VERIFYING`, `PAYMENT_SUCCESS`, `PAYMENT_FAILED`, `PAYMENT_CANCELLED`.
+- Tests: `tests/paymentStatusSync.test.js` (service + client VM); full suite **447/447**.
 
 ### System Settings Phase 3 — Tax/VAT ledger snapshot parity — 2026-09-27
 

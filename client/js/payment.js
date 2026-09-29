@@ -1,3 +1,26 @@
+import { resolvePayableFromQuoteOrSession } from './checkout/quote.js';
+import {
+    ensureCheckoutIdempotencyKey,
+    buildIdempotencyHeaders,
+    beginOrderSubmitLock,
+    endOrderSubmitLock,
+    clearCheckoutIdempotencyAfterSuccess
+} from './checkout/idempotency.js';
+import {
+    initCheckoutCrossTabSync,
+    broadcastOrderCompleted
+} from './checkout/checkoutCrossTabSync.js';
+import {
+    PaymentFlowStatus,
+    setPaymentFlowStatus,
+    resolveStatusAfterOrderCreate,
+    pollPaymentVerification,
+    persistGatewayPaymentContext,
+    readGatewayPaymentContext,
+    clearGatewayPaymentContext
+} from './checkout/paymentStatusSync.js';
+import { renderPaymentOutcomeUi, bindOrderSuccessModalNavigation } from './orderSuccess.js';
+
 /**
  * =========================================================================
  * Project: eOnlineBazar
@@ -15,8 +38,11 @@ let selectedPaymentMethod = null;
 let walletOnlyMode = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    initCheckoutCrossTabSync();
     loadCheckoutSessionData();
+    await verifyPaymentPageQuote();
     await loadDynamicPaymentMethods();
+    await handleGatewayReturnIfPresent();
 
     const confirmOrderBtn = document.getElementById('confirmOrderFinalBtn');
     if (confirmOrderBtn) {
@@ -24,59 +50,134 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+async function handleGatewayReturnIfPresent() {
+    const params = new URLSearchParams(window.location.search);
+    const paymentOutcome = String(params.get('payment') || params.get('gateway') || '').toLowerCase();
+    const ctx = readGatewayPaymentContext();
+    const orderId = params.get('orderId') || ctx?.orderId || '';
+    if (!orderId) return;
+    if (!params.get('orderId') && !paymentOutcome && !ctx?.orderId) return;
+
+    setPaymentFlowStatus(PaymentFlowStatus.GATEWAY_VERIFYING, { orderId, paymentOutcome });
+    const poll = await pollPaymentVerification(orderId, {
+        phone: window.__checkoutSession?.customerPhone,
+        methodType: 'automated',
+        maxAttempts: paymentOutcome ? 6 : 3
+    });
+
+    const methodLabel = readGatewayPaymentContext()?.methodLabel || 'Payment gateway';
+    renderPaymentOutcomeUi({
+        orderId,
+        methodLabel,
+        status: poll.status,
+        onRetryPayment: () => retryGatewayPayment(orderId),
+        onSwitchToCod: () => switchPaymentFlowToCod(orderId)
+    });
+    bindOrderSuccessModalNavigation(orderId, { autoRedirectSeconds: 45 });
+}
+
 /* =========================================================================
    Session + summary
    ========================================================================= */
-function loadCheckoutSessionData() {
-    const sessionData = JSON.parse(localStorage.getItem('activeCheckoutSession'));
-
-    if (!sessionData) {
-        alert('No active checkout session found. Redirecting to cart.');
-        window.location.href = '/cart';
-        return;
+async function verifyPaymentPageQuote() {
+    const sessionData = window.__checkoutSession
+        || window.EOBStorage.getJSON(window.EOBStorageKeys.ACTIVE_CHECKOUT_SESSION, null);
+    if (!sessionData || !Array.isArray(sessionData.items) || sessionData.items.length === 0) {
+        return null;
     }
 
-    window.__checkoutSession = sessionData;
+    const payload = {
+        items: sessionData.items.map((item) => {
+            const row = {
+                productId: item.productId || item.id,
+                quantity: Math.max(1, Number(item.quantity) || 1)
+            };
+            const vid = item.variantId != null ? String(item.variantId).trim() : '';
+            if (vid) row.variantId = vid;
+            return row;
+        }),
+        shippingAddress: {
+            district: sessionData.shippingDistrict || '',
+            upazila: sessionData.shippingUpazila || ''
+        },
+        couponCode: sessionData.couponCode || '',
+        deliveryMethod: sessionData.deliveryLocationType || 'inside',
+        applyWallet: sessionData.applyWallet === true,
+        applyLoyaltyPoints: sessionData.applyLoyaltyPoints === true
+    };
 
-    document.getElementById('summaryCustomerName').innerText = sessionData.customerName || 'N/A';
-    document.getElementById('summaryCustomerMobile').innerText =
-        sessionData.customerPhone || sessionData.customerMobile || 'N/A';
-    document.getElementById('summaryCustomerAddress').innerText = sessionData.customerAddress || 'N/A';
+    const authToken = window.EOBStorage.get(window.EOBStorageKeys.TOKEN)
+        || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
-    const noteRow = document.getElementById('summaryCourierNoteRow');
-    const noteSpan = document.getElementById('summaryCourierNote');
-    const savedNote = sessionData.note || localStorage.getItem('shippingCourierNote') || '';
-    if (savedNote && savedNote.trim() !== '') {
-        if (noteSpan) noteSpan.innerText = savedNote;
-        if (noteRow) noteRow.style.display = 'block';
-    } else if (noteRow) {
-        noteRow.style.display = 'none';
+    try {
+        const response = await fetch('/api/orders/quote', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            if (data.code === 'ITEM_UNAVAILABLE') {
+                alert(data.message || 'Some items are no longer available. Returning to checkout.');
+                window.location.href = '/checkout';
+            }
+            return null;
+        }
+
+        const totals = resolvePayableFromQuoteOrSession(data.data, sessionData);
+        if (!totals || totals.source !== 'server') return null;
+
+        sessionData.subtotal = totals.subtotal;
+        sessionData.subTotal = totals.subtotal;
+        sessionData.discountAmount = totals.discountAmount;
+        sessionData.deliveryCharge = totals.deliveryCharge;
+        sessionData.shippingFee = totals.deliveryCharge;
+        sessionData.vatAmount = totals.vatAmount;
+        sessionData.taxAmount = totals.vatAmount;
+        sessionData.grandTotal = totals.grandTotal;
+        sessionData.totalAmount = totals.grandTotal;
+        sessionData.payableAfterWallet = totals.payableAfterWallet;
+        sessionData.serverQuote = data.data;
+        window.__checkoutSession = sessionData;
+        window.EOBStorage.setJSON(window.EOBStorageKeys.ACTIVE_CHECKOUT_SESSION, sessionData);
+        if (window.EOBCheckoutState) {
+            window.EOBCheckoutState.set('activeQuote', data.data);
+            window.EOBCheckoutState.set('quoteMeta', { valid: true, fallback: false, source: 'server' });
+        }
+        applyPaymentSummaryFromSession(sessionData);
+        return data.data;
+    } catch (err) {
+        console.warn('Payment quote verification skipped:', err);
+        return null;
     }
+}
+
+function applyPaymentSummaryFromSession(sessionData) {
+    if (!sessionData) return;
 
     let totalItems = 0;
-    let calculatedSubtotal = 0;
     if (sessionData.items && sessionData.items.length > 0) {
         sessionData.items.forEach((item) => {
             totalItems += parseInt(item.quantity, 10) || 1;
-            calculatedSubtotal += parseFloat(item.price) * (parseInt(item.quantity, 10) || 1);
         });
     }
 
-    const subtotal = Number(sessionData.subtotal) || calculatedSubtotal;
+    const subtotal = Number(sessionData.subtotal) || 0;
     const discountAmount = Number(sessionData.discountAmount) || 0;
     const deliveryCharge = Number(sessionData.deliveryCharge ?? sessionData.shippingFee) || 0;
     const walletApplied = Number(sessionData.walletApplied) || 0;
-    const grandBeforeWallet = Number.isFinite(Number(sessionData.grandTotal))
-        ? Number(sessionData.grandTotal)
-        : Math.max(0, subtotal - discountAmount + deliveryCharge);
     const payable = Number.isFinite(Number(sessionData.payableAfterWallet))
         ? Number(sessionData.payableAfterWallet)
-        : Math.max(0, grandBeforeWallet - walletApplied);
+        : Math.max(0, Number(sessionData.grandTotal) - walletApplied);
 
     basePayableBeforeFee = payable;
 
-    document.getElementById('summaryItemsCount').innerText =
-        `${totalItems} Item${totalItems !== 1 ? 's' : ''}`;
+    const itemsCountEl = document.getElementById('summaryItemsCount');
+    if (itemsCountEl) {
+        itemsCountEl.innerText = `${totalItems} Item${totalItems !== 1 ? 's' : ''}`;
+    }
 
     const walletRow = document.getElementById('summaryWalletRow');
     const walletEl = document.getElementById('summaryWalletApplied');
@@ -110,6 +211,35 @@ function loadCheckoutSessionData() {
 
     updatePayableSummary(0, null);
     walletOnlyMode = payable <= 0 && walletApplied > 0;
+}
+
+function loadCheckoutSessionData() {
+    const sessionData = window.EOBStorage.getJSON(window.EOBStorageKeys.ACTIVE_CHECKOUT_SESSION, null);
+
+    if (!sessionData) {
+        alert('No active checkout session found. Redirecting to cart.');
+        window.location.href = '/cart';
+        return;
+    }
+
+    window.__checkoutSession = sessionData;
+
+    document.getElementById('summaryCustomerName').innerText = sessionData.customerName || 'N/A';
+    document.getElementById('summaryCustomerMobile').innerText =
+        sessionData.customerPhone || sessionData.customerMobile || 'N/A';
+    document.getElementById('summaryCustomerAddress').innerText = sessionData.customerAddress || 'N/A';
+
+    const noteRow = document.getElementById('summaryCourierNoteRow');
+    const noteSpan = document.getElementById('summaryCourierNote');
+    const savedNote = sessionData.note || window.EOBStorage.get(window.EOBStorageKeys.SHIPPING_COURIER_NOTE) || '';
+    if (savedNote && savedNote.trim() !== '') {
+        if (noteSpan) noteSpan.innerText = savedNote;
+        if (noteRow) noteRow.style.display = 'block';
+    } else if (noteRow) {
+        noteRow.style.display = 'none';
+    }
+
+    applyPaymentSummaryFromSession(sessionData);
 }
 
 function computeProcessingFee(method, amount) {
@@ -147,6 +277,9 @@ function updatePayableSummary(processingFee = 0, method = null) {
 }
 
 function escapeHtml(str) {
+    if (window.EOBSanitizer && typeof window.EOBSanitizer.escapeHtml === 'function') {
+        return window.EOBSanitizer.escapeHtml(str);
+    }
     return String(str ?? '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -357,16 +490,39 @@ window.handleFinalOrderSubmission = async function handleFinalOrderSubmission() 
         return;
     }
 
+    if (window.EOBCheckoutState?.get('checkoutCrossTabBlocked')) {
+        alert('This checkout was already completed or updated in another tab.');
+        return;
+    }
+
+    if (!beginOrderSubmitLock()) {
+        return;
+    }
+
     const confirmBtn = document.getElementById('confirmOrderFinalBtn');
+    const confirmBtnDefaultHtml = confirmBtn
+        ? confirmBtn.innerHTML
+        : '<i class="fa-solid fa-circle-check"></i> Confirm & Place Order';
+
     if (confirmBtn) {
         confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing Order...';
         confirmBtn.disabled = true;
+        confirmBtn.setAttribute('aria-busy', 'true');
     }
 
     try {
-        const sessionData = JSON.parse(localStorage.getItem('activeCheckoutSession'));
+        const sessionData = window.EOBStorage.getJSON(window.EOBStorageKeys.ACTIVE_CHECKOUT_SESSION, null);
         if (!sessionData || !sessionData.items) {
             throw new Error('Checkout session expired. Please go back to cart.');
+        }
+
+        ensureCheckoutIdempotencyKey(sessionData.items);
+
+        if (window.EOBCommerce && typeof window.EOBCommerce.beginOrderProcessing === 'function') {
+            const orderState = window.EOBCommerce.beginOrderProcessing();
+            if (!orderState.ok) {
+                throw new Error('Checkout is not ready. Please return to checkout and try again.');
+            }
         }
 
         const method = selectedPaymentMethod;
@@ -404,11 +560,11 @@ window.handleFinalOrderSubmission = async function handleFinalOrderSubmission() 
             paymentMethodId: isWallet ? undefined : method.id,
             paymentMethod: isWallet ? 'Wallet' : (method.code || method.name),
             status: 'Pending',
-            note: sessionData.note || localStorage.getItem('shippingCourierNote') || ''
+            note: sessionData.note || window.EOBStorage.get(window.EOBStorageKeys.SHIPPING_COURIER_NOTE) || ''
         };
 
-        const authToken = localStorage.getItem('token') || localStorage.getItem('customerToken');
-        const orderHeaders = { 'Content-Type': 'application/json' };
+        const authToken = window.EOBStorage.get(window.EOBStorageKeys.TOKEN) || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
+        const orderHeaders = buildIdempotencyHeaders({ 'Content-Type': 'application/json' });
         if (authToken) orderHeaders.Authorization = `Bearer ${authToken}`;
 
         const response = await fetch('/api/orders', {
@@ -443,16 +599,26 @@ window.handleFinalOrderSubmission = async function handleFinalOrderSubmission() 
         };
 
         if (lockedPricing && Object.keys(lockedPricing).length > 0) {
-            localStorage.setItem('lastOrderLockedPricing', JSON.stringify({
+            window.EOBStorage.setJSON(window.EOBStorageKeys.LAST_ORDER_LOCKED_PRICING, {
                 orderId: verifiedOrderId,
                 ...lockedPricing
-            }));
+            });
         }
 
-        const isBuyNow = localStorage.getItem('isBuyNowMode') === 'true';
+        clearCheckoutIdempotencyAfterSuccess();
+        broadcastOrderCompleted(verifiedOrderId, { pendingPayment: method?.type === 'automated' });
+
+        const flowStatus = resolveStatusAfterOrderCreate(result, method);
+        setPaymentFlowStatus(flowStatus, { orderId: verifiedOrderId, method: method?.code || method?.name });
+
+        const isBuyNow = window.EOBStorage.get(window.EOBStorageKeys.IS_BUY_NOW_MODE) === 'true';
+        let remainingCart = null;
         if (isBuyNow) {
-            localStorage.removeItem('isBuyNowMode');
-            localStorage.removeItem('buy_now_item');
+            if (window.EOBCommerce) window.EOBCommerce.clearBuyNowFlow();
+            else {
+                window.EOBStorage.remove(window.EOBStorageKeys.IS_BUY_NOW_MODE);
+                window.EOBStorage.remove(window.EOBStorageKeys.BUY_NOW_ITEM);
+            }
         } else {
             if (authToken) {
                 await fetch('/api/cart/clear-ordered', {
@@ -461,22 +627,38 @@ window.handleFinalOrderSubmission = async function handleFinalOrderSubmission() 
                 }).catch((err) => console.error('DB Cart cleanup failed', err));
             }
 
-            const fullCart = JSON.parse(localStorage.getItem('cart')) || [];
-            const remainingCart = fullCart.filter((item) => item.selected === false);
-            localStorage.setItem('cart', JSON.stringify(remainingCart));
+            const fullCart = window.EOBStorage.getJSON(window.EOBStorageKeys.CART, []);
+            remainingCart = fullCart.filter((item) => item.selected === false);
+            window.EOBStorage.setJSON(window.EOBStorageKeys.CART, remainingCart);
         }
 
-        localStorage.removeItem('activeCheckoutSession');
-        localStorage.removeItem('appliedCoupon');
-        localStorage.removeItem('shippingFullName');
-        localStorage.removeItem('shippingMobile');
-        localStorage.removeItem('shippingAddress');
-        localStorage.removeItem('shippingCourierNote');
+        window.EOBStorage.remove(window.EOBStorageKeys.APPLIED_COUPON);
+        window.EOBStorage.remove(window.EOBStorageKeys.SHIPPING_FULL_NAME);
+        window.EOBStorage.remove(window.EOBStorageKeys.SHIPPING_MOBILE);
+        window.EOBStorage.remove(window.EOBStorageKeys.SHIPPING_ADDRESS);
+        window.EOBStorage.remove(window.EOBStorageKeys.SHIPPING_COURIER_NOTE);
 
-        // Automated gateways: attempt hosted redirect when the adapter is live.
+        if (window.EOBCommerce && typeof window.EOBCommerce.completeOrderProcessing === 'function') {
+            window.EOBCommerce.completeOrderProcessing({
+                clearGuestCart: isBuyNow ? undefined : remainingCart
+            });
+        } else {
+            window.EOBStorage.remove(window.EOBStorageKeys.ACTIVE_CHECKOUT_SESSION);
+        }
+
+        const methodLabel = isWallet ? 'Wallet' : (method?.name || 'selected method');
+
         if (!isWallet && method?.type === 'automated') {
+            persistGatewayPaymentContext({
+                orderId: verifiedOrderId,
+                methodId: method.id,
+                methodLabel,
+                startedAt: Date.now()
+            });
+            setPaymentFlowStatus(PaymentFlowStatus.GATEWAY_INITIATED, { orderId: verifiedOrderId });
+
             try {
-                const initHeaders = { 'Content-Type': 'application/json' };
+                const initHeaders = buildIdempotencyHeaders({ 'Content-Type': 'application/json' });
                 if (authToken) initHeaders.Authorization = `Bearer ${authToken}`;
 
                 const initRes = await fetch('/api/payments/initiate', {
@@ -489,72 +671,85 @@ window.handleFinalOrderSubmission = async function handleFinalOrderSubmission() 
                 });
                 const initData = await initRes.json();
                 if (initData.success && initData.data?.redirectUrl) {
+                    endOrderSubmitLock();
                     window.location.href = initData.data.redirectUrl;
                     return;
                 }
             } catch (gatewayErr) {
                 console.warn('Gateway initiate deferred:', gatewayErr);
             }
+
+            setPaymentFlowStatus(PaymentFlowStatus.GATEWAY_VERIFYING, { orderId: verifiedOrderId });
+            const poll = await pollPaymentVerification(verifiedOrderId, {
+                phone: sessionData.customerPhone,
+                methodType: 'automated',
+                maxAttempts: 4
+            });
+            endOrderSubmitLock();
+            renderPaymentOutcomeUi({
+                orderId: verifiedOrderId,
+                methodLabel,
+                status: poll.status,
+                onRetryPayment: () => retryGatewayPayment(verifiedOrderId),
+                onSwitchToCod: () => switchPaymentFlowToCod(verifiedOrderId)
+            });
+            bindOrderSuccessModalNavigation(verifiedOrderId);
+            return;
         }
 
-        const methodLabel = isWallet ? 'Wallet' : (method?.name || 'selected method');
-        showOrderSuccessModal(verifiedOrderId, methodLabel, method?.type === 'automated');
+        if (flowStatus === PaymentFlowStatus.PAYMENT_SUCCESS) {
+            clearGatewayPaymentContext();
+        }
+
+        endOrderSubmitLock();
+        renderPaymentOutcomeUi({
+            orderId: verifiedOrderId,
+            methodLabel,
+            status: flowStatus
+        });
+        bindOrderSuccessModalNavigation(verifiedOrderId);
     } catch (error) {
         console.error('Order error:', error);
+        if (window.EOBCommerce && typeof window.EOBCommerce.abortOrderProcessing === 'function') {
+            window.EOBCommerce.abortOrderProcessing();
+        }
+        endOrderSubmitLock();
         alert(`Error: ${error.message}`);
         if (confirmBtn) {
-            confirmBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Confirm & Place Order';
+            confirmBtn.innerHTML = confirmBtnDefaultHtml;
             confirmBtn.disabled = false;
+            confirmBtn.removeAttribute('aria-busy');
         }
     }
 };
 
-function showOrderSuccessModal(verifiedOrderId, methodLabel, isAutomated = false) {
-    const successModal = document.getElementById('orderSuccessModal');
-    if (!successModal) {
-        window.location.href = '/';
+async function retryGatewayPayment(orderId) {
+    const ctx = readGatewayPaymentContext() || {};
+    const methodId = ctx.methodId || selectedPaymentMethod?.id;
+    if (!methodId) {
+        alert('Select a payment method and try again.');
         return;
     }
-
-    document.getElementById('modalOrderId').innerText = verifiedOrderId;
-    document.getElementById('modalGatewayMessage').innerHTML = isAutomated
-        ? `Your order <strong>${escapeHtml(verifiedOrderId)}</strong> via <strong>${escapeHtml(methodLabel)}</strong> is placed. Complete payment on the gateway when prompted.`
-        : `Your order <strong>${escapeHtml(verifiedOrderId)}</strong> via <strong>${escapeHtml(methodLabel)}</strong> has been placed.`;
-    document.getElementById('modalDeliveryDate').innerText =
-        new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toLocaleDateString();
-
-    successModal.style.setProperty('display', 'flex', 'important');
-
-    const copyBtn = document.getElementById('copyOrderIdBtn');
-    if (copyBtn) {
-        copyBtn.onclick = function copyOrderId() {
-            navigator.clipboard.writeText(verifiedOrderId).then(() => {
-                const originalHTML = copyBtn.innerHTML;
-                copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-                setTimeout(() => { copyBtn.innerHTML = originalHTML; }, 2000);
-            });
-        };
+    const authToken = window.EOBStorage.get(window.EOBStorageKeys.TOKEN)
+        || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
+    const headers = buildIdempotencyHeaders({ 'Content-Type': 'application/json' });
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
+    const initRes = await fetch('/api/payments/initiate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ orderId, paymentMethodId: methodId })
+    });
+    const initData = await initRes.json();
+    if (initData.success && initData.data?.redirectUrl) {
+        setPaymentFlowStatus(PaymentFlowStatus.GATEWAY_INITIATED, { orderId });
+        window.location.href = initData.data.redirectUrl;
+        return;
     }
+    alert(initData.message || 'Could not restart gateway payment.');
+}
 
-    let timeLeft = 30;
-    const timer = setInterval(() => {
-        timeLeft -= 1;
-        if (document.getElementById('modalTimerCount')) {
-            document.getElementById('modalTimerCount').innerText = timeLeft;
-        }
-        if (timeLeft <= 0) {
-            clearInterval(timer);
-            window.location.href = '/';
-        }
-    }, 1000);
-
-    const continueBtn = document.getElementById('modalCloseAndHomeBtn');
-    if (continueBtn) {
-        continueBtn.onclick = function goHome() {
-            clearInterval(timer);
-            window.location.href = '/';
-        };
-    }
+function switchPaymentFlowToCod(orderId) {
+    window.location.href = `/order-details?id=${encodeURIComponent(orderId)}&payment=cod`;
 }
 
 

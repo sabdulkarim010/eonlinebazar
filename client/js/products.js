@@ -10,8 +10,8 @@
 (function (global) {
     'use strict';
 
-    const PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
-    const DEFAULT_PAGE_SIZE = 24;
+    const PAGE_SIZE_OPTIONS = [12, 20, 24, 48, 96];
+    const DEFAULT_PAGE_SIZE = 20;
 
     function normalizePageSize(value, fallback = DEFAULT_PAGE_SIZE) {
         const n = parseInt(value, 10);

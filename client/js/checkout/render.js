@@ -201,6 +201,9 @@ async function fetchSavedAddressesForCheckout() {
 }
 
 function escapeCheckoutHtml(str) {
+    if (window.EOBSanitizer && typeof window.EOBSanitizer.escapeHtml === 'function') {
+        return window.EOBSanitizer.escapeHtml(str);
+    }
     return String(str == null ? '' : str)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -415,13 +418,13 @@ function applySavedAddressToCheckoutForm(addr = {}, profile = checkoutProfileCac
     populateCheckoutDistrictOptions(district);
     selectedShippingDistrict = district;
     validationState.district = Boolean(district);
-    localStorage.setItem('shippingDistrict', district);
-    localStorage.setItem('checkout_district', district);
+    window.EOBStorage.set(window.EOBStorageKeys.SHIPPING_DISTRICT, district);
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_DISTRICT, district);
 
     populateCheckoutUpazilaOptions(district, upazila);
     selectedShippingUpazila = upazila;
     validationState.upazila = Boolean(upazila);
-    localStorage.setItem('checkout_upazila', upazila);
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_UPAZILA, upazila);
 
     const nameEl = document.getElementById('shippingFullName');
     const phoneEl = document.getElementById('shippingMobile');
@@ -440,10 +443,10 @@ function applySavedAddressToCheckoutForm(addr = {}, profile = checkoutProfileCac
         addressEl.dispatchEvent(new Event('input'));
     }
 
-    localStorage.setItem('checkout_name', nameEl?.value || profile?.name || '');
-    localStorage.setItem('checkout_phone', phoneEl?.value || addr.phone || '');
-    localStorage.setItem('checkout_full_address', street);
-    localStorage.setItem('checkout_address', buildCompleteDeliveryAddress({
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_NAME, nameEl?.value || profile?.name || '');
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_PHONE, phoneEl?.value || addr.phone || '');
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_FULL_ADDRESS, street);
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_ADDRESS, buildCompleteDeliveryAddress({
         streetText: street,
         upazila,
         district
@@ -477,16 +480,16 @@ function cacheCheckoutProfileLocally(profile = {}) {
         thana: profile.thana || ''
     });
 
-    localStorage.setItem('checkout_name', profile.name || '');
-    localStorage.setItem('checkout_phone', profile.phone || profile.mobile || '');
-    localStorage.setItem('checkout_district', profile.district || '');
-    localStorage.setItem('checkout_upazila', upazila);
-    localStorage.setItem('checkout_full_address', profile.fullAddress || '');
-    localStorage.setItem('checkout_address', buildCompleteDeliveryAddress({
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_NAME, profile.name || '');
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_PHONE, profile.phone || profile.mobile || '');
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_DISTRICT, profile.district || '');
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_UPAZILA, upazila);
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_FULL_ADDRESS, profile.fullAddress || '');
+    window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_ADDRESS, buildCompleteDeliveryAddress({
         streetText,
         district: profile.district || ''
     }));
-    localStorage.setItem('shippingDistrict', profile.district || '');
+    window.EOBStorage.set(window.EOBStorageKeys.SHIPPING_DISTRICT, profile.district || '');
 }
 
 function updateGuestCheckoutUI() {
@@ -683,7 +686,7 @@ function renderFreeShippingStatus(subtotal, badgeEl) {
         : (window.ShippingEstimator?.formatFreeShippingRemainingMessage?.(progress.remaining) || `Add ৳${progress.remaining.toLocaleString('en-US')} more for FREE shipping`);
 }
 
-function updateCheckoutTotals(subtotal) {
+function updateCheckoutTotalsClient(subtotal) {
     const subtotalText = document.getElementById('checkoutSubtotal');
     const deliveryChargeEl = document.getElementById('checkoutDeliveryCharge');
     const freeShippingBadge = document.getElementById('checkoutFreeShippingBadge');
@@ -718,6 +721,27 @@ function updateCheckoutTotals(subtotal) {
         loyaltyDiscount: loyaltySummary.loyaltyDiscount || 0,
         loyaltyPointsUsed: loyaltySummary.pointsUsed || 0
     };
+}
+
+function updateCheckoutTotals(subtotal) {
+    const stateApi = window.EOBCheckoutState;
+    const meta = stateApi ? stateApi.get('quoteMeta') : null;
+    const quote = stateApi ? stateApi.get('activeQuote') : null;
+    if (
+        quote
+        && meta
+        && meta.valid !== false
+        && meta.fallback !== true
+        && typeof renderTotalsFromActiveQuote === 'function'
+    ) {
+        return renderTotalsFromActiveQuote(quote);
+    }
+
+    const totals = updateCheckoutTotalsClient(subtotal);
+    if (typeof requestOrderQuoteRefresh === 'function') {
+        requestOrderQuoteRefresh({ silent: true });
+    }
+    return totals;
 }
 
 function parseCheckoutCartResponse(payload) {
@@ -761,6 +785,13 @@ function buildCheckoutItemImageHtml(item, catalogProduct) {
    ৩. ডাটাবেজ বা লোকাল স্টোরেজ থেকে কার্ট ডাটা নিয়ে আসা
    ========================================================================= */
 function fetchCartData() {
+    const checkoutContainer = document.getElementById('checkoutItemsContainer');
+    if (customerToken && checkoutContainer && typeof window.EOBSkeletons !== 'undefined') {
+        const items = typeof getCheckoutItems === 'function' ? getCheckoutItems() : [];
+        if (!items.length) {
+            window.EOBSkeletons.mountCartLinesSkeleton(checkoutContainer, 3, 'checkout');
+        }
+    }
     if (customerToken) {
         // লগইন থাকলে ডাটাবেজ থেকে কার্ট আনবে
         fetch('/api/cart', {
@@ -953,6 +984,7 @@ Object.assign(window, {
     updateCheckoutDeliveryEstimate,
     renderFreeShippingStatus,
     updateCheckoutTotals,
+    updateCheckoutTotalsClient,
     parseCheckoutCartResponse,
     buildCheckoutItemImageHtml,
     fetchCartData,

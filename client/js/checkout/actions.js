@@ -39,6 +39,7 @@ function initCheckoutWalletControls() {
     checkbox.addEventListener('change', () => {
         applyWalletAtCheckout = checkbox.checked && checkoutWalletBalance > 0;
         updateCheckoutTotals(getCheckoutSubtotal());
+        if (typeof requestOrderQuoteRefresh === 'function') requestOrderQuoteRefresh();
     });
 }
 
@@ -79,6 +80,7 @@ function initCheckoutLoyaltyControls() {
     checkbox.addEventListener('change', () => {
         applyLoyaltyAtCheckout = checkbox.checked && checkoutLoyaltyPoints > 0;
         updateCheckoutTotals(getCheckoutSubtotal());
+        if (typeof requestOrderQuoteRefresh === 'function') requestOrderQuoteRefresh();
     });
 }
 
@@ -152,13 +154,13 @@ function renderCheckoutWalletSummary(grandTotal) {
    ⚡ ৫. কোর কার্ট অ্যাকশন লজিক (Quantity & Remove) - Buy Now আইসোলেটেড
    ========================================================================= */
 function changeItemQuantity(productId, amount, variantId = '') {
-    const isBuyNow = localStorage.getItem('isBuyNowMode') === 'true';
+    const isBuyNow = window.EOBStorage.get(window.EOBStorageKeys.IS_BUY_NOW_MODE) === 'true';
     const sameLineCk = (i) => String(i.id) === String(productId) &&
         String(i.variantId || '') === String(variantId || '');
 
     // 🌟 যদি Buy Now মোড হয়, তবে শুধু buy_now_item আপডেট করবে, মেইন কার্টে হাত দেবে না
     if (isBuyNow) {
-        let bnCart = JSON.parse(localStorage.getItem('buy_now_item')) || [];
+        let bnCart = window.EOBStorage.getJSON(window.EOBStorageKeys.BUY_NOW_ITEM, []);
         const item = bnCart.find(sameLineCk);
         if (item) {
             const targetQty = (parseInt(item.quantity) || 1) + amount;
@@ -167,7 +169,7 @@ function changeItemQuantity(productId, amount, variantId = '') {
                 return; 
             }
             item.quantity = targetQty;
-            localStorage.setItem('buy_now_item', JSON.stringify(bnCart));
+            window.EOBStorage.setJSON(window.EOBStorageKeys.BUY_NOW_ITEM, bnCart);
             renderCheckoutCart();
         }
         return; 
@@ -185,39 +187,109 @@ function changeItemQuantity(productId, amount, variantId = '') {
             return; 
         }
 
-        if (customerToken) {
-            fetch('/api/cart/update-quantity', {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${customerToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ productId, quantity: targetQty, variantId })
-            }).then(() => {
-                item.quantity = targetQty;
-                renderCheckoutCart();
-            }).catch(err => console.error("Error updating quantity in checkout:", err));
-        } else {
-            item.quantity = targetQty;
-            saveGuestCartForCheckout(currentCart);
+        const CDU = window.CartDisplayUtils || {};
+        const lineKey = CDU.cartLineKey
+            ? CDU.cartLineKey(productId, variantId)
+            : `${productId}::${variantId || ''}`;
+        const qtySync = CDU.getCartQtySync ? CDU.getCartQtySync() : null;
+        const beforeQty = parseInt(item.quantity, 10) || 1;
+
+        const applyOptimistic = (qty) => {
+            item.quantity = qty;
+            if (typeof invalidateCheckoutIdempotencyKey === 'function') {
+                invalidateCheckoutIdempotencyKey('cart_qty_changed');
+            }
             renderCheckoutCart();
+            if (typeof updateCheckoutTotals === 'function') {
+                updateCheckoutTotals(getCheckoutSubtotal());
+            }
+        };
+
+        const syncFn = async (qty) => {
+            if (customerToken) {
+                const res = await fetch('/api/cart/update-quantity', {
+                    method: 'PUT',
+                    headers: {
+                        Authorization: `Bearer ${customerToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ productId, quantity: qty, variantId })
+                });
+                let data = null;
+                try {
+                    data = await res.json();
+                } catch (_) {
+                    data = null;
+                }
+                if (!res.ok) {
+                    return {
+                        ok: false,
+                        status: res.status,
+                        message: (data && data.message) || 'Could not update quantity'
+                    };
+                }
+                return { ok: true, data };
+            }
+            item.quantity = qty;
+            saveGuestCartForCheckout(currentCart);
+            return { ok: true };
+        };
+
+        const onSuccess = (qty, result) => {
+            if (customerToken && result && result.data && typeof window.syncCartFromServerItems === 'function') {
+                const parse = CDU.parseCartApiResponse || ((payload) => (Array.isArray(payload?.data) ? payload.data : []));
+                const items = parse(result.data);
+                if (items.length > 0) {
+                    window.syncCartFromServerItems(items);
+                }
+            }
+            applyOptimistic(qty);
+            if (window.EOBCommerce && typeof window.EOBCommerce.commitCart === 'function') {
+                window.EOBCommerce.commitCart();
+            }
+        };
+
+        const onRollback = (baseline) => {
+            applyOptimistic(baseline);
+            if (window.EOBCommerce && typeof window.EOBCommerce.commitCart === 'function') {
+                window.EOBCommerce.commitCart();
+            }
+        };
+
+        if (qtySync && typeof qtySync.enqueue === 'function') {
+            qtySync.enqueue({
+                lineKey,
+                beforeQty,
+                targetQty,
+                applyOptimistic,
+                syncFn,
+                onSuccess,
+                onRollback
+            });
+            return;
         }
+
+        applyOptimistic(targetQty);
+        syncFn(targetQty).then((result) => {
+            if (result.ok) onSuccess(targetQty, result);
+            else onRollback(beforeQty);
+        });
     }
 }
 
 function temporarilyRemoveFromCheckout(productId, variantId = '') {
-    const isBuyNow = localStorage.getItem('isBuyNowMode') === 'true';
+    const isBuyNow = window.EOBStorage.get(window.EOBStorageKeys.IS_BUY_NOW_MODE) === 'true';
     const sameLineCk = (i) => String(i.id) === String(productId) &&
         String(i.variantId || '') === String(variantId || '');
 
     // 🌟 যদি Buy Now মোড হয়, তবে শুধু buy_now_item থেকে ডিলিট করবে
     if (isBuyNow) {
-        let bnCart = JSON.parse(localStorage.getItem('buy_now_item')) || [];
+        let bnCart = window.EOBStorage.getJSON(window.EOBStorageKeys.BUY_NOW_ITEM, []);
         bnCart = bnCart.filter(i => !sameLineCk(i));
-        localStorage.setItem('buy_now_item', JSON.stringify(bnCart));
+        window.EOBStorage.setJSON(window.EOBStorageKeys.BUY_NOW_ITEM, bnCart);
         
         if (bnCart.length === 0) {
-            localStorage.removeItem('isBuyNowMode'); // আইটেম না থাকলে মোড অফ
+            window.EOBStorage.remove(window.EOBStorageKeys.IS_BUY_NOW_MODE); // আইটেম না থাকলে মোড অফ
         }
         renderCheckoutCart();
         return;

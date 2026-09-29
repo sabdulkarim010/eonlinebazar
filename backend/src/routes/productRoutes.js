@@ -13,6 +13,8 @@ const router = express.Router();
 const { 
     getProducts, 
     searchProducts, // 🌟 অ্যাডভান্সড সার্চ
+    getProductsLookup,
+    getFlashDealProducts,
     createProduct, 
     updateProduct, 
     deleteProduct, 
@@ -44,6 +46,10 @@ router.get('/', getProducts);
 // ⚠️ গুরুত্বপূর্ণ: এই রুটটি অবশ্যই '/:id' রুটের আগে থাকতে হবে, নইলে
 // "search" শব্দটি প্রোডাক্ট আইডি হিসেবে ধরা পড়বে।
 router.get('/search', searchProducts);
+
+// Bounded public lookups (must be registered before '/:id')
+router.get('/flash-deals', getFlashDealProducts);
+router.get('/lookup', getProductsLookup);
 
 // Demo catalog seed (must be registered before '/:id')
 // GET  /api/products/seed-demo — describe the demo set

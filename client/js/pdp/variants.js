@@ -69,6 +69,14 @@ window.matrixVariantsCache = [];
 window.VU = window.VU || (() => window.VariantUtils || {});
 const VU = () => window.VU();
 
+function resolveStockQty(entity) {
+    if (window.PdpVariantStock?.resolveEntityStock) {
+        return window.PdpVariantStock.resolveEntityStock(entity);
+    }
+    if (VU().getVariantStockQuantity) return VU().getVariantStockQuantity(entity);
+    return Number(entity?.stockQuantity ?? entity?.stock) || 0;
+}
+
 function escapeHtml(str) {
     return String(str == null ? '' : str)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -200,7 +208,7 @@ function resolvePartialCombinationVariant() {
         });
 
     if (!matching.length) return null;
-    return matching.find((v) => (Number(v.stock) || 0) > 0) || matching[0];
+    return matching.find((v) => resolveStockQty(v) > 0) || matching[0];
 }
 
 /** Resolve the best image + gallery index for the current variant selection */
@@ -547,7 +555,7 @@ function syncCombinationDisplay() {
         if (skuEl) skuEl.textContent = '—';
         if (comboEl) comboEl.textContent = allSelected ? '' : 'Select all options to see SKU and price';
         if (!allSelected) {
-            setAddToCartEnabled(false);
+            setAddToCartEnabled(false, { reason: 'incomplete' });
         }
     }
 
@@ -557,12 +565,28 @@ function syncCombinationDisplay() {
             hint.innerText = '';
         } else if (!matchedCombinationVariant) {
             hint.innerText = 'This combination is not available.';
-        } else if ((Number(matchedCombinationVariant.stock) || 0) <= 0) {
+        } else if (resolveStockQty(matchedCombinationVariant) <= 0) {
             hint.innerText = 'Selected combination is out of stock.';
         } else {
             hint.innerText = '';
         }
     }
+
+    updateMatrixSelectionHint(allSelected);
+}
+
+function updateMatrixSelectionHint(allSelected) {
+    const hint = document.getElementById('variantHint');
+    if (!hint || !wrapUsesMatrixMode()) return;
+    if (allSelected) return;
+
+    const missing = window.PdpVariantStock?.getMissingMatrixGroups
+        ? window.PdpVariantStock.getMissingMatrixGroups(matrixVariantsCache, selectedCombinationAttrs)
+        : [];
+    const msg = window.PdpVariantStock?.buildSelectionHint
+        ? window.PdpVariantStock.buildSelectionHint(missing)
+        : '';
+    if (msg) hint.innerText = msg;
 }
 
 function syncMainImageFromCombinationColor(colorValue) {
@@ -616,7 +640,7 @@ function selectCombinationAttribute(attrName, value, sourceBadge) {
 
 function applyDefaultCombinationSelection(product, variants) {
     matrixVariantsCache = variants;
-    const pick = variants.find(v => (Number(v.stock) || 0) > 0) || variants[0];
+    const pick = variants.find(v => resolveStockQty(v) > 0) || variants[0];
     if (!pick) return;
 
     selectedCombinationAttrs = { ...getVariantAttrs(pick) };
@@ -640,7 +664,7 @@ function renderLegacyFlatVariants(product, variants, wrap) {
             <div class="variant-options">`;
         group.items.forEach(v => {
             const key = getVariantKey(v);
-            const stock = Number(v.stock) || 0;
+            const stock = resolveStockQty(v);
             const disabled = stock <= 0;
             const price = getVariantPrice(v);
             const showPrice = !isColorAttribute(group.attribute)
@@ -690,10 +714,10 @@ function initializeDefaultVariantSelections(product) {
     if (productUsesCombinationMatrix(product)) {
         applyDefaultCombinationSelection(product, variants);
 
-        const anyInStock = variants.some(v => (Number(v.stock) || 0) > 0);
+        const anyInStock = variants.some(v => resolveStockQty(v) > 0);
         if (!anyInStock) {
             updateStockStatus(0);
-            setAddToCartEnabled(false);
+            setAddToCartEnabled(false, { reason: 'out' });
             const hint = document.getElementById('variantHint');
             if (hint) hint.innerText = 'All combinations are currently out of stock.';
         }
@@ -707,14 +731,14 @@ function initializeDefaultVariantSelections(product) {
 
     const groups = groupVariantsByAttribute(variants);
     groups.forEach(group => {
-        const pick = group.items.find(v => (Number(v.stock) || 0) > 0) || group.items[0];
+        const pick = group.items.find(v => resolveStockQty(v) > 0) || group.items[0];
         if (pick) selectVariantOption(pick, { skipHint: true });
     });
 
-    const anyInStock = variants.some(v => (Number(v.stock) || 0) > 0);
+    const anyInStock = variants.some(v => resolveStockQty(v) > 0);
     if (!anyInStock) {
         updateStockStatus(0);
-        setAddToCartEnabled(false);
+        setAddToCartEnabled(false, { reason: 'out' });
         const hint = document.getElementById('variantHint');
         if (hint) hint.innerText = 'All variants are currently out of stock.';
     }
@@ -791,27 +815,45 @@ function matrixSelectionComplete() {
 
 function syncStockFromSelection() {
     const partialCombo = resolvePartialCombinationVariant();
+    const notify = window.PdpVariantStock?.setNotifyRestockVisible;
+
     if (matchedCombinationVariant && matrixSelectionComplete()) {
-        const stock = Number(matchedCombinationVariant.stock) || 0;
+        const stock = resolveStockQty(matchedCombinationVariant);
         updateStockStatus(stock);
         clampQuantityToStock(stock);
-        setAddToCartEnabled(stock > 0);
+        if (stock > 0) {
+            setAddToCartEnabled(true);
+            if (notify) notify(false);
+        } else {
+            setAddToCartEnabled(false, { reason: 'out' });
+            if (notify) notify(true);
+        }
         return;
     }
 
     if (wrapUsesMatrixMode() && !matrixSelectionComplete()) {
-        if (partialCombo) {
-            updateStockStatus(Number(partialCombo.stock) || 0);
+        if (window.PdpVariantStock?.paintStockBadge) {
+            window.PdpVariantStock.paintStockBadge(0, currentProductData, { selectionIncomplete: true });
+        } else {
+            updateStockStatus(0);
         }
-        setAddToCartEnabled(false);
+        setAddToCartEnabled(false, { reason: 'incomplete' });
+        if (notify) notify(false);
+        updateMatrixSelectionHint(false);
         return;
     }
 
     if (partialCombo && wrapUsesMatrixMode()) {
-        const stock = Number(partialCombo.stock) || 0;
+        const stock = resolveStockQty(partialCombo);
         updateStockStatus(stock);
         clampQuantityToStock(stock);
-        setAddToCartEnabled(stock > 0);
+        if (stock > 0) {
+            setAddToCartEnabled(true);
+            if (notify) notify(false);
+        } else {
+            setAddToCartEnabled(false, { reason: 'out' });
+            if (notify) notify(true);
+        }
         return;
     }
 
@@ -819,12 +861,18 @@ function syncStockFromSelection() {
     const colorVariant = getSelectedVariantByType('color');
     const stockSource = sizeVariant || colorVariant || Object.values(selectedVariantsByAttr)[0];
     const stock = stockSource
-        ? Number(stockSource.stock) || 0
-        : Number(currentProductData?.stock) || 0;
+        ? resolveStockQty(stockSource)
+        : resolveStockQty(currentProductData);
 
     updateStockStatus(stock);
     clampQuantityToStock(stock);
-    setAddToCartEnabled(stock > 0);
+    if (stock > 0) {
+        setAddToCartEnabled(true);
+        if (notify) notify(false);
+    } else {
+        setAddToCartEnabled(false, { reason: 'out' });
+        if (notify) notify(true);
+    }
 }
 
 /** Select one option within an attribute group — Color syncs image; Size syncs price */
@@ -867,23 +915,28 @@ function cssEscape(str) {
 
 /** স্টক স্ট্যাটাস ব্যাজ আপডেট */
 function updateStockStatus(stock) {
+    if (window.PdpVariantStock?.paintStockBadge) {
+        window.PdpVariantStock.paintStockBadge(stock, currentProductData);
+        return;
+    }
     const stockStatus = document.getElementById('stockStatus');
     if (!stockStatus) return;
     if (stock > 0) {
-        const inStockLabel = window.i18n ? window.i18n.t('product.in_stock') : 'In Stock';
-        stockStatus.innerText = stock <= 5
-            ? `${inStockLabel}${window.i18n ? '' : ` (${stock} left)`}`
-            : inStockLabel;
-        stockStatus.style.color = "var(--success-green)";
+        stockStatus.innerText = 'In Stock';
+        stockStatus.style.color = 'var(--success-green)';
     } else {
-        stockStatus.innerText = window.i18n ? window.i18n.t('product.out_of_stock') : 'Out of Stock';
-        stockStatus.style.color = "var(--accent-red)";
+        stockStatus.innerText = 'Out of Stock';
+        stockStatus.style.color = 'var(--accent-red)';
     }
 }
 
-/** Add to Cart / Buy Now বাটন enable/disable */
-function setAddToCartEnabled(enabled) {
-    ['addToCartBtn', 'buyNowBtn', 'stickyAddToCartBtn', 'stickyBuyNowBtn'].forEach(id => {
+/** Add to Cart / Buy Now বাটons enable/disable + label sync */
+function setAddToCartEnabled(enabled, options = {}) {
+    if (window.PdpVariantStock?.syncCartCtaState) {
+        window.PdpVariantStock.syncCartCtaState(enabled, options);
+        return;
+    }
+    ['addToCartBtn', 'buyNowBtn', 'stickyAddToCartBtn', 'stickyBuyNowBtn'].forEach((id) => {
         const btn = document.getElementById(id);
         if (!btn) return;
         btn.disabled = !enabled;
@@ -904,13 +957,15 @@ function clampQuantityToStock(stock) {
 
 /** বর্তমানে কার্যকর স্টক (Size ভ্যারিয়েন্ট অগ্রাধিকার, নইলে প্রোডাক্টের) */
 function getAvailableStock() {
-    if (matchedCombinationVariant) return Number(matchedCombinationVariant.stock) || 0;
+    if (matchedCombinationVariant && matrixSelectionComplete()) {
+        return resolveStockQty(matchedCombinationVariant);
+    }
 
     const sizeVariant = getSelectedVariantByType('size');
-    if (sizeVariant) return Number(sizeVariant.stock) || 0;
+    if (sizeVariant) return resolveStockQty(sizeVariant);
     const any = Object.values(selectedVariantsByAttr)[0];
-    if (any) return Number(any.stock) || 0;
-    return Number(currentProductData && currentProductData.stock) || 0;
+    if (any) return resolveStockQty(any);
+    return resolveStockQty(currentProductData);
 }
 
 function getEffectivePrice() {

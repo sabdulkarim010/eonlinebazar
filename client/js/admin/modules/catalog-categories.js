@@ -17,7 +17,7 @@ import '../admin-core.js';
 /* shared state: categorySortable lives on window (admin-core) */
 
 function getAdminAuthToken() {
-    return localStorage.getItem('adminToken') || token || '';
+    return window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || token || '';
 }
 
 /** Alias used by category row onclick handlers */

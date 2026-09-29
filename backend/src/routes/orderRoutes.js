@@ -12,6 +12,7 @@ const express = require('express');
 const router = express.Router();
 
 const { createOrder } = require('../controllers/orderCheckoutController');
+const { createOrderQuote } = require('../controllers/orderQuoteController');
 const {
     getOrders,
     updateOrderStatus,
@@ -62,6 +63,10 @@ router.get('/track', trackOrder);
 // =================================================================
 // ২. জেনারেল রাউটস (General Routes)
 // =================================================================
+
+// Pre-checkout quote (must stay above POST /)
+// URL: POST /api/orders/quote
+router.post('/quote', optionalVerifyUser, createOrderQuote);
 
 // ক. নতুন অর্ডার তৈরি করার রুট
 // URL: POST /api/orders

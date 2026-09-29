@@ -61,6 +61,13 @@ const {
     buildLockedPricingPayload
 } = require('./orderControllerHelpers');
 const { processReferralReward } = require('./referralController');
+const {
+    normalizeIdempotencyKey,
+    tryReplayIdempotentOrder,
+    attachIdempotencyKeyToOrder,
+    findOrderByIdempotencyKey,
+    isDuplicateKeyError
+} = require('../services/orderIdempotencyService');
 
 const FALLBACK_COD_METHOD = Object.freeze({
     _id: null,
@@ -111,6 +118,12 @@ function buildMockOrderLine(item, targetId, quantity) {
 // ১. নতুন অর্ডার তৈরি করা এবং স্টক কমানো
 const createOrder = async (req, res) => {
     try {
+        const idempotencyKey = normalizeIdempotencyKey(req.headers['x-idempotency-key']);
+        if (idempotencyKey) {
+            const replayed = await tryReplayIdempotentOrder(idempotencyKey, res);
+            if (replayed) return;
+        }
+
         const customerName = String(req.body.customerName || req.body.name || '').trim();
         const customerPhone = String(req.body.customerPhone || req.body.phone || '').trim();
         const customerAddress = String(
@@ -527,6 +540,10 @@ const createOrder = async (req, res) => {
 
         seedInitialStatusHistory(newOrder, customerName || 'customer');
 
+        if (idempotencyKey) {
+            attachIdempotencyKeyToOrder(newOrder, idempotencyKey);
+        }
+
         try {
             await dualWrite(
                 () => newOrder.save(),
@@ -541,6 +558,16 @@ const createOrder = async (req, res) => {
                 }
             );
         } catch (saveErr) {
+            if (idempotencyKey && isDuplicateKeyError(saveErr)) {
+                const existing = await findOrderByIdempotencyKey(idempotencyKey);
+                if (existing) {
+                    const replayed = await tryReplayIdempotentOrder(idempotencyKey, res);
+                    if (replayed) {
+                        await rollbackCheckoutMarketingReservations({ couponDocId, userId, pointsRedeemed });
+                        return;
+                    }
+                }
+            }
             await rollbackCheckoutMarketingReservations({ couponDocId, userId, pointsRedeemed });
             throw saveErr;
         }

@@ -46,8 +46,8 @@ function updateSidebarDisplay(profileData = {}) {
 
 function clearAdminSidebarCache() {
     try {
-        sessionStorage.removeItem(ADMIN_PROFILE_CACHE_KEY);
-        localStorage.removeItem('adminProfilePic');
+        window.EOBStorage.session.remove(ADMIN_PROFILE_CACHE_KEY);
+        window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_PROFILE_PIC);
     } catch (_) { /* ignore */ }
 }
 
@@ -58,7 +58,7 @@ async function loadAdminSidebarProfile(forceRefresh = false) {
 
     if (!forceRefresh) {
         try {
-            const cached = sessionStorage.getItem(ADMIN_PROFILE_CACHE_KEY);
+            const cached = window.EOBStorage.session.get(ADMIN_PROFILE_CACHE_KEY);
             if (cached) {
                 updateSidebarDisplay(JSON.parse(cached));
             }
@@ -81,7 +81,7 @@ async function loadAdminSidebarProfile(forceRefresh = false) {
         }
 
         if (res.ok && data.success && data.data) {
-            sessionStorage.setItem(ADMIN_PROFILE_CACHE_KEY, JSON.stringify(data.data));
+            window.EOBStorage.session.set(ADMIN_PROFILE_CACHE_KEY, JSON.stringify(data.data));
             updateSidebarDisplay(data.data);
             return;
         }
@@ -143,7 +143,7 @@ async function linkAdminToEmployee() {
         if (result.success) {
             showToast(result.message || 'Employee linked successfully.', 'success');
             if (result.data) {
-                sessionStorage.setItem(ADMIN_PROFILE_CACHE_KEY, JSON.stringify(result.data));
+                window.EOBStorage.session.set(ADMIN_PROFILE_CACHE_KEY, JSON.stringify(result.data));
                 updateSidebarDisplay(result.data);
             } else {
                 await loadAdminSidebarProfile(true);

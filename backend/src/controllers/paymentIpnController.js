@@ -414,8 +414,50 @@ const handleGatewayIpn = async (req, res) => {
     }
 };
 
+/** GET /api/payments/verify/:orderId — customer payment phase for polling after gateway return. */
+const verifyPaymentStatus = async (req, res) => {
+    try {
+        const orderId = String(req.params.orderId || '').trim();
+        if (!orderId) {
+            return res.status(400).json({ success: false, message: 'Order id is required.' });
+        }
+
+        const order = await Order.findOne({ orderId }).lean();
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Order not found.' });
+        }
+
+        if (req.user?.id) {
+            if (order.user && String(order.user) !== String(req.user.id)) {
+                return res.status(403).json({ success: false, message: 'You cannot view this order.' });
+            }
+        } else {
+            const phone = String(req.query.phone || req.query.customerPhone || '').replace(/\D/g, '');
+            const orderPhone = String(order.customerPhone || '').replace(/\D/g, '');
+            if (!phone || phone !== orderPhone) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Verify ownership with the mobile number used at checkout.'
+                });
+            }
+        }
+
+        const { buildVerifyPayload } = require('../services/paymentStatusService');
+        return res.status(200).json({
+            success: true,
+            data: buildVerifyPayload(order)
+        });
+    } catch (error) {
+        if (process.env.NODE_ENV !== 'test') {
+            console.error('Verify payment status error:', error);
+        }
+        return res.status(500).json({ success: false, message: 'Unable to verify payment status.' });
+    }
+};
+
 module.exports = {
     getPublicPaymentMethods,
     initiateGatewayPayment,
-    handleGatewayIpn
+    handleGatewayIpn,
+    verifyPaymentStatus
 };

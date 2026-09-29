@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-27 (Encrypted DR backup engine)  
+**Last updated:** 2026-09-29 (Storefront telemetry ingest route)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -29,6 +29,8 @@
 | `scripts/addEnterpriseIndexes.js` | DB index migration (`npm run migrate:indexes`) |
 | `mobile/eas.json` | Expo EAS build profiles (APK/AAB) |
 | `backend/src/server.js` | Main entry — env validation, `GET /health`, error logger |
+| `backend/src/routes/telemetryRoutes.js` | `POST /api/telemetry/errors` storefront telemetry ingest |
+| `backend/src/controllers/telemetryController.js` | Sanitize + acknowledge client error batches |
 | `backend/src/services/healthService.js` | Mongo/PG/Redis/uptime health probe |
 | `backend/src/middlewares/errorLogger.js` | File error logs + admin notify on 500 |
 | `backend/src/controllers/admin/backupController.js` | Superadmin DB backup export |
@@ -197,6 +199,11 @@
 - Added `test` job to `.github/workflows/deploy.yml` — runs `npm ci`, `npx prisma generate`, `npm test --passWithNoTests`, `npm run test:repositories --if-present` on Node 22 before deploy
 - Deploy job now `needs: [test]` — production SSH deploy blocked when tests fail
 - Test job env: `NODE_ENV=test`, secrets `DATABASE_URL_POOLED`, `DATABASE_URL`, `MONGODB_URI`, `JWT_SECRET`
+
+### Storefront telemetry ingest — 2026-09-29
+
+- `POST /api/telemetry/errors` — `telemetryRoutes.js` + `telemetryController.js` (sanitize batch, 200 OK, console warn in non-test).
+- `tests/telemetryController.test.js`; full suite **514/514**.
 
 ### Email + WhatsApp Notification Overhaul — 2026-09-21
 

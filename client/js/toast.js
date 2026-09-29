@@ -37,6 +37,9 @@
     }
 
     function escapeHtml(value) {
+        if (global.EOBSanitizer && typeof global.EOBSanitizer.escapeHtml === 'function') {
+            return global.EOBSanitizer.escapeHtml(value);
+        }
         return String(value ?? '')
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')

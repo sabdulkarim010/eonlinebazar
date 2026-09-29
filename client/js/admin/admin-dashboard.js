@@ -403,7 +403,7 @@ async function toggleMaintenanceFromQuickAction() {
     }
 
     const confirmToggle = async () => {
-        const token = window.token || localStorage.getItem('adminToken') || '';
+        const token = window.token || window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || '';
         const response = await fetch('/api/admin/dashboard/quick-actions/maintenance-toggle', {
             method: 'POST',
             headers: {
@@ -651,7 +651,7 @@ function setupDashboardOverviewPeriodControls() {
  * Overview পেজ এবং All Customers পেজ উভয়ের জন্যই এই ফাংশনটি কাজ করবে
  */
 function adminDashboardAuthHeaders() {
-    const authToken = window.token || localStorage.getItem('adminToken') || '';
+    const authToken = window.token || window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || '';
     return { Authorization: `Bearer ${authToken}` };
 }
 

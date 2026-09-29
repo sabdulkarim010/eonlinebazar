@@ -446,7 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (currentUser) {
                         currentUser.email = user.email || currentUser.email;
                         currentUser.mobile = user.mobile || currentUser.mobile;
-                        localStorage.setItem('userInfo', JSON.stringify(currentUser));
+                        window.EOBStorage.setJSON(window.EOBStorageKeys.USER_INFO, currentUser);
                     }
                 } else {
                     showInlineFeedback(contactOtpFeedback, data.message || 'Verification failed.', 'error');
@@ -533,11 +533,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 confirmBtn.style.opacity = '0.8';
                 
                 // লোকাল স্টোরেজ ক্লিয়ার করা
-                localStorage.removeItem('token');
-                localStorage.removeItem('customerToken'); 
-                localStorage.removeItem('checkout_name');
-                localStorage.removeItem('checkout_phone');
-                localStorage.removeItem('checkout_address');
+                window.EOBStorage.remove(window.EOBStorageKeys.TOKEN);
+                window.EOBStorage.remove(window.EOBStorageKeys.CUSTOMER_TOKEN); 
+                window.EOBStorage.remove(window.EOBStorageKeys.CHECKOUT_NAME);
+                window.EOBStorage.remove(window.EOBStorageKeys.CHECKOUT_PHONE);
+                window.EOBStorage.remove(window.EOBStorageKeys.CHECKOUT_ADDRESS);
                 
                 showToast('Logged out successfully. Redirecting...', 'success');
                 
@@ -742,8 +742,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok && data.success) {
                 if (data.loggedOutCurrent || isCurrent) {
                     showToast('This device has been logged out. Redirecting...', 'success');
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('customerToken');
+                    window.EOBStorage.remove(window.EOBStorageKeys.TOKEN);
+                    window.EOBStorage.remove(window.EOBStorageKeys.CUSTOMER_TOKEN);
                     setTimeout(() => { window.location.href = '/login.html'; }, 1500);
                 } else {
                     showToast('Device logged out remotely.', 'success');

@@ -60,7 +60,10 @@
         backdropEl.setAttribute('aria-hidden', 'false');
         drawerEl.setAttribute('aria-hidden', 'false');
 
-        if (typeof global.renderCartDrawerItems === 'function') {
+        const drawerBody = document.getElementById('cartDrawerItems');
+        if (global.__eobCartFetchPending && drawerBody && global.EOBSkeletons?.mountCartLinesSkeleton) {
+            global.EOBSkeletons.mountCartLinesSkeleton(drawerBody, 3, 'drawer');
+        } else if (typeof global.renderCartDrawerItems === 'function') {
             global.renderCartDrawerItems();
         }
         if (typeof global.updateCartCount === 'function') {

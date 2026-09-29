@@ -28,6 +28,10 @@ class BannerSlider {
     this.isAnimating = false;
 
     if (!this.container) return;
+    if (window.EOBSkeletons && typeof window.EOBSkeletons.renderBannerSkeleton === 'function') {
+      this.container.innerHTML = window.EOBSkeletons.renderBannerSkeleton();
+      this.container.setAttribute('aria-busy', 'true');
+    }
     this.init();
   }
 
@@ -43,6 +47,10 @@ class BannerSlider {
 
       this.banners = data.banners;
       this.settings = data.settings || {};
+      if (this.container) {
+        this.container.removeAttribute('aria-busy');
+        this.container.classList.add('eob-content-reveal');
+      }
       this.render();
       this.setupControls();
       if (this.settings.autoPlay && this.banners.length > 1) {
@@ -84,16 +92,27 @@ class BannerSlider {
       `;
     }
 
+    const IU = typeof window !== 'undefined' ? window.EOBImageUtils : null;
+    const isLcp = index === 0;
+    let imgAttrs = '';
+    if (IU && typeof IU.buildHeroBannerAttributes === 'function') {
+        const built = IU.buildHeroBannerAttributes(b.imageUrl, {
+            alt: b.title || 'Banner',
+            priority: isLcp ? 'lcp' : 'lazy',
+            className: 'banner-bg'
+        });
+        imgAttrs = IU.attrsToHtml(built);
+    } else {
+        imgAttrs = `class="banner-bg" src="${this.escapeHtml(b.imageUrl)}" alt="${this.escapeHtml(b.title || 'Banner')}" width="1920" height="400" loading="${isLcp ? 'eager' : 'lazy'}" decoding="async"${isLcp ? ' fetchpriority="high"' : ''}`;
+    }
+
     return `
       <picture>
         ${b.mobileImageUrl ? `
           <source media="(max-width: 768px)"
                   srcset="${this.escapeHtml(b.mobileImageUrl)}">
         ` : ''}
-        <img class="banner-bg"
-             src="${this.escapeHtml(b.imageUrl)}"
-             alt="${this.escapeHtml(b.title || 'Banner')}"
-             loading="${index === 0 ? 'eager' : 'lazy'}">
+        <img ${imgAttrs}>
       </picture>
     `;
   }

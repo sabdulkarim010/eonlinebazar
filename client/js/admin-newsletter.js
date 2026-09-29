@@ -4,7 +4,7 @@
  * Description: Admin newsletter subscribers & email campaign management.
  */
 
-const nlToken = () => localStorage.getItem('adminToken');
+const nlToken = () => window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
 
 function nlNotify(message, type = 'success') {
     if (typeof window.showToast === 'function') return window.showToast(message, type);

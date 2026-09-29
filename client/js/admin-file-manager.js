@@ -9,7 +9,7 @@
 (function () {
     'use strict';
 
-    const fmToken = () => localStorage.getItem('adminToken');
+    const fmToken = () => window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
 
     let treeRoot = null;
     let flatIndex = [];

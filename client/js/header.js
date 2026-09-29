@@ -64,7 +64,7 @@
         const previous = preferredValue
             || select.value
             || select.dataset.pendingScope
-            || localStorage.getItem(SCOPE_STORAGE_KEY)
+            || window.EOBStorage.get(SCOPE_STORAGE_KEY)
             || 'all';
 
         select.innerHTML = '<option value="all">All Categories</option>';
@@ -103,9 +103,9 @@
         el.dataset.pendingScope = val;
         try {
             if (val && val !== 'all') {
-                localStorage.setItem(SCOPE_STORAGE_KEY, val);
+                window.EOBStorage.set(SCOPE_STORAGE_KEY, val);
             } else {
-                localStorage.removeItem(SCOPE_STORAGE_KEY);
+                window.EOBStorage.remove(SCOPE_STORAGE_KEY);
             }
         } catch (_) { /* ignore quota / private mode */ }
     }
@@ -201,7 +201,44 @@ document.addEventListener('DOMContentLoaded', () => {
         window.HeaderSearch.bindScopeSelect();
     }
     initScrollAwareHeader();
+    bindHeaderCartBadgeSubscriber();
 });
+
+function bindHeaderCartBadgeSubscriber() {
+    function applyHeaderCartBadge(payload) {
+        const cartCountBadge = document.getElementById('cartCountBadge')
+            || document.getElementById('nav-cart-count')
+            || document.querySelector('.Bag span');
+        const drawerCount = document.getElementById('cartDrawerCount');
+        if (!cartCountBadge && !drawerCount) return;
+
+        const CDU = window.CartDisplayUtils || {};
+        const items = window.EOBCommerce
+            ? window.EOBCommerce.getCart()
+            : (window.EOBStorage.getJSON(window.EOBStorageKeys.CART, []) || []);
+        const count = CDU.resolveCartBadgeCount
+            ? CDU.resolveCartBadgeCount(payload, items)
+            : (Array.isArray(items) ? items : []).reduce(
+                (t, item) => t + Math.max(0, Number(item.quantity) || 0),
+                0
+            );
+
+        if (CDU.applyCartBadgeCount) {
+            CDU.applyCartBadgeCount(count);
+            return;
+        }
+
+        if (cartCountBadge) cartCountBadge.innerText = count;
+        if (drawerCount) drawerCount.innerText = count;
+    }
+
+    if (window.EOBCommerce && typeof window.EOBCommerce.subscribe === 'function') {
+        window.EOBCommerce.subscribe('cart:updated', applyHeaderCartBadge);
+        window.EOBCommerce.subscribe('auth:changed', () => {
+            applyHeaderCartBadge(window.EOBCommerce.computeCartPayload(window.EOBCommerce.getCart()));
+        });
+    }
+}
 
 function initScrollAwareHeader() {
     const header = document.querySelector('.site-header')

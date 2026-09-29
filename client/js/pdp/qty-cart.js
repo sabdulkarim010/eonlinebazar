@@ -196,9 +196,13 @@ function setupEventListeners() {
     };
 
     // 👈 Add to Cart লজিক (ভ্যারিয়েন্ট-সচেতন, লোকাল কার্টে অ্যাড করে)
+    let addToCartInFlight = false;
+
     const handleAddToCart = () => {
+        if (addToCartInFlight) return;
         if (!currentProductData) return showToast("Please wait, product data is loading...", "error");
         if (!ensureVariantSelected()) return;
+        addToCartInFlight = true;
 
         const stock = getAvailableStock();
         if (Array.isArray(currentProductData.variants) && currentProductData.variants.length && stock <= 0) {
@@ -212,7 +216,7 @@ function setupEventListeners() {
         const CDU = window.CartDisplayUtils;
         let cart = CDU?.getNormalizedGuestCart
             ? CDU.getNormalizedGuestCart(window.globalProductCatalog || [])
-            : (JSON.parse(localStorage.getItem('cart') || '[]'));
+            : (window.EOBStorage.getJSON(window.EOBStorageKeys.CART, []));
 
         const newItem = buildCartItem(quantity);
         // একই প্রোডাক্ট + একই ভ্যারিয়েন্ট হলেই লাইন মার্জ হবে
@@ -241,14 +245,27 @@ function setupEventListeners() {
             cart.unshift(newItem);
         }
 
-        if (CDU?.persistGuestCart) {
+        const authToken = window.EOBStorage.get(window.EOBStorageKeys.TOKEN) || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
+
+        if (typeof window.applyCartSnapshot === 'function') {
+            window.applyCartSnapshot(cart, { persistGuest: !authToken });
+        } else if (window.EOBCommerce && typeof window.EOBCommerce.setCart === 'function') {
+            window.EOBCommerce.setCart(cart, { persistGuest: !authToken });
+        } else if (CDU?.persistGuestCart) {
             CDU.persistGuestCart(cart);
         } else {
-            localStorage.setItem('cart', JSON.stringify(cart));
+            window.EOBStorage.setJSON(window.EOBStorageKeys.CART, cart);
         }
-        if (typeof window.updateCartCount === 'function') window.updateCartCount();
+        if (typeof window.updateCartCount === 'function') {
+            window.updateCartCount();
+        }
+        if (typeof window.renderCartDrawerItems === 'function') {
+            window.renderCartDrawerItems();
+        }
+        const releaseAddLock = () => {
+            addToCartInFlight = false;
+        };
 
-        const authToken = localStorage.getItem('token') || localStorage.getItem('customerToken');
         if (authToken) {
             fetch('/api/cart/add', {
                 method: 'POST',
@@ -256,24 +273,26 @@ function setupEventListeners() {
                     Authorization: `Bearer ${authToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    productId: newItem.id,
-                    quantity,
-                    name: newItem.name,
-                    price: newItem.price,
-                    image: newItem.image || newItem.products || '',
-                    selectedImage: newItem.selectedImage || newItem.image || '',
-                    variantImage: newItem.variantImage || newItem.image || '',
-                    icon: newItem.icon || '',
-                    variantId: newItem.variantId || '',
-                    variantLabel: newItem.variantLabel || '',
-                    variantAttribute: newItem.variantAttribute || '',
-                    variantValue: newItem.variantValue || '',
-                    variantSku: newItem.variantSku || '',
-                    selectedColor: newItem.selectedColor || '',
-                    selectedSize: newItem.selectedSize || '',
-                    selectedVariant: newItem.selectedVariant || null
-                })
+                body: JSON.stringify(
+                    (window.CartDisplayUtils && window.CartDisplayUtils.buildCartAddPayload)
+                        ? window.CartDisplayUtils.buildCartAddPayload({
+                            productId: newItem.id,
+                            quantity,
+                            image: newItem.image || newItem.products || '',
+                            selectedImage: newItem.selectedImage || newItem.image || '',
+                            variantImage: newItem.variantImage || newItem.image || '',
+                            images: newItem.images || [],
+                            variantId: newItem.variantId || '',
+                            variantLabel: newItem.variantLabel || '',
+                            variantAttribute: newItem.variantAttribute || '',
+                            variantValue: newItem.variantValue || '',
+                            variantSku: newItem.variantSku || '',
+                            selectedColor: newItem.selectedColor || '',
+                            selectedSize: newItem.selectedSize || '',
+                            selectedVariant: newItem.selectedVariant || null
+                        })
+                        : { productId: newItem.id, quantity }
+                )
             })
                 .then((res) => res.json())
                 .then((updatedData) => {
@@ -284,7 +303,10 @@ function setupEventListeners() {
                         window.syncCartFromServerItems(items);
                     }
                 })
-                .catch((err) => console.error('Add to cart API sync failed:', err));
+                .catch((err) => console.error('Add to cart API sync failed:', err))
+                .finally(releaseAddLock);
+        } else {
+            releaseAddLock();
         }
         const label = newItem.variantLabel ? ` (${newItem.variantLabel})` : '';
         if (typeof window.showCartAddedToast === 'function') {
@@ -317,16 +339,34 @@ function setupEventListeners() {
         // Buy Now এর জন্য শুধু এই একটি প্রোডাক্ট দিয়ে একটি নতুন অ্যারে তৈরি
         const buyNowItem = [buildCartItem(quantity)];
 
-        // কার্টকে না ছুঁয়ে সম্পূর্ণ ভিন্ন একটি স্টোরেজ বাক্সে রাখা হচ্ছে
-        localStorage.setItem('isBuyNowMode', 'true');
-        localStorage.setItem('buy_now_item', JSON.stringify(buyNowItem));
-        localStorage.setItem("activeCheckoutSession", "true");
+        if (window.EOBExpressCheckout?.startExpressCheckout) {
+            showToast('Proceeding to checkout...', 'success');
+            window.EOBExpressCheckout.startExpressCheckout({
+                items: buyNowItem,
+                redirectTo: '/checkout.html',
+                onBeforeRedirect: () => {
+                    setTimeout(() => {
+                        window.location.href = '/checkout.html';
+                    }, 300);
+                }
+            });
+            return;
+        }
 
-        showToast("Proceeding to checkout...", "success");
-        
+        if (window.EOBCommerce) {
+            window.EOBCommerce.setBuyNowMode(true);
+            window.EOBCommerce.setBuyNowItems(buyNowItem);
+            window.EOBCommerce.markCheckoutSessionActiveFlag();
+        } else {
+            window.EOBStorage.set(window.EOBStorageKeys.IS_BUY_NOW_MODE, 'true');
+            window.EOBStorage.setJSON(window.EOBStorageKeys.BUY_NOW_ITEM, buyNowItem);
+            window.EOBStorage.set(window.EOBStorageKeys.ACTIVE_CHECKOUT_SESSION, 'true');
+        }
+
+        showToast('Proceeding to checkout...', 'success');
         setTimeout(() => {
-            window.location.href = '/checkout'; 
-        }, 500); 
+            window.location.href = '/checkout.html';
+        }, 500);
     };
 
     // বাটনগুলোর সাথে ফাংশন জুড়ে দেওয়া

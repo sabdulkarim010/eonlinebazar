@@ -11,7 +11,7 @@ const COURIER_PROVIDER_LABELS = window.COURIER_PROVIDER_LABELS;
    Email · Google Authenticator (TOTP) · SMS
 ========================================================================== */
 (function () {
-    const AUTH = () => ({ 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` });
+    const AUTH = () => ({ 'Authorization': `Bearer ${window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN)}` });
     const toast = (m, t = 'success') => showToast(m, t);
     const $ = (id) => document.getElementById(id);
 

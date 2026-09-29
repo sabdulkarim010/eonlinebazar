@@ -55,6 +55,7 @@
                 </div>
 
             <div class="checkout-summary-block" id="orderSummarySection">
+                <div id="checkout-voucher-wallet" class="voucher-wallet voucher-wallet--checkout"></div>
                 <div class="coupon-apply-box coupon-apply-box--compact" id="checkout-coupon-container" style="display: none;">
                     <label for="checkoutCouponInput" class="coupon-apply-label">
                         <i class="fa-solid fa-ticket"></i> Promo Code
@@ -78,6 +79,10 @@
                 <div class="summary-row discount-row" id="checkoutDiscountRow" style="display:none;">
                     <span>Discount (<span id="checkoutCouponCodeLabel"></span>):</span>
                     <strong id="checkoutDiscountAmount">-৳0</strong>
+                </div>
+                <div class="summary-row" id="checkoutVatRow" style="display:none;">
+                    <span id="checkoutVatLabel">VAT / Tax</span>
+                    <strong id="checkoutVatAmount">৳0</strong>
                 </div>
                 <div class="summary-row" id="checkoutDeliveryRow">
                     <span>Delivery Charge:</span>
@@ -282,16 +287,28 @@
 
             <!-- footer calling -->
         <div id="global-site-footer"></div>
+    <script src="js/utils/storage.js"></script>
+    <script src="js/utils/telemetry.js"></script>
+    <script src="js/utils/sanitizer.js"></script>
+    <script src="js/utils/apiCache.js"></script>
+    <script src="js/utils/catalogClient.js"></script>
+    <script src="js/store/commerceState.js"></script>
+    <script src="js/store/checkoutState.js"></script>
     <script src="js/session-guard.js"></script>
     <script src="js/main.js"></script>
     <script src="js/bd-districts.js"></script>
     <script src="js/bd-upazilas.js"></script>
     <script src="js/shipping-estimator.js"></script>
     <script src="js/coupon-ui.js"></script>
+    <script src="js/utils/orderQuote.js"></script>
+    <script src="js/voucherWallet.js"></script>
     <script src="js/urlUtils.js"></script>
+    <script src="js/utils/imageUtils.js"></script>
+    <script src="js/render.js"></script>
     <script src="js/productThumbnail.js"></script>
     <script src="js/variantUtils.js"></script>
     <script src="js/cartDisplayUtils.js"></script>
+    <script src="js/ui/skeletons.js"></script>
     <script type="module" src="js/checkout.js"></script>
 </body>
 </html>

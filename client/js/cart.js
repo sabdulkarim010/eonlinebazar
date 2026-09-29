@@ -54,18 +54,72 @@ window.cartItemImg = cartItemImg;
 /* ==========================================================================
    SECTION 1: GLOBAL VARIABLES & API SYNC (শুরু এবং ডাটাবেজ সিঙ্ক)
    ========================================================================== */
-let cart = [];
-let globalProductCatalog = [];
 const CDU = () => window.CartDisplayUtils || {};
+const commerce = () => window.EOBCommerce;
+/** In-memory cart when EOBCommerce is unavailable (tests / legacy). */
+let legacyCartRef = [];
+/** Cached store delivery settings for free-shipping progress (set after first fetch). */
+let cartDeliverySettings = null;
+
+function getActiveCartLines() {
+    return getCustomerToken() ? getCartRef() : readGuestCart();
+}
+
+function publishCartChange(options) {
+    const opts = options || {};
+    if (commerce() && typeof commerce().commitCart === 'function') {
+        commerce().commitCart(opts);
+        if (!opts.silent) {
+            updateCartCount();
+            renderCartDrawerItems();
+            if (typeof updateCartTotal === 'function') updateCartTotal();
+        }
+        if (CDU().broadcastCartCrossTabChange) CDU().broadcastCartCrossTabChange();
+        return;
+    }
+    updateCartCount();
+    renderCartDrawerItems();
+    if (typeof updateCartTotal === 'function') updateCartTotal();
+    if (CDU().broadcastCartCrossTabChange) CDU().broadcastCartCrossTabChange();
+}
+
+function refreshCartUiSilent() {
+    publishCartChange({ silent: true });
+    updateCartCount();
+    renderCartDrawerItems();
+    if (typeof updateCartTotal === 'function') updateCartTotal();
+}
+
+function applyCartSnapshot(items, options) {
+    const opts = options || {};
+    if (commerce() && typeof commerce().setCart === 'function') {
+        return commerce().setCart(items, {
+            persistGuest: opts.persistGuest !== false && !getCustomerToken()
+        });
+    }
+    legacyCartRef = Array.isArray(items) ? items.slice() : [];
+    if (opts.persistGuest !== false && !getCustomerToken()) {
+        saveGuestCart(legacyCartRef);
+    }
+    publishCartChange();
+    return legacyCartRef;
+}
+
+function getCustomerToken() {
+    return commerce() ? commerce().getAuthToken() : (
+        window.EOBStorage.get(window.EOBStorageKeys.TOKEN)
+        || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN)
+    );
+}
 
 function readGuestCart() {
     if (CDU().getNormalizedGuestCart) {
         return CDU().getNormalizedGuestCart(globalProductCatalog);
     }
     try {
-        return JSON.parse(localStorage.getItem('cart') || '[]');
+        return window.EOBStorage.getJSON(window.EOBStorageKeys.CART, []);
     } catch (_) {
-        localStorage.removeItem('cart');
+        window.EOBStorage.remove(window.EOBStorageKeys.CART);
         return [];
     }
 }
@@ -74,7 +128,7 @@ function saveGuestCart(items) {
     if (CDU().persistGuestCart) {
         return CDU().persistGuestCart(items);
     }
-    localStorage.setItem('cart', JSON.stringify(items));
+    window.EOBStorage.setJSON(window.EOBStorageKeys.CART, items);
     return items;
 }
 
@@ -89,9 +143,6 @@ function findCatalogProduct(productId) {
     ) || null;
 }
 
-// 🌟 টোকেন চেক (কাস্টমার লগইন আছে কি না জানার জন্য)
-const customerToken = localStorage.getItem('token') || localStorage.getItem('customerToken');
-
 /* 🌟 ভ্যারিয়েন্ট-সচেতন লাইন হেল্পার — একই প্রোডাক্টের ভিন্ন ভ্যারিয়েন্ট কার্টে
    আলাদা লাইন হিসেবে গণ্য হয়। onclick হ্যান্ডলারে variantId নিরাপদে পাঠাতে
    encode/decode ব্যবহার করা হয়। */
@@ -102,58 +153,53 @@ function sameCartLine(item, productId, variantId) {
 function encVariant(vid) { return encodeURIComponent(vid || ''); }
 function decVariant(vid) { try { return decodeURIComponent(vid || ''); } catch (e) { return vid || ''; } }
 
-// লাইভ এপিআই থেকে ক্যাটালগ ডাটা লোড করা এবং কার্ট মার্জ/সিঙ্ক করা
-fetch('/api/products?limit=500')
-    .then(response => {
-        if (!response.ok) throw new Error('Network response was not ok');
-        return response.json();
-    })
-    .then(data => {
-        globalProductCatalog = Array.isArray(data) ? data : (data.products || data.data || []);
-        window.globalProductCatalog = globalProductCatalog;
-        document.dispatchEvent(new CustomEvent('productCatalogReady'));
-        renderCartDrawerItems();
-        
-        // 🌟 হাইব্রিড মার্জ লজিক: ইউজার লগইন থাকলে লোকাল স্টোরেজের কার্ট ডাটাবেজে পাঠিয়ে মার্জ হবে
-        if (customerToken) {
-            const localCart = readGuestCart();
-            if (localCart.length > 0) {
-                // ব্যাকএন্ডে মার্জ রিকোয়েস্ট পাঠানো হচ্ছে
-                fetch('/api/cart/merge', {
+async function bootstrapCartFromServerCart() {
+    renderCartDrawerItems();
+
+    if (getCustomerToken()) {
+        const localCart = readGuestCart();
+        try {
+            if (localCart.length > 0 && window.CartMerge && typeof CartMerge.mergeGuestCartWithUserCart === 'function') {
+                await CartMerge.mergeGuestCartWithUserCart(getCustomerToken(), localCart);
+            } else if (localCart.length > 0) {
+                await fetch('/api/cart/merge', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${customerToken}`,
+                        Authorization: `Bearer ${getCustomerToken()}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ cartItems: localCart })
-                })
-                .then(res => res.json())
-                .then(mergeData => {
-                    // মার্জ সফল হলে লোকাল ইমেজ ডাটা ধরে রেখে ডাটাবেজ থেকে ফ্রেশ কার্ট আনা হবে
-                    fetchLiveDBCart(localCart).finally(() => {
-                        localStorage.removeItem('cart');
-                    });
-                })
-                .catch(err => {
-                    console.error("Error merging cart:", err);
-                    fetchLiveDBCart(localCart);
+                    body: JSON.stringify({
+                        cartItems: CDU().stripGuestCartForMerge
+                            ? CDU().stripGuestCartForMerge(localCart)
+                            : localCart
+                    })
                 });
+                await fetchLiveDBCart(localCart);
+                window.EOBStorage.remove(window.EOBStorageKeys.CART);
             } else {
-                fetchLiveDBCart();
+                await fetchLiveDBCart();
             }
-        } else {
-            renderCartDrawerItems(); // গেস্ট ইউজারের জন্য লোকাল স্টোরেজ রেন্ডার
+        } catch (err) {
+            console.error('Error syncing cart:', err);
         }
-    })
-    .catch(error => {
-        console.error("Error loading products API in cart:", error);
-        renderCartDrawerItems(); // ব্যাকআপ রেন্ডার
-    });
+    }
+
+    const items = getCustomerToken() ? getCartRef() : readGuestCart();
+    if (window.CartCatalogBootstrap && typeof window.CartCatalogBootstrap.afterCartReady === 'function') {
+        await window.CartCatalogBootstrap.afterCartReady(items);
+    } else if (window.EOBCatalogClient?.hydrateCatalogForCart) {
+        await window.EOBCatalogClient.hydrateCatalogForCart(items);
+    }
+    document.dispatchEvent(new CustomEvent('productCatalogReady'));
+    renderCartDrawerItems();
+}
+
+bootstrapCartFromServerCart();
 
 function mapClientCartItem(item = {}) {
     const catalogProduct = findCatalogProduct(item.productId || item.id);
     if (CDU().normalizeCartItem) {
-        return CDU().normalizeCartItem(item, catalogProduct);
+        return CDU().normalizeCartItem(item, catalogProduct, { preferServerPrice: item.__serverSynced === true });
     }
     const displayImage = CDU().resolveCartLineImageUrl
         ? CDU().resolveCartLineImageUrl(item, catalogProduct)
@@ -227,7 +273,9 @@ function buildCartItemMediaHtml(item, imageSize, catalogProduct) {
             variant: 'compact',
             showEmoji: true,
             size: imageSize,
-            alt: item?.name || 'Product'
+            alt: item?.name || 'Product',
+            priority: 'lazy',
+            loading: 'lazy'
         });
         return '<div class="cart-item-thumb-wrap" style="width:' + imageSize + ';height:' + imageSize +
             ';flex-shrink:0;overflow:hidden;border-radius:8px;display:flex;align-items:center;justify-content:center">' +
@@ -299,63 +347,84 @@ function enrichCartItemsFromCatalog(items) {
 
 // 🌟 ডাটাবেজ থেকে লাইভ কার্ট আইটেম নিয়ে আসার ফাংশন
 function fetchLiveDBCart(localFallbackItems) {
-    if (!customerToken) return Promise.resolve();
+    if (!getCustomerToken()) return Promise.resolve();
+    window.__eobCartFetchPending = true;
+    const cartPage = document.getElementById('cartItemsContainer');
+    if (cartPage && cartPage.children.length === 0 && window.EOBSkeletons?.mountCartLinesSkeleton) {
+        window.EOBSkeletons.mountCartLinesSkeleton(cartPage, 4, 'cart-page');
+    }
     return fetch('/api/cart', {
         method: 'GET',
-        headers: { 'Authorization': `Bearer ${customerToken}` }
+        headers: { 'Authorization': `Bearer ${getCustomerToken()}` }
     })
     .then(res => res.json())
     .then(dbCartItems => {
         const items = parseCartApiResponse(dbCartItems);
         const localItems = localFallbackItems || readGuestCart();
+        let nextCart;
         if (CDU().mergeCartItems && localItems.length > 0) {
-            cart = CDU().mergeCartItems(items, localItems);
+            nextCart = CDU().mergeCartItems(items, localItems);
         } else {
-            cart = items.map(mapClientCartItem);
+            nextCart = items.map((row) => mapClientCartItem({ ...row, __serverSynced: true }));
         }
-        cart = enrichCartItemsFromCatalog(cart);
+        nextCart = enrichCartItemsFromCatalog(nextCart);
         if (CDU().normalizeCartArray && globalProductCatalog.length > 0) {
-            cart = CDU().normalizeCartArray(cart, globalProductCatalog);
+            nextCart = CDU().normalizeCartArray(nextCart, globalProductCatalog);
         }
-        updateCartCount();
-        renderCartDrawerItems();
-        return cart;
+        applyCartSnapshot(nextCart);
+        return getCartRef();
     })
     .catch(err => {
         console.error("Error fetching live DB cart:", err);
-        return cart;
+        return getCartRef();
+    })
+    .finally(() => {
+        window.__eobCartFetchPending = false;
+        renderCartDrawerItems();
     });
+}
+
+function getCartRef() {
+    if (commerce()) return commerce().getCart();
+    return legacyCartRef;
 }
 
 function syncCartFromServerItems(dbCartItems, localFallbackItems) {
     const items = parseCartApiResponse(dbCartItems);
     const localItems = localFallbackItems || [];
+    let nextCart;
     if (CDU().mergeCartItems && localItems.length > 0) {
-        cart = CDU().mergeCartItems(items, localItems);
+        nextCart = CDU().mergeCartItems(items, localItems);
     } else {
-        cart = items.map(mapClientCartItem);
+        nextCart = items.map((row) => mapClientCartItem({ ...row, __serverSynced: true }));
     }
-    cart = enrichCartItemsFromCatalog(cart);
+    nextCart = enrichCartItemsFromCatalog(nextCart);
     if (CDU().normalizeCartArray && globalProductCatalog.length > 0) {
-        cart = CDU().normalizeCartArray(cart, globalProductCatalog);
+        nextCart = CDU().normalizeCartArray(nextCart, globalProductCatalog);
     }
-    updateCartCount();
-    renderCartDrawerItems();
-    return cart;
+    applyCartSnapshot(nextCart);
+    return getCartRef();
 }
 
 /* ==========================================================================
    SECTION 2: LIVE COUNTERS (নেভবার ব্যাজ কাউন্টার)
    ========================================================================== */
-function updateCartCount() {
-    // 🌟 ফিক্স: এখানে nav-cart-count আইডিটিও চেক করবে
-    const cartCountBadge = document.getElementById('cartCountBadge') || 
-                           document.getElementById('nav-cart-count') || 
-                           document.querySelector('.Bag span');
-    const drawerCount = document.getElementById('cartDrawerCount');
-    
-    let count = customerToken ? cart.length : readGuestCart().length;
+function updateCartCount(payload) {
+    const utils = CDU();
+    const items = getCustomerToken() ? getCartRef() : readGuestCart();
+    const count = utils.resolveCartBadgeCount
+        ? utils.resolveCartBadgeCount(payload, items)
+        : items.reduce((t, item) => t + Math.max(0, Number(item.quantity) || 0), 0);
 
+    if (utils.applyCartBadgeCount) {
+        utils.applyCartBadgeCount(count);
+        return;
+    }
+
+    const cartCountBadge = document.getElementById('cartCountBadge')
+        || document.getElementById('nav-cart-count')
+        || document.querySelector('.Bag span');
+    const drawerCount = document.getElementById('cartDrawerCount');
     if (cartCountBadge) cartCountBadge.innerText = count;
     if (drawerCount) drawerCount.innerText = count;
 }
@@ -380,14 +449,14 @@ function renderCartDrawerItems() {
 
 
     // লগইন থাকলে লাইভ কার্ট অ্যারে, না থাকলে লোকাল স্টোরেজ
-    let currentCart = customerToken ? cart : readGuestCart();
-    const CDU = window.CartDisplayUtils || {};
-    if (CDU.normalizeCartArray) {
-        currentCart = CDU.normalizeCartArray(currentCart, globalProductCatalog);
-    } else if (CDU.normalizeCartItem) {
+    let currentCart = getActiveCartLines();
+    const cartUtils = CDU();
+    if (cartUtils.normalizeCartArray) {
+        currentCart = cartUtils.normalizeCartArray(currentCart, globalProductCatalog);
+    } else if (cartUtils.normalizeCartItem) {
         currentCart = currentCart.map((item) => {
             const pid = item.id || item.productId;
-            return CDU.normalizeCartItem(item, findCatalogProduct(pid));
+            return cartUtils.normalizeCartItem(item, findCatalogProduct(pid));
         });
     }
     container.innerHTML = '';
@@ -421,7 +490,7 @@ function renderCartDrawerItems() {
     if (summarySection) summarySection.style.display = 'block';
 
     // ২. কার্ট আইটেম রেন্ডারিং লুপ
-    const escapeHtml = CDU.escapeHtml || ((s) => String(s == null ? '' : s));
+    const escapeHtml = cartUtils.escapeHtml || ((s) => String(s == null ? '' : s));
     const isCartPage = pageContainer && pageContainer.id === 'cartItemsContainer';
     const isCheckoutPreview = pageContainer && pageContainer.id === 'checkoutItemsContainer';
 
@@ -445,8 +514,8 @@ function renderCartDrawerItems() {
         const quantity = item.quantity || 1;
         const itemTotal = item.price * quantity; 
         const vid = encVariant(item.variantId);
-        const productUrl = CDU.getProductDetailUrl ? CDU.getProductDetailUrl(item, realProduct) : '#';
-        const variantBadges = CDU.buildVariantBadgesHtml ? CDU.buildVariantBadgesHtml(item, realProduct) : '';
+        const productUrl = cartUtils.getProductDetailUrl ? cartUtils.getProductDetailUrl(item, realProduct) : '#';
+        const variantBadges = cartUtils.buildVariantBadgesHtml ? cartUtils.buildVariantBadgesHtml(item, realProduct) : '';
         const safeName = escapeHtml(item.name);
 
         const SA = window.StockAlert;
@@ -492,6 +561,8 @@ function renderCartDrawerItems() {
                     </div>`
                 : `<span class="cart-item-qty-label">Qty: ${quantity}</span>`;
             row.className = `cart-item-card${profileItemClass}${item.selected === false ? ' is-unchecked' : ''}`;
+            const lineKey = cartUtils.cartLineKey ? cartUtils.cartLineKey(item.id, item.variantId) : `${item.id}::${item.variantId || ''}`;
+            row.dataset.cartLineKey = lineKey;
             row.innerHTML = `
                 <div class="cart-item-left-group">
                     <input type="checkbox" class="cart-item-checkbox" data-id="${item.id}" ${isChecked} onchange="toggleItemSelection('${item.id}', '${vid}')">
@@ -547,8 +618,8 @@ function renderCartDrawerItems() {
    ========================================================================== */
 window.toggleItemSelection = function(productId, variantIdEnc) {
     const variantId = decVariant(variantIdEnc);
-    if (customerToken) {
-        const item = cart.find(i => sameCartLine(i, productId, variantId));
+    if (getCustomerToken()) {
+        const item = getCartRef().find(i => sameCartLine(i, productId, variantId));
         if (item) {
             const checkbox = document.querySelector(`.cart-item-checkbox[data-id="${productId}"]`);
             item.selected = checkbox ? checkbox.checked : !item.selected;
@@ -556,7 +627,7 @@ window.toggleItemSelection = function(productId, variantIdEnc) {
             fetch('/api/cart/toggle-selection', {
                 method: 'PUT',
                 headers: {
-                    'Authorization': `Bearer ${customerToken}`,
+                    'Authorization': `Bearer ${getCustomerToken()}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ productId, selected: item.selected, variantId })
@@ -573,10 +644,6 @@ window.toggleItemSelection = function(productId, variantIdEnc) {
         renderCartDrawerItems();
     }
 };
-
-// Cached copy of the admin's store settings so the cart can show live
-// free-shipping progress without refetching on every quantity change.
-let cartDeliverySettings = null;
 
 function renderCartFreeShippingProgress(subtotal) {
     const wrapEl = document.getElementById('cartFreeShippingProgress');
@@ -613,7 +680,11 @@ function wireCheckoutButton(btn) {
     btn.style.opacity = '1';
     btn.style.cursor = 'pointer';
     btn.onclick = function() {
-        localStorage.setItem('activeCheckoutSession', 'true');
+        if (window.EOBCommerce) {
+            window.EOBCommerce.markCheckoutSessionActiveFlag();
+        } else {
+            window.EOBStorage.set(window.EOBStorageKeys.ACTIVE_CHECKOUT_SESSION, 'true');
+        }
         if (window.MiniCartDrawer && typeof window.MiniCartDrawer.close === 'function') {
             window.MiniCartDrawer.close();
         }
@@ -629,6 +700,63 @@ function disableCheckoutButton(btn) {
     btn.onclick = null;
 }
 
+function getSelectedCartLinesForQuote() {
+    return getActiveCartLines().filter((item) => item.selected !== false);
+}
+
+function getCartMerchandiseSubtotal() {
+    return getSelectedCartLinesForQuote().reduce((sum, item) => {
+        return sum + (Number(item.price) || 0) * (Number(item.quantity) || 1);
+    }, 0);
+}
+
+function normalizeServerQuoteForSummary(apiQuote) {
+    if (!apiQuote || typeof apiQuote !== 'object') return null;
+    const subtotal = Number(apiQuote.subtotal) || 0;
+    const tax = Number(apiQuote.tax ?? apiQuote.vatAmount) || 0;
+    const grandTotal = Number(apiQuote.grandTotal) || 0;
+    return {
+        ...apiQuote,
+        subtotal,
+        vatAmount: tax,
+        tax,
+        grandTotal
+    };
+}
+
+function refreshCartOrderQuotePreview() {
+    if (!window.EOBOrderQuote || typeof window.EOBOrderQuote.scheduleCartQuotePreview !== 'function') {
+        return;
+    }
+    window.EOBOrderQuote.scheduleCartQuotePreview({
+        getSelectedLines: getSelectedCartLinesForQuote,
+        getToken: getCustomerToken,
+        getAppliedCouponCode: () => {
+            const applied = window.CouponUI?.getAppliedCoupon?.();
+            return applied?.code || '';
+        },
+        onQuote: (quote) => {
+            const normalized = normalizeServerQuoteForSummary(quote);
+            const subtotalEl = document.getElementById('cartSubtotalAmount');
+            const grandEl = document.getElementById('cartGrandTotalAmount');
+            if (!normalized) {
+                const sub = getCartMerchandiseSubtotal();
+                if (grandEl) {
+                    grandEl.textContent = window.i18n?.formatCurrency?.(sub) || `৳${sub.toLocaleString()}`;
+                }
+                return;
+            }
+            window.EOBOrderQuote.applyOrderSummaryLines(document, 'cart', normalized);
+            if (subtotalEl) {
+                subtotalEl.textContent = window.EOBOrderQuote.formatMoneyBdt(normalized.subtotal);
+            }
+            if (window.cartVoucherWallet?.scheduleRefresh) {
+                window.cartVoucherWallet.scheduleRefresh();
+            }
+        }
+    });
+}
+
 function updateCartTotal() {
     const totalSpan = document.getElementById('cartDrawerTotal');
     const itemsCountSpan = document.getElementById('cartSelectedItemsCount');
@@ -641,7 +769,7 @@ function updateCartTotal() {
     const profileCountEl = document.getElementById('profileCartItemsCount');
     const profileBtn = document.getElementById('profileCheckoutBtn');
 
-    let currentCart = customerToken ? cart : readGuestCart();
+    let currentCart = getActiveCartLines();
     let checkedItems = currentCart.filter(item => item.selected !== false);
     let uniqueSelectedCount = checkedItems.length;
     let subtotal = 0;
@@ -656,6 +784,16 @@ function updateCartTotal() {
         miniCartSelectedCount.textContent = `${uniqueSelectedCount} item${uniqueSelectedCount === 1 ? '' : 's'} selected`;
     }
     if (subtotalEl) subtotalEl.innerText = window.i18n?.formatCurrency?.(subtotal) || `৳${subtotal.toLocaleString()}`;
+    const grandEl = document.getElementById('cartGrandTotalAmount');
+    if (grandEl) grandEl.innerText = window.i18n?.formatCurrency?.(subtotal) || `৳${subtotal.toLocaleString()}`;
+
+    if (window.CouponUI && typeof window.CouponUI.syncCouponPanel === 'function') {
+        window.CouponUI.syncCouponPanel({
+            prefix: 'cart',
+            subtotal,
+            couponsAvailable: window.cartCouponsAvailable !== false
+        });
+    }
 
     if (profileTotalEl) profileTotalEl.innerText = `৳${subtotal.toLocaleString()}`;
     if (profileCountEl) profileCountEl.innerText = uniqueSelectedCount;
@@ -672,6 +810,8 @@ function updateCartTotal() {
         if (summarySection) summarySection.style.display = 'block';
         checkoutButtons.forEach(wireCheckoutButton);
     }
+
+    refreshCartOrderQuotePreview();
 }
 
 
@@ -682,7 +822,7 @@ function updateCartTotal() {
    ========================================================================== */
 window.updateQty = function(productId, change, variantIdEnc) {
     const variantId = decVariant(variantIdEnc);
-    let currentCart = customerToken ? cart : readGuestCart();
+    let currentCart = getActiveCartLines();
     const item = currentCart.find(i => sameCartLine(i, productId, variantId));
 
     if (item) {
@@ -720,30 +860,88 @@ window.updateQty = function(productId, change, variantIdEnc) {
             return;
         }
 
-        if (customerToken) {
-            // 🌟 লগইন থাকলে ডাটাবেজে পরিমাণ আপডেট করা হচ্ছে
-            fetch('/api/cart/update-quantity', {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${customerToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ productId, quantity: targetQty, variantId })
-            })
-            .then(res => res.json())
-            .then(() => {
-                item.quantity = targetQty;
-                updateCartCount();
-                renderCartDrawerItems();
-            })
-            .catch(err => console.error("Error updating qty in DB:", err));
-        } else {
-            // গেস্ট ইউজারের জন্য লোকাল স্টোরেজ আপডেট
-            item.quantity = targetQty;
-            saveGuestCart(currentCart);
-            updateCartCount();
-            renderCartDrawerItems();
+        const lineKey = CDU().cartLineKey
+            ? CDU().cartLineKey(productId, variantId)
+            : `${productId}::${variantId || ''}`;
+        const qtySync = CDU().getCartQtySync ? CDU().getCartQtySync() : null;
+        const beforeQty = item.quantity;
+
+        const applyOptimistic = (qty) => {
+            item.quantity = qty;
+            refreshCartUiSilent();
+        };
+
+        const syncFn = async (qty) => {
+            if (getCustomerToken()) {
+                const res = await fetch('/api/cart/update-quantity', {
+                    method: 'PUT',
+                    headers: {
+                        Authorization: `Bearer ${getCustomerToken()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ productId, quantity: qty, variantId })
+                });
+                let data = null;
+                try {
+                    data = await res.json();
+                } catch (_) {
+                    data = null;
+                }
+                if (!res.ok) {
+                    return {
+                        ok: false,
+                        status: res.status,
+                        message: (data && data.message) || 'Could not update quantity'
+                    };
+                }
+                return { ok: true, data };
+            }
+            item.quantity = qty;
+            saveGuestCart(getCustomerToken() ? getCartRef() : readGuestCart());
+            return { ok: true };
+        };
+
+        const onSuccess = (qty, result) => {
+            if (getCustomerToken() && result && result.data) {
+                const items = parseCartApiResponse(result.data);
+                if (items.length > 0) {
+                    syncCartFromServerItems(items);
+                    publishCartChange();
+                    return;
+                }
+            }
+            publishCartChange();
+        };
+
+        const onRollback = () => {
+            publishCartChange();
+        };
+
+        if (qtySync && typeof qtySync.enqueue === 'function') {
+            qtySync.enqueue({
+                lineKey,
+                beforeQty,
+                targetQty,
+                applyOptimistic,
+                syncFn,
+                onSuccess,
+                onRollback,
+                formatError: (err) => (err && err.status === 400
+                    ? 'Requested quantity is not available.'
+                    : (err && err.message) || 'Could not update quantity')
+            });
+            return;
         }
+
+        applyOptimistic(targetQty);
+        syncFn(targetQty).then((result) => {
+            if (result.ok) onSuccess(targetQty, result);
+            else {
+                applyOptimistic(beforeQty);
+                onRollback();
+                notifyToast(result.message || 'Could not update quantity', 'error');
+            }
+        });
     }
 };
 
@@ -751,18 +949,16 @@ window.deleteCartItem = function(productId, variantIdEnc, options) {
     const silent = options && options.silent === true;
     const variantId = decVariant(variantIdEnc);
     const guestCart = readGuestCart();
-    const removedItem = (customerToken ? cart : guestCart).find(item => sameCartLine(item, productId, variantId));
+    const removedItem = (getCustomerToken() ? getCartRef() : guestCart).find(item => sameCartLine(item, productId, variantId));
 
-    if (customerToken) {
+    if (getCustomerToken()) {
         // 🌟 লগইন থাকলে ডাটাবেজ থেকে নির্দিষ্ট ভ্যারিয়েন্ট লাইন রিমুভ করা হবে
         fetch(`/api/cart/remove/${productId}?variantId=${encodeURIComponent(variantId)}`, {
             method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${customerToken}` }
+            headers: { 'Authorization': `Bearer ${getCustomerToken()}` }
         })
         .then(() => {
-            cart = cart.filter(item => !sameCartLine(item, productId, variantId));
-            updateCartCount();
-            renderCartDrawerItems();
+            applyCartSnapshot(getCartRef().filter(item => !sameCartLine(item, productId, variantId)));
         })
         .catch(err => console.error("Error deleting from DB cart:", err));
     } else {
@@ -770,8 +966,7 @@ window.deleteCartItem = function(productId, variantIdEnc, options) {
         let currentCart = readGuestCart();
         currentCart = currentCart.filter(item => !sameCartLine(item, productId, variantId));
         saveGuestCart(currentCart);
-        updateCartCount();
-        renderCartDrawerItems();
+        publishCartChange();
     }
 
     if (removedItem && window.analytics) {
@@ -899,7 +1094,7 @@ function fireAddToCartAnalytics(productId, productName, productPrice, quantity) 
 }
 
 window.addToBag = function(productId, productName, productPrice, productImage) {
-    let currentCart = customerToken ? cart : readGuestCart();
+    let currentCart = getActiveCartLines();
     const existingItem = currentCart.find(item => String(item.id) === String(productId));
     const clickedButton = window.event ? window.event.target.closest('button') : null;
 
@@ -977,26 +1172,23 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
     };
     const normalizedNewLine = buildCartLineItem(newLineBase);
 
-    if (customerToken) {
+    if (getCustomerToken()) {
         // 🌟 লগইন থাকলে সরাসরি ব্যাকএন্ড API এর মাধ্যমে সম্পূর্ণ ডাটা ডাটাবেজে অ্যাড হবে
         fetch('/api/cart/add', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${customerToken}`,
+                'Authorization': `Bearer ${getCustomerToken()}`,
                 'Content-Type': 'application/json'
             },
             // ফিক্স: শুধুমাত্র আইডি ও কোয়ান্টিটি নয়, বরং সম্পূর্ণ ডাটা পাঠানো হচ্ছে
-            body: JSON.stringify({ 
-                productId: productId, 
+            body: JSON.stringify(CDU().buildCartAddPayload ? CDU().buildCartAddPayload({
+                productId,
                 quantity: 1,
-                name: productName,
-                price: Number(productPrice),
                 image: normalizedNewLine.image || resolvedImage || '',
                 selectedImage: normalizedNewLine.selectedImage || '',
                 variantImage: normalizedNewLine.variantImage || '',
-                icon: productIcon,
                 images: normalizedNewLine.images || realProduct?.images || []
-            })
+            }) : { productId, quantity: 1 })
         })
         .then(res => res.json())
         .then(updatedData => {
@@ -1022,7 +1214,7 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                 notifyToast('🛒 Cart quantity updated!', 'success');
             } else {
                 triggerFlyAnimation(clickedButton, normalizedNewLine.image || productImage);
-                cart.unshift(normalizedNewLine);
+                applyCartSnapshot([normalizedNewLine, ...getCartRef()]);
                 if (typeof window.showCartAddedToast === 'function') {
                     window.showCartAddedToast();
                 } else {
@@ -1030,8 +1222,7 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                 }
             }
             fireAddToCartAnalytics(productId, productName, productPrice, 1);
-            updateCartCount();
-            renderCartDrawerItems();
+            publishCartChange();
         })
         .catch(err => console.error("Error adding to DB cart:", err));
 
@@ -1049,7 +1240,7 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
         saveGuestCart(currentCart);
         fireAddToCartAnalytics(productId, productName, productPrice, 1);
         setTimeout(() => {
-            updateCartCount();
+            publishCartChange();
             if (!existingItem) {
                 if (typeof window.showCartAddedToast === 'function') {
                     window.showCartAddedToast();
@@ -1057,7 +1248,6 @@ window.addToBag = function(productId, productName, productPrice, productImage) {
                     showCardNotification(clickedButton, 'Added to bag!', 'success');
                 }
             }
-            renderCartDrawerItems();
         }, 800);
     }
 };
@@ -1071,9 +1261,10 @@ window.buildItemImageHtml = buildItemImageHtml;
 window.cartItemImg = cartItemImg;
 window.fetchLiveDBCart = fetchLiveDBCart;
 window.syncCartFromServerItems = syncCartFromServerItems;
+window.applyCartSnapshot = applyCartSnapshot;
+window.getCartRef = getCartRef;
 window.getSelectedCartSubtotal = function getSelectedCartSubtotal() {
-    const currentCart = customerToken ? cart : readGuestCart();
-    return currentCart
+    return getActiveCartLines()
         .filter(item => item.selected !== false)
         .reduce((sum, item) => sum + item.price * (item.quantity || 1), 0);
 };
@@ -1083,21 +1274,80 @@ window.getSelectedCartSubtotal = function getSelectedCartSubtotal() {
    SECTION 8: INITIALIZATION ON LOAD (পেজ লোড সিঙ্ক)
    ========================================================================== */
 document.addEventListener('productCatalogReady', () => {
-    if (customerToken) {
+    if (getCustomerToken()) {
         fetchLiveDBCart();
     }
 }, { once: true });
 
 document.addEventListener('productCatalogReady', () => {
-    if (customerToken && cart.length > 0 && CDU().normalizeCartArray) {
-        cart = CDU().normalizeCartArray(cart, globalProductCatalog);
-        renderCartDrawerItems();
+    if (getCustomerToken() && getCartRef().length > 0 && CDU().normalizeCartArray) {
+        applyCartSnapshot(CDU().normalizeCartArray(getCartRef(), globalProductCatalog));
     }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-    updateCartCount();
+function handleCommerceCartUpdated(payload) {
+    updateCartCount(payload);
     renderCartDrawerItems();
+    if (typeof updateCartTotal === 'function') updateCartTotal();
+}
+
+function handleCrossTabCartRefresh() {
+    if (getCustomerToken()) {
+        fetchLiveDBCart().then(() => {
+            handleCommerceCartUpdated(commerce()
+                ? commerce().computeCartPayload(commerce().getCart())
+                : null);
+        });
+        return;
+    }
+    applyCartSnapshot(readGuestCart(), { persistGuest: false });
+    refreshCartUiSilent();
+}
+
+function bootstrapCommerceCartUi() {
+    if (CDU().initCartCrossTabSync) {
+        CDU().initCartCrossTabSync(handleCrossTabCartRefresh);
+    }
+    if (!commerce()) {
+        updateCartCount();
+        renderCartDrawerItems();
+        return;
+    }
+    commerce().subscribe('cart:updated', handleCommerceCartUpdated);
+    commerce().subscribe('auth:changed', () => handleCommerceCartUpdated());
+    handleCommerceCartUpdated(commerce().computeCartPayload(commerce().getCart()));
+}
+
+async function initCartPromoUi() {
+    if (!document.getElementById('cartSummarySection')) return;
+    if (window.CouponUI && typeof window.CouponUI.bindCouponForm === 'function') {
+        const controller = await window.CouponUI.bindCouponForm({
+            prefix: 'cart',
+            getSubtotal: getCartMerchandiseSubtotal,
+            getToken: getCustomerToken,
+            onTotalsChange: () => {
+                updateCartTotal();
+            }
+        });
+        window.cartCouponsAvailable = controller?.couponsAvailable === true;
+    }
+    if (window.EOBVoucherWallet && typeof window.EOBVoucherWallet.createVoucherWallet === 'function') {
+        window.cartVoucherWallet = window.EOBVoucherWallet.createVoucherWallet({
+            rootId: 'cart-voucher-wallet',
+            prefix: 'cart',
+            getSubtotal: getCartMerchandiseSubtotal,
+            getCartItems: getSelectedCartLinesForQuote,
+            getToken: getCustomerToken,
+            feedbackElId: 'cartCouponFeedbackMsg',
+            onApplied: () => refreshCartOrderQuotePreview(),
+            onRemoved: () => refreshCartOrderQuotePreview()
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', bootstrapCommerceCartUi);
+document.addEventListener('DOMContentLoaded', () => {
+    initCartPromoUi();
 });
 
 document.addEventListener('languageChanged', () => {

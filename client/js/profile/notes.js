@@ -25,9 +25,9 @@ const NotesModule = (() => {
 
     function token() {
         return window.profileAuthToken
-            || localStorage.getItem('token')
-            || localStorage.getItem('customerToken')
-            || localStorage.getItem('userToken')
+            || window.EOBStorage.get(window.EOBStorageKeys.TOKEN)
+            || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN)
+            || window.EOBStorage.get(window.EOBStorageKeys.USER_TOKEN)
             || '';
     }
 

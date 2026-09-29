@@ -81,6 +81,21 @@ async function handleProceedToPaymentAsync() {
         return;
     }
 
+    if (typeof refreshOrderQuoteNow === 'function') {
+        const freshQuote = await refreshOrderQuoteNow({ silent: true });
+        if (typeof isQuoteBlockingCheckout === 'function' && isQuoteBlockingCheckout()) {
+            const meta = window.EOBCheckoutState?.get('quoteMeta');
+            const msg = meta?.error
+                || meta?.itemErrors?.[0]?.message
+                || 'Some items are unavailable. Update your cart and try again.';
+            openCheckoutAlertModal(msg);
+            return;
+        }
+        if (!freshQuote && window.EOBCheckoutState?.get('quoteMeta')?.fallback) {
+            showCouponToast('Live pricing is temporarily unavailable. You can continue with estimated totals.', 'warning');
+        }
+    }
+
     const nameVal = document.getElementById('shippingFullName')?.value.trim() || '';
     const mobileVal = document.getElementById('shippingMobile')?.value.trim() || '';
     const emailVal = document.getElementById('shippingEmail')?.value.trim() || '';
@@ -96,35 +111,65 @@ async function handleProceedToPaymentAsync() {
     const shippingLocationType = resolveShippingZoneLabel() || 'Outside City';
     const deliveryLocationType = shippingLocationType === 'Inside City' ? 'inside' : 'outside';
 
-    let subtotal = checkedItems.reduce((sum, item) => sum + (parseFloat(item.price) * parseInt(item.quantity)), 0);
+    const serverQuote = typeof getActiveQuote === 'function' ? getActiveQuote() : null;
+    const quoteMeta = window.EOBCheckoutState?.get('quoteMeta');
+    const useServerQuote = serverQuote && quoteMeta && quoteMeta.valid !== false && quoteMeta.fallback !== true;
 
-    const couponsStillAvailable = await refreshCheckoutCouponAvailability();
-    if (!couponsStillAvailable) {
-        setAppliedCoupon(null);
-    }
-
-    const applied = getAppliedCoupon();
+    let subtotal;
     let discountAmount = 0;
     let couponCode = '';
-    let merchandisePayable = subtotal;
+    let deliveryCharge = 0;
+    let vatAmount = 0;
+    let totalAmount = 0;
+    let payableAfterWallet = 0;
+    let walletSummary = { walletApplied: 0, payableTotal: 0 };
+    let loyaltySummary = { pointsUsed: 0, loyaltyDiscount: 0, merchandiseAfterLoyalty: 0 };
 
-    if (applied && applied.code && Math.round(Number(applied.subtotal) * 100) === Math.round(Number(subtotal) * 100)) {
-        discountAmount = Number(applied.discountAmount) || 0;
-        couponCode = applied.code;
-        merchandisePayable = Number(applied.finalTotal);
-        if (!Number.isFinite(merchandisePayable)) merchandisePayable = Math.max(0, subtotal - discountAmount);
-    } else if (applied) {
-        // Stale coupon — clear before payment
-        setAppliedCoupon(null);
+    if (useServerQuote) {
+        subtotal = serverQuote.subtotal;
+        discountAmount = serverQuote.discountAmount;
+        couponCode = serverQuote.couponCode || '';
+        deliveryCharge = serverQuote.shippingFee;
+        vatAmount = serverQuote.vatAmount;
+        totalAmount = serverQuote.grandTotal;
+        walletSummary = {
+            walletApplied: serverQuote.walletApplied,
+            payableTotal: serverQuote.payableAfterWallet
+        };
+        payableAfterWallet = serverQuote.payableAfterWallet;
+        loyaltySummary = {
+            pointsUsed: serverQuote.loyaltyPointsToUse,
+            loyaltyDiscount: serverQuote.loyaltyDiscount,
+            merchandiseAfterLoyalty: serverQuote.merchandisePayable
+        };
+    } else {
+        subtotal = checkedItems.reduce((sum, item) => sum + (parseFloat(item.price) * parseInt(item.quantity)), 0);
+
+        const couponsStillAvailable = await refreshCheckoutCouponAvailability();
+        if (!couponsStillAvailable) {
+            setAppliedCoupon(null);
+        }
+
+        const applied = getAppliedCoupon();
+        let merchandisePayable = subtotal;
+
+        if (applied && applied.code && Math.round(Number(applied.subtotal) * 100) === Math.round(Number(subtotal) * 100)) {
+            discountAmount = Number(applied.discountAmount) || 0;
+            couponCode = applied.code;
+            merchandisePayable = Number(applied.finalTotal);
+            if (!Number.isFinite(merchandisePayable)) merchandisePayable = Math.max(0, subtotal - discountAmount);
+        } else if (applied) {
+            setAppliedCoupon(null);
+        }
+
+        deliveryCharge = calculateDeliveryCharge(subtotal);
+        loyaltySummary = typeof calculateLoyaltyApplication === 'function'
+            ? calculateLoyaltyApplication(merchandisePayable)
+            : { pointsUsed: 0, loyaltyDiscount: 0, merchandiseAfterLoyalty: merchandisePayable };
+        totalAmount = Math.round((loyaltySummary.merchandiseAfterLoyalty + deliveryCharge) * 100) / 100;
+        walletSummary = calculateWalletApplication(totalAmount);
+        payableAfterWallet = walletSummary.payableTotal;
     }
-
-    const deliveryCharge = calculateDeliveryCharge(subtotal);
-    const loyaltySummary = typeof calculateLoyaltyApplication === 'function'
-        ? calculateLoyaltyApplication(merchandisePayable)
-        : { pointsUsed: 0, loyaltyDiscount: 0, merchandiseAfterLoyalty: merchandisePayable };
-    const totalAmount = Math.round((loyaltySummary.merchandiseAfterLoyalty + deliveryCharge) * 100) / 100;
-    const walletSummary = calculateWalletApplication(totalAmount);
-    const payableAfterWallet = walletSummary.payableTotal;
     const SE = window.ShippingEstimator;
     const shippingQuote = SE
         ? SE.calculateShippingQuote(deliverySettings, { district: shippingDistrict, subtotal })
@@ -147,15 +192,21 @@ async function handleProceedToPaymentAsync() {
         subTotal: subtotal,
         discountAmount,
         couponCode,
+        vatAmount,
+        taxAmount: vatAmount,
         deliveryLocationType,
         shippingLocationType,
         deliveryCharge,
         shippingFee: deliveryCharge,
-        estimatedDelivery: shippingQuote?.estimatedDelivery || null,
+        estimatedDelivery: (useServerQuote && serverQuote.estimatedDelivery)
+            ? { label: serverQuote.estimatedDelivery }
+            : (shippingQuote?.estimatedDelivery || null),
         totalAmount,
         grandTotal: totalAmount,
         walletApplied: walletSummary.walletApplied,
         payableAfterWallet,
+        serverQuote: useServerQuote ? serverQuote : null,
+        quoteGeneratedAt: useServerQuote ? serverQuote.quoteGeneratedAt : null,
         applyWallet: applyWalletAtCheckout && walletSummary.walletApplied > 0,
         applyLoyaltyPoints: applyLoyaltyAtCheckout && loyaltySummary.pointsUsed > 0,
         loyaltyPointsToUse: loyaltySummary.pointsUsed || 0,
@@ -165,12 +216,27 @@ async function handleProceedToPaymentAsync() {
         note: noteVal
     };
 
-    localStorage.setItem('activeCheckoutSession', JSON.stringify(checkoutOrderSession));
+    if (typeof ensureCheckoutIdempotencyKey === 'function') {
+        checkoutOrderSession.idempotencyKey = ensureCheckoutIdempotencyKey(checkedItems);
+        checkoutOrderSession.idempotencyFingerprint = typeof computeCheckoutAttemptFingerprint === 'function'
+            ? computeCheckoutAttemptFingerprint(checkedItems)
+            : '';
+        if (window.EOBCheckoutState) {
+            window.EOBCheckoutState.set('idempotencyKey', checkoutOrderSession.idempotencyKey);
+            window.EOBCheckoutState.set('idempotencyFingerprint', checkoutOrderSession.idempotencyFingerprint);
+        }
+    }
+
+    if (window.EOBCommerce) {
+        window.EOBCommerce.setCheckoutSessionObject(checkoutOrderSession);
+    } else {
+        window.EOBStorage.setJSON(window.EOBStorageKeys.ACTIVE_CHECKOUT_SESSION, checkoutOrderSession);
+    }
 
     if (!isGuestCheckoutUser()) {
-        localStorage.setItem('checkout_name', nameVal);
-        localStorage.setItem('checkout_phone', mobileVal);
-        if (emailVal) localStorage.setItem('checkout_email', emailVal);
+        window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_NAME, nameVal);
+        window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_PHONE, mobileVal);
+        if (emailVal) window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_EMAIL, emailVal);
     }
     
     window.location.href = '/payment';

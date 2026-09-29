@@ -2,38 +2,30 @@
  * Checkout State
  * Barrel: client/js/checkout.js
  *
- * Globals used from other modules:
- *  * - CartDisplayUtils
- *
- * Globals this module exposes:
- *  * - cart
- * - globalProductCatalog
- * - customerToken
- * - validationState
- * - deliverySettings
+ * Persistent cart/checkout data: EOBCommerce + EOBStorage.
+ * Ephemeral checkout UI state: checkoutState.js (EOBCheckoutState).
  */
 
-window.globalProductCatalog = [];
-window.cart = [];
 window.checkoutCDU = () => window.CartDisplayUtils || {};
 
 function readGuestCartForCheckout() {
+    if (window.EOBCommerce) {
+        return window.EOBCommerce.readGuestCartFromStorage(globalProductCatalog);
+    }
     if (checkoutCDU().getNormalizedGuestCart) {
         return checkoutCDU().getNormalizedGuestCart(globalProductCatalog);
     }
-    try {
-        return JSON.parse(localStorage.getItem('cart') || '[]');
-    } catch (_) {
-        localStorage.removeItem('cart');
-        return [];
-    }
+    return window.EOBStorage.getJSON(window.EOBStorageKeys.CART, []);
 }
 
 function saveGuestCartForCheckout(items) {
+    if (window.EOBCommerce) {
+        return window.EOBCommerce.persistGuestCartToStorage(items);
+    }
     if (checkoutCDU().persistGuestCart) {
         return checkoutCDU().persistGuestCart(items);
     }
-    localStorage.setItem('cart', JSON.stringify(items));
+    window.EOBStorage.setJSON(window.EOBStorageKeys.CART, items);
     return items;
 }
 
@@ -75,46 +67,15 @@ function mapCheckoutCartItem(item = {}) {
     };
 }
 
-window.deliverySettings = {
-    shopHomeCity: 'Dhaka',
-    deliveryInsideCity: 60,
-    deliveryOutsideCity: 120,
-    freeShippingMinAmount: 1000,
-    freeShippingThreshold: 1000
-};
-window.selectedShippingDistrict = '';
-window.selectedShippingUpazila = '';
-window.checkoutProfileCache = null;
-window.savedCheckoutAddresses = [];
-window.selectedSavedAddressId = null;
-window.isApplyingSavedAddress = false;
-
 function getCheckoutAuthToken() {
-    return localStorage.getItem('token') || localStorage.getItem('customerToken');
+    if (window.EOBCommerce) return window.EOBCommerce.getAuthToken();
+    return window.EOBStorage.get(window.EOBStorageKeys.TOKEN)
+        || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
 }
 
 function isGuestCheckoutUser() {
     return !getCheckoutAuthToken();
 }
-
-window.customerToken = getCheckoutAuthToken();
-
-window.validationState = {
-    name: false,
-    mobile: false,
-    address: false,
-    district: false,
-    upazila: false
-};
-
-window.checkoutCouponsAvailable = false;
-window.checkoutCouponController = null;
-window.checkoutWalletBalance = 0;
-window.checkoutLoyaltyPoints = 0;
-window.checkoutRewardSettings = null;
-window.checkoutBeginTracked = false;
-window.applyWalletAtCheckout = false;
-window.applyLoyaltyAtCheckout = false;
 
 function getAppliedCoupon() {
     return window.CouponUI ? window.CouponUI.getAppliedCoupon() : null;
@@ -161,30 +122,25 @@ function showCouponToast(message, type = 'success') {
     alert(message);
 }
 
-window.checkoutLocationPair = null;
-
-/* =========================================================================
-   ২. কোর লজিক: চেকআউট আইটেম ফিল্টার (Buy Now vs Cart)
-   ========================================================================= */
 function getCheckoutItems() {
-    const isBuyNow = localStorage.getItem('isBuyNowMode') === 'true';
-    
+    const commerce = window.EOBCommerce;
+    const isBuyNow = commerce
+        ? commerce.isBuyNowMode()
+        : window.EOBStorage.get(window.EOBStorageKeys.IS_BUY_NOW_MODE) === 'true';
+
     if (isBuyNow) {
-        let buyNowItems = [];
-        try {
-            buyNowItems = JSON.parse(localStorage.getItem('buy_now_item') || '[]');
-            if (!Array.isArray(buyNowItems)) buyNowItems = [];
-        } catch (_) {
-            buyNowItems = [];
-        }
+        const buyNowItems = commerce
+            ? commerce.getBuyNowItems()
+            : window.EOBStorage.getJSON(window.EOBStorageKeys.BUY_NOW_ITEM, []);
         return checkoutCDU().normalizeCartArray
             ? checkoutCDU().normalizeCartArray(buyNowItems, globalProductCatalog)
             : buyNowItems;
     }
 
     const currentCart = customerToken ? cart : readGuestCartForCheckout();
-    return currentCart.filter(item => item.selected !== false);
+    return currentCart.filter((item) => item.selected !== false);
 }
+
 Object.assign(window, {
     readGuestCartForCheckout,
     saveGuestCartForCheckout,

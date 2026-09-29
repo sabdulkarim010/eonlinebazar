@@ -24,7 +24,7 @@ client/
 
 │   ├── style.css          ← BARREL — edit files in global/
 
-│   └── global/            ← Shared global styles
+│   └── global/            ← Shared global styles (_skeletons.css shimmer placeholders)
 
 ├── js/
 
@@ -53,11 +53,41 @@ client/
 
 │   ├── product-details.js ← BARREL → js/pdp/*.js
 
-│   ├── pdp/               ← Product detail page modules
+│   ├── pdp/               ← Product detail page modules (gallery, galleryZoomLightbox, variantStock, variants, …)
+
+│   ├── utils/storage.js   ← EOBStorage / EOBStorageKeys (all client persistence)
+
+│   ├── utils/telemetry.js ← EOBTelemetry global errors + non-blocking error reports
+
+│   ├── utils/sanitizer.js ← EOBSanitizer escapeHtml + sanitizeRichText (XSS)
+│   ├── ui/skeletons.js    ← EOBSkeletons storefront skeleton loaders (CLS)
+│   ├── utils/debounce.js   ← EOBDebounce debounce + abortable fetch coordinator
+│   ├── searchCatalogSync.js ← EOBSearchCatalogSync URL ↔ catalog filter state
+│   ├── expressCheckout.js   ← EOBExpressCheckout Buy Now isolated checkout
+│   ├── orderStatusTimeline.js ← OrderStatusTimeline customer progress UI
+│   ├── orderReturnWorkflow.js ← Return eligibility + return-request payloads (order details)
+│   ├── utils/orderQuote.js    ← EOBOrderQuote tax labels + cart quote preview
+│   ├── voucherWallet.js       ← EOBVoucherWallet one-click promo wallet (cart/checkout)
+│   ├── utils/apiCache.js   ← EOBApiCache SWR/TTL for public catalog GET
+│   ├── utils/profileCache.js ← EOBProfileCache profile dashboard metrics SWR
+│   ├── profile/invoice.js     ← EOBInvoice print receipt + PDF download
+│   ├── utils/catalogClient.js ← Bounded home sections + cart product lookup
+│   ├── cartCatalogBootstrap.js ← Hydrate catalog from cart lines (no bulk prefetch)
+│   ├── utils/imageUtils.js ← EOBImageUtils lazy/LCP, srcset, catalog URL sanitize
+│   ├── render.js          ← EOBRender shared card/cart image mount helpers
+
+│   ├── session-guard.js   ← Patched fetch (401), EOBSession, checkout-safe auth drop
+
+│   ├── store/             ← commerceState.js, checkoutState.js
+
+│   ├── cartDisplayUtils.js ← Cart line helpers, badge qty sum, cross-tab cart sync (BroadcastChannel + storage)
+
+│   ├── cart-merge.js      ← Guest→user POST /api/cart/merge, session snapshot, mergeGuestCartWithUserCart
 
 │   ├── checkout.js        ← BARREL → js/checkout/*.js
 
-│   └── checkout/          ← Checkout modules
+│   ├── orderSuccess.js    ← Payment outcome UI (pending vs verified, retry COD)
+│   └── checkout/          ← quote.js, idempotency.js, checkoutCrossTabSync.js, paymentStatusSync.js
 
 ├── admin/
 
@@ -88,6 +118,7 @@ backend/src/
 │   └── authController.js            ← BARREL
 
 ├── routes/                ← NEVER split routes — keep as barrel files
+│   └── telemetryRoutes.js ← POST /api/telemetry/errors (storefront error batch ingest)
 
 ├── data/demoProducts.js   ← DEMO-* catalog for seed:products / POST /api/products/seed-demo
 

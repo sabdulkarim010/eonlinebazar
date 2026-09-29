@@ -24,7 +24,7 @@
   let previewFromForm = false;
 
   function bannerToken() {
-    return localStorage.getItem('adminToken') || '';
+    return window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || '';
   }
 
   function bannerNotify(message, type = 'success') {
@@ -40,7 +40,7 @@
 
   function handleBannerAuth(res, data = {}) {
     if (res.status === 401) {
-      localStorage.removeItem('adminToken');
+      window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_TOKEN);
       window.location.replace('/admin-login');
       return 'auth_failed';
     }

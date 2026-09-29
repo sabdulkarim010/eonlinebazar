@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-28 (verifyAdmin Mongo session maxTimeMS + offline skip)  
+**Last updated:** 2026-09-29 (storefront EOBSanitizer XSS hardening)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -58,7 +58,9 @@
 | `client/js/admin/modules/settings-2fa.js` | 2FA setup UI |
 | `client/js/admin/modules/settings-security.js` | Security settings |
 | `client/js/admin/modules/settings-staff-audit.js` | Staff audit timeline |
-| `client/js/session-guard.js` | Storefront session guard |
+| `client/js/session-guard.js` | Storefront fetch patch, silent refresh queue, `EOBSession` API |
+| `client/js/store/commerceState.js` | `dropAuthPreservingCommerce`, checkout-aware `setAuthTokens` |
+| `client/js/utils/sanitizer.js` | Storefront XSS — escape + rich-text sanitize |
 | `client/admin-login.html` | Admin login shell — split-screen brand panel + scroll-safe auth card (inline CSS) |
 | `client/js/admin-login.js` | Same-page password + 2FA OTP flow (`POST /api/admin/login`) |
 
@@ -76,6 +78,9 @@
 - [x] Forgot/reset password (OTP) — `passwordController.js`
 - [x] Admin 2FA (TOTP + SMS + email) — `twoFactorController.js`
 - [x] RBAC with 9 permissions — `permissions.js`, `rbac.js`
+- [x] Storefront XSS sanitization — `EOBSanitizer` + escaped dynamic HTML in cart/checkout/PDP/search/CMS
+- [x] Storefront 401 handling — `session-guard.js` single-flight refresh + one retry; checkout preserves cart/draft
+- [ ] Customer refresh-token API — not implemented on backend; guard tries endpoints then non-destructive fallback
 - [x] Customer session tracking — `userSession.js`, logout-other-devices
 - [x] Admin session management — `sessionController.js`, `view-sessions.html`
 - [x] Admin session PG mirror (best-effort) — `mirrorAdminSessionBestEffort()`; throttled heartbeats; never blocks `verifyAdmin`
@@ -114,6 +119,16 @@
 ---
 
 ## Change Log
+
+### Storefront Step 1.2.3 — XSS sanitization — 2026-09-29
+
+- `EOBSanitizer` central module; `tests/sanitizer.test.js`; Jest **414/414**
+
+### Storefront Step 1.2.1 — 401 intercept + checkout-safe expiry — 2026-09-29
+
+- `session-guard.js`: patched fetch, `attemptSilentRefresh`, `handleUnrecoverable401`, `EOBSession` exports.
+- `commerceState.js`: auth drop during checkout keeps `CHECKOUT_INITIATED` / cart in storage.
+- Tests: Jest **405/405**
 
 ### Jest log hygiene — user session dual-write + 2FA diagnostics — 2026-09-28
 

@@ -1,6 +1,6 @@
 # MARKETING AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-25 (Phase 4.4 loyalty ledger, coupon rules, banner CTR)  
+**Last updated:** 2026-09-29 (Step 4.1.2 — storefront voucher wallet API)  
 **Scope:** Newsletter, coupons, email campaigns, loyalty tiers, referrals, abandoned carts, reviews, WhatsApp broadcasts  
 **Status:** ⚠️ PARTIAL
 
@@ -10,7 +10,8 @@
 
 | Path | Role |
 |------|------|
-| `backend/src/routes/couponRoutes.js` | Coupon CRUD + apply |
+| `backend/src/routes/couponRoutes.js` | Coupon CRUD + apply + wallet |
+| `client/js/voucherWallet.js` | Storefront voucher wallet UI |
 | `backend/src/routes/newsletterRoutes.js` | Newsletter subscribe + admin |
 | `backend/src/routes/reviewRoutes.js` | Review CRUD + moderation |
 | `backend/src/controllers/couponController.js` | Coupon logic |
@@ -62,6 +63,7 @@
 ## Feature Checklist
 
 - [x] Coupon CRUD + checkout apply — `couponController.js`, `catalog-coupons.js`
+- [x] Storefront voucher wallet (`POST /api/coupons/wallet`) — `listWalletCoupons`, `voucherWallet.js`
 - [x] Newsletter subscribers list — `newsletterAdminController.js`
 - [x] Double opt-in subscription flow — `newsletterController.js`, `newsletterTokenService.js`
 - [x] RFC 2369 unsubscribe headers + JWT one-click unsubscribe — `mailer.js`, `newsletterRoutes.js`
@@ -123,6 +125,11 @@
 ---
 
 ## Change Log
+
+### Step 4.1.2 — Storefront voucher wallet — 2026-09-29
+
+- `POST /api/coupons/wallet` lists active percentage/flat coupons with eligibility, min-order hints, and estimated savings via shared `validateCouponForCart`.
+- `client/js/voucherWallet.js` one-click apply/remove integrated with `coupon-ui.js` and order quote refresh.
 
 ### Phase 4.4 — Loyalty ledger, coupon rules, banner CTR — 2026-09-25
 

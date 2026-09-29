@@ -492,9 +492,7 @@
         const classes = getVariantClasses(variant);
         const esc = typeof opts.escapeHtml === 'function' ? opts.escapeHtml : escapeHtml;
         const alt = opts.alt != null ? opts.alt : (normalizeMediaItem(item).name || '');
-        const loading = opts.loading ? ` loading="${esc(opts.loading)}"` : '';
         const state = resolveMediaState(item);
-        const sizeAttrs = variant === 'compact' ? ' width="50" height="50"' : '';
 
         if (state.type === 'image') {
             const displaySrc = toDisplayImageUrl(state.image) || state.image;
@@ -502,7 +500,21 @@
                 ? `<div class="${classes.emoji}" style="display:none" aria-hidden="true">${esc(state.emoji)}</div>`
                 : `<div class="${classes.noPhoto}" style="display:none" aria-hidden="true"><span>NO PHOTO</span></div>`;
 
-            return `<img src="${escapeUrlForAttr(displaySrc)}" class="${classes.img}" alt="${esc(alt)}"${loading}${sizeAttrs} onerror="${IMG_ONERROR}">${fallback}`;
+            const IU = global.EOBImageUtils;
+            if (IU && typeof IU.buildImgHtml === 'function') {
+                const attrs = IU.buildProductImageAttributes(displaySrc, {
+                    variant,
+                    alt,
+                    priority: opts.priority,
+                    loading: opts.loading,
+                    className: classes.img
+                });
+                return `${IU.buildImgHtml(attrs)}${fallback}`;
+            }
+
+            const loading = opts.loading ? ` loading="${esc(opts.loading)}"` : ' loading="lazy"';
+            const sizeAttrs = variant === 'compact' ? ' width="50" height="50"' : (variant === 'card' ? ' width="120" height="120"' : '');
+            return `<img src="${escapeUrlForAttr(displaySrc)}" class="${classes.img}" alt="${esc(alt)}"${loading} decoding="async"${sizeAttrs} onerror="${IMG_ONERROR}">${fallback}`;
         }
 
         if (state.type === 'emoji') {

@@ -51,11 +51,12 @@
 
 /* Card variant — product grid on shop / trending */
 .product-img-box .prod-thumb-img--card {
-    width: auto;
-    height: auto;
+    width: 120px;
+    height: 120px;
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+    aspect-ratio: 1 / 1;
     border-radius: 4px;
     background: transparent;
 }

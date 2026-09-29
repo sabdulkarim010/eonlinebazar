@@ -7,7 +7,7 @@
 
     function getAppliedCoupon() {
         try {
-            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null;
+            return window.EOBStorage.getJSON(STORAGE_KEY, null);
         } catch (_) {
             return null;
         }
@@ -15,10 +15,10 @@
 
     function setAppliedCoupon(data) {
         if (!data) {
-            localStorage.removeItem(STORAGE_KEY);
+            window.EOBStorage.remove(STORAGE_KEY);
             return;
         }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        window.EOBStorage.setJSON(STORAGE_KEY, data);
     }
 
     function roundMoney(value) {

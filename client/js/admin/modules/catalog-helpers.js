@@ -43,7 +43,7 @@ async function loadCategoryDropdownForProduct(selectId) {
     try {
         const res = await fetch('/api/categories/admin/all', {
             headers: {
-                'Authorization': 'Bearer ' + (localStorage.getItem('adminToken') || token || '')
+                'Authorization': 'Bearer ' + (window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || token || '')
             }
         });
         const data = await res.json();

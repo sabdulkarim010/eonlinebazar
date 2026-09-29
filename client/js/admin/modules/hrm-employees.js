@@ -76,7 +76,7 @@ function employeeEscape(value) {
 
 /** Bearer token for /api/admin/* — verifyAdmin reads Authorization header, not cookies. */
 function authHeaders(json = false) {
-    const headers = { Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}` };
+    const headers = { Authorization: `Bearer ${window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || ''}` };
     if (json) headers['Content-Type'] = 'application/json';
     return headers;
 }

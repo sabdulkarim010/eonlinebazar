@@ -54,7 +54,7 @@ function handleAdminApiAuthResponse(res, data = {}, options = {}) {
     }
     // Only redirect on genuine 401 — not 403 (permission/geo/rate-limit side effects)
     if (res.status === 401) {
-        localStorage.removeItem('adminToken');
+        window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_TOKEN);
         window.location.replace('/admin-login');
         return 'auth_failed';
     }

@@ -13,7 +13,7 @@ function formatPosMoney(value) {
 
 function readOfflineQueue() {
     try {
-        const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
+        const raw = window.EOBStorage.get(OFFLINE_QUEUE_KEY);
         const parsed = raw ? JSON.parse(raw) : [];
         return Array.isArray(parsed) ? parsed : [];
     } catch {
@@ -22,7 +22,7 @@ function readOfflineQueue() {
 }
 
 function writeOfflineQueue(queue) {
-    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(Array.isArray(queue) ? queue : []));
+    window.EOBStorage.set(OFFLINE_QUEUE_KEY, JSON.stringify(Array.isArray(queue) ? queue : []));
     updatePosOfflineSyncUi();
 }
 

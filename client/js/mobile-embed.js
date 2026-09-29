@@ -15,7 +15,7 @@
         window.i18n.setLanguage(lang);
       } else {
         try {
-          localStorage.setItem('eonlinebazar_lang', lang);
+          window.EOBStorage.set(window.EOBStorageKeys.EOB_LANG, lang);
         } catch (_) {
           /* ignore */
         }

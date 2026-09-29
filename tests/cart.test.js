@@ -161,6 +161,24 @@ describe('Cart API', () => {
         expect(res.body.data[0].image).toBe('/products/fresh-shirt.jpg');
     });
 
+    test('POST /api/cart/add — ignores tampered client price (server catalog price wins)', async () => {
+        const product = await seedProduct();
+        const { email, password } = await createTestUser();
+        const token = await getAuthToken(email, password);
+
+        const res = await request(app)
+            .post('/api/cart/add')
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                productId: String(product._id),
+                quantity: 1,
+                price: 1
+            });
+
+        expect(res.status).toBe(200);
+        expect(res.body.data[0].price).toBe(499);
+    });
+
     test('DELETE /api/cart/clear (authenticated) — clear cart, expect empty items', async () => {
         const product = await seedProduct();
         const { email, password } = await createTestUser();

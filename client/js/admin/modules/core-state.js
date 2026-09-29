@@ -3,7 +3,7 @@
  * File: js/admin/modules/core-state.js
  * Description: Shared admin window state, tokens, and page metadata.
  */
-window.token = localStorage.getItem('adminToken');
+window.token = window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
 window.adminPollErrorCounts = {};
 window.MAX_ADMIN_POLL_ERRORS = 3;
 window.tableBody = document.getElementById('adminOrderTableBody') || document.getElementById('orderTableBody');

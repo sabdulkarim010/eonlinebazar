@@ -84,9 +84,9 @@ function esc(str) {
 
 function getChatToken() {
     return String(
-        localStorage.getItem(CHAT_TOKEN_KEY) ||
-            localStorage.getItem('adminToken') ||
-            localStorage.getItem('token') ||
+        window.EOBStorage.get(CHAT_TOKEN_KEY) ||
+            window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) ||
+            window.EOBStorage.get(window.EOBStorageKeys.TOKEN) ||
             ''
     ).trim();
 }
@@ -293,7 +293,7 @@ async function handleChatAgentLogin(e) {
         });
         const token = data.token || data.accessToken;
         if (!token) throw new Error('No token returned');
-        localStorage.setItem(CHAT_TOKEN_KEY, token);
+        window.EOBStorage.set(CHAT_TOKEN_KEY, token);
         chatAgent = data.agent || data.user || null;
         showChatGate(false);
         if (typeof showToast === 'function') showToast('Connected to live chat', 'success');
@@ -471,7 +471,7 @@ async function loadConversations() {
     } catch (err) {
         console.error('[chat-admin] loadConversations', err);
         if (err.status === 401) {
-            localStorage.removeItem(CHAT_TOKEN_KEY);
+            window.EOBStorage.remove(CHAT_TOKEN_KEY);
             showChatGate(true);
         }
     }
@@ -1165,7 +1165,7 @@ async function loadChatAnalytics(period = '7d') {
     } catch (err) {
         console.error('[chat-admin] analytics', err);
         if (err.status === 401) {
-            localStorage.removeItem(CHAT_TOKEN_KEY);
+            window.EOBStorage.remove(CHAT_TOKEN_KEY);
             requireChatToken('chatAnalyticsGate', 'chatAnalyticsContent');
         }
         chatToast('Failed to load analytics', 'error');
@@ -1270,7 +1270,7 @@ async function loadCannedResponsesUI() {
     } catch (err) {
         console.error('[chat-admin] canned UI', err);
         if (err.status === 401) {
-            localStorage.removeItem(CHAT_TOKEN_KEY);
+            window.EOBStorage.remove(CHAT_TOKEN_KEY);
             requireChatToken('cannedResponsesGate', 'cannedResponsesContent');
         }
     }

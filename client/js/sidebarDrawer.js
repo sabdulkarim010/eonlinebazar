@@ -149,7 +149,7 @@
 
     function readCachedCustomer() {
         try {
-            const raw = localStorage.getItem('customerData');
+            const raw = window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_DATA);
             if (!raw) return null;
             const data = JSON.parse(raw);
             return data && typeof data === 'object' ? data : null;
@@ -198,11 +198,11 @@
         const avatarLink = document.getElementById('navDrawerAvatarLink');
         if (!avatarLink) return;
 
-        const token = localStorage.getItem('customerToken') || localStorage.getItem('token');
+        const token = window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN) || window.EOBStorage.get(window.EOBStorageKeys.TOKEN);
         const cached = readCachedCustomer();
         const name = String(
             (cached && (cached.name || cached.fullName))
-            || localStorage.getItem('userName')
+            || window.EOBStorage.get(window.EOBStorageKeys.USER_NAME)
             || ''
         ).trim();
         const first = name ? name.split(/\s+/)[0] : '';
@@ -227,7 +227,7 @@
                         const apiName = String(data.name || data.fullName || '').trim();
                         const apiAvatar = data.avatar || data.avatarUrl || data.profileImage || '';
                         if (apiName) {
-                            localStorage.setItem('userName', apiName);
+                            window.EOBStorage.set(window.EOBStorageKeys.USER_NAME, apiName);
                             const apiFirst = apiName.split(/\s+/)[0];
                             setGreetingLabels(`Hello, ${apiName}`, `Hello, ${apiFirst}`);
                             avatarLink.setAttribute('aria-label', `Profile for ${apiName}`);
@@ -235,7 +235,7 @@
                         if (apiAvatar) setDrawerAvatar(apiAvatar);
                         try {
                             const next = { ...(cached || {}), ...data };
-                            localStorage.setItem('customerData', JSON.stringify(next));
+                            window.EOBStorage.setJSON(window.EOBStorageKeys.CUSTOMER_DATA, next);
                         } catch (_) { /* ignore */ }
                     })
                     .catch(() => { /* non-blocking */ });
@@ -457,6 +457,23 @@
     global.openNavDrawer = openDrawer;
     global.closeNavDrawer = closeDrawer;
     global.syncNavDrawerGreeting = syncGreeting;
+
+    if (global.EOBCommerce && typeof global.EOBCommerce.subscribe === 'function') {
+        global.EOBCommerce.subscribe('auth:changed', () => syncGreeting());
+        global.EOBCommerce.subscribe('cart:updated', (payload) => {
+            const CDU = global.CartDisplayUtils || {};
+            const items = global.EOBCommerce.getCart();
+            const count = CDU.resolveCartBadgeCount
+                ? CDU.resolveCartBadgeCount(payload, items)
+                : (payload && typeof payload.badgeCount === 'number' ? payload.badgeCount : 0);
+            if (CDU.applyCartBadgeCount) {
+                CDU.applyCartBadgeCount(count);
+                return;
+            }
+            const badge = document.getElementById('navDrawerCartCount');
+            if (badge) badge.textContent = String(count);
+        });
+    }
 })(typeof window !== 'undefined' ? window : globalThis);
 
 

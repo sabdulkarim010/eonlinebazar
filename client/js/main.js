@@ -16,7 +16,7 @@ let flashSaleCountdownTimer = null;
 
 const HOME_CATALOG = {
     page: 1,
-    limit: (window.ProductCatalogUI && window.ProductCatalogUI.DEFAULT_PAGE_SIZE) || 24,
+    limit: (window.ProductCatalogUI && window.ProductCatalogUI.DEFAULT_PAGE_SIZE) || 10,
     totalPages: 0,
     totalProducts: 0,
     hasMore: false
@@ -24,6 +24,13 @@ const HOME_CATALOG = {
 
 function t(key, vars) {
     return window.i18n ? window.i18n.t(key, vars) : key;
+}
+
+function escHtml(value) {
+    if (window.EOBSanitizer && typeof window.EOBSanitizer.escapeHtml === 'function') {
+        return window.EOBSanitizer.escapeHtml(value);
+    }
+    return String(value == null ? '' : value);
 }
 
 function getCatalogUI() {
@@ -39,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSearchCategorySelect();
     loadHomepageCategories();
     fetchAndRenderProducts();
+    loadHomeSupplementalSections();
     initScrollReveal();
 });
 
@@ -77,7 +85,7 @@ let productsFetchAttempted = false;
 function showEmptyProductsState(message) {
     const productGrid = document.getElementById('productGrid');
     if (!productGrid) return;
-    productGrid.innerHTML = `<p style="text-align:center;padding:20px;color:#9ca3af">${message || 'Products loading...'}</p>`;
+    productGrid.innerHTML = `<p style="text-align:center;padding:20px;color:#9ca3af">${escHtml(message || 'Products loading...')}</p>`;
     renderHomeCatalogControls();
 }
 
@@ -102,8 +110,8 @@ function renderProductFetchError(message, statusCode) {
             <div class="product-fetch-error__icon" aria-hidden="true">
                 <i class="fa-solid ${isRateLimited ? 'fa-gauge-high' : 'fa-triangle-exclamation'}"></i>
             </div>
-            <h3 class="product-fetch-error__title">${title}</h3>
-            <p class="product-fetch-error__message">${hint}</p>
+            <h3 class="product-fetch-error__title">${escHtml(title)}</h3>
+            <p class="product-fetch-error__message">${escHtml(hint)}</p>
             <button type="button" class="product-fetch-error__retry" id="productFetchRetryBtn">
                 <i class="fa-solid fa-rotate-right"></i> ${window.i18n ? window.i18n.t('common.try_again') : 'Try Again'}
             </button>
@@ -174,32 +182,40 @@ function fetchAndRenderProducts(options = {}) {
     productFetchInFlight = true;
 
     if (!append && (options.manual || !allProducts.length)) {
-        productGrid.innerHTML = `
-            <div class="product-fetch-loading" aria-live="polite">
-                <i class="fa-solid fa-spinner fa-spin"></i>
-                <span>${window.i18n ? window.i18n.t('common.loading') : 'Loading products…'}</span>
-            </div>
-        `;
+        const sk = window.EOBSkeletons;
+        const skeletonCount = HOME_CATALOG.limit || 24;
+        if (sk && typeof sk.renderProductCardSkeleton === 'function') {
+            productGrid.className = 'product-layout-grid animate-on-scroll delay-2';
+            productGrid.innerHTML = sk.renderProductCardSkeleton(Math.min(skeletonCount, 14));
+            productGrid.setAttribute('aria-busy', 'true');
+        } else {
+            productGrid.innerHTML = `
+                <div class="product-fetch-loading" aria-live="polite">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                    <span>${window.i18n ? window.i18n.t('common.loading') : 'Loading products…'}</span>
+                </div>
+            `;
+        }
     }
 
     if (append) {
         renderHomeCatalogControls({ appending: true });
     }
 
-    const params = new URLSearchParams({
-        page: String(HOME_CATALOG.page),
-        limit: String(HOME_CATALOG.limit)
-    });
-
-    fetch(`/api/products?${params.toString()}`)
-        .then(async (response) => {
+    const CC = window.EOBCatalogClient;
+    const fetchPromise = CC
+        ? CC.fetchHomeFeatured(HOME_CATALOG.page, HOME_CATALOG.limit).then((result) => result.raw || result)
+        : fetch(`/api/products?${new URLSearchParams({
+            page: String(HOME_CATALOG.page),
+            limit: String(HOME_CATALOG.limit),
+            featured: 'true'
+        }).toString()}`).then(async (response) => {
             let payload = null;
             try {
                 payload = await response.json();
             } catch (_) {
                 payload = null;
             }
-
             if (!response.ok) {
                 const err = new Error(
                     payload?.message
@@ -210,9 +226,10 @@ function fetchAndRenderProducts(options = {}) {
                 err.status = response.status;
                 throw err;
             }
-
             return payload;
-        })
+        });
+
+    fetchPromise
         .then(data => {
             productFetchFailed = false;
             const products = Array.isArray(data)
@@ -236,7 +253,11 @@ function fetchAndRenderProducts(options = {}) {
             } else {
                 allProducts = products;
             }
-            window.globalProductCatalog = allProducts;
+            if (CC && typeof CC.mergeIntoGlobalCatalog === 'function') {
+                CC.mergeIntoGlobalCatalog(allProducts);
+            } else {
+                window.globalProductCatalog = allProducts;
+            }
 
             displayProducts(products, { append });
             renderHomeCatalogControls();
@@ -262,7 +283,7 @@ function fetchAndRenderProducts(options = {}) {
 /* ==========================================================================
    SECTION 3: RENDER PRODUCT CARDS (প্রোডাক্ট কার্ড এবং ইমেজ/ইমোজি লজিক)
    ========================================================================== */
-function createHomeProductCard(product) {
+function createHomeProductCard(product, cardIndex) {
     const productCard = document.createElement('div');
     productCard.className = 'product-card';
 
@@ -286,14 +307,16 @@ function createHomeProductCard(product) {
         : meta.image;
     const iconData = meta.emoji;
 
-    if (PT) {
-        PT.mountInto(imgWrap, product, { variant: 'card', alt: product.name || 'Product Image' });
+    if (window.EOBRender && typeof window.EOBRender.mountProductCardImage === 'function') {
+        window.EOBRender.mountProductCardImage(imgWrap, product, { index: cardIndex, priority: 'lazy' });
+    } else if (PT) {
+        PT.mountInto(imgWrap, product, { variant: 'card', alt: product.name || 'Product Image', priority: 'lazy', loading: 'lazy' });
     }
 
     const productInfo = document.createElement('div');
     productInfo.className = 'product-info';
     productInfo.innerHTML = `
-        <h4 class="product-name">${product.name || 'Unknown Product'}</h4>
+        <h4 class="product-name">${escHtml(product.name || 'Unknown Product')}</h4>
         <div class="product-price-row">
             ${buildProductPriceMarkup(product)}
         </div>
@@ -307,6 +330,9 @@ function createHomeProductCard(product) {
             icon: iconData
         })
         : null;
+
+    const actionsWrap = document.createElement('div');
+    actionsWrap.className = 'product-card-actions';
 
     const addToCartBtn = document.createElement('button');
     addToCartBtn.type = 'button';
@@ -326,6 +352,8 @@ function createHomeProductCard(product) {
         }
     });
 
+    actionsWrap.appendChild(addToCartBtn);
+
     if (wishlistBtn) {
         imgWrap.appendChild(wishlistBtn);
     }
@@ -333,7 +361,7 @@ function createHomeProductCard(product) {
     productLink.appendChild(imgWrap);
     productLink.appendChild(productInfo);
     productCard.appendChild(productLink);
-    productCard.appendChild(addToCartBtn);
+    productCard.appendChild(actionsWrap);
 
     return productCard;
 }
@@ -347,6 +375,8 @@ function displayProducts(productsToDisplay, options = {}) {
 
     if (!append) {
         productGrid.innerHTML = '';
+        productGrid.removeAttribute('aria-busy');
+        productGrid.classList.add('eob-content-reveal');
     }
 
     if (!Array.isArray(productsToDisplay) || productsToDisplay.length === 0) {
@@ -358,8 +388,8 @@ function displayProducts(productsToDisplay, options = {}) {
     }
 
     const newCards = [];
-    productsToDisplay.forEach(product => {
-        const productCard = createHomeProductCard(product);
+    productsToDisplay.forEach((product, cardIndex) => {
+        const productCard = createHomeProductCard(product, cardIndex);
         productGrid.appendChild(productCard);
         newCards.push(productCard);
     });
@@ -454,6 +484,41 @@ function startFlashSaleCountdown(endsAt) {
     flashSaleCountdownTimer = setInterval(tick, 1000);
 }
 
+function renderProductsIntoGrid(gridId, products, sectionId) {
+    const grid = document.getElementById(gridId);
+    const section = sectionId ? document.getElementById(sectionId) : null;
+    if (!grid || !Array.isArray(products) || !products.length) {
+        if (section) section.hidden = true;
+        return;
+    }
+    if (section) section.hidden = false;
+    grid.innerHTML = '';
+    products.forEach((product, cardIndex) => {
+        grid.appendChild(createHomeProductCard(product, cardIndex));
+    });
+    if (window.WishlistEngine && typeof window.WishlistEngine.refreshHearts === 'function') {
+        window.WishlistEngine.ensureLoaded().then(() => {
+            window.WishlistEngine.refreshHearts(grid);
+        });
+    }
+}
+
+async function loadHomeSupplementalSections() {
+    const CC = window.EOBCatalogClient;
+    if (!CC) return;
+
+    try {
+        const [trending, flashDeals] = await Promise.all([
+            CC.fetchHomeTrending().catch(() => []),
+            CC.fetchFlashDeals(CC.HOME_SECTIONS.flashDeals.limit).catch(() => [])
+        ]);
+        renderProductsIntoGrid('homeTrendingGrid', trending, 'homeTrendingSection');
+        renderProductsIntoGrid('homeFlashDealsGrid', flashDeals, 'homeFlashDealsSection');
+    } catch (err) {
+        console.error('Home supplemental sections failed:', err);
+    }
+}
+
 function buildProductPriceMarkup(product) {
     const fmt = window.i18n?.formatCurrency || ((n) => `৳${Number(n).toLocaleString()}`);
     const currentPrice = Number(product.price) || 0;
@@ -483,12 +548,7 @@ function buildProductPriceMarkup(product) {
    - ☰ All drawer: GET /api/categories/navbar (catalog categories only)
    ========================================================================== */
 function escapeCatHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+    return escHtml(value);
 }
 
 /** Normalize public category API payloads: { data } | { categories } | array */
@@ -807,6 +867,12 @@ async function loadHomepageCategories() {
 
     if (!container) return;
 
+    const sk = window.EOBSkeletons;
+    if (sk && typeof sk.renderCategoryStripSkeleton === 'function') {
+        container.style.display = '';
+        container.innerHTML = sk.renderCategoryStripSkeleton(8);
+    }
+
     try {
         const res = await fetch('/api/categories/homepage');
         const data = await res.json();
@@ -833,7 +899,7 @@ async function loadHomepageCategories() {
                     const href = categoryListingHref(cat);
                     const id = escapeCatHtml(cat._id || '');
                     const imgHtml = img
-                        ? `<img src="${escapeCatHtml(img)}" alt="${name}" class="category-pill-icon hp-cat-img"
+                        ? `<img src="${escapeCatHtml(img)}" alt="${name}" class="category-pill-icon hp-cat-img" width="48" height="48" loading="lazy" decoding="async"
                                 onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='inline')">
                            <span class="hp-cat-emoji category-pill-emoji" style="display:none">${icon}</span>`
                         : `<span class="hp-cat-emoji category-pill-emoji">${icon}</span>`;
@@ -985,7 +1051,7 @@ document.addEventListener("DOMContentLoaded", () => {
    SECTION 7: NAVBAR/HEADER USER AUTHENTICATION SYNC (হেডারে ইউজার প্রোফাইল)
    ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
-    const token = localStorage.getItem('customerToken');
+    const token = window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
     const navUserLink = document.getElementById('nav-user-link');
     const navUserAvatar = document.getElementById('nav-user-avatar');
 
@@ -1030,10 +1096,10 @@ async function fetchNavbarProfile(token, avatarElement) {
                 const navUserLink = document.getElementById('nav-user-link');
                 if (navUserLink) navUserLink.classList.add('has-avatar');
             }
-            if (data.name) localStorage.setItem('userName', data.name);
+            if (data.name) window.EOBStorage.set(window.EOBStorageKeys.USER_NAME, data.name);
             try {
-                const prev = JSON.parse(localStorage.getItem('customerData') || '{}');
-                localStorage.setItem('customerData', JSON.stringify({ ...prev, ...data }));
+                const prev = window.EOBStorage.getJSON(window.EOBStorageKeys.CUSTOMER_DATA, {});
+                window.EOBStorage.setJSON(window.EOBStorageKeys.CUSTOMER_DATA, { ...prev, ...data });
             } catch (_) { /* ignore */ }
             if (typeof syncNavDrawerGreeting === 'function') syncNavDrawerGreeting();
             else if (window.SidebarDrawer?.syncGreeting) window.SidebarDrawer.syncGreeting();

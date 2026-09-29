@@ -273,7 +273,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="order-card-preview-cell" data-label="Products">${previewHtml}</td>
                 <td class="order-total-cell order-card-total-cell order-card-total-desktop" data-label="Total Amount"><span class="order-total-amount">৳${grandTotal.toLocaleString()}</span></td>
                 <td class="order-card-status-cell" data-label="Status"><span class="status-badge ${statusBadgeClass}">${escapeHtml(currentStatus)}</span></td>
-                <td class="order-actions-td order-card-actions-cell order-card-actions-cell--empty" data-label="Actions"></td>
+                <td class="order-actions-td order-card-actions-cell" data-label="Actions">
+                    <div class="order-invoice-actions">
+                        <button type="button" class="btn-invoice-download" data-order-id="${escapeHtml(orderId)}" data-display-id="${escapeHtml(displayOrderId)}" aria-label="Download PDF invoice for order ${escapeHtml(displayOrderId)}">
+                            <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF
+                        </button>
+                        <button type="button" class="btn-invoice-print" data-order-id="${escapeHtml(orderId)}" aria-label="Print receipt for order ${escapeHtml(displayOrderId)}">
+                            <i class="fa-solid fa-print" aria-hidden="true"></i> Print
+                        </button>
+                    </div>
+                </td>
             </tr>
         `;
     }
@@ -1148,7 +1157,7 @@ function navigateToOrderDetails(orderId, from) {
 
 document.addEventListener('keydown', function(e) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
-    if (e.target.closest('.oab, .order-action-btn')) return;
+    if (e.target.closest('.oab, .order-action-btn, .btn-invoice-download, .btn-invoice-print')) return;
 
     const compactCard = e.target.closest('#ordersContainer .order-card, .orders-list .order-card');
     if (compactCard && compactCard.contains(e.target)) {
@@ -1165,6 +1174,45 @@ document.addEventListener('keydown', function(e) {
 });
 
 document.addEventListener('click', function(e) {
+    const invoiceDownloadBtn = e.target.closest('.btn-invoice-download');
+    if (invoiceDownloadBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const orderId = invoiceDownloadBtn.getAttribute('data-order-id');
+        const displayId = invoiceDownloadBtn.getAttribute('data-display-id');
+        if (window.EOBInvoice?.downloadPdf) {
+            window.EOBInvoice.downloadPdf({
+                orderId,
+                displayOrderId: displayId,
+                token,
+                triggerBtn: invoiceDownloadBtn
+            }).catch((err) => {
+                if (typeof showToast === 'function') showToast(err.message || 'Invoice download failed.', 'danger');
+            });
+        } else if (typeof window.downloadOrderInvoice === 'function') {
+            window.downloadOrderInvoice(orderId, displayId, invoiceDownloadBtn);
+        }
+        return;
+    }
+
+    const invoicePrintBtn = e.target.closest('.btn-invoice-print');
+    if (invoicePrintBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const orderId = invoicePrintBtn.getAttribute('data-order-id');
+        if (window.EOBInvoice?.printReceiptForOrderId) {
+            invoicePrintBtn.disabled = true;
+            window.EOBInvoice.printReceiptForOrderId(orderId, token)
+                .catch((err) => {
+                    if (typeof showToast === 'function') showToast(err.message || 'Unable to print receipt.', 'danger');
+                })
+                .finally(() => {
+                    invoicePrintBtn.disabled = false;
+                });
+        }
+        return;
+    }
+
     if (e.target.closest('.btn-write-review')) return;
 
     const actionBtn = e.target.closest('.oab, .order-action-btn');

@@ -38,7 +38,7 @@
     const $ = (id) => document.getElementById(id);
 
     function getToken() {
-        return localStorage.getItem(TOKEN_KEY) || '';
+        return window.EOBStorage.get(TOKEN_KEY) || '';
     }
 
     function authHeaders() {

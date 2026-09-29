@@ -10,6 +10,7 @@
 const express = require('express');
 const router = express.Router();
 const paymentIpnController = require('../controllers/paymentIpnController');
+const { optionalVerifyUser } = require('../middlewares/authMiddleware');
 
 // Gateways post IPN callbacks as form-encoded bodies, which the global
 // express.json() parser ignores. Scoped here so no other route's parsing changes.
@@ -20,6 +21,9 @@ router.get('/methods', paymentIpnController.getPublicPaymentMethods);
 
 // URL: POST /api/payments/initiate — start a hosted-checkout session
 router.post('/initiate', paymentIpnController.initiateGatewayPayment);
+
+// URL: GET /api/payments/verify/:orderId — poll payment phase (auth or checkout phone)
+router.get('/verify/:orderId', optionalVerifyUser, paymentIpnController.verifyPaymentStatus);
 
 // URL: POST|GET /api/payments/ipn/:code — gateway IPN / success-callback target.
 // Public by design (the gateway calls it, not the browser); trust comes from

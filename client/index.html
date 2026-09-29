@@ -125,6 +125,21 @@
             </div>
         </section>
 
+        <section id="homeTrendingSection" class="homepage-product-section animate-on-scroll delay-1" hidden>
+            <div class="catalog-header-row section-header-premium">
+                <h2 class="section-title section-title-premium">Trending Now</h2>
+                <a href="/search?sort=sales" class="section-see-all hp-cats-see-all">See All <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+            </div>
+            <div id="homeTrendingGrid" class="product-layout-grid"></div>
+        </section>
+
+        <section id="homeFlashDealsSection" class="homepage-product-section animate-on-scroll delay-1" hidden>
+            <div class="catalog-header-row section-header-premium">
+                <h2 class="section-title section-title-premium">Flash Deals</h2>
+            </div>
+            <div id="homeFlashDealsGrid" class="product-layout-grid"></div>
+        </section>
+
         <div class="catalog-header-row section-header-premium animate-on-scroll delay-1">
             <h2 class="section-title section-title-premium" data-i18n="home.featured">Featured Products</h2>
             <a href="/search" class="section-see-all hp-cats-see-all">See All <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
@@ -148,19 +163,31 @@
 
     <script src="/js/i18n.js"></script>
     <script src="/js/urlUtils.js"></script>
+    <script src="/js/utils/storage.js"></script>
+    <script src="/js/utils/telemetry.js"></script>
+    <script src="/js/utils/sanitizer.js"></script>
+    <script src="/js/utils/apiCache.js"></script>
+    <script src="/js/utils/catalogClient.js"></script>
+    <script src="/js/store/commerceState.js"></script>
     <script src="/js/session-guard.js"></script>
     <script src="/js/toast.js"></script>
     <script src="/js/wishlist.js"></script>
+    <script src="/js/utils/imageUtils.js"></script>
+    <script src="/js/render.js"></script>
     <script src="/js/productThumbnail.js"></script>
     <script src="/js/products.js"></script>
     <script src="/js/sidebarDrawer.js"></script>
     <script src="/js/header.js"></script>
     <script src="/js/footerRenderer.js"></script>
     <script src="/js/footer.js"></script>
+    <script src="/js/ui/skeletons.js"></script>
+    <script src="/js/expressCheckout.js"></script>
     <script src="/js/main.js"></script>
     <script src="/js/banner-slider.js"></script>
     <script src="/js/variantUtils.js"></script>
     <script src="/js/cartDisplayUtils.js"></script>
+    <script src="/js/cart-merge.js"></script>
+    <script src="/js/cartCatalogBootstrap.js"></script>
     <script src="/js/cart.js"></script>
     <script src="/js/mini-cart-drawer.js"></script>
     <script src="/js/whatsapp.js"></script>

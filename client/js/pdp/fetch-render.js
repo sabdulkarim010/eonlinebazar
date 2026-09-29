@@ -37,6 +37,17 @@ async function fetchProductDetails(id) {
     const productContent = document.getElementById('productContent');
     const extraSection = document.getElementById('productExtraSection');
 
+    if (loadingSpinner) {
+        loadingSpinner.classList.remove('hidden');
+        const sk = typeof window !== 'undefined' ? window.EOBSkeletons : null;
+        if (sk && typeof sk.renderPdpSkeleton === 'function') {
+            loadingSpinner.classList.remove('loading-spinner');
+            loadingSpinner.innerHTML = sk.renderPdpSkeleton();
+        }
+    }
+    if (productContent) productContent.classList.add('hidden');
+    if (extraSection) extraSection.classList.add('hidden');
+
     try {
         const response = await fetch(`${API_BASE_URL}/${id}`);
         if (!response.ok) throw new Error("Product not found");
@@ -271,8 +282,10 @@ function renderHighlights(product) {
 
     if (product.highlights && product.highlights.length > 0) {
         // লক্ষ্য করুন: এখানে ব্যাকটিক (`) ব্যবহার করা হয়েছে, সিঙ্গেল কোট (') নয়!
+        const esc = (v) => (window.EOBSanitizer && window.EOBSanitizer.escapeHtml(v))
+            || String(v == null ? '' : v);
         highlightsContainer.innerHTML = product.highlights
-            .map(item => `<li><i class="fa-solid fa-circle-check" style="color: var(--success-green); margin-right: 5px;"></i> ${item}</li>`)
+            .map((item) => `<li><i class="fa-solid fa-circle-check" style="color: var(--success-green); margin-right: 5px;"></i> ${esc(item)}</li>`)
             .join('');
     } else {
         // যদি হাইলাইটস খালি থাকে
@@ -301,9 +314,14 @@ function renderDescriptions(product) {
     }
 
     if (detailedDescElement) {
-        detailedDescElement.innerHTML = (detailedDescText && detailedDescText.trim() !== "") 
-            ? detailedDescText 
-            : "No detailed description available.";
+        if (detailedDescText && detailedDescText.trim() !== '') {
+            const rich = window.EOBSanitizer && typeof window.EOBSanitizer.sanitizeRichText === 'function'
+                ? window.EOBSanitizer.sanitizeRichText(detailedDescText)
+                : detailedDescText;
+            detailedDescElement.innerHTML = rich;
+        } else {
+            detailedDescElement.textContent = 'No detailed description available.';
+        }
     }
 }
 
@@ -326,12 +344,14 @@ function setupTabSystem() {
 }
 
 // ==========================================================================
-// 🌟 SECTION 8: GLOBAL TOAST DELEGATE
+// 🌟 SECTION 8: PDP toast (never overwrite window.showToast — avoids recursion)
 // ==========================================================================
+const nativeStorefrontToast = typeof window.showToast === 'function'
+    ? window.showToast.bind(window)
+    : null;
+
 function showToast(message, type = 'success') {
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, type);
-    }
+    if (nativeStorefrontToast) nativeStorefrontToast(message, type);
 }
 
 function buildProductChatContext(product) {
@@ -382,6 +402,5 @@ Object.assign(window, {
     renderHighlights,
     renderDescriptions,
     setupTabSystem,
-    showToast,
     buildProductChatContext,
 });

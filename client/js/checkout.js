@@ -2,6 +2,9 @@
  * checkout.js — barrel file
  */
 import './checkout/state.js';
+import './checkout/quote.js';
+import './checkout/idempotency.js';
+import { initCheckoutCrossTabSync } from './checkout/checkoutCrossTabSync.js';
 import './checkout/render.js';
 import './checkout/validation.js';
 import './checkout/actions.js';
@@ -9,6 +12,7 @@ import './checkout/submit.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        initCheckoutCrossTabSync();
         if (window.CouponUI && typeof window.CouponUI.bindCouponForm === 'function') {
             checkoutCouponController = await window.CouponUI.bindCouponForm({
                 prefix: 'checkout',
@@ -19,9 +23,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
                 onTotalsChange: (subtotal) => {
                     if (typeof updateCheckoutTotals === 'function') updateCheckoutTotals(subtotal);
+                    if (typeof requestOrderQuoteRefresh === 'function') requestOrderQuoteRefresh();
                 }
             });
             checkoutCouponsAvailable = checkoutCouponController?.couponsAvailable === true;
+        }
+
+        if (window.EOBVoucherWallet && typeof window.EOBVoucherWallet.createVoucherWallet === 'function') {
+            window.checkoutVoucherWallet = window.EOBVoucherWallet.createVoucherWallet({
+                rootId: 'checkout-voucher-wallet',
+                prefix: 'checkout',
+                getSubtotal: typeof getCheckoutSubtotal === 'function' ? getCheckoutSubtotal : () => 0,
+                getCartItems: typeof getCheckoutItems === 'function' ? getCheckoutItems : () => [],
+                getToken: () => (typeof getCheckoutAuthToken === 'function' ? getCheckoutAuthToken() : ''),
+                feedbackElId: 'checkoutCouponFeedbackMsg',
+                onApplied: () => {
+                    if (typeof requestOrderQuoteRefresh === 'function') requestOrderQuoteRefresh();
+                    if (window.checkoutVoucherWallet?.scheduleRefresh) window.checkoutVoucherWallet.scheduleRefresh();
+                },
+                onRemoved: () => {
+                    if (typeof requestOrderQuoteRefresh === 'function') requestOrderQuoteRefresh();
+                    if (window.checkoutVoucherWallet?.scheduleRefresh) window.checkoutVoucherWallet.scheduleRefresh();
+                }
+            });
         }
 
         if (typeof ensureCheckoutLocationSelectors === 'function') ensureCheckoutLocationSelectors();
@@ -45,18 +69,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.bindProceedToPaymentButton();
     }
 
-    fetch('/api/products?limit=500')
-        .then(res => res.json())
-        .then(data => {
-            globalProductCatalog = Array.isArray(data) ? data : (data.products || data.data || []);
-            window.globalProductCatalog = globalProductCatalog;
+    async function bootstrapCheckoutCatalog() {
+        try {
+            fetchCartData();
+            const items = typeof getCheckoutItems === 'function' ? getCheckoutItems() : [];
+            if (window.EOBCatalogClient?.hydrateCatalogForCart) {
+                await window.EOBCatalogClient.hydrateCatalogForCart(items);
+            }
             document.dispatchEvent(new CustomEvent('productCatalogReady'));
+            if (typeof renderCheckoutCart === 'function') renderCheckoutCart();
+        } catch (err) {
+            console.error('Catalog hydrate error:', err);
             fetchCartData();
-        })
-        .catch(err => {
-            console.error("Catalog load error:", err);
-            fetchCartData();
-        });
+        }
+    }
+    bootstrapCheckoutCatalog();
 
     document.addEventListener('productCatalogReady', () => {
         if (customerToken && cart.length > 0 && checkoutCDU().normalizeCartArray) {

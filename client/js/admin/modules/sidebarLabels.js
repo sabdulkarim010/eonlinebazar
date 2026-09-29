@@ -10,7 +10,7 @@ function isSidebarLabelSuperAdmin() {
 }
 
 function getSidebarLabelToken() {
-    return localStorage.getItem('adminToken');
+    return window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
 }
 
 function extractNavLabelText(item) {
@@ -92,7 +92,7 @@ async function loadSidebarLabels(force = false) {
 
     if (!force) {
         try {
-            const cached = sessionStorage.getItem(SIDEBAR_LABELS_CACHE_KEY);
+            const cached = window.EOBStorage.session.get(SIDEBAR_LABELS_CACHE_KEY);
             if (cached) {
                 applySidebarLabels(JSON.parse(cached));
             }
@@ -105,7 +105,7 @@ async function loadSidebarLabels(force = false) {
         });
         const data = await res.json();
         if (!res.ok || data.success === false) return;
-        sessionStorage.setItem(SIDEBAR_LABELS_CACHE_KEY, JSON.stringify(data.labels || {}));
+        window.EOBStorage.session.set(SIDEBAR_LABELS_CACHE_KEY, JSON.stringify(data.labels || {}));
         applySidebarLabels(data.labels || {});
     } catch (error) {
         console.error('loadSidebarLabels:', error);

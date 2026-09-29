@@ -14,7 +14,7 @@ const cameFromLogout = new URLSearchParams(window.location.search).get('loggedou
 if (cameFromLogout) {
     (async function finishAdminLogout() {
         try {
-            const token = localStorage.getItem('adminToken');
+            const token = window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
             if (token) {
                 try {
                     await fetch('/api/admin/logout', {
@@ -31,18 +31,18 @@ if (cameFromLogout) {
         } catch (_) { /* ignore */ }
 
         try {
-            localStorage.removeItem('adminToken');
-            localStorage.removeItem('adminProfilePic');
-            sessionStorage.removeItem('adminOtpToken');
-            sessionStorage.removeItem('adminOtpMeta');
+            window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_TOKEN);
+            window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_PROFILE_PIC);
+            window.EOBStorage.session.remove('adminOtpToken');
+            window.EOBStorage.session.remove('adminOtpMeta');
             sessionStorage.clear();
         } catch (_) { /* ignore */ }
 
         try { window.history.replaceState({}, document.title, '/admin/login'); } catch (_) { /* ignore */ }
     })();
-} else if (localStorage.getItem('adminToken')) {
+} else if (window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN)) {
     (async function verifyBeforeDashboardRedirect() {
-        const existingToken = localStorage.getItem('adminToken');
+        const existingToken = window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
         if (!existingToken) return;
 
         try {
@@ -65,18 +65,18 @@ if (cameFromLogout) {
                 const data = await response.json();
                 if (data.success) {
                     try {
-                        sessionStorage.removeItem('adminOtpToken');
-                        sessionStorage.removeItem('adminOtpMeta');
+                        window.EOBStorage.session.remove('adminOtpToken');
+                        window.EOBStorage.session.remove('adminOtpMeta');
                     } catch (_) { /* ignore */ }
                     window.location.replace('/admin');
                 } else {
-                    localStorage.removeItem('adminToken');
+                    window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_TOKEN);
                 }
                 return;
             }
 
             if (response.status === 401 || response.status === 403) {
-                localStorage.removeItem('adminToken');
+                window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_TOKEN);
             }
         } catch (_) {
             /* Network error — stay on login; user can retry manually */
@@ -474,12 +474,12 @@ async function handleAdminLogin() {
         const needs2FA = data.requires2FA === true || data.otpRequired === true;
         if (data.success && data.token && !needs2FA) {
             try {
-                sessionStorage.removeItem('adminOtpToken');
-                sessionStorage.removeItem('adminOtpMeta');
+                window.EOBStorage.session.remove('adminOtpToken');
+                window.EOBStorage.session.remove('adminOtpMeta');
             } catch (_) { /* ignore */ }
             markOtpSuccessPending();
-            localStorage.setItem('adminToken', data.token);
-            if (data.image) localStorage.setItem('adminProfilePic', data.image);
+            window.EOBStorage.set(window.EOBStorageKeys.ADMIN_TOKEN, data.token);
+            if (data.image) window.EOBStorage.set(window.EOBStorageKeys.ADMIN_PROFILE_PIC, data.image);
             showToast('Login successful! Redirecting to the dashboard...', 'success');
             window.location.href = '/admin';
             return;
@@ -508,7 +508,7 @@ async function handleAdminLogin() {
                 ? defaultPrompt
                 : (data.prompt || data.message || defaultPrompt);
             if (data.otpToken) {
-                try { sessionStorage.setItem('adminOtpToken', data.otpToken); } catch (_) { /* ignore */ }
+                try { window.EOBStorage.session.set('adminOtpToken', data.otpToken); } catch (_) { /* ignore */ }
             }
             revealAdmin2faStep(prompt, { method });
             return;

@@ -3818,6 +3818,275 @@ docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
 
+# Customer storefront Step 4.2.2 — PDF invoice & print receipt — 2026-09-29
+client/js/profile/invoice.js [NEW]
+client/css/invoice.css [NEW]
+client/js/order-details.js, client/order-details.html [MOD] PDF + print actions
+client/js/profile/orders.js [MOD] order row invoice buttons
+client/profile/partials/scripts.html [MOD]
+tests/invoicePDF.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md, ORDERS_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 4.2.1 — profile dashboard SWR cache — 2026-09-29
+client/js/utils/profileCache.js [NEW]
+client/js/profile/account.js [MOD] bootstrapProfileDashboardSwr
+client/profile/partials/tab-overview.html [MOD] offline banner + skeleton
+client/profile/partials/scripts.html [MOD] profileCache script
+client/css/profile/_layout.css [MOD] cache banner styles
+tests/profileCache.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 4.1.3 — order return & refund workflow — 2026-09-29
+client/js/orderReturnWorkflow.js [NEW]
+client/js/order-details.js [MOD] return modal, per-line actions, API submit
+client/js/orderStatusTimeline.js [MOD] return progress track
+client/order-details.html [MOD] return modal + progress host
+client/css/order-details.css [MOD] return UI styles
+backend/src/controllers/orderCustomerController.js [MOD] return notes on returnRequest
+tests/orderReturnWorkflow.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md, ORDERS_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 4.1.2 — itemized tax + voucher wallet — 2026-09-29
+client/js/utils/orderQuote.js [NEW]
+client/js/voucherWallet.js [NEW]
+client/js/cart.js [MOD] cart quote preview + promo UI
+client/js/checkout/quote.js [MOD] tax line labels via EOBOrderQuote
+client/js/checkout.js [MOD] checkout voucher wallet mount
+client/cart.html, client/checkout.html [MOD] summary rows + wallet shell
+client/css/cart.css [MOD] voucher wallet + cart breakdown styles
+backend/src/services/orderQuoteService.js [MOD] priceTaxMode + taxableAmount on quote
+backend/src/controllers/couponController.js [MOD] listWalletCoupons
+backend/src/routes/couponRoutes.js [MOD] POST /wallet
+tests/taxVoucherWallet.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md, MARKETING_AUDIT.md, ORDERS_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 4.1.1 — order timeline + express Buy Now — 2026-09-29
+client/js/orderStatusTimeline.js [MOD] 5-step timeline + resolveTimelineFromOrder
+client/js/expressCheckout.js [NEW]
+client/js/orderSuccess.js [MOD] success modal mini timeline
+client/js/order-details.js [MOD] pass full order to timeline
+client/js/pdp/qty-cart.js [MOD] EOBExpressCheckout
+client/js/main.js, search.js [MOD] express Buy Now on cards
+client/js/product-details.js [MOD] buyNow=1 deep link
+client/css/order-details.css, home.css [MOD] timeline + card actions
+client/index.html, search.html, payment.html [MOD] scripts
+tests/orderTrackingTimeline.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md, ORDERS_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 3.2.3 — search debounce + URL sync — 2026-09-29
+client/js/utils/debounce.js [NEW]
+client/js/searchCatalogSync.js [NEW]
+client/js/search.js [MOD] debounce, abort, popstate, chips
+client/search.html [MOD] script order
+tests/searchDebounce.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 3.2.2 — PDP variant stock + CTA sync — 2026-09-29
+client/js/pdp/variantStock.js [NEW]
+client/js/pdp/variants.js [MOD] stock sync, CTA reasons, matrix hints
+client/js/variantUtils.js [MOD] getVariantStockQuantity, getOptionState stock
+client/js/product-details.js [MOD] import variantStock
+client/css/product-details.css [MOD] stock badge modifiers, notify modal
+tests/variantStock.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 3.2.1 — PDP hover zoom + lightbox — 2026-09-29
+client/js/pdp/galleryZoomLightbox.js [NEW]
+client/js/pdp/gallery.js [MOD] PdpGalleryEnhancements hooks
+client/js/product-details.js [MOD] import galleryZoomLightbox
+client/css/product-details.css [MOD] zoom + lightbox styles
+tests/pdpGallery.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 3.1.3 — bounded catalog + SWR cache — 2026-09-29
+client/js/utils/apiCache.js [NEW]
+client/js/utils/catalogClient.js [NEW]
+client/js/cartCatalogBootstrap.js [NEW]
+backend/src/controllers/productController.js [MOD] featured, lookup, flash-deals
+backend/src/routes/productRoutes.js [MOD]
+client/js/main.js, search.js, cart.js, checkout.js [MOD]
+client/js/store/commerceState.js [MOD] mergeCatalog
+client/js/products.js [MOD] default page size 20
+client/index.html, cart.html, checkout.html, search.html [MOD]
+tests/payloadOptimization.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md, PRODUCTS_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 3.1.2 — image pipeline (LCP + CLS) — 2026-09-29
+client/js/utils/imageUtils.js [NEW]
+client/js/render.js [NEW]
+client/js/productThumbnail.js [MOD] pipeline attrs in buildThumbnailHtml
+client/js/main.js, search.js, cart.js, banner-slider.js, pdp/gallery.js [MOD]
+client/css/home.css, product-thumbnail.css [MOD] aspect-ratio / card img dimensions
+client/index.html, search.html, cart.html, checkout.html, product-details.html [MOD] script order
+tests/imagePipeline.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 3.1.1 — skeleton loaders (CLS) — 2026-09-29
+client/css/global/_skeletons.css [NEW]
+client/css/style.css [MOD] import _skeletons.css
+client/js/ui/skeletons.js [NEW]
+client/js/main.js, banner-slider.js, search.js [MOD] product/banner/category skeletons
+client/js/pdp/fetch-render.js [MOD] PDP skeleton
+client/js/checkout/render.js, checkout/quote.js [MOD] cart line + summary skeletons
+client/js/cart.js, mini-cart-drawer.js [MOD] cart fetch skeleton
+client/index.html, search.html, cart.html, checkout.html, product-details.html [MOD] load skeletons.js
+tests/skeletonLoaders.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 2.2.3 — multi-tab checkout + payment status sync — 2026-09-29
+backend/src/services/paymentStatusService.js [NEW]
+backend/src/controllers/paymentIpnController.js [MOD] verifyPaymentStatus
+backend/src/routes/paymentRoutes.js [MOD] GET /verify/:orderId
+client/js/checkout/checkoutCrossTabSync.js [NEW]
+client/js/checkout/paymentStatusSync.js [NEW]
+client/js/orderSuccess.js [NEW]
+client/js/payment.js [MOD] gateway return + cross-tab broadcast
+client/js/checkout.js [MOD] initCheckoutCrossTabSync
+client/js/store/checkoutState.js [MOD] paymentFlowStatus, checkoutCrossTabBlocked
+client/js/checkout/idempotency.js [MOD] broadcast CHECKOUT_SESSION_INVALIDATED
+tests/multiTabCheckout.test.js [NEW]
+tests/paymentStatusSync.test.js [NEW]
+tests/multiTabCheckout.test.js [MOD] VM sandbox location fix
+tests/paymentStatusSync.test.js [MOD] VM setTimeout fix
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md, ORDERS_AUDIT.md, PAYMENTS_FINANCE_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 2.2.2 — order idempotency + submit lock — 2026-09-29
+backend/src/services/orderIdempotencyService.js [NEW]
+backend/src/models/order.js [MOD] checkoutIdempotencyKey + sparse unique index
+backend/src/controllers/orderCheckoutController.js [MOD] idempotent replay
+client/js/checkout/idempotency.js [NEW]
+client/js/store/checkoutState.js [MOD] idempotencyKey, isSubmittingOrder
+client/js/checkout/submit.js, actions.js, checkout.js [MOD]
+client/js/payment.js [MOD] headers + submit lock
+tests/idempotency.test.js [NEW]
+docs/audit/ORDERS_AUDIT.md, CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 2.2.1 — pre-checkout order quote — 2026-09-29
+backend/src/services/orderQuoteService.js [NEW]
+backend/src/controllers/orderQuoteController.js [NEW]
+backend/src/routes/orderRoutes.js [MOD] POST /quote
+client/js/checkout/quote.js [NEW]
+client/js/store/checkoutState.js [MOD] activeQuote, quoteMeta
+client/js/checkout/render.js [MOD] updateCheckoutTotalsClient + quote-aware totals
+client/js/checkout/submit.js [MOD] quote gate + session serverQuote
+client/js/checkout/validation.js, actions.js, checkout.js [MOD] quote refresh hooks
+client/js/payment.js [MOD] verifyPaymentPageQuote on load
+client/checkout.html [MOD] VAT row
+tests/orderQuote.test.js [NEW]
+docs/audit/ORDERS_AUDIT.md, CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md, README.md, ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 2.1.3 — cart badge qty + guest merge sync — 2026-09-29
+client/js/cartDisplayUtils.js [MOD] computeTotalCartQuantity, applyCartBadgeCount, initCartCrossTabSync, minimal stripGuestCartForMerge
+client/js/cart.js [MOD] badge count, CartMerge boot merge, cross-tab refresh
+client/js/cart-merge.js [MOD] snapshotGuestCartBeforeAuth, mergeGuestCartWithUserCart, merge timeout, server-priced apply
+client/js/header.js, sidebarDrawer.js [MOD] badgeCount / total unit qty
+client/js/store/commerceState.js [MOD] computeCartPayload.badgeCount, cross-tab on guest persist
+client/js/auth.js [MOD] guest cart snapshot before login
+client/index.html, profile/partials/scripts.html [MOD] load cart-merge.js before cart.js
+tests/cartBadge.test.js [NEW]
+tests/cartMerge.client.test.js [NEW]
+tests/cartApiPayload.test.js [MOD] minimal merge payload expectation
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 2.1.2 — cart qty debounce + optimistic rollback — 2026-09-29
+client/js/cartDisplayUtils.js [MOD] createCartQtySyncManager, getCartQtySync, cartLineKey
+client/js/cart.js [MOD] debounced updateQty, data-cart-line-key, refreshCartUiSilent
+client/js/checkout/actions.js [MOD] debounced changeItemQuantity
+client/js/pdp/qty-cart.js [MOD] add-to-cart in-flight lock
+client/js/store/commerceState.js [MOD] commitCart silent option
+tests/cartDebounce.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Customer storefront Step 2.1.1 — server-authoritative cart pricing — 2026-09-29
+backend/src/controllers/cartController.js [MOD] ignore client price; merge repricing
+client/js/cartDisplayUtils.js [MOD] buildCartAddPayload, stripGuestCartForMerge, catalog line price
+client/js/cart.js, pdp/qty-cart.js, cart-merge.js, profile/wishlist.js [MOD] cart API payloads
+tests/cart.test.js [MOD] tampered price integration test
+tests/cartApiPayload.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Customer storefront Step 1.2.3 — EOBSanitizer XSS — 2026-09-29
+client/js/utils/sanitizer.js [NEW] EOBSanitizer escapeHtml + sanitizeRichText
+scripts/patch-html-sanitizer-scripts.js [NEW] inject sanitizer into storefront HTML
+scripts/patch-html-storage-scripts.js [MOD] include sanitizer in bootstrap bundle
+tests/sanitizer.test.js [NEW] XSS payload unit tests
+client/js/main.js, search.js, pdp/fetch-render.js, page-content-loader.js, page.js [MOD] escape/sanitize dynamic HTML
+client/js/cartDisplayUtils.js, checkout/render.js, checkout/validation.js, payment.js, order-details.js [MOD]
+client/js/wishlist.js, chat-widget.js, bd-districts.js, toast.js [MOD]
+client/**/*.html + profile/partials/scripts.html [MOD] load sanitizer after telemetry
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 1.2.2 — EOBTelemetry + UI recovery — 2026-09-29
+client/js/utils/telemetry.js [NEW] EOBTelemetry error boundary + buffered reports
+scripts/patch-html-telemetry-scripts.js [NEW] inject telemetry script into storefront HTML
+scripts/patch-html-storage-scripts.js [MOD] include telemetry in storage patch bundle
+tests/telemetry.test.js [NEW] noise filter, recovery, handler idempotency
+client/**/*.html + profile/partials/scripts.html [MOD] load telemetry after storage.js
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]
+
+# Customer storefront Step 1.2.1 — session-guard 401 + checkout-safe expiry — 2026-09-29
+client/js/session-guard.js [MOD] fetch 401 intercept, refresh queue, EOBSession, checkout modal
+client/js/store/commerceState.js [MOD] setAuthTokens(userOverride), dropAuthPreservingCommerce, checkout-aware auth clear
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+docs/audit/AUTH_SECURITY_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Customer storefront Step 1.1.2 — commerce state machine + pub/sub — 2026-09-29
+client/js/store/commerceState.js [MOD] STATES, transitions, subscribe/emit, hydrateFromStorage, order processing guards
+client/js/cart.js [MOD] publishCartChange / applyCartSnapshot; cart:updated subscriber
+client/js/header.js [MOD] cart:updated + auth:changed badge subscriber
+client/js/sidebarDrawer.js [MOD] auth:changed + cart:updated subscribers
+client/js/payment.js [MOD] beginOrderProcessing / completeOrderProcessing / abortOrderProcessing
+client/js/auth.js [MOD] login/OAuth via EOBCommerce.setAuthTokens
+client/js/pdp/qty-cart.js [MOD] commitCart after add-to-cart
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Customer storefront Step 1.1.1 — EOBStorage + commerce state — 2026-09-29
+client/js/utils/storage.js [NEW] EOBStorage + EOBStorageKeys (local/session, JSON-safe)
+client/js/store/commerceState.js [NEW] EOBCommerce cart/catalog + checkout persistence helpers
+client/js/store/checkoutState.js [NEW] EOBCheckoutState + legacy checkout global proxies
+scripts/codemod-eob-storage.js [NEW] localStorage migration helper
+scripts/patch-html-storage-scripts.js [NEW] inject storage scripts into storefront HTML
+client/js/**/*.js [MOD] replace direct localStorage/sessionStorage with EOBStorage (52+ files)
+client/js/cart.js [MOD] EOBCommerce catalog sync; dynamic getCustomerToken()
+client/js/checkout/state.js [MOD] slim module; delegates to EOBCommerce + checkoutState
+client/index.html, checkout.html, payment.html, product-details.html + 11 HTML [MOD] script load order
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+ARCHITECTURE.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
 # Dashboard Phase 3.2 — Sparklines & growth badges — 2026-09-28
 backend/src/controllers/admin/dashboardOverviewBffController.js [MOD] period daily trends
 client/css/admin/_layout.css [MOD] kpi-growth-badge, sparkline-container
@@ -3825,5 +4094,36 @@ client/admin/partials/view-overview.html [MOD] enhanced KPI cards + canvas spark
 client/js/admin/admin-dashboard.js [MOD] applyKpiGrowthBadge, renderKpiSparkline
 tests/dashboardOverviewBff.test.js [MOD] trend series tests
 docs/audit/ADMIN_PANEL_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# userWishlistController findMongoUserByRef select fix — 2026-09-29
+backend/src/controllers/userWishlistController.js [MOD] pass select as 2nd arg; empty wishlist fallback
+
+# Order details return gating + iframe print — 2026-09-29
+client/js/orderReturnWorkflow.js [MOD] hasActiveReturnRequest ignores schema-default pending
+client/js/profile/invoice.js [MOD] hidden iframe print
+client/js/order-details.js [MOD] print handler without popup warning
+tests/orderReturnWorkflow.test.js [MOD] tests/invoicePDF.test.js [MOD]
+
+# Checkout idempotency session typing — 2026-09-29
+client/js/checkout/idempotency.js [MOD] readCheckoutSessionRecord, safe writeSessionIdempotency
+tests/idempotency.test.js [MOD] legacy boolean session case
+
+# Cart/commerce fixes + grid cards + telemetry ingest — 2026-09-29
+client/js/store/commerceState.js [MOD] remove duplicate CDU in persistGuestCartToStorage
+client/js/cart.js [MOD] getCartRef/getActiveCartLines, cartUtils in render, applyCartSnapshot export; cartDeliverySettings hoisted (TDZ fix)
+client/js/pdp/fetch-render.js [MOD] native toast capture, no window.showToast overwrite
+client/js/pdp/qty-cart.js [MOD] applyCartSnapshot sync for PDP add
+client/js/product-details.js [MOD] window.showToast for missing id
+client/js/main.js [MOD] remove grid Buy Now button
+client/js/search.js [MOD] remove grid Buy Now button
+client/css/home.css [MOD] full-width grid Add to Cart CTA
+backend/src/controllers/telemetryController.js [NEW] POST ingest sanitize
+backend/src/routes/telemetryRoutes.js [NEW] /api/telemetry/errors
+backend/src/server.js [MOD] mount telemetry routes
+tests/telemetryController.test.js [NEW]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+docs/audit/DEVOPS_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]

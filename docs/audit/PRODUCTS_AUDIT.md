@@ -1,6 +1,6 @@
 # PRODUCT & STOCK OPERATIONS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-25 (Phase 3.3 — Enterprise PIM, outbox, async queue, scope RBAC)  
+**Last updated:** 2026-09-29 (Step 3.1.3 — public catalog bounded queries)  
 **Scope:** Inventory management, add/edit product, categories, brands, attributes, suppliers, warehouses, purchase orders, WMS transfers & stock ledger (formerly "Catalog & Inventory" nav group)  
 **Status:** ⚠️ PARTIAL — WMS backend complete; transfer UI pending; attribute PG read gap remains
 
@@ -139,6 +139,13 @@
 ---
 
 ## Change Log
+
+### Storefront Step 3.1.3 — Bounded public catalog endpoints — 2026-09-29
+
+- `GET /api/products?featured=true` (cap limit 10, sort top-rated)
+- `GET /api/products/lookup?ids=` (max 30 IDs)
+- `GET /api/products/flash-deals?limit=` (flash sale product IDs only)
+- Tests: `tests/payloadOptimization.test.js`
 
 ### Phase 3.3 — Enterprise PIM, outbox, async queue, scope RBAC — 2026-09-25
 

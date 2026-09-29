@@ -1,55 +1,48 @@
 /**
  * Project: eOnlineBazar
- * Author: Abdul Karim Sheikh
  * File: js/session-guard.js
- * Description: Client-side session security layer that keeps the frontend in
- * sync with the database-backed JWT sessions on the server.
+ * Description: Customer session layer — fetch 401 handling, optional silent refresh,
+ * checkout-safe auth drop (preserves cart + checkout draft).
  *
- *   1. Global 401 interceptor  -> a protected API 401 (remote logout / expired
- *      JWT) clears the local token. Redirect to /login happens ONLY on
- *      account pages (/profile, /order-details). Public storefront pages
- *      (/, catalog, cart, checkout, CMS) stay put and show Sign in / Account.
- *   2. validateSession()       -> pings the server on page load to confirm the
- *      stored token still maps to a live session.
- *   3. updateNavbarAuthUI()    -> flips the header between signed-in name display
- *      and "Sign in / Account" depending on whether a valid token exists.
- *
- * IMPORTANT: This file must be loaded BEFORE any other page script so that it
- * can wrap window.fetch before those scripts make any requests.
+ * Load BEFORE other page scripts so window.fetch is patched first.
  */
 
 (function () {
     'use strict';
 
-    // টোকেন দুটি নামেই সেভ করা হয় (token / customerToken) — দুটোই হ্যান্ডেল করা হলো
-    var TOKEN_KEYS = ['token', 'customerToken'];
-
-    // Login is required only for account surfaces — never for the public homepage.
     var PROTECTED_PAGES = ['/profile', '/order-details'];
+    var CHECKOUT_FLOW_PAGES = ['/checkout', '/payment'];
 
-    // এই পাবলিক রুটগুলোতে 401 এলে লগআউট ট্রিগার করা যাবে না (লগইন/রেজিস্টার ব্যর্থ হলে)
     var PUBLIC_AUTH_ENDPOINTS = [
         '/api/customer/login',
         '/api/customer/register',
         '/api/customer/forgot-password',
         '/api/customer/reset-password',
         '/api/customer/resend-verification',
+        '/api/customer/refresh-token',
         '/api/auth/login',
         '/api/auth/register',
         '/api/auth/forgot-password',
         '/api/auth/reset-password',
-        '/api/auth/resend-verification'
+        '/api/auth/resend-verification',
+        '/api/auth/refresh-token'
+    ];
+
+    var REFRESH_ENDPOINTS = [
+        '/api/customer/refresh-token',
+        '/api/auth/refresh-token'
     ];
 
     var LOGIN_URL = '/login';
-
-    // রিডাইরেক্ট লুপ ঠেকাতে একবারের বেশি লগআউট চলবে না
     var loggingOut = false;
-    // একই সময়ে একাধিক validate() কল হলে একটিই নেটওয়ার্ক রিকোয়েস্ট হবে
     var validatePromise = null;
+    var refreshPromise = null;
+    var refreshEndpointsUnavailable = false;
 
     function getToken() {
-        return localStorage.getItem('token') || localStorage.getItem('customerToken');
+        if (!window.EOBStorage || !window.EOBStorageKeys) return '';
+        return window.EOBStorage.get(window.EOBStorageKeys.TOKEN)
+            || window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
     }
 
     function currentPath() {
@@ -64,12 +57,25 @@
         });
     }
 
+    function isCheckoutFlowPage() {
+        var path = currentPath();
+        return CHECKOUT_FLOW_PAGES.indexOf(path) !== -1;
+    }
+
+    function isCommerceCheckoutActive() {
+        if (isCheckoutFlowPage()) return true;
+        if (!window.EOBCommerce || typeof window.EOBCommerce.getState !== 'function') {
+            return false;
+        }
+        var state = window.EOBCommerce.getState();
+        return state === 'CHECKOUT_INITIATED' || state === 'ORDER_PROCESSING';
+    }
+
     function isAuthPage() {
         var path = currentPath();
         return path === '/login' || path === '/register' || path === '/forgot-password';
     }
 
-    // লোকাল স্টোরেজ থেকে গেস্ট চেকআউট / প্রোফাইল-ক্যাশে ডাটা মুছে ফেলা
     var GUEST_CHECKOUT_STORAGE_KEYS = [
         'checkout_name', 'checkout_phone', 'checkout_address', 'checkout_email',
         'checkout_district', 'checkout_upazila', 'checkout_full_address',
@@ -77,23 +83,26 @@
     ];
 
     function clearGuestCheckoutStorage() {
+        if (!window.EOBStorage) return;
         GUEST_CHECKOUT_STORAGE_KEYS.forEach(function (k) {
-            localStorage.removeItem(k);
+            window.EOBStorage.remove(k);
         });
     }
 
-    // লোকাল স্টোরেজ থেকে সব সেশন/ইউজার সম্পর্কিত ডাটা মুছে ফেলা
+    function clearSessionTokensOnly() {
+        if (!window.EOBStorage || !window.EOBStorageKeys) return;
+        var K = window.EOBStorageKeys;
+        window.EOBStorage.remove(K.TOKEN);
+        window.EOBStorage.remove(K.CUSTOMER_TOKEN);
+        window.EOBStorage.remove(K.CUSTOMER_DATA);
+        window.EOBStorage.remove(K.USER_NAME);
+    }
+
     function clearSession() {
-        var keys = TOKEN_KEYS.concat([
-            'customerData', 'userName'
-        ]);
-        keys.forEach(function (k) {
-            localStorage.removeItem(k);
-        });
+        clearSessionTokensOnly();
         clearGuestCheckoutStorage();
     }
 
-    // নেভবার/হেডার ইউআই লগইন স্টেট অনুযায়ী আপডেট করা
     function splitDisplayName(fullName) {
         var trimmed = String(fullName || '').trim();
         if (!trimmed) return { full: 'My Account', first: 'My Account' };
@@ -108,7 +117,9 @@
         var navUserAvatar = document.getElementById('nav-user-avatar');
 
         if (token) {
-            var name = localStorage.getItem('userName');
+            var name = window.EOBStorage && window.EOBStorageKeys
+                ? window.EOBStorage.get(window.EOBStorageKeys.USER_NAME)
+                : '';
             var parts = splitDisplayName(name);
             if (link) {
                 link.classList.add('is-authed');
@@ -149,18 +160,187 @@
         }
     }
 
-    /**
-     * Clear the local customer session. Redirect to /login ONLY on account pages.
-     * On the public storefront (home, search, product, cart, checkout, CMS)
-     * keep the visitor on the page and restore the Sign in / Account header.
-     */
+    function ensureSessionRevalidateModal() {
+        if (document.getElementById('eobSessionRevalidateModal')) return;
+        var wrap = document.createElement('div');
+        wrap.id = 'eobSessionRevalidateModal';
+        wrap.className = 'custom-alert-modal-overlay';
+        wrap.setAttribute('role', 'dialog');
+        wrap.setAttribute('aria-modal', 'true');
+        wrap.setAttribute('aria-labelledby', 'eobSessionRevalidateTitle');
+        wrap.style.display = 'none';
+        wrap.innerHTML = ''
+            + '<div class="custom-alert-modal-box" style="max-width:420px;">'
+            + '<h3 id="eobSessionRevalidateTitle" style="margin:0 0 12px;font-size:18px;">Session expired</h3>'
+            + '<p class="custom-alert-modal-message" style="margin:0 0 20px;line-height:1.5;color:#475569;">'
+            + 'Your sign-in session ended. Your cart and checkout details are still saved. '
+            + 'Sign in again to continue, or complete checkout as a guest if available.'
+            + '</p>'
+            + '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
+            + '<button type="button" id="eobSessionRevalidateLoginBtn" class="coupon-apply-btn" style="flex:1;">Sign in</button>'
+            + '<button type="button" id="eobSessionRevalidateDismissBtn" class="coupon-remove-btn" style="flex:1;">Continue</button>'
+            + '</div></div>';
+        document.body.appendChild(wrap);
+
+        document.getElementById('eobSessionRevalidateDismissBtn').addEventListener('click', function () {
+            wrap.style.display = 'none';
+        });
+        document.getElementById('eobSessionRevalidateLoginBtn').addEventListener('click', function () {
+            var next = currentPath() + (window.location.search || '');
+            var loginUrl = LOGIN_URL;
+            if (next && next !== '/' && next !== LOGIN_URL) {
+                loginUrl += '?redirect=' + encodeURIComponent(next);
+            }
+            window.location.href = loginUrl;
+        });
+    }
+
+    function showSessionRevalidationPrompt() {
+        try {
+            if (window.EOBStorage && window.EOBStorage.session) {
+                window.EOBStorage.session.set('eob_session_expired', '1');
+            }
+        } catch (e) { /* ignore */ }
+
+        if (typeof window.showToast === 'function') {
+            window.showToast('Session expired — your checkout data is saved.', 'warning');
+        }
+
+        ensureSessionRevalidateModal();
+        var modal = document.getElementById('eobSessionRevalidateModal');
+        if (modal) modal.style.display = 'flex';
+
+        var checkoutModal = document.getElementById('checkoutAlertModal');
+        if (checkoutModal && checkoutModal.querySelector('.custom-alert-modal-message')) {
+            checkoutModal.querySelector('.custom-alert-modal-message').innerText =
+                'Your session expired. Cart and shipping details are preserved — sign in to sync your account, or continue as guest.';
+            checkoutModal.style.display = 'flex';
+        }
+    }
+
+    function applyNewToken(token, user) {
+        if (!token) return;
+        if (window.EOBCommerce && typeof window.EOBCommerce.setAuthTokens === 'function') {
+            window.EOBCommerce.setAuthTokens(token, user);
+        } else if (window.EOBStorage && window.EOBStorageKeys) {
+            var K = window.EOBStorageKeys;
+            window.EOBStorage.set(K.TOKEN, token);
+            window.EOBStorage.set(K.CUSTOMER_TOKEN, token);
+        }
+        if (user && window.EOBStorage && window.EOBStorageKeys) {
+            window.EOBStorage.setJSON(window.EOBStorageKeys.CUSTOMER_DATA, user);
+            if (user.name) window.EOBStorage.set(window.EOBStorageKeys.USER_NAME, user.name);
+        }
+        updateNavbarAuthUI();
+        try {
+            if (window.SidebarDrawer && typeof window.SidebarDrawer.syncGreeting === 'function') {
+                window.SidebarDrawer.syncGreeting();
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    function parseRefreshResponse(data) {
+        if (!data || typeof data !== 'object') return null;
+        var token = data.token
+            || data.accessToken
+            || (data.data && (data.data.token || data.data.accessToken));
+        if (!token) return null;
+        var user = data.user || (data.data && data.data.user) || null;
+        return { token: token, user: user };
+    }
+
+    function attemptSilentRefresh() {
+        if (refreshEndpointsUnavailable) return Promise.resolve(null);
+        if (refreshPromise) return refreshPromise;
+
+        var token = getToken();
+        if (!token) return Promise.resolve(null);
+
+        refreshPromise = (function () {
+            var chain = Promise.resolve({ token: null, allMissing: true });
+            REFRESH_ENDPOINTS.forEach(function (endpoint) {
+                chain = chain.then(function (state) {
+                    if (state.token) return state;
+                    return nativeFetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        credentials: 'same-origin'
+                    }).then(function (res) {
+                        if (res.status === 404 || res.status === 501 || res.status === 405) {
+                            return { token: null, allMissing: state.allMissing };
+                        }
+                        state.allMissing = false;
+                        if (!res.ok) return { token: null, allMissing: false };
+                        return res.json().catch(function () { return null; }).then(function (data) {
+                            var parsed = parseRefreshResponse(data);
+                            if (!parsed || !parsed.token) {
+                                return { token: null, allMissing: false };
+                            }
+                            applyNewToken(parsed.token, parsed.user);
+                            return { token: parsed.token, allMissing: false };
+                        });
+                    }).catch(function () {
+                        return { token: null, allMissing: state.allMissing };
+                    });
+                });
+            });
+            return chain.then(function (state) {
+                if (!state.token && state.allMissing) {
+                    refreshEndpointsUnavailable = true;
+                }
+                return state.token;
+            });
+        })().finally(function () {
+            refreshPromise = null;
+        });
+
+        return refreshPromise;
+    }
+
+    function handleUnrecoverable401() {
+        if (isCommerceCheckoutActive()) {
+            if (window.EOBCommerce && typeof window.EOBCommerce.dropAuthPreservingCommerce === 'function') {
+                window.EOBCommerce.dropAuthPreservingCommerce(null);
+            } else {
+                clearSessionTokensOnly();
+                if (window.EOBCommerce && typeof window.EOBCommerce.clearAuthTokens === 'function') {
+                    window.EOBCommerce.clearAuthTokens();
+                }
+            }
+            updateNavbarAuthUI();
+            try {
+                if (window.SidebarDrawer && typeof window.SidebarDrawer.syncGreeting === 'function') {
+                    window.SidebarDrawer.syncGreeting();
+                }
+            } catch (e) { /* ignore */ }
+            showSessionRevalidationPrompt();
+            loggingOut = false;
+            return;
+        }
+
+        forceLogout({ preserveCheckout: false });
+    }
+
     function forceLogout(options) {
         options = options || {};
         if (loggingOut) return;
-        loggingOut = true;
 
+        if (isCommerceCheckoutActive() && options.preserveCheckout !== false) {
+            handleUnrecoverable401();
+            return;
+        }
+
+        loggingOut = true;
         clearSession();
-        try { updateNavbarAuthUI(); } catch (e) { /* DOM না থাকলেও সমস্যা নেই */ }
+
+        if (window.EOBCommerce && typeof window.EOBCommerce.clearAuthTokens === 'function') {
+            window.EOBCommerce.clearAuthTokens();
+        }
+
+        try { updateNavbarAuthUI(); } catch (e) { /* ignore */ }
         try {
             if (window.SidebarDrawer && typeof window.SidebarDrawer.syncGreeting === 'function') {
                 window.SidebarDrawer.syncGreeting();
@@ -178,7 +358,11 @@
             return;
         }
 
-        try { sessionStorage.setItem('eob_session_expired', '1'); } catch (e) { /* ignore */ }
+        try {
+            if (window.EOBStorage && window.EOBStorage.session) {
+                window.EOBStorage.session.set('eob_session_expired', '1');
+            }
+        } catch (e) { /* ignore */ }
 
         var next = currentPath() + (window.location.search || '');
         var loginUrl = LOGIN_URL;
@@ -188,7 +372,6 @@
         window.location.replace(loginUrl);
     }
 
-    // কোন রিকোয়েস্টের 401-এ অটো-লগআউট হবে তা ঠিক করা
     function urlOf(input) {
         try {
             if (typeof input === 'string') return input;
@@ -197,48 +380,88 @@
         return '';
     }
 
+    function isRefreshUrl(url) {
+        return REFRESH_ENDPOINTS.some(function (p) {
+            return url.indexOf(p) !== -1;
+        });
+    }
+
     function shouldHandle(url) {
         if (!url) return false;
         if (url.indexOf('/api/') === -1) return false;
-        // অ্যাডমিন প্যানেল আলাদা টোকেন ব্যবহার করে — তাই এড়িয়ে যাওয়া হলো
         if (url.indexOf('/api/admin') !== -1) return false;
-        // পাবলিক অথ রুট (লগইন/রেজিস্টার) ব্যর্থ হলে লগআউট ট্রিগার করা যাবে না
-        var isPublicAuth = PUBLIC_AUTH_ENDPOINTS.some(function (p) {
+        return !PUBLIC_AUTH_ENDPOINTS.some(function (p) {
             return url.indexOf(p) !== -1;
         });
-        return !isPublicAuth;
     }
 
-    // ---------------------------------------------------------------
-    // গ্লোবাল fetch ইন্টারসেপ্টর: যেকোনো প্রোটেক্টেড API 401 দিলে অটো-লগআউট
-    // ---------------------------------------------------------------
-    if (typeof window.fetch === 'function' && !window.__eobFetchPatched) {
-        var nativeFetch = window.fetch.bind(window);
+    function cloneInitWithAuth(init, token) {
+        var next = Object.assign({}, init || {});
+        if (next._eobAuthRetried) return next;
+
+        var headers = {};
+        if (init && init.headers) {
+            if (typeof Headers !== 'undefined' && init.headers instanceof Headers) {
+                init.headers.forEach(function (value, key) {
+                    headers[key] = value;
+                });
+            } else if (Array.isArray(init.headers)) {
+                init.headers.forEach(function (pair) {
+                    headers[pair[0]] = pair[1];
+                });
+            } else {
+                headers = Object.assign({}, init.headers);
+            }
+        }
+        headers.Authorization = 'Bearer ' + token;
+        next.headers = headers;
+        next._eobAuthRetried = true;
+        return next;
+    }
+
+    var nativeFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
+
+    function handle401Response(input, init, response) {
+        init = init || {};
+        if (init._eobAuthRetried) {
+            handleUnrecoverable401();
+            return Promise.resolve(response);
+        }
+
+        return attemptSilentRefresh().then(function (newToken) {
+            if (!newToken || !nativeFetch) {
+                handleUnrecoverable401();
+                return response;
+            }
+            var retryInit = cloneInitWithAuth(init, newToken);
+            return nativeFetch(input, retryInit);
+        });
+    }
+
+    if (nativeFetch && !window.__eobFetchPatched) {
         window.fetch = function (input, init) {
             return nativeFetch(input, init).then(function (response) {
                 try {
                     if (
-                        response &&
-                        response.status === 401 &&
-                        getToken() &&
-                        shouldHandle(urlOf(input))
+                        response
+                        && response.status === 401
+                        && getToken()
+                        && shouldHandle(urlOf(input))
                     ) {
-                        forceLogout();
+                        var reqUrl = urlOf(input);
+                        if (isRefreshUrl(reqUrl)) {
+                            handleUnrecoverable401();
+                            return response;
+                        }
+                        return handle401Response(input, init, response);
                     }
-                } catch (e) { /* ইন্টারসেপ্টরের কারণে আসল রিকোয়েস্ট যেন না ভাঙে */ }
+                } catch (e) { /* never break fetch */ }
                 return response;
             });
         };
         window.__eobFetchPatched = true;
     }
 
-    /**
-     * পেজ লোডে সার্ভারে টোকেন যাচাই করা।
-     * টোকেন না থাকলে (এবং প্রোটেক্টেড পেজ হলে) সরাসরি লগইন পেজে পাঠানো।
-     * পাবলিক স্টোরফ্রন্টে টোকেন না থাকলে কিছুই হয় না — গেস্ট ব্রাউজ করতে পারে।
-     * টোকেন থাকলে /api/customer/profile কল করা হয়; রিমোটলি লগআউট হলে সার্ভার 401
-     * দেবে এবং উপরের ইন্টারসেপ্টর সেশন ক্লিয়ার করবে (লগইন রিডাইরেক্ট শুধু প্রোটেক্টেড পেজে)।
-     */
     function validateSession() {
         if (validatePromise) return validatePromise;
 
@@ -246,7 +469,7 @@
             var token = getToken();
 
             if (!token) {
-                if (isProtectedPage()) forceLogout();
+                if (isProtectedPage()) forceLogout({ preserveCheckout: false });
                 return Promise.resolve(false);
             }
 
@@ -254,10 +477,8 @@
                 method: 'GET',
                 headers: { 'Authorization': 'Bearer ' + token }
             }).then(function (res) {
-                // 401 হলে ইন্টারসেপ্টর ইতিমধ্যে forceLogout() চালিয়ে দিয়েছে
                 return res.ok;
             }).catch(function () {
-                // নেটওয়ার্ক এরর হলে ইউজারকে জোর করে লগআউট করা হবে না
                 return false;
             });
         })();
@@ -265,19 +486,23 @@
         return validatePromise;
     }
 
-    // অন্য স্ক্রিপ্ট থেকে ব্যবহারের জন্য পাবলিক API
     window.EOBSession = {
         getToken: getToken,
         clearSession: clearSession,
+        clearSessionTokensOnly: clearSessionTokensOnly,
         clearGuestCheckoutStorage: clearGuestCheckoutStorage,
         forceLogout: forceLogout,
         validate: validateSession,
         updateNavbarUI: updateNavbarAuthUI,
         isProtectedPage: isProtectedPage,
-        PROTECTED_PAGES: PROTECTED_PAGES
+        isCheckoutFlowPage: isCheckoutFlowPage,
+        isCommerceCheckoutActive: isCommerceCheckoutActive,
+        attemptSilentRefresh: attemptSilentRefresh,
+        handleUnrecoverable401: handleUnrecoverable401,
+        PROTECTED_PAGES: PROTECTED_PAGES,
+        REFRESH_ENDPOINTS: REFRESH_ENDPOINTS
     };
 
-    // পেজ লোড হলে: নেভবার ঠিক করা + প্রোটেক্টেড পেজে সেশন যাচাই করা
     document.addEventListener('DOMContentLoaded', function () {
         updateNavbarAuthUI();
         if (isProtectedPage()) {
@@ -290,12 +515,3 @@
         if (window.i18n) window.i18n.applyTranslations();
     });
 })();
-
-
-
-
-
-
-
-
-

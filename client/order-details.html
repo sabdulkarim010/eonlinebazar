@@ -6,6 +6,7 @@
     <title>Order Details | EOnlineBazar</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/order-details.css">
+    <link rel="stylesheet" href="css/invoice.css">
     <link rel="stylesheet" href="css/product-thumbnail.css">
     <link rel="stylesheet" href="css/courier-badge.css">
 </head>
@@ -44,7 +45,10 @@
 
             <div class="order-action-bar hidden" id="order-action-bar" aria-label="Order actions">
                 <button type="button" id="download-invoice-btn" class="od-action-btn od-action-invoice hidden">
-                    <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Download Invoice
+                    <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Download PDF Invoice
+                </button>
+                <button type="button" id="print-invoice-btn" class="od-action-btn od-action-invoice hidden">
+                    <i class="fa-solid fa-print" aria-hidden="true"></i> Print Receipt
                 </button>
                 <a href="#" id="track-order-btn" class="od-action-btn od-action-track hidden">
                     <i class="fa-solid fa-truck-fast" aria-hidden="true"></i> Track Order
@@ -53,7 +57,7 @@
                     <i class="fa-solid fa-ban" aria-hidden="true"></i> Cancel Order
                 </button>
                 <button type="button" id="order-return-btn" class="od-action-btn od-action-return hidden">
-                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Return Item
+                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Request Return / Refund
                 </button>
             </div>
 
@@ -62,6 +66,7 @@
             <div id="order-status-timeline-wrap" class="order-status-timeline-card">
                 <h3><i class="fa-solid fa-route"></i> Order Progress</h3>
                 <div id="order-status-timeline" class="order-status-timeline-host"></div>
+                <div id="order-return-progress" class="order-return-progress hidden" aria-live="polite"></div>
             </div>
 
             <div id="courier-tracking-badge" class="courier-tracking-badge-wrap hidden" aria-live="polite"></div>
@@ -147,6 +152,38 @@
         </div> 
     </div>
 
+    <div id="order-return-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="order-return-modal-title">
+        <div class="modal-content order-return-modal-content">
+            <div class="modal-header">
+                <h3 id="order-return-modal-title"><i class="fa-solid fa-rotate-left"></i> Request Return / Refund</h3>
+                <button type="button" id="close-order-return-modal" class="close-btn" title="Close" aria-label="Close return dialog">&times;</button>
+            </div>
+            <form id="order-return-form" class="order-return-form" novalidate>
+                <p class="order-return-lead">Select items, reason, and optional proof. Refunds are estimated from item prices only (order totals stay unchanged until admin approval).</p>
+                <fieldset class="order-return-fieldset">
+                    <legend class="order-return-label">Items to return</legend>
+                    <div id="order-return-items-list" class="order-return-items-list"></div>
+                </fieldset>
+                <label for="order-return-reason" class="order-return-label">Return reason</label>
+                <select id="order-return-reason" class="order-return-select" required>
+                    <option value="">Choose a reason...</option>
+                </select>
+                <label for="order-return-notes" class="order-return-label">Additional details</label>
+                <textarea id="order-return-notes" class="order-return-textarea" rows="3" placeholder="Describe the issue (optional but helpful for faster review)"></textarea>
+                <label for="order-return-proof-url" class="order-return-label">Proof image URL (optional)</label>
+                <input type="url" id="order-return-proof-url" class="order-return-input" placeholder="https://example.com/photo.jpg" autocomplete="off">
+                <p class="order-return-estimate">Estimated refund: <strong id="order-return-estimate-amount">৳0</strong></p>
+                <p id="order-return-form-error" class="order-return-form-error hidden" role="alert"></p>
+                <div class="order-return-form-actions">
+                    <button type="button" class="od-action-btn od-action-muted" id="order-return-cancel-btn">Cancel</button>
+                    <button type="submit" class="od-action-btn od-action-return" id="order-return-submit-btn">
+                        <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Submit return request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="order-action-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="order-action-modal-title">
         <div class="modal-content order-action-modal-content">
             <div class="modal-header">
@@ -204,10 +241,16 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="js/utils/storage.js"></script>
+    <script src="js/utils/telemetry.js"></script>
+    <script src="js/utils/sanitizer.js"></script>
+    <script src="js/store/commerceState.js"></script>
+
     
     <script src="js/session-guard.js"></script>
     <script src="js/productThumbnail.js"></script>
-    <script src="js/invoiceDownload.js"></script>
+    <script src="js/profile/invoice.js"></script>
+    <script src="js/orderReturnWorkflow.js"></script>
     <script src="js/orderStatusTimeline.js"></script>
     <script src="js/courierBadge.js"></script>
     <script src="js/order-details.js"></script>

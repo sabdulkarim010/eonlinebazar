@@ -52,6 +52,9 @@
     }
 
     function escapeHtml(value) {
+        if (window.EOBSanitizer && typeof window.EOBSanitizer.escapeHtml === 'function') {
+            return window.EOBSanitizer.escapeHtml(value);
+        }
         return String(value ?? '')
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -84,7 +87,10 @@
         if (body) {
             const raw = page.bodyHtml || page.content || '';
             const html = decodeCmsHtml(raw);
-            body.innerHTML = html || '<p>No content yet.</p>';
+            const safeHtml = window.EOBSanitizer && typeof window.EOBSanitizer.sanitizeRichText === 'function'
+                ? window.EOBSanitizer.sanitizeRichText(html)
+                : html;
+            body.innerHTML = safeHtml || '<p>No content yet.</p>';
         }
 
         document.title = `${page.title || 'Page'} - EonlineBazar`;

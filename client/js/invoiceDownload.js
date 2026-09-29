@@ -5,7 +5,7 @@
  * @returns {Promise<boolean>}
  */
 async function downloadOrderInvoice(orderId, displayOrderId, triggerBtn = null) {
-    const token = localStorage.getItem('token');
+    const token = window.EOBStorage.get(window.EOBStorageKeys.TOKEN);
     if (!token) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({ icon: 'warning', title: 'Login Required', text: 'Please log in to download your invoice.' });

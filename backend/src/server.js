@@ -51,6 +51,7 @@ const storeSettingsMiddleware = require('./middlewares/storeSettingsMiddleware')
 const bannerRoutes = require('./routes/bannerRoutes');
 const noteRoutes = require('./routes/noteRoutes');
 const internalRoutes = require('./routes/internalRoutes');
+const telemetryRoutes = require('./routes/telemetryRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -391,6 +392,7 @@ app.use('/api/newsletter', newsletterRoutes);
 app.use('/api', bannerRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/internal', internalRoutes);
+app.use('/api/telemetry', telemetryRoutes);
 
 // Finance analytics — explicit path expected by the dashboard UI
 // URL: GET /admin/api/analytics?period=&startDate=&endDate=

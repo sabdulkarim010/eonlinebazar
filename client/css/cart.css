@@ -1542,3 +1542,122 @@ a.product-title-text {
     cursor: not-allowed;
     pointer-events: none;
 }
+
+.cart-summary-discount,
+.cart-summary-vat,
+.cart-summary-grand {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.95rem;
+    color: #475569;
+    margin-top: 6px;
+}
+
+.cart-summary-grand {
+    font-weight: 600;
+    color: #0f172a;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.voucher-wallet {
+    margin-bottom: 12px;
+}
+
+.voucher-wallet__title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.voucher-wallet__list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.voucher-wallet__card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #fff;
+}
+
+.voucher-wallet__card.is-applied {
+    border-color: #16a34a;
+    background: #f0fdf4;
+}
+
+.voucher-wallet__card.is-ineligible {
+    opacity: 0.85;
+}
+
+.voucher-wallet__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.voucher-wallet__code {
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.voucher-wallet__offer {
+    font-size: 0.85rem;
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.voucher-wallet__meta,
+.voucher-wallet__savings,
+.voucher-wallet__reason,
+.voucher-wallet__empty,
+.voucher-wallet__loading {
+    font-size: 0.82rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.voucher-wallet__reason {
+    color: #b45309;
+}
+
+.voucher-wallet__actions {
+    margin-top: 8px;
+}
+
+.voucher-wallet__btn {
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.voucher-wallet__btn--apply {
+    background: #2563eb;
+    color: #fff;
+}
+
+.voucher-wallet__btn--apply:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.voucher-wallet__btn--remove {
+    background: #fee2e2;
+    color: #b91c1c;
+}

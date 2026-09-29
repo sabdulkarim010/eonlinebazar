@@ -434,7 +434,7 @@ function normalizeHrmAdminRole(raw) {
 function hrmResolveAdminRole() {
     if (window.adminRole) return normalizeHrmAdminRole(window.adminRole);
     try {
-        const cached = sessionStorage.getItem('adminProfile');
+        const cached = window.EOBStorage.session.get('adminProfile');
         if (cached) return normalizeHrmAdminRole(JSON.parse(cached).role);
     } catch (_) { /* ignore corrupt cache */ }
     if (hrmIsSuperAdmin()) return 'super_admin';

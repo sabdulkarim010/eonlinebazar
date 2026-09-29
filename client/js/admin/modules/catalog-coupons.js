@@ -35,7 +35,7 @@ function normalizeCouponListPayload(payload) {
 
 /** Fresh admin token + JSON headers for coupon API calls */
 function getCouponAuthHeaders() {
-    const adminToken = localStorage.getItem('adminToken');
+    const adminToken = window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
     return {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${adminToken || ''}`
@@ -584,7 +584,7 @@ async function saveCoupon() {
         perUserLimit: Number(document.getElementById('couponPerUserLimit')?.value) || 1
     };
 
-    if (!localStorage.getItem('adminToken')) {
+    if (!window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN)) {
         showToast('Error: Admin session expired. Please log in again.', 'error');
         window.location.replace('/admin-login');
         return;
@@ -641,7 +641,7 @@ async function saveCoupon() {
                 const errMsg = result.message || 'Failed to save coupon';
                 showToast('Error: ' + errMsg, 'error');
                 if (res.status === 401 && result.redirect) {
-                    localStorage.removeItem('adminToken');
+                    window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_TOKEN);
                     window.location.replace(result.redirect);
                 }
             }

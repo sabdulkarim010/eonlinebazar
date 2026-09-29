@@ -8,7 +8,7 @@ import { settingsFetchJson, isSettingsFetchFailure } from './settings-utils.js';
 
 function authHeaders() {
     return {
-        Authorization: `Bearer ${window.token || localStorage.getItem('adminToken') || ''}`
+        Authorization: `Bearer ${window.token || window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || ''}`
     };
 }
 

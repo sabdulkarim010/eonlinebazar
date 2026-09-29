@@ -86,7 +86,7 @@
     }
 
     function getAuthToken() {
-        return localStorage.getItem(FINANCE_TOKEN_KEY) || localStorage.getItem('adminToken') || '';
+        return window.EOBStorage.get(FINANCE_TOKEN_KEY) || window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || '';
     }
 
     /* =====================================================================
@@ -139,7 +139,7 @@
         const next = theme === 'light' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', next);
         try {
-            localStorage.setItem(THEME_KEY, next);
+            window.EOBStorage.set(THEME_KEY, next);
         } catch (err) {
             console.warn('[Analytics] Unable to persist theme preference:', err.message);
         }
@@ -198,7 +198,7 @@
        4. AUTH & FETCH
        ===================================================================== */
     function redirectToLogin(target) {
-        localStorage.removeItem(FINANCE_TOKEN_KEY);
+        window.EOBStorage.remove(FINANCE_TOKEN_KEY);
         document.cookie = 'financeToken=; path=/; max-age=0; SameSite=Strict';
         window.location.replace(target || LOGIN_URL);
     }

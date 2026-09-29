@@ -101,7 +101,7 @@
                 // টোকেন সংরক্ষণ: (১) localStorage — API Bearer হেডারের জন্য,
                 // (২) কুকি — সার্ভার-সাইড পেজ গার্ড টোকেন পড়তে পারে যেন
                 // (ব্রাউজার নেভিগেশনে হেডার পাঠানো যায় না বলে কুকি প্রয়োজন)।
-                localStorage.setItem(FINANCE_TOKEN_KEY, data.token);
+                window.EOBStorage.set(FINANCE_TOKEN_KEY, data.token);
                 document.cookie = 'financeToken=' + encodeURIComponent(data.token) +
                     '; path=/; max-age=' + (8 * 60 * 60) + '; SameSite=Strict';
                 showAlert('Login successful! Redirecting…', 'success');
@@ -130,7 +130,7 @@
        ===================================================================== */
     function init() {
         // ইতিমধ্যে ফাইন্যান্স বা অ্যাডমিন টোকেন থাকলে সরাসরি ড্যাশবোর্ডে
-        if (localStorage.getItem(FINANCE_TOKEN_KEY) || localStorage.getItem('adminToken')) {
+        if (window.EOBStorage.get(FINANCE_TOKEN_KEY) || window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN)) {
             window.location.replace(DASHBOARD_URL);
             return;
         }

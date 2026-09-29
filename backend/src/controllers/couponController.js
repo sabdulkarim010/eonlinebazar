@@ -807,6 +807,72 @@ const toggleCouponStatus = async (req, res) => {
 
 // ─── Storefront availability ──────────────────────────────────────────────
 
+/**
+ * Voucher wallet — public active coupons with eligibility for current cart subtotal.
+ * POST body: { subtotal, cartItems[] }. Optional customer auth for per-user limits.
+ */
+const listWalletCoupons = async (req, res) => {
+    try {
+        const { now } = await getApplicationTimeContext();
+        await runCouponAutoExpiry(now);
+
+        const subtotal = Number(req.body?.subtotal ?? req.query?.subtotal) || 0;
+        const cartItems = req.body?.cartItems || req.body?.items || [];
+        const userId = req.user ? req.user.id : null;
+
+        const coupons = await Coupon.find({
+            status: 'ACTIVE',
+            expiryDate: { $gt: now },
+            discountType: { $in: ['percentage', 'flat'] }
+        })
+            .select('code discountType discountValue minOrderAmount maxDiscountAmount expiryDate usageLimit usedCount perUserLimit usedBy allowedPaymentMethods applicableCategories minCategorySpend')
+            .sort({ expiryDate: 1 })
+            .limit(24)
+            .lean();
+
+        const vouchers = [];
+
+        for (const coupon of coupons) {
+            if (Number(coupon.usedCount) >= Number(coupon.usageLimit)) {
+                continue;
+            }
+
+            const preview = await validateCouponForCart({
+                code: coupon.code,
+                subtotal,
+                userId,
+                cartItems,
+                now
+            });
+
+            const eligible = preview.ok === true;
+            const estimatedSavings = eligible
+                ? Number(preview.breakdown?.discountAmount) || 0
+                : 0;
+
+            vouchers.push({
+                code: coupon.code,
+                discountType: coupon.discountType,
+                discountValue: coupon.discountValue,
+                minOrderAmount: Number(coupon.minOrderAmount) || 0,
+                maxDiscountAmount: coupon.maxDiscountAmount,
+                expiryDate: coupon.expiryDate,
+                eligible,
+                estimatedSavings,
+                ineligibilityReason: eligible ? null : (preview.message || 'Not eligible for this order.')
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: { vouchers }
+        });
+    } catch (error) {
+        console.error('Coupon Wallet Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load voucher wallet.' });
+    }
+};
+
 /** Public check: at least one active, unexpired coupon exists (evaluates at server time). */
 const checkActiveCoupons = async (req, res) => {
     try {
@@ -878,6 +944,7 @@ module.exports = {
     deleteCoupon,
     toggleCouponStatus,
     checkActiveCoupons,
+    listWalletCoupons,
     applyCoupon,
     validateCouponForCart,
     assertCouponActiveAndUnexpired,

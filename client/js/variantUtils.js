@@ -70,6 +70,16 @@
         return getCombinationKey(getVariantAttributes(variant));
     }
 
+    /** Align with backend `stockQuantity` / legacy `stock` (order quote + inventory). */
+    function getVariantStockQuantity(variant) {
+        if (!variant || typeof variant !== 'object') return 0;
+        const sq = Number(variant.stockQuantity);
+        const s = Number(variant.stock);
+        if (Number.isFinite(sq) && sq >= 0) return Math.floor(sq);
+        if (Number.isFinite(s) && s >= 0) return Math.floor(s);
+        return 0;
+    }
+
     function usesCombinationMatrix(product) {
         if (!product || !Array.isArray(product.variants) || product.variants.length === 0) return false;
         if (product.hasVariants === true) return true;
@@ -124,7 +134,7 @@
         const trial = { ...(selectedAttrs || {}), [attrName]: value };
         const matching = findMatchingVariants(variants, trial);
         if (matching.length === 0) return 'unavailable';
-        if (matching.some(v => (Number(v.stock) || 0) > 0)) return 'in-stock';
+        if (matching.some(v => getVariantStockQuantity(v) > 0)) return 'in-stock';
         return 'oos';
     }
 
@@ -147,7 +157,7 @@
                 attributes,
                 sku: String(variant.sku || '').trim(),
                 price: Number(variant.price) || 0,
-                stock: Number(variant.stock) || 0,
+                stock: getVariantStockQuantity(variant),
                 image: String(variant.image || '').trim(),
                 variantId,
                 name: variantLabel
@@ -204,6 +214,7 @@
         formatCombinationLabel,
         resolveVariantLabel,
         getVariantLineId,
+        getVariantStockQuantity,
         usesCombinationMatrix,
         extractAttributeGroups,
         findVariantBySelection,

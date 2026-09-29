@@ -174,8 +174,8 @@
     }
 
     function getSavedShippingDistrict(fallback = '') {
-        return localStorage.getItem('shippingDistrict')
-            || localStorage.getItem('checkout_district')
+        return window.EOBStorage.get(window.EOBStorageKeys.SHIPPING_DISTRICT)
+            || window.EOBStorage.get(window.EOBStorageKeys.CHECKOUT_DISTRICT)
             || fallback
             || DEFAULT_SETTINGS.shopHomeCity;
     }
@@ -183,8 +183,8 @@
     function persistShippingDistrict(district) {
         const value = String(district || '').trim();
         if (!value) return;
-        localStorage.setItem('shippingDistrict', value);
-        localStorage.setItem('checkout_district', value);
+        window.EOBStorage.set(window.EOBStorageKeys.SHIPPING_DISTRICT, value);
+        window.EOBStorage.set(window.EOBStorageKeys.CHECKOUT_DISTRICT, value);
     }
 
     function populateDistrictSelect(selectEl, selectedValue = '') {

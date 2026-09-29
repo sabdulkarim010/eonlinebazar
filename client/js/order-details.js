@@ -42,10 +42,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 🌟 SECTION 1: GLOBAL VARIABLES & DOM ELEMENTS
     // =========================================================
     const orderId = urlParams.get('id');
-    const token = localStorage.getItem('token');
+    const token = window.EOBStorage.get(window.EOBStorageKeys.TOKEN);
     
     // লোকাল স্টোরেজ থেকে ইউজারের ইনফরমেশন নেওয়া 
-    const userInfoString = localStorage.getItem('userInfo') || localStorage.getItem('user');
+    const userInfoString = window.EOBStorage.get(window.EOBStorageKeys.USER_INFO) || window.EOBStorage.get(window.EOBStorageKeys.USER);
     const userInfo = userInfoString ? JSON.parse(userInfoString) : null;
 
     // সমস্ত DOM এলিমেন্ট 
@@ -55,9 +55,21 @@ document.addEventListener('DOMContentLoaded', () => {
         actionBar: document.getElementById('order-action-bar'),
         trackBtn: document.getElementById('track-order-btn'),
         invoiceBtn: document.getElementById('download-invoice-btn'),
+        printInvoiceBtn: document.getElementById('print-invoice-btn'),
         supportChatBtn: document.getElementById('order-support-chat-btn'),
         cancelBtn: document.getElementById('order-cancel-btn'),
         returnBtn: document.getElementById('order-return-btn'),
+        returnModal: document.getElementById('order-return-modal'),
+        returnForm: document.getElementById('order-return-form'),
+        returnItemsList: document.getElementById('order-return-items-list'),
+        returnReasonSelect: document.getElementById('order-return-reason'),
+        returnNotesInput: document.getElementById('order-return-notes'),
+        returnProofInput: document.getElementById('order-return-proof-url'),
+        returnEstimateEl: document.getElementById('order-return-estimate-amount'),
+        returnFormError: document.getElementById('order-return-form-error'),
+        returnSubmitBtn: document.getElementById('order-return-submit-btn'),
+        closeReturnModalBtn: document.getElementById('close-order-return-modal'),
+        returnCancelBtn: document.getElementById('order-return-cancel-btn'),
         itemsContainer: document.getElementById('order-items-container'),
 
         orderActionModal: document.getElementById('order-action-modal'),
@@ -124,7 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showError(message) {
         if (elements.loadingSpinner) {
-            elements.loadingSpinner.innerHTML = `<span style="color: var(--danger); font-weight: 600;"><i class="fa-solid fa-triangle-exclamation"></i> ${message}</span>`;
+            const safe = (window.EOBSanitizer && window.EOBSanitizer.escapeHtml(message))
+                || String(message == null ? '' : message);
+            elements.loadingSpinner.innerHTML = `<span style="color: var(--danger); font-weight: 600;"><i class="fa-solid fa-triangle-exclamation"></i> ${safe}</span>`;
         }
     }
 
@@ -145,18 +159,187 @@ document.addEventListener('DOMContentLoaded', () => {
         return order.deliveredAt || order.deliveryDate || order.updatedAt || null;
     }
 
-    function isWithinReturnWindow(order) {
-        if (String(order.status || '').toLowerCase() !== 'delivered') return false;
+    function returnWorkflow() {
+        return window.OrderReturnWorkflow || null;
+    }
 
+    function isWithinReturnWindow(order) {
+        const wf = returnWorkflow();
+        if (wf?.isOrderReturnEligible) return wf.isOrderReturnEligible(order);
+        if (String(order.status || '').toLowerCase() !== 'delivered') return false;
         const deliveryDate = getOrderDeliveryDate(order);
         if (!deliveryDate) return false;
-
         const delivered = new Date(deliveryDate);
         if (Number.isNaN(delivered.getTime())) return false;
-
         const diffMs = Date.now() - delivered.getTime();
-        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        return diffMs >= 0 && diffMs <= sevenDaysMs;
+        return diffMs >= 0 && diffMs <= 7 * 24 * 60 * 60 * 1000;
+    }
+
+    let returnFormSelections = [];
+
+    function populateReturnReasonOptions() {
+        if (!elements.returnReasonSelect) return;
+        const wf = returnWorkflow();
+        const reasons = wf?.RETURN_REASONS || [];
+        elements.returnReasonSelect.innerHTML = '<option value="">Choose a reason...</option>';
+        reasons.forEach(({ code, label }) => {
+            const option = document.createElement('option');
+            option.value = code;
+            option.textContent = label;
+            elements.returnReasonSelect.appendChild(option);
+        });
+    }
+
+    function updateReturnEstimateDisplay() {
+        const wf = returnWorkflow();
+        if (!wf || !elements.returnEstimateEl) return;
+        const amount = wf.estimateRefundAmount(returnFormSelections);
+        elements.returnEstimateEl.textContent = `৳${Math.round(amount).toLocaleString()}`;
+    }
+
+    function renderReturnItemsList(preselectLineKey) {
+        if (!elements.returnItemsList) return;
+        const wf = returnWorkflow();
+        elements.returnItemsList.innerHTML = '';
+
+        returnFormSelections.forEach((sel) => {
+            if (preselectLineKey && sel.lineKey === preselectLineKey) {
+                sel.selected = true;
+            }
+            const row = document.createElement('div');
+            row.className = 'order-return-item-row';
+            const disabled = !wf?.isLineReturnEligible?.(currentOrderData, { productId: sel.productId, sku: sel.sku }, 0);
+            row.innerHTML = `
+                <label class="order-return-item-row__label">
+                    <input type="checkbox" data-line-key="${sel.lineKey}" ${sel.selected ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+                    <span>${sel.productName}${sel.sku ? ` <small>(${sel.sku})</small>` : ''}</span>
+                </label>
+                <div class="order-return-item-row__qty">
+                    <label>Qty</label>
+                    <input type="number" min="1" max="${sel.maxQuantity}" value="${sel.quantity}" data-qty-key="${sel.lineKey}" ${disabled ? 'disabled' : ''}>
+                </div>
+            `;
+            elements.returnItemsList.appendChild(row);
+        });
+
+        elements.returnItemsList.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+            input.addEventListener('change', () => {
+                const key = input.getAttribute('data-line-key');
+                const sel = returnFormSelections.find((s) => s.lineKey === key);
+                if (sel) sel.selected = input.checked;
+                updateReturnEstimateDisplay();
+            });
+        });
+
+        elements.returnItemsList.querySelectorAll('input[type="number"]').forEach((input) => {
+            input.addEventListener('change', () => {
+                const key = input.getAttribute('data-qty-key');
+                const sel = returnFormSelections.find((s) => s.lineKey === key);
+                if (sel) {
+                    sel.quantity = Math.min(sel.maxQuantity, Math.max(1, Number(input.value) || 1));
+                    input.value = sel.quantity;
+                }
+                updateReturnEstimateDisplay();
+            });
+        });
+
+        updateReturnEstimateDisplay();
+    }
+
+    function openReturnRefundModal(preselectLineKey) {
+        const wf = returnWorkflow();
+        if (!wf || !currentOrderData || !elements.returnModal) return;
+        if (!wf.isOrderReturnEligible(currentOrderData)) return;
+
+        returnFormSelections = wf.buildInitialSelections(currentOrderData);
+        populateReturnReasonOptions();
+        if (elements.returnNotesInput) elements.returnNotesInput.value = '';
+        if (elements.returnProofInput) elements.returnProofInput.value = '';
+        if (elements.returnFormError) {
+            elements.returnFormError.classList.add('hidden');
+            elements.returnFormError.textContent = '';
+        }
+        renderReturnItemsList(preselectLineKey);
+        elements.returnModal.classList.remove('hidden');
+        elements.returnReasonSelect?.focus();
+    }
+
+    function closeReturnRefundModal() {
+        if (elements.returnModal) elements.returnModal.classList.add('hidden');
+        returnFormSelections = [];
+    }
+
+    async function submitReturnRefundRequest(event) {
+        event.preventDefault();
+        const wf = returnWorkflow();
+        if (!wf || !currentOrderMongoId) return;
+
+        const formState = {
+            reasonCode: elements.returnReasonSelect?.value || '',
+            notes: elements.returnNotesInput?.value?.trim() || '',
+            proofUrl: elements.returnProofInput?.value?.trim() || '',
+            selections: returnFormSelections
+        };
+
+        const validation = wf.validateReturnForm(formState);
+        if (!validation.ok) {
+            if (elements.returnFormError) {
+                elements.returnFormError.textContent = validation.errors[0];
+                elements.returnFormError.classList.remove('hidden');
+            }
+            return;
+        }
+
+        const payload = wf.buildReturnRequestPayload(currentOrderData, formState);
+        const originalHtml = elements.returnSubmitBtn ? elements.returnSubmitBtn.innerHTML : '';
+        if (elements.returnSubmitBtn) {
+            elements.returnSubmitBtn.disabled = true;
+            elements.returnSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+        }
+
+        try {
+            const response = await fetch(
+                `/api/orders/${encodeURIComponent(currentOrderMongoId)}/return-request`,
+                {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                }
+            );
+            const data = await response.json();
+            if (response.ok && data.success) {
+                closeReturnRefundModal();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Return submitted',
+                    text: data.message || 'We received your return request.',
+                    confirmButtonColor: '#2563eb'
+                }).then(() => fetchOrderDetails());
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Could not submit return',
+                    text: data.message || 'Please try again.',
+                    confirmButtonColor: '#d33'
+                });
+            }
+        } catch (err) {
+            console.error('Return submit error:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Server error while submitting your return.',
+                confirmButtonColor: '#d33'
+            });
+        } finally {
+            if (elements.returnSubmitBtn) {
+                elements.returnSubmitBtn.disabled = false;
+                elements.returnSubmitBtn.innerHTML = originalHtml;
+            }
+        }
     }
 
     function populateOrderActionReasons() {
@@ -311,6 +494,10 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.invoiceBtn.classList.remove('hidden');
             visibleCount += 1;
         }
+        if (elements.printInvoiceBtn) {
+            elements.printInvoiceBtn.classList.remove('hidden');
+            visibleCount += 1;
+        }
 
         if (elements.trackBtn) {
             if (status !== 'delivered') {
@@ -374,7 +561,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (elements.returnBtn) {
-            elements.returnBtn.addEventListener('click', () => openOrderActionModal('return'));
+            elements.returnBtn.addEventListener('click', () => openReturnRefundModal());
+        }
+
+        if (elements.returnForm) {
+            elements.returnForm.addEventListener('submit', submitReturnRefundRequest);
+        }
+        if (elements.closeReturnModalBtn) {
+            elements.closeReturnModalBtn.addEventListener('click', closeReturnRefundModal);
+        }
+        if (elements.returnCancelBtn) {
+            elements.returnCancelBtn.addEventListener('click', closeReturnRefundModal);
+        }
+        if (elements.returnModal) {
+            elements.returnModal.addEventListener('click', (e) => {
+                if (e.target === elements.returnModal) closeReturnRefundModal();
+            });
         }
 
         if (elements.supportChatBtn) {
@@ -449,12 +651,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const statusEl = document.getElementById('order-status');
         const statusClass = status.replace(/\s+/g, '-');
         if (statusEl) {
-            statusEl.textContent = status;
-            statusEl.className = `status-badge ${statusClass}`;
+            const returnTag = returnWorkflow()?.mapReturnStatusTag?.(order);
+            if (returnTag) {
+                statusEl.textContent = returnTag.label;
+                statusEl.className = `status-badge ${returnTag.className}`;
+            } else {
+                statusEl.textContent = status;
+                statusEl.className = `status-badge ${statusClass}`;
+            }
         }
 
         if (window.OrderStatusTimeline) {
             OrderStatusTimeline.renderOrderStatusUI({
+                order,
                 status: order.status || status,
                 timelineEl: document.getElementById('order-status-timeline'),
                 bannerEl: document.getElementById('order-cancelled-banner')
@@ -487,7 +696,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (items.length === 0) {
                 elements.itemsContainer.innerHTML = '<tr><td colspan="4" class="text-center">No items found.</td></tr>';
             } else {
-                items.forEach(item => {
+                const wf = returnWorkflow();
+                items.forEach((item, index) => {
                     const price = item.price || 0;
                     const qty = item.quantity || 1;
                     const itemTotal = price * qty;
@@ -495,11 +705,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     const targetId = item.id || item.productId || item._id;
                     const targetName = item.name || item.product?.name || 'Product';
+                    const lineKey = wf?.buildInitialSelections
+                        ? wf.buildInitialSelections({ items: [item] })[0]?.lineKey
+                        : `${targetId}::${index}`;
 
-                    // Review/Edit বাটন
                     let actionButtonHTML = '';
                     if (status === 'delivered') {
-                        actionButtonHTML = `<button onclick="window.openReviewModal('${targetId}', '${targetName}')" class="btn-review-table"><i class="fa-solid fa-pen-to-square"></i> Review / Edit</button>`;
+                        actionButtonHTML = `<button type="button" onclick="window.openReviewModal('${targetId}', '${String(targetName).replace(/'/g, "\\'")}')" class="btn-review-table"><i class="fa-solid fa-pen-to-square"></i> Review / Edit</button>`;
+                    }
+
+                    const lineEligible = wf?.isLineReturnEligible?.(order, item, index);
+                    const lineReturned = wf?.returnedProductIds
+                        ? wf.returnedProductIds(order).has(String(targetId))
+                        : false;
+                    let returnLineHtml = '';
+                    if (lineReturned) {
+                        returnLineHtml = '<span class="order-line-return-badge">Return submitted</span>';
+                    } else if (lineEligible) {
+                        returnLineHtml = `<button type="button" class="btn-return-line" data-return-line="${lineKey}"><i class="fa-solid fa-rotate-left"></i> Return</button>`;
                     }
 
                     const PT = window.ProductThumbnail;
@@ -514,7 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${mediaHtml}
                                 <div style="display: flex; flex-direction: column; align-items: flex-start;">
                                     <span style="font-weight: 500;">${targetName}</span>
-                                    ${actionButtonHTML}
+                                    <div class="order-line-actions">${actionButtonHTML}${returnLineHtml}</div>
                                 </div>
                             </div>
                         </td>
@@ -523,6 +746,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="font-weight: 600;">৳${itemTotal}</td>
                     `;
                     elements.itemsContainer.appendChild(row);
+                });
+
+                elements.itemsContainer.querySelectorAll('[data-return-line]').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        openReturnRefundModal(btn.getAttribute('data-return-line'));
+                    });
                 });
             }
 
@@ -664,7 +893,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const adminNote = String(order.paymentProof?.adminNote || '').trim();
             if (adminNote && rejectionEl) {
-                rejectionEl.innerHTML = `<strong>Admin note:</strong> ${adminNote}`;
+                const safeNote = (window.EOBSanitizer && window.EOBSanitizer.escapeHtml(adminNote))
+                    || adminNote;
+                rejectionEl.innerHTML = `<strong>Admin note:</strong> ${safeNote}`;
                 rejectionEl.classList.remove('hidden');
             }
             if (formEl) formEl.classList.remove('hidden');
@@ -939,8 +1170,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (elements.invoiceBtn) {
         elements.invoiceBtn.addEventListener('click', () => {
-            if (typeof window.downloadOrderInvoice === 'function') {
+            if (window.EOBInvoice?.downloadPdf) {
+                window.EOBInvoice.downloadPdf({
+                    orderId: currentOrderMongoId,
+                    displayOrderId: currentDisplayOrderId,
+                    order: currentOrderData,
+                    token,
+                    triggerBtn: elements.invoiceBtn
+                }).catch((err) => {
+                    Swal.fire({ icon: 'error', title: 'Download Failed', text: err.message || 'Unable to download invoice.' });
+                });
+            } else if (typeof window.downloadOrderInvoice === 'function') {
                 window.downloadOrderInvoice(currentOrderMongoId, currentDisplayOrderId, elements.invoiceBtn);
+            }
+        });
+    }
+
+    if (elements.printInvoiceBtn) {
+        elements.printInvoiceBtn.addEventListener('click', () => {
+            if (!currentOrderData) return;
+            if (window.EOBInvoice?.printReceipt) {
+                window.EOBInvoice.printReceipt(currentOrderData);
             }
         });
     }

@@ -105,8 +105,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Google OAuth redirect — store JWT and redirect home
     if (urlParams.get('google') === 'true' && urlParams.get('token')) {
         const token = urlParams.get('token');
-        localStorage.setItem('token', token);
-        localStorage.setItem('customerToken', token);
+        if (window.EOBCommerce) {
+            window.EOBCommerce.setAuthTokens(token);
+        } else {
+            window.EOBStorage.set(window.EOBStorageKeys.TOKEN, token);
+            window.EOBStorage.set(window.EOBStorageKeys.CUSTOMER_TOKEN, token);
+        }
         window.history.replaceState({}, '', '/');
         window.location.href = '/';
         return;
@@ -127,8 +131,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 🔐 সেশন এক্সপায়ার/রিমোট লগআউটের কারণে এই পেজে পাঠানো হলে ইউজারকে জানানো
-    if (sessionStorage.getItem('eob_session_expired')) {
-        sessionStorage.removeItem('eob_session_expired');
+    if (window.EOBStorage.session.get('eob_session_expired')) {
+        window.EOBStorage.session.remove('eob_session_expired');
         showCustomToast(authT('auth.session_expired'), 'error');
     }
 
@@ -167,7 +171,7 @@ function setResendEmail(email) {
 }
 
 function getResendRemainingSeconds() {
-    const endsAt = Number(sessionStorage.getItem(RESEND_COOLDOWN_UNTIL_KEY) || 0);
+    const endsAt = Number(window.EOBStorage.session.get(RESEND_COOLDOWN_UNTIL_KEY) || 0);
     return Math.ceil((endsAt - Date.now()) / 1000);
 }
 
@@ -176,8 +180,8 @@ function clearResendCooldown() {
         clearInterval(resendCooldownTimer);
         resendCooldownTimer = null;
     }
-    sessionStorage.removeItem(RESEND_COOLDOWN_UNTIL_KEY);
-    sessionStorage.removeItem(RESEND_COOLDOWN_EMAIL_KEY);
+    window.EOBStorage.session.remove(RESEND_COOLDOWN_UNTIL_KEY);
+    window.EOBStorage.session.remove(RESEND_COOLDOWN_EMAIL_KEY);
     const btn = document.getElementById('resendVerifyBtn');
     if (!btn) return;
     btn.disabled = false;
@@ -203,8 +207,8 @@ function startResendCooldown(email, seconds = RESEND_COOLDOWN_SECONDS) {
     if (btn && !btn.dataset.defaultLabel) {
         btn.dataset.defaultLabel = RESEND_VERIFY_LABEL;
     }
-    sessionStorage.setItem(RESEND_COOLDOWN_UNTIL_KEY, String(Date.now() + seconds * 1000));
-    if (email) sessionStorage.setItem(RESEND_COOLDOWN_EMAIL_KEY, email);
+    window.EOBStorage.session.set(RESEND_COOLDOWN_UNTIL_KEY, String(Date.now() + seconds * 1000));
+    if (email) window.EOBStorage.session.set(RESEND_COOLDOWN_EMAIL_KEY, email);
     tickResendCooldown();
     if (!resendCooldownTimer) {
         resendCooldownTimer = setInterval(tickResendCooldown, 1000);
@@ -212,11 +216,11 @@ function startResendCooldown(email, seconds = RESEND_COOLDOWN_SECONDS) {
 }
 
 function restoreResendCooldown(email) {
-    const storedEmail = sessionStorage.getItem(RESEND_COOLDOWN_EMAIL_KEY) || '';
+    const storedEmail = window.EOBStorage.session.get(RESEND_COOLDOWN_EMAIL_KEY) || '';
     if (email && storedEmail && storedEmail !== email) return;
     if (getResendRemainingSeconds() <= 0) {
-        sessionStorage.removeItem(RESEND_COOLDOWN_UNTIL_KEY);
-        sessionStorage.removeItem(RESEND_COOLDOWN_EMAIL_KEY);
+        window.EOBStorage.session.remove(RESEND_COOLDOWN_UNTIL_KEY);
+        window.EOBStorage.session.remove(RESEND_COOLDOWN_EMAIL_KEY);
         return;
     }
     tickResendCooldown();
@@ -692,7 +696,11 @@ async function handleLoginSubmit(e) {
     const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : false;
     const guestCartItems = window.CartMerge
         ? CartMerge.getGuestCartFromStorage()
-        : (JSON.parse(localStorage.getItem('cart') || '[]') || []);
+        : (window.EOBStorage.getJSON(window.EOBStorageKeys.CART, []) || []);
+
+    if (window.CartMerge && typeof CartMerge.snapshotGuestCartBeforeAuth === 'function') {
+        CartMerge.snapshotGuestCartBeforeAuth();
+    }
 
     if (!rawLoginInput || password.length < 6 || !isValidLoginInput(rawLoginInput)) {
         showLoginError(authT('auth.fill_fields'));
@@ -718,12 +726,16 @@ async function handleLoginSubmit(e) {
         const data = await response.json();
 
         if (data.success) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('customerToken', data.token);
-            localStorage.setItem('customerData', JSON.stringify(data.user));
+            window.EOBStorage.setJSON(window.EOBStorageKeys.CUSTOMER_DATA, data.user);
+            if (window.EOBCommerce) {
+                window.EOBCommerce.setAuthTokens(data.token);
+            } else {
+                window.EOBStorage.set(window.EOBStorageKeys.TOKEN, data.token);
+                window.EOBStorage.set(window.EOBStorageKeys.CUSTOMER_TOKEN, data.token);
+            }
 
             if (data.user && data.user.name) {
-                localStorage.setItem('userName', data.user.name);
+                window.EOBStorage.set(window.EOBStorageKeys.USER_NAME, data.user.name);
             }
 
             if (window.CartMerge) {
@@ -733,7 +745,7 @@ async function handleLoginSubmit(e) {
                     console.error('Cart sync after login failed:', cartSyncError);
                 }
             } else if (Array.isArray(guestCartItems) && guestCartItems.length > 0) {
-                localStorage.removeItem('cart');
+                window.EOBStorage.remove(window.EOBStorageKeys.CART);
             }
 
             if (forgotPassLink) forgotPassLink.href = '/forgot-password';

@@ -143,7 +143,7 @@ async function fetchLiveProducts(pageOrReset = 1, limitArg) {
     }
 
     try {
-        const authToken = localStorage.getItem('adminToken') || token || '';
+        const authToken = window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || token || '';
         const res = await fetch(`/api/admin/products/search?${buildProductSearchQuery(page, limit)}`, {
             method: 'GET',
             headers: { Authorization: `Bearer ${authToken}` }
@@ -226,7 +226,7 @@ async function loadCategoryFilter() {
     try {
         const res = await fetch('/api/categories/admin/all', {
             headers: {
-                'Authorization': 'Bearer ' + (localStorage.getItem('adminToken') || token || '')
+                'Authorization': 'Bearer ' + (window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN) || token || '')
             }
         });
         const data = await res.json();

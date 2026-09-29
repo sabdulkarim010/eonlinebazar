@@ -181,7 +181,7 @@ function isAdminSectionActive(sectionId) {
 function initAdminSocket() {
     if (adminSocketInitialized || typeof io === 'undefined') return;
     if (typeof window.adminIsLiveServer === 'function' && !window.adminIsLiveServer()) return;
-    const authToken = localStorage.getItem('adminToken');
+    const authToken = window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
     if (!authToken) return;
 
     adminSocketInitialized = true;
@@ -547,7 +547,7 @@ function restoreProductPaginationState() {
 
 function readProductListSessionState() {
     try {
-        const raw = sessionStorage.getItem(PRODUCT_PAGINATION_STORAGE_KEY);
+        const raw = window.EOBStorage.session.get(PRODUCT_PAGINATION_STORAGE_KEY);
         if (!raw) return;
         const stored = JSON.parse(raw);
         if (stored.page) {
@@ -586,7 +586,7 @@ function persistProductListSessionState(force = false) {
     if (!force && (!manageSection || manageSection.style.display === 'none')) return;
 
     try {
-        sessionStorage.setItem(PRODUCT_PAGINATION_STORAGE_KEY, JSON.stringify({
+        window.EOBStorage.session.set(PRODUCT_PAGINATION_STORAGE_KEY, JSON.stringify({
             page: currentPage,
             ...getProductFilterState()
         }));

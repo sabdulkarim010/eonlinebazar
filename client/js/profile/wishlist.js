@@ -168,14 +168,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    productId,
-                    quantity: 1,
-                    name,
-                    price: Number(price),
-                    image,
-                    icon: productIcon
-                })
+                body: JSON.stringify(
+                    (window.CartDisplayUtils && window.CartDisplayUtils.buildCartAddPayload)
+                        ? window.CartDisplayUtils.buildCartAddPayload({
+                            productId,
+                            quantity: 1,
+                            image,
+                            icon: productIcon
+                        })
+                        : { productId, quantity: 1 }
+                )
             });
 
             const data = await res.json();

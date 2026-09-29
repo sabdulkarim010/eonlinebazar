@@ -246,7 +246,7 @@
     function notifyBrandingUpdated() {
         const stamp = String(Date.now());
         try {
-            localStorage.setItem(BRANDING_SYNC_KEY, stamp);
+            window.EOBStorage.set(BRANDING_SYNC_KEY, stamp);
         } catch (err) {
             /* ignore private mode */
         }
