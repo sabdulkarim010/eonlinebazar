@@ -275,6 +275,8 @@ admin-dashboard/src/components/ChatWindow.jsx [MOD] Phase 3 typing bar above com
 admin-dashboard/src/components/MessageBubble.jsx [MOD] agent read receipts ✓/✓✓ (2026-09-30)
 admin-dashboard/src/components/CustomerContext.jsx [MOD] store summary spend/last order fallbacks (2026-09-30)
 admin-dashboard/src/services/socket.js [MOD] remove onAny; messages_read handler (2026-09-30)
+client/js/admin-login.js [MOD] safe EOBStorage helpers; fix login page crash (2026-09-30)
+client/admin-login.html [MOD] include storage.js before admin-login module (2026-09-30)
 ecommerce-chat/models/Agent.model.js [MOD] status + reset OTP fields (2026-09-30)
 ecommerce-chat/routes/admin.routes.js [MOD] auth forgot/reset OTP; agent status + force-reset (2026-09-30)
 admin-dashboard/src/pages/LoginPage.jsx [MOD] 3-step forgot password modal (2026-09-30)

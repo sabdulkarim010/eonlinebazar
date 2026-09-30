@@ -6,15 +6,70 @@
  * Also surfaces blacklist (403) and rate-limit (429) warnings cleanly.
  */
 
+function adminStorage() {
+    const storage = typeof window !== 'undefined' ? window.EOBStorage : null;
+    if (!storage || typeof storage.get !== 'function') return null;
+    return storage;
+}
+
+function adminStorageKeys() {
+    return typeof window !== 'undefined' ? window.EOBStorageKeys : null;
+}
+
+function adminGetToken() {
+    const storage = adminStorage();
+    const keys = adminStorageKeys();
+    if (!storage || !keys?.ADMIN_TOKEN) return null;
+    try {
+        return storage.get(keys.ADMIN_TOKEN) || null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function adminRemoveToken() {
+    const storage = adminStorage();
+    const keys = adminStorageKeys();
+    if (!storage || !keys?.ADMIN_TOKEN) return;
+    try {
+        storage.remove(keys.ADMIN_TOKEN);
+    } catch (_) { /* ignore */ }
+}
+
+function adminSessionStore() {
+    const storage = adminStorage();
+    if (!storage?.session) return null;
+    return storage.session;
+}
+
+function adminSetToken(token) {
+    const storage = adminStorage();
+    const keys = adminStorageKeys();
+    if (!storage || !keys?.ADMIN_TOKEN || token == null) return;
+    try {
+        storage.set(keys.ADMIN_TOKEN, token);
+    } catch (_) { /* ignore */ }
+}
+
+function adminSetProfilePic(image) {
+    const storage = adminStorage();
+    const keys = adminStorageKeys();
+    if (!storage || !keys?.ADMIN_PROFILE_PIC || !image) return;
+    try {
+        storage.set(keys.ADMIN_PROFILE_PIC, image);
+    } catch (_) { /* ignore */ }
+}
+
 /* Arrived here from /admin/logout → revoke the server session, then wipe all
    local auth state. Must run BEFORE the "already logged in" guard so we don't
    bounce straight back into the dashboard. */
-const cameFromLogout = new URLSearchParams(window.location.search).get('loggedout') === '1';
+const cameFromLogout =
+    new URLSearchParams(window.location.search).get('loggedout') === '1';
 
 if (cameFromLogout) {
     (async function finishAdminLogout() {
         try {
-            const token = window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
+            const token = adminGetToken();
             if (token) {
                 try {
                     await fetch('/api/admin/logout', {
@@ -31,18 +86,27 @@ if (cameFromLogout) {
         } catch (_) { /* ignore */ }
 
         try {
-            window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_TOKEN);
-            window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_PROFILE_PIC);
-            window.EOBStorage.session.remove('adminOtpToken');
-            window.EOBStorage.session.remove('adminOtpMeta');
+            adminRemoveToken();
+            const storage = adminStorage();
+            const keys = adminStorageKeys();
+            if (storage && keys?.ADMIN_PROFILE_PIC) {
+                try { storage.remove(keys.ADMIN_PROFILE_PIC); } catch (_) { /* ignore */ }
+            }
+            const session = adminSessionStore();
+            if (session) {
+                try {
+                    session.remove('adminOtpToken');
+                    session.remove('adminOtpMeta');
+                } catch (_) { /* ignore */ }
+            }
             sessionStorage.clear();
         } catch (_) { /* ignore */ }
 
         try { window.history.replaceState({}, document.title, '/admin/login'); } catch (_) { /* ignore */ }
     })();
-} else if (window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN)) {
+} else if (adminGetToken()) {
     (async function verifyBeforeDashboardRedirect() {
-        const existingToken = window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
+        const existingToken = adminGetToken();
         if (!existingToken) return;
 
         try {
@@ -65,18 +129,23 @@ if (cameFromLogout) {
                 const data = await response.json();
                 if (data.success) {
                     try {
-                        window.EOBStorage.session.remove('adminOtpToken');
-                        window.EOBStorage.session.remove('adminOtpMeta');
+                        const session = adminSessionStore();
+                        if (session) {
+                            try {
+                                session.remove('adminOtpToken');
+                                session.remove('adminOtpMeta');
+                            } catch (_) { /* ignore */ }
+                        }
                     } catch (_) { /* ignore */ }
                     window.location.replace('/admin');
                 } else {
-                    window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_TOKEN);
+                    adminRemoveToken();
                 }
                 return;
             }
 
             if (response.status === 401 || response.status === 403) {
-                window.EOBStorage.remove(window.EOBStorageKeys.ADMIN_TOKEN);
+                adminRemoveToken();
             }
         } catch (_) {
             /* Network error — stay on login; user can retry manually */
@@ -474,12 +543,15 @@ async function handleAdminLogin() {
         const needs2FA = data.requires2FA === true || data.otpRequired === true;
         if (data.success && data.token && !needs2FA) {
             try {
-                window.EOBStorage.session.remove('adminOtpToken');
-                window.EOBStorage.session.remove('adminOtpMeta');
+                const session = adminSessionStore();
+                if (session) {
+                    session.remove('adminOtpToken');
+                    session.remove('adminOtpMeta');
+                }
             } catch (_) { /* ignore */ }
             markOtpSuccessPending();
-            window.EOBStorage.set(window.EOBStorageKeys.ADMIN_TOKEN, data.token);
-            if (data.image) window.EOBStorage.set(window.EOBStorageKeys.ADMIN_PROFILE_PIC, data.image);
+            adminSetToken(data.token);
+            adminSetProfilePic(data.image);
             showToast('Login successful! Redirecting to the dashboard...', 'success');
             window.location.href = '/admin';
             return;
@@ -508,7 +580,10 @@ async function handleAdminLogin() {
                 ? defaultPrompt
                 : (data.prompt || data.message || defaultPrompt);
             if (data.otpToken) {
-                try { window.EOBStorage.session.set('adminOtpToken', data.otpToken); } catch (_) { /* ignore */ }
+                try {
+                    const session = adminSessionStore();
+                    if (session) session.set('adminOtpToken', data.otpToken);
+                } catch (_) { /* ignore */ }
             }
             revealAdmin2faStep(prompt, { method });
             return;
@@ -547,8 +622,10 @@ async function handleAdminLogin() {
     }
 }
 
-window.handleAdminLogin = handleAdminLogin;
-window.backToLogin = backToLogin;
+if (typeof window !== 'undefined') {
+    window.handleAdminLogin = handleAdminLogin;
+    window.backToLogin = backToLogin;
+}
 
 bindOtpBoxes();
 document.getElementById('otpBackBtn')?.addEventListener('click', backToLogin);

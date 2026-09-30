@@ -120,6 +120,11 @@
 
 ## Change Log
 
+### Store admin login crash fix — 2026-09-30
+
+- `admin-login.js`: guard `EOBStorage` access (line 43 crash); `window.handleAdminLogin` export
+- `admin-login.html`: load `/js/utils/storage.js` before login module
+
 ### Chat admin OTP reset & agent suspend — 2026-09-30
 
 - Separate chat `Agent` credentials: bcrypt OTP (`reset_token`), 15-minute expiry, `/api/admin/auth/forgot-password` + `/reset-password`
