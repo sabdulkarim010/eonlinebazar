@@ -581,17 +581,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (elements.supportChatBtn) {
             elements.supportChatBtn.addEventListener('click', async () => {
-                const order = currentOrderData || {
-                    _id: currentOrderMongoId,
-                    orderId: currentDisplayOrderId
-                };
-                if (window.OrderChat) {
-                    elements.supportChatBtn.disabled = true;
-                    try {
-                        await window.OrderChat.openForOrder(order);
-                    } finally {
-                        elements.supportChatBtn.disabled = false;
-                    }
+                if (!window.OrderChat || typeof window.OrderChat.openForOrder !== 'function') {
+                    console.warn('[order-details] OrderChat launcher not loaded');
+                    return;
+                }
+                const order =
+                    currentOrderData ||
+                    {
+                        _id: currentOrderMongoId || orderId,
+                        orderId: currentDisplayOrderId || orderId,
+                        items: [],
+                        status: null,
+                        grandTotal: 0,
+                        createdAt: null
+                    };
+                elements.supportChatBtn.disabled = true;
+                try {
+                    await window.OrderChat.openForOrder(order);
+                } finally {
+                    elements.supportChatBtn.disabled = false;
                 }
             });
         }

@@ -10,6 +10,7 @@ import {
   TagIcon,
   ClipboardDocumentListIcon,
   CommandLineIcon,
+  ShoppingBagIcon,
 } from '@heroicons/react/24/solid';
 import MessageBubble from './MessageBubble';
 import CustomerAvatar from './CustomerAvatar';
@@ -96,17 +97,86 @@ function ChatSkeleton() {
   );
 }
 
-function TypingIndicator({ name }) {
+function TypingDots() {
+  return (
+    <>
+      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.3s]" />
+      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.15s]" />
+      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
+    </>
+  );
+}
+
+function TypingIndicator({ name, variant = 'feed' }) {
+  const label = name ? `${name} is typing…` : 'Customer is typing…';
+
+  if (variant === 'composer') {
+    return (
+      <div className="flex items-center gap-2 animate-fadeIn">
+        <div className="flex items-center gap-1 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full shadow-sm">
+          <TypingDots />
+        </div>
+        <span className="text-xs text-slate-500 dark:text-slate-400">{label}</span>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2 mb-2 animate-fadeIn">
       <div className="flex items-center gap-1 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-bubble rounded-bl-md shadow-soft w-fit">
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.3s]" />
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:-0.15s]" />
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" />
+        <TypingDots />
       </div>
-      <span className="text-xs text-slate-400">
-        {name ? `${name} is typing…` : 'is typing…'}
-      </span>
+      <span className="text-xs text-slate-400">{label}</span>
+    </div>
+  );
+}
+
+function formatOrderSupportAmount(meta) {
+  if (!meta || typeof meta !== 'object') return null;
+  const raw = meta.total_amount ?? meta.totalAmount ?? meta.grandTotal;
+  if (raw == null || Number.isNaN(Number(raw))) return null;
+  const currency = meta.currency || 'BDT';
+  return `${currency} ${Number(raw).toLocaleString()}`;
+}
+
+function OrderSupportContextBar({ room }) {
+  const meta = room?.order_metadata;
+  const isOrderRoom =
+    room?.type === 'ORDER_SUPPORT' ||
+    Boolean(meta?.order_number || meta?.order_mongo_id || room?.order_id);
+
+  if (!isOrderRoom) return null;
+
+  const orderLabel =
+    meta?.order_number ||
+    (room?.order_id ? String(room.order_id) : null) ||
+    '—';
+  const status = meta?.status || '—';
+  const amount = formatOrderSupportAmount(meta);
+
+  return (
+    <div className="shrink-0 mx-4 mt-3 rounded-card border border-orange-200 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-800 px-4 py-3 flex items-start gap-3 animate-fadeIn">
+      <ShoppingBagIcon className="w-5 h-5 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-800 dark:text-orange-200">
+          Order context
+        </p>
+        <p className="text-sm font-bold text-slate-800 dark:text-white truncate">
+          Order #{orderLabel}
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-600 dark:text-slate-300">
+          <span>
+            Status:{' '}
+            <strong className="text-slate-800 dark:text-slate-100">{status}</strong>
+          </span>
+          {amount ? (
+            <span>
+              Amount:{' '}
+              <strong className="text-slate-800 dark:text-slate-100">{amount}</strong>
+            </span>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -513,6 +583,9 @@ export default function ChatWindow({ onBack }) {
   const channelLabel =
     room.type === 'ORDER_SUPPORT' ? 'Order Support' : room?.channel || 'General';
   const isLive = room.status === 'ACTIVE';
+  const isOrderSupportRoom =
+    room.type === 'ORDER_SUPPORT' ||
+    Boolean(room.order_metadata?.order_number || room.order_id);
 
   return (
     <div
@@ -544,6 +617,14 @@ export default function ChatWindow({ onBack }) {
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
+              {isOrderSupportRoom && (
+                <span
+                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 shrink-0"
+                  title="Order support chat"
+                >
+                  <ShoppingBagIcon className="w-4 h-4" aria-hidden />
+                </span>
+              )}
               <h3 className="font-semibold text-slate-800 dark:text-white text-sm leading-tight truncate">
                 {customerName}
               </h3>
@@ -649,6 +730,8 @@ export default function ChatWindow({ onBack }) {
 
       <CsatCard room={room} />
 
+      <OrderSupportContextBar room={room} />
+
       {/* Messages */}
       <div
         className="flex-1 overflow-y-auto custom-scroll px-4 py-4 space-y-1 bg-slate-50/50 dark:bg-slate-950/50"
@@ -717,6 +800,15 @@ export default function ChatWindow({ onBack }) {
               Save note
             </button>
           </div>
+        </div>
+      )}
+
+      {canReply && isTyping && (
+        <div className="shrink-0 px-4 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90">
+          <TypingIndicator
+            variant="composer"
+            name={typingInfo?.name || 'Customer'}
+          />
         </div>
       )}
 

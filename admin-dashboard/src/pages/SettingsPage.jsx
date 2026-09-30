@@ -31,6 +31,8 @@ import {
   updateAgent,
   deleteAgent,
   resetAgentPassword,
+  forceResetAgentPassword,
+  updateAgentStatus,
 } from '../services/api';
 
 const TABS = [
@@ -357,6 +359,7 @@ export default function SettingsPage() {
   const canEditConfig = agent?.role === 'SUPER_ADMIN';
   const canManageStaff =
     agent?.role === 'SUPER_ADMIN' || agent?.role === 'ADMIN';
+  const canSuperAdminMaster = agent?.role === 'SUPER_ADMIN';
   const canDeleteKb =
     agent?.role === 'SUPER_ADMIN' || agent?.role === 'ADMIN';
 
@@ -760,6 +763,26 @@ export default function SettingsPage() {
     setStaffModal('password');
   };
 
+  const handleToggleAgentStatus = async (a) => {
+    if (!canSuperAdminMaster) return;
+    const id = agentId(a);
+    if (id === String(agent?.id || agent?._id || '')) {
+      toast.error('Cannot change your own status');
+      return;
+    }
+    const current = String(a.status || 'ACTIVE').toUpperCase();
+    const next = current === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
+    const label = next === 'SUSPENDED' ? 'suspend' : 'activate';
+    if (!window.confirm(`${label} ${a.name || 'this agent'}?`)) return;
+    try {
+      await updateAgentStatus(id, next);
+      toast.success(next === 'SUSPENDED' ? 'Agent suspended' : 'Agent activated');
+      await loadAgents();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Status update failed');
+    }
+  };
+
   const handleSaveStaff = async (e) => {
     e.preventDefault();
 
@@ -823,15 +846,15 @@ export default function SettingsPage() {
               'Updated (password unchanged — SUPER_ADMIN only)'
             );
           } else {
-            await resetAgentPassword(editingAgentId, staffForm.password);
+            await forceResetAgentPassword(editingAgentId, staffForm.password);
             toast.success('Staff updated');
           }
         } else {
           toast.success('Staff updated');
         }
       } else if (staffModal === 'password') {
-        await resetAgentPassword(editingAgentId, staffForm.password);
-        toast.success('Password reset');
+        await forceResetAgentPassword(editingAgentId, staffForm.password);
+        toast.success('Password force-reset complete');
       }
       setStaffModal(null);
       await loadAgents();
@@ -1369,15 +1392,19 @@ export default function SettingsPage() {
                   Manage agents who handle live chat
                 </p>
               </div>
-              {canManageStaff ? (
+              {canSuperAdminMaster ? (
                 <button
                   type="button"
                   onClick={openCreateStaff}
                   disabled={serverConnected === false}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-semibold px-3 py-2 transition"
                 >
-                  + Add new staff
+                  + Add new agent
                 </button>
+              ) : canManageStaff ? (
+                <p className="text-xs text-slate-500">
+                  SUPER_ADMIN required to create or suspend agents
+                </p>
               ) : (
                 <p className="text-xs text-amber-600">
                   ADMIN access required
@@ -1391,13 +1418,14 @@ export default function SettingsPage() {
               </p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[880px]">
+                <table className="w-full text-sm min-w-[980px]">
                   <thead>
                     <tr className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                       <th className="px-4 py-3 font-semibold">Avatar</th>
                       <th className="px-4 py-3 font-semibold">Name</th>
                       <th className="px-4 py-3 font-semibold">Email</th>
                       <th className="px-4 py-3 font-semibold">Role</th>
+                      <th className="px-4 py-3 font-semibold">Status</th>
                       <th className="px-4 py-3 font-semibold">Online</th>
                       <th className="px-4 py-3 font-semibold">Last Seen</th>
                       <th className="px-4 py-3 font-semibold text-right">
@@ -1409,7 +1437,7 @@ export default function SettingsPage() {
                     {staffLoading ? (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={8}
                           className="px-4 py-10 text-center text-slate-400"
                         >
                           <span className="inline-flex items-center gap-2">
@@ -1420,7 +1448,7 @@ export default function SettingsPage() {
                     ) : agents.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={8}
                           className="px-4 py-10 text-center text-slate-400 leading-bn"
                         >
                           No staff yet
@@ -1473,6 +1501,18 @@ export default function SettingsPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3">
+                              {String(a.status || 'ACTIVE').toUpperCase() ===
+                              'SUSPENDED' ? (
+                                <span className="inline-flex rounded-lg text-[11px] font-semibold px-2 py-1 bg-red-50 text-red-700 border border-red-100">
+                                  Suspended
+                                </span>
+                              ) : (
+                                <span className="inline-flex rounded-lg text-[11px] font-semibold px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                  Active
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
                               <span
                                 className="inline-flex items-center gap-1.5 text-xs"
                                 title={a.is_online ? 'Online' : 'Offline'}
@@ -1509,13 +1549,25 @@ export default function SettingsPage() {
                                 >
                                   Edit
                                 </button>
-                                {agent?.role === 'SUPER_ADMIN' ? (
+                                {canSuperAdminMaster && !isSelf ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleAgentStatus(a)}
+                                    className="rounded-lg px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                                  >
+                                    {String(a.status || 'ACTIVE').toUpperCase() ===
+                                    'SUSPENDED'
+                                      ? 'Activate'
+                                      : 'Suspend'}
+                                  </button>
+                                ) : null}
+                                {canSuperAdminMaster ? (
                                   <button
                                     type="button"
                                     onClick={() => openResetPassword(a)}
                                     className="rounded-lg px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50"
                                   >
-                                    Reset Password
+                                    Force reset
                                   </button>
                                 ) : null}
                                 <button
@@ -1695,7 +1747,7 @@ export default function SettingsPage() {
               <h3 className="font-semibold text-slate-900">
                 {staffModal === 'create' && 'Add new staff'}
                 {staffModal === 'edit' && 'Edit staff'}
-                {staffModal === 'password' && 'Reset Password'}
+                {staffModal === 'password' && 'Force reset password'}
               </h3>
               <button
                 type="button"
@@ -1890,7 +1942,7 @@ export default function SettingsPage() {
                   ) : null}
                   {staffModal === 'create' && 'Create Staff ✓'}
                   {staffModal === 'edit' && 'Save Changes ✓'}
-                  {staffModal === 'password' && 'Reset Password ✓'}
+                  {staffModal === 'password' && 'Force reset ✓'}
                 </button>
               </div>
             </form>

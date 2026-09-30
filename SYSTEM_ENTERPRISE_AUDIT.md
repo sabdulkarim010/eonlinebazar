@@ -449,7 +449,34 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 
 | Feature | Status | Files | Notes |
 |---------|--------|-------|-------|
-| Storefront chat widget | ✅ | `client/js/chat-widget.js`, `ecommerce-chat/public/js/chat-widget.js` | FAB, socket, AI bot |
+| Storefront chat widget | ✅ | `client/js/chat-widget.js`, `ecommerce-chat/public/js/chat-widget.js` | FAB, socket, AI bot; logged-in routes globally; desktop draggable panel; profile Live Support without destroy race (`orderChat.js`) |
+
+## Chat Admin Auth & RBAC Phase 4 — 2026-09-30
+
+- ✅ Chat agent OTP forgot/reset password (`/api/admin/auth/*`, bcrypt-hashed OTP, 15m expiry)
+- ✅ Agent `ACTIVE` / `SUSPENDED` status; login rejects suspended accounts
+- ✅ SUPER_ADMIN: create agent, toggle status, force password reset
+- ✅ React login 3-step reset modal + Settings staff master controls
+
+## Chat Admin UX Phase 3 — 2026-09-30
+
+- ✅ Read receipts on agent messages (`MessageBubble` + `messages_read` socket)
+- ✅ Typing indicator in feed and above composer (`ChatWindow`)
+- ✅ Customer context sidebar: total spend, last order, demarcated tags/order snapshot
+- ✅ Legacy `chat-admin.js` deprecation; removed `socket.onAny` debug noise
+
+## Storefront Chat Order Support Phase 2 — 2026-09-30
+
+- ✅ `order-details.html` loads `orderChat.js`; Order Support button opens contextual chat
+- ✅ `order_metadata` (order id, status, amount, items count, created date) on `POST /api/chat/start`
+- ✅ Admin `ChatWindow` order context card + header badge for `ORDER_SUPPORT` rooms
+
+## Storefront Chat Widget Phase 1 — 2026-09-30
+
+- ✅ `isChatWidgetAllowed()` — any storefront route when customer JWT/storage token present
+- ✅ `OrderChat.openGeneral` — reuse `ChatWidget.open()` when `isReady()`; removed pre-init `destroy()`
+- ✅ Desktop-only draggable `#chatWindow` via `.sw-chat-header` pointer drag (≥768px)
+- ✅ Tests **516/516** passing
 | Chat microservice | ✅ | `ecommerce-chat/` (full stack) | Separate MongoDB |
 | React chat admin (`/chat-admin`) | ✅ | `admin-dashboard/src/` | Agent inbox, CRM panel |
 | Legacy admin chat (`view-chat`) | ✅ | `view-chat.html`, `chat-admin.js` | **Duplicates React chat admin** |

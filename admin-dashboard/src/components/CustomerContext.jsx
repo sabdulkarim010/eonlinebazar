@@ -25,6 +25,45 @@ function Skeleton() {
   );
 }
 
+function formatBdtAmount(amount) {
+  const n = Number(amount);
+  if (amount == null || amount === '' || Number.isNaN(n)) {
+    return 'BDT 0';
+  }
+  return `BDT ${n.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function computeTotalSpend(orders, profile) {
+  const fromProfile =
+    profile?.totalSpend ??
+    profile?.total_spend ??
+    profile?.lifetimeValue ??
+    profile?.lifetime_value ??
+    null;
+  if (fromProfile != null && !Number.isNaN(Number(fromProfile))) {
+    return Number(fromProfile);
+  }
+  if (!Array.isArray(orders) || !orders.length) return 0;
+  return orders.reduce((sum, order) => {
+    const raw =
+      order?.grandTotal ?? order?.total ?? order?.total_amount ?? order?.price ?? 0;
+    const n = Number(raw);
+    return sum + (Number.isNaN(n) ? 0 : n);
+  }, 0);
+}
+
+function pickLatestStoreOrder(orders) {
+  if (!Array.isArray(orders) || !orders.length) return null;
+  return [...orders].sort((a, b) => {
+    const ta = new Date(a?.createdAt || a?.created_at || 0).getTime();
+    const tb = new Date(b?.createdAt || b?.created_at || 0).getTime();
+    return tb - ta;
+  })[0];
+}
+
 export default function CustomerContext({
   onTransfer,
   onNote,
@@ -286,6 +325,18 @@ export default function CustomerContext({
     rawAvatar ||
     null;
   const productMeta = room.product_metadata || null;
+  const totalSpend = computeTotalSpend(storeOrders, profile);
+  const lastStoreOrder = pickLatestStoreOrder(storeOrders);
+  const lastOrderLabel =
+    lastStoreOrder?.orderId ||
+    lastStoreOrder?.order_number ||
+    lastStoreOrder?._id ||
+    null;
+  const lastOrderTotal =
+    lastStoreOrder?.grandTotal ??
+    lastStoreOrder?.total ??
+    lastStoreOrder?.total_amount ??
+    null;
 
   return (
     <aside className="h-full w-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto custom-scroll">
@@ -343,8 +394,62 @@ export default function CustomerContext({
               {typingInfo.name || 'Customer'} is typing…
             </p>
           )}
-          {room.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
+        </section>
+
+        <section className="rounded-card border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 p-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-3">
+            Store summary
+          </h4>
+          {storeOrdersLoading && userId ? <Skeleton /> : null}
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div>
+              <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Total spend
+              </dt>
+              <dd className="font-semibold text-slate-800 dark:text-white mt-0.5">
+                {formatBdtAmount(totalSpend)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Last order
+              </dt>
+              <dd className="font-medium text-slate-800 dark:text-white mt-0.5 truncate">
+                {lastOrderLabel ? (
+                  <>
+                    #{String(lastOrderLabel).replace(/^#+/, '')}
+                    {lastOrderTotal != null && (
+                      <span className="block text-xs font-normal text-slate-500 dark:text-slate-400 mt-0.5">
+                        {formatBdtAmount(lastOrderTotal)}
+                        {lastStoreOrder?.createdAt || lastStoreOrder?.created_at
+                          ? ` · ${relativeTimeBn(
+                              lastStoreOrder.createdAt || lastStoreOrder.created_at
+                            )}`
+                          : ''}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-slate-500 dark:text-slate-400 text-xs">
+                    No previous orders
+                  </span>
+                )}
+              </dd>
+            </div>
+          </dl>
+          {storeOrdersError && !storeOrders.length && userId && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+              {storeOrdersError}
+            </p>
+          )}
+        </section>
+
+        {room.tags?.length > 0 && (
+          <section className="rounded-card border border-slate-100 dark:border-slate-800 p-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-2">
+              Tags
+            </h4>
+            <div className="flex flex-wrap gap-1">
               {room.tags.map((t) => (
                 <span
                   key={t}
@@ -354,8 +459,8 @@ export default function CustomerContext({
                 </span>
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
         {productMeta && (productMeta.title || productMeta.product_id) && (
           <section className="rounded-card border border-violet-100 dark:border-violet-900 shadow-soft p-3">
@@ -396,9 +501,9 @@ export default function CustomerContext({
         )}
 
         {room.type === 'ORDER_SUPPORT' && room.order_id && (
-          <section className="rounded-card border border-slate-100 dark:border-slate-800 shadow-soft p-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-3">
-              Order details
+          <section className="rounded-card border border-orange-100 dark:border-orange-900/50 bg-orange-50/30 dark:bg-orange-950/20 shadow-soft p-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-orange-800/80 dark:text-orange-200 mb-3">
+              Active order snapshot
             </h4>
             <div className="flex items-center gap-2 mb-3">
               <code className="text-xs bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded flex-1 truncate">
@@ -451,11 +556,9 @@ export default function CustomerContext({
                       'Order item'}
                   </p>
                 )}
-                {orderTotal != null && (
-                  <p className="font-semibold text-text-primary dark:text-white">
-                    Total: BDT {Number(orderTotal).toLocaleString()}
-                  </p>
-                )}
+                <p className="font-semibold text-text-primary dark:text-white">
+                  Total: {formatBdtAmount(orderTotal ?? 0)}
+                </p>
                 {(order.status || paymentStatus) && (
                   <div className="flex flex-wrap gap-1">
                     {order.status && (

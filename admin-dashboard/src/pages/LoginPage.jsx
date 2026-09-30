@@ -11,6 +11,10 @@ import {
   ExclamationCircleIcon,
 } from '@heroicons/react/24/solid';
 import useAuthStore from '../store/authStore';
+import {
+  requestPasswordResetOtp,
+  resetPasswordWithOtp,
+} from '../services/api';
 
 const FEATURES = [
   { title: 'Real-time AI Chat', desc: 'Instant answers powered by smart AI' },
@@ -36,6 +40,14 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [resetStep, setResetStep] = useState(1);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetOtp, setResetOtp] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetConfirm, setResetConfirm] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState('');
 
   useEffect(() => {
     const saved = localStorage.getItem(REMEMBER_KEY);
@@ -61,7 +73,12 @@ export default function LoginPage() {
       toast.success('Logged in successfully');
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      if (err.response?.status === 401) {
+      if (err.response?.status === 403) {
+        setError(
+          err.response?.data?.message ||
+            'Account suspended. Contact a SUPER_ADMIN.'
+        );
+      } else if (err.response?.status === 401) {
         setError('Incorrect email or password. Please check and try again.');
       } else if (err.response?.status === 429) {
         setError(
@@ -76,6 +93,93 @@ export default function LoginPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openForgotFlow = () => {
+    setForgotOpen(true);
+    setResetStep(1);
+    setResetEmail(email.trim());
+    setResetOtp('');
+    setResetPassword('');
+    setResetConfirm('');
+    setResetError('');
+  };
+
+  const closeForgotFlow = () => {
+    setForgotOpen(false);
+    setResetStep(1);
+    setResetError('');
+    setResetLoading(false);
+  };
+
+  const handleForgotNext = async (e) => {
+    e.preventDefault();
+    setResetError('');
+
+    if (resetStep === 1) {
+      const trimmed = resetEmail.trim();
+      if (!trimmed) {
+        setResetError('Enter your registered email');
+        return;
+      }
+      setResetLoading(true);
+      try {
+        await requestPasswordResetOtp(trimmed);
+        toast.success('Verification code sent (check server logs in dev)');
+        setResetStep(2);
+      } catch (err) {
+        setResetError(
+          err.response?.data?.message || 'Could not send verification code'
+        );
+      } finally {
+        setResetLoading(false);
+      }
+      return;
+    }
+
+    if (resetStep === 2) {
+      if (!/^\d{6}$/.test(String(resetOtp).trim())) {
+        setResetError('Enter the 6-digit verification code');
+        return;
+      }
+      setResetStep(3);
+      return;
+    }
+
+    if (resetStep === 3) {
+      if (!resetPassword || resetPassword.length < 8) {
+        setResetError('Password must be at least 8 characters');
+        return;
+      }
+      if (resetPassword !== resetConfirm) {
+        setResetError('Passwords do not match');
+        return;
+      }
+      setResetLoading(true);
+      try {
+        await resetPasswordWithOtp({
+          email: resetEmail.trim(),
+          otp: resetOtp.trim(),
+          new_password: resetPassword,
+          confirm_password: resetConfirm,
+        });
+        toast.success('Password updated — sign in with your new password');
+        closeForgotFlow();
+        setEmail(resetEmail.trim());
+        setPassword('');
+      } catch (err) {
+        const msg = err.response?.data?.message || 'Password reset failed';
+        if (/invalid otp|expired/i.test(msg)) {
+          setResetError('Invalid OTP. Request a new code and try again.');
+        } else if (err.response?.status === 403) {
+          setResetError('Account suspended. Contact a SUPER_ADMIN.');
+        } else {
+          setResetError(msg);
+        }
+      } finally {
+        setResetLoading(false);
+      }
     }
   };
 
@@ -235,9 +339,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 className="text-sm font-medium text-primary hover:text-primary-600 transition"
-                onClick={() =>
-                  toast('Password reset coming soon', { icon: '🔐' })
-                }
+                onClick={openForgotFlow}
               >
                 Forgot password?
               </button>
@@ -274,6 +376,166 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      {forgotOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+          role="presentation"
+          onClick={closeForgotFlow}
+        >
+          <div
+            className="w-full max-w-md rounded-card border border-slate-200 bg-white shadow-layered p-6 animate-fadeIn"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="forgot-password-title"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <h2
+              id="forgot-password-title"
+              className="text-lg font-semibold text-text-primary"
+            >
+              Reset password
+            </h2>
+            <p className="text-sm text-text-secondary mt-1">
+              Step {resetStep} of 3
+            </p>
+
+            <form onSubmit={handleForgotNext} className="mt-5 space-y-4">
+              {resetStep === 1 ? (
+                <div>
+                  <label
+                    htmlFor="reset-email"
+                    className="block text-sm font-medium text-text-primary mb-1.5"
+                  >
+                    Registered email
+                  </label>
+                  <input
+                    id="reset-email"
+                    type="email"
+                    autoComplete="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="w-full rounded-btn border border-slate-200 px-3 py-2.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    placeholder="agent@eonlinebazar.com"
+                    required
+                  />
+                </div>
+              ) : null}
+
+              {resetStep === 2 ? (
+                <div>
+                  <label
+                    htmlFor="reset-otp"
+                    className="block text-sm font-medium text-text-primary mb-1.5"
+                  >
+                    Verification code
+                  </label>
+                  <input
+                    id="reset-otp"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    value={resetOtp}
+                    onChange={(e) =>
+                      setResetOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                    }
+                    className="w-full rounded-btn border border-slate-200 px-3 py-2.5 tracking-[0.35em] text-center font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    placeholder="000000"
+                    required
+                  />
+                  <p className="text-xs text-slate-500 mt-2">
+                    Enter the 6-digit code sent to your email.
+                  </p>
+                </div>
+              ) : null}
+
+              {resetStep === 3 ? (
+                <>
+                  <div>
+                    <label
+                      htmlFor="reset-new-password"
+                      className="block text-sm font-medium text-text-primary mb-1.5"
+                    >
+                      New password
+                    </label>
+                    <input
+                      id="reset-new-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={resetPassword}
+                      onChange={(e) => setResetPassword(e.target.value)}
+                      className="w-full rounded-btn border border-slate-200 px-3 py-2.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      minLength={8}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="reset-confirm-password"
+                      className="block text-sm font-medium text-text-primary mb-1.5"
+                    >
+                      Confirm password
+                    </label>
+                    <input
+                      id="reset-confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={resetConfirm}
+                      onChange={(e) => setResetConfirm(e.target.value)}
+                      className="w-full rounded-btn border border-slate-200 px-3 py-2.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      minLength={8}
+                      required
+                    />
+                  </div>
+                </>
+              ) : null}
+
+              {resetError ? (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-btn border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                >
+                  <ExclamationCircleIcon className="w-5 h-5 shrink-0" />
+                  <span>{resetError}</span>
+                </div>
+              ) : null}
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={closeForgotFlow}
+                  className="rounded-btn px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                {resetStep > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetError('');
+                      setResetStep((s) => Math.max(1, s - 1));
+                    }}
+                    className="rounded-btn px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                  >
+                    Back
+                  </button>
+                ) : null}
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="rounded-btn btn-gradient text-white text-sm font-semibold px-4 py-2 disabled:opacity-60"
+                >
+                  {resetLoading
+                    ? 'Please wait…'
+                    : resetStep === 3
+                      ? 'Update password'
+                      : 'Continue'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

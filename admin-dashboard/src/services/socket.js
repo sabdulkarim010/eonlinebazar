@@ -442,9 +442,27 @@ function bindListeners(sock) {
     console.error('Tried to connect to:', `${resolveSocketUrl()}/admin`, 'path=/chat-socket/socket.io');
   });
 
-  sock.onAny((event, ...args) =>
-    console.log('📩 Incoming Socket Event:', event, args)
-  );
+  sock.on('messages_read', (payload) => {
+    const readBy = String(payload?.readBy || '').toLowerCase();
+    if (readBy && readBy !== 'customer') return;
+    const roomId = String(payload?.room_id || payload?.conversationId || '');
+    if (!roomId) return;
+
+    const store = useChatStore.getState();
+    const existing = store.messages[roomId];
+    if (!Array.isArray(existing) || !existing.length) return;
+
+    store.setMessages(
+      roomId,
+      existing.map((m) => {
+        const type = String(m?.sender_type || '').toUpperCase();
+        if (type === 'AGENT' || type === 'HUMAN' || type === 'SUPPORT') {
+          return { ...m, is_read_by_user: true };
+        }
+        return m;
+      })
+    );
+  });
 }
 
 export function connectSocket() {

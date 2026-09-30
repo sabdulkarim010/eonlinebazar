@@ -37,6 +37,22 @@ const agentSchema = new mongoose.Schema(
       enum: ['SUPER_ADMIN', 'ADMIN', 'AGENT'],
       default: 'AGENT',
     },
+    status: {
+      type: String,
+      enum: ['ACTIVE', 'SUSPENDED'],
+      default: 'ACTIVE',
+      index: true,
+    },
+    reset_token: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    reset_token_expiry: {
+      type: Date,
+      default: null,
+      select: false,
+    },
     avatar: {
       type: String,
       default: null,

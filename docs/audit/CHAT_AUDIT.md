@@ -1,6 +1,6 @@
 # CHAT AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-24 (Store admin CRM proxy interception fix)  
+**Last updated:** 2026-09-30 (Chat admin Phase 4 — OTP reset, agent status RBAC)  
 **Scope:** Live chat microservice (`ecommerce-chat/`), React chat admin (`admin-dashboard/`), storefront widget, mobile support, socket teardown  
 **Status:** ⚠️ PARTIAL
 
@@ -44,6 +44,8 @@
 - [x] Chat microservice on port 5001 — `ecommerce-chat/server.js`
 - [x] Store gateway proxy — `/chat-api/*`, `/chat-socket/socket.io`
 - [x] Storefront chat widget (FAB, socket, AI) — `chat-widget.js`, `orderChat.js`
+- [x] Storefront widget on all logged-in routes + desktop draggable panel — `client/js/chat-widget.js`, `_chat-widget.css`
+- [x] Profile Live Support opens without destroy/re-init race — `client/js/orderChat.js`
 - [x] React chat admin at `/chat-admin` — `admin-dashboard/`
 - [x] AI knowledge base + OpenAI bot — `ai.service.js`, `AIKnowledgeBase.model.js`
 - [x] Canned responses — `CannedResponse.model.js`
@@ -79,6 +81,38 @@
 ---
 
 ## Change Log
+
+### Chat admin auth & RBAC Phase 4 — 2026-09-30
+
+- **`Agent.model.js`:** `status`, `reset_token`, `reset_token_expiry`
+- **`admin.routes.js`:** `/auth/forgot-password`, `/auth/reset-password`; login blocks `SUSPENDED`; SUPER_ADMIN `POST /agents`, `PUT /agents/:id/status`, `POST /agents/:id/force-reset`
+- **`LoginPage.jsx`:** 3-step forgot-password modal
+- **`SettingsPage.jsx`:** SUPER_ADMIN agent create, suspend/activate, force reset
+- **`api.js`:** OTP + status + force-reset client helpers
+
+### Chat admin UX Phase 3 — 2026-09-30
+
+- **`socket.js`:** removed `sock.onAny` debug listener; consume `messages_read` → `is_read_by_user` on agent messages
+- **`MessageBubble.jsx`:** WhatsApp-style ✓ / ✓✓ read receipts for agent bubbles
+- **`ChatWindow.jsx`:** typing indicator above composer + feed dots
+- **`CustomerContext.jsx`:** total spend / last order fallbacks; tags + order snapshot sections
+- **`chat-admin.js`:** stronger deprecation notice; removed fake ✓✓ on legacy agent messages
+
+### Order Details order support Phase 2 — 2026-09-30
+
+- **`client/order-details.html`:** load `orderChat.js` before `order-details.js`
+- **`orderChat.js`:** richer `buildMetadata` (`items_count`, `created_at`); `buildOrderSupportPayload`; `openForOrder` → `openOrderSupport` without destroy
+- **`order-details.js`:** guarded Order Support click with full `currentOrderData` fallback
+- **`client/js/chat-widget.js`:** non-destructive `openOrderSupport` (same-order reopen / `refreshOrderSupportSession`); banner copy “Inquiring about Order #…”
+- **`ChatWindow.jsx`:** order context card + header shopping-bag badge for `ORDER_SUPPORT`
+- Tests: `npm test`
+
+### Storefront widget Phase 1 — 2026-09-30
+
+- **`client/js/chat-widget.js`:** `isChatWidgetAllowed()` — any route when customer auth token present (removed `/profile`-only gate); `ChatWidget.isReady()`; desktop-only header drag (≥768px) with viewport clamp
+- **`client/js/orderChat.js`:** GENERAL launcher skips `destroy()`; reuses mounted widget via `open()` when ready; Swal suppressed when widget recovers via `open()` after partial init failure
+- **`client/css/global/_chat-widget.css`:** grab/grabbing cursor on header (desktop)
+- Tests: `npm test` (full suite)
 
 ### Store admin CRM proxy interception fix — 2026-09-24
 

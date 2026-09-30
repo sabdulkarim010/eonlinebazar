@@ -86,6 +86,23 @@
     flex-shrink: 0;
 }
 
+@media (min-width: 768px) {
+    .sw-chat-header {
+        cursor: grab;
+        touch-action: none;
+    }
+
+    .sw-chat-header.is-dragging {
+        cursor: grabbing;
+        user-select: none;
+    }
+
+    .sw-chat-header.is-dragging .sw-chat-header-actions,
+    .sw-chat-header.is-dragging .sw-chat-icon-btn {
+        cursor: pointer;
+    }
+}
+
 .sw-chat-header-icon {
     width: 40px;
     height: 40px;

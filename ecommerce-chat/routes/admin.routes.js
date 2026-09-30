@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { getJwtSecret } = require('../config/jwtSecret');
@@ -67,6 +69,27 @@ const chatAdminController = require('../controllers/chatAdminController');
 const router = express.Router();
 
 const AGENT_ROLES = ['SUPER_ADMIN', 'ADMIN', 'AGENT'];
+const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
+
+async function issuePasswordResetOtp(agentDoc) {
+  const otp = String(crypto.randomInt(100000, 1000000));
+  agentDoc.reset_token = await bcrypt.hash(otp, 12);
+  agentDoc.reset_token_expiry = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+  await agentDoc.save();
+  if (process.env.NODE_ENV !== 'test') {
+    console.log(
+      `[chat-admin][password-reset] OTP for ${agentDoc.email}: ${otp} (expires ${agentDoc.reset_token_expiry.toISOString()})`
+    );
+  }
+  return otp;
+}
+
+async function applyAgentPasswordReset(agentDoc, nextPassword) {
+  agentDoc.password = String(nextPassword);
+  agentDoc.reset_token = null;
+  agentDoc.reset_token_expiry = null;
+  await agentDoc.save();
+}
 
 function sendRouteError(res, err, fallbackMessage, statusCode = 500) {
   console.error(fallbackMessage, err);
@@ -115,6 +138,14 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    if (String(agent.status || 'ACTIVE').toUpperCase() === 'SUSPENDED') {
+      return res.status(403).json({
+        success: false,
+        message: 'Account suspended. Contact a SUPER_ADMIN.',
+        code: 'ACCOUNT_SUSPENDED',
+      });
+    }
+
     const valid = await agent.comparePassword(password);
     if (!valid) {
       return res.status(401).json({
@@ -152,6 +183,7 @@ router.post('/login', async (req, res) => {
         name: agent.name,
         email: agent.email,
         role: agent.role,
+        status: agent.status || 'ACTIVE',
         avatar: agent.avatar,
         is_online: agent.is_online,
         max_concurrent_chats: agent.max_concurrent_chats,
@@ -163,6 +195,133 @@ router.post('/login', async (req, res) => {
       success: false,
       message: 'Login failed',
       error: err.message,
+    });
+  }
+});
+
+/**
+ * POST /api/admin/auth/forgot-password — request OTP (public)
+ */
+router.post('/auth/forgot-password', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '')
+      .toLowerCase()
+      .trim();
+    const generic = {
+      success: true,
+      message:
+        'If an account exists for this email, a verification code was sent.',
+    };
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required',
+      });
+    }
+
+    const agent = await Agent.findOne({ email }).select(
+      '+reset_token +reset_token_expiry'
+    );
+
+    if (!agent || String(agent.status || 'ACTIVE').toUpperCase() === 'SUSPENDED') {
+      return res.json(generic);
+    }
+
+    await issuePasswordResetOtp(agent);
+    return res.json(generic);
+  } catch (err) {
+    console.error('[POST /api/admin/auth/forgot-password]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Could not process password reset request',
+    });
+  }
+});
+
+/**
+ * POST /api/admin/auth/reset-password — verify OTP and set new password (public)
+ */
+router.post('/auth/reset-password', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const email = String(body.email || '')
+      .toLowerCase()
+      .trim();
+    const otp = String(body.otp || body.token || '').trim();
+    const nextPassword = body.new_password || body.password;
+    const confirmPassword = body.confirm_password || body.confirmPassword;
+
+    if (!email || !otp || !nextPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, OTP, and new password are required',
+      });
+    }
+
+    if (String(nextPassword).length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters',
+      });
+    }
+
+    if (confirmPassword != null && String(nextPassword) !== String(confirmPassword)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match',
+      });
+    }
+
+    const agent = await Agent.findOne({ email }).select(
+      '+password +reset_token +reset_token_expiry'
+    );
+
+    if (!agent) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP',
+      });
+    }
+
+    if (String(agent.status || 'ACTIVE').toUpperCase() === 'SUSPENDED') {
+      return res.status(403).json({
+        success: false,
+        message: 'Account suspended. Contact a SUPER_ADMIN.',
+        code: 'ACCOUNT_SUSPENDED',
+      });
+    }
+
+    if (
+      !agent.reset_token ||
+      !agent.reset_token_expiry ||
+      agent.reset_token_expiry.getTime() < Date.now()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP',
+      });
+    }
+
+    const otpValid = await bcrypt.compare(otp, agent.reset_token);
+    if (!otpValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP',
+      });
+    }
+
+    await applyAgentPasswordReset(agent, nextPassword);
+
+    return res.json({
+      success: true,
+      message: 'Password updated successfully. You can sign in now.',
+    });
+  } catch (err) {
+    console.error('[POST /api/admin/auth/reset-password]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reset password',
     });
   }
 });
@@ -1019,6 +1178,7 @@ function serializeAgent(agent) {
     name: a.name,
     email: a.email,
     role: a.role,
+    status: a.status || 'ACTIVE',
     avatar: a.avatar || null,
     is_online: Boolean(a.is_online),
     last_seen: a.last_seen || null,
@@ -1063,7 +1223,7 @@ router.get(
 router.post(
   '/agents',
   authMiddleware,
-  roleGuard(['SUPER_ADMIN', 'ADMIN']),
+  roleGuard(['SUPER_ADMIN']),
   async (req, res) => {
     try {
       const {
@@ -1118,6 +1278,7 @@ router.post(
         email: String(email).toLowerCase().trim(),
         password: String(password),
         role,
+        status: 'ACTIVE',
         max_concurrent_chats: Number(max_concurrent_chats) || 5,
       });
 
@@ -1208,50 +1369,128 @@ router.put(
   }
 );
 
+async function handleSuperAdminForcePasswordReset(req, res) {
+  try {
+    const { new_password, password } = req.body || {};
+    const nextPassword = new_password || password;
+
+    if (!nextPassword || String(nextPassword).length < 8) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Password must be at least 8 characters / পাসওয়ার্ড কমপক্ষে ৮ অক্ষর',
+      });
+    }
+
+    const agent = await Agent.findById(req.params.id).select(
+      '+password +reset_token +reset_token_expiry'
+    );
+    if (!agent) {
+      return res.status(404).json({
+        success: false,
+        message: 'Agent not found / স্টাফ পাওয়া যায়নি',
+      });
+    }
+
+    await applyAgentPasswordReset(agent, nextPassword);
+
+    return res.json({
+      success: true,
+      message: 'Password reset / পাসওয়ার্ড রিসেট হয়েছে',
+    });
+  } catch (err) {
+    console.error('[POST /api/admin/agents/:id/force-reset]', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reset password / পাসওয়ার্ড রিসেট ব্যর্থ',
+      error: err.message,
+    });
+  }
+}
+
 /**
- * POST /api/admin/agents/:id/reset-password — SUPER_ADMIN only
+ * PUT /api/admin/agents/:id/status — SUPER_ADMIN only (ACTIVE / SUSPENDED)
+ */
+router.put(
+  '/agents/:id/status',
+  authMiddleware,
+  roleGuard(['SUPER_ADMIN']),
+  async (req, res) => {
+    try {
+      const nextStatus = String(req.body?.status || '').toUpperCase();
+      if (!['ACTIVE', 'SUSPENDED'].includes(nextStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Status must be ACTIVE or SUSPENDED',
+        });
+      }
+
+      if (String(req.params.id) === String(req.agent.id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot change your own account status',
+        });
+      }
+
+      const target = await Agent.findById(req.params.id);
+      if (!target) {
+        return res.status(404).json({
+          success: false,
+          message: 'Agent not found',
+        });
+      }
+
+      if (target.role === 'SUPER_ADMIN' && nextStatus === 'SUSPENDED') {
+        const otherSupers = await Agent.countDocuments({
+          role: 'SUPER_ADMIN',
+          status: { $ne: 'SUSPENDED' },
+          _id: { $ne: target._id },
+        });
+        if (otherSupers === 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cannot suspend the last active SUPER_ADMIN',
+          });
+        }
+      }
+
+      target.status = nextStatus;
+      if (nextStatus === 'SUSPENDED') {
+        target.is_online = false;
+        target.socket_id = null;
+      }
+      await target.save();
+
+      return res.json({
+        success: true,
+        message: `Agent status updated to ${nextStatus}`,
+        agent: serializeAgent(target),
+      });
+    } catch (err) {
+      console.error('[PUT /api/admin/agents/:id/status]', err);
+      return sendRouteError(res, err, 'Failed to update agent status');
+    }
+  }
+);
+
+/**
+ * POST /api/admin/agents/:id/force-reset — SUPER_ADMIN force password change
+ */
+router.post(
+  '/agents/:id/force-reset',
+  authMiddleware,
+  roleGuard(['SUPER_ADMIN']),
+  handleSuperAdminForcePasswordReset
+);
+
+/**
+ * POST /api/admin/agents/:id/reset-password — SUPER_ADMIN only (alias)
  */
 router.post(
   '/agents/:id/reset-password',
   authMiddleware,
   roleGuard(['SUPER_ADMIN']),
-  async (req, res) => {
-    try {
-      const { new_password, password } = req.body || {};
-      const nextPassword = new_password || password;
-
-      if (!nextPassword || String(nextPassword).length < 8) {
-        return res.status(400).json({
-          success: false,
-          message:
-            'Password must be at least 8 characters / পাসওয়ার্ড কমপক্ষে ৮ অক্ষর',
-        });
-      }
-
-      const agent = await Agent.findById(req.params.id).select('+password');
-      if (!agent) {
-        return res.status(404).json({
-          success: false,
-          message: 'Agent not found / স্টাফ পাওয়া যায়নি',
-        });
-      }
-
-      agent.password = String(nextPassword);
-      await agent.save();
-
-      return res.json({
-        success: true,
-        message: 'Password reset / পাসওয়ার্ড রিসেট হয়েছে',
-      });
-    } catch (err) {
-      console.error('[POST /api/admin/agents/:id/reset-password]', err);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to reset password / পাসওয়ার্ড রিসেট ব্যর্থ',
-        error: err.message,
-      });
-    }
-  }
+  handleSuperAdminForcePasswordReset
 );
 
 /**

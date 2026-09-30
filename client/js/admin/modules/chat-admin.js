@@ -1,15 +1,19 @@
 /**
  * EonlineBazar Admin — Live Chat Module (DEPRECATED)
- * The in-panel live chat workspace has been retired in favour of the standalone
- * /chat-admin dashboard. This module is kept only so the legacy view-chat route
- * stays registered; new work should target the /chat-admin dashboard.
+ * The in-panel live chat workspace has been retired in favour of the React
+ * admin-dashboard SPA at /chat-admin. Do not add features here.
  */
 import '../admin-core.js';
 
-console.warn(
-    '[EonlineBazar] The in-panel Live Chat (view-chat) is deprecated. ' +
-    'Please use the standalone Chat Admin dashboard at /chat-admin.'
-);
+const CHAT_ADMIN_DEPRECATION =
+    '[EonlineBazar] DEPRECATED: client/js/admin/modules/chat-admin.js — ' +
+    'use the React Chat Admin at /chat-admin (admin-dashboard/).';
+
+console.warn(CHAT_ADMIN_DEPRECATION);
+
+if (typeof window !== 'undefined') {
+    window.__EOB_CHAT_ADMIN_LEGACY_DEPRECATED__ = true;
+}
 
 const CHAT_API = '/api/chat-admin';
 const CHAT_TOKEN_KEY = 'chat_admin_token';
@@ -703,7 +707,7 @@ function renderMessage(msg) {
             <div class="chat-msg-avatar ${isAgent ? 'chat-msg-avatar-agent' : 'chat-msg-avatar-customer'}">${isAgent ? 'A' : 'C'}</div>
             <div class="chat-msg-bubble ${isAgent ? 'chat-msg-bubble-agent' : 'chat-msg-bubble-customer'}">
                 ${content}
-                <div class="chat-msg-time">${esc(formatMsgTime(msg.createdAt))}${isAgent ? ' ✓✓' : ''}</div>
+                <div class="chat-msg-time">${esc(formatMsgTime(msg.createdAt))}</div>
             </div>
         </div>`;
 }

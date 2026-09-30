@@ -256,6 +256,17 @@
       order.orderNumber ||
       (order._id ? String(order._id).slice(-6).toUpperCase() : null);
 
+    var createdRaw = order.createdAt || order.created_at || order.orderDate || null;
+    var createdDate = null;
+    if (createdRaw) {
+      try {
+        var d = new Date(createdRaw);
+        createdDate = Number.isNaN(d.getTime()) ? null : d.toISOString();
+      } catch (eDate) {
+        createdDate = null;
+      }
+    }
+
     return {
       order_number: displayId || null,
       order_mongo_id: order._id ? String(order._id) : null,
@@ -266,9 +277,42 @@
           price: Number(item.price) || 0
         };
       }),
+      items_count: items.length,
       total_amount: Number(order.grandTotal ?? order.totalAmount ?? order.total) || 0,
       status: order.status || null,
+      created_at: createdDate,
       currency: 'BDT'
+    };
+  }
+
+  function buildOrderSupportPayload(order, extraOptions) {
+    extraOptions = extraOptions || {};
+    if (!order || typeof order !== 'object') return null;
+
+    var user = readUser();
+    var api = resolveChatApiUrl();
+    var metadata = buildMetadata(order);
+    var orderId = resolveOrderId(order, metadata);
+    var displayId =
+      (metadata && metadata.order_number) ||
+      order.orderId ||
+      orderId;
+    var chatUser = buildChatUserPayload(user, extraOptions);
+
+    return {
+      apiUrl: extraOptions.apiUrl || api,
+      socketUrl: extraOptions.socketUrl || resolveSocketUrl(),
+      socketPath: extraOptions.socketPath || SOCKET_PATH,
+      guestName: chatUser.guestName || order.customerName || 'Guest',
+      guestEmail: chatUser.guestEmail || order.customerEmail || null,
+      userId: chatUser.userId,
+      userAvatar: chatUser.userAvatar,
+      authToken: chatUser.authToken,
+      productMetadata: chatUser.productMetadata,
+      orderId: orderId,
+      orderDisplayId: displayId,
+      orderMetadata: metadata,
+      type: 'ORDER_SUPPORT'
     };
   }
 
@@ -296,16 +340,29 @@
     }
   }
 
+  function isWidgetReady(ChatWidget) {
+    return ChatWidget && typeof ChatWidget.isReady === 'function' && ChatWidget.isReady();
+  }
+
   async function launchWidget(payload) {
     var ChatWidget = await ensureWidgetScript();
     if (!ChatWidget) throw new Error('ChatWidget unavailable');
 
     if (payload.type === 'ORDER_SUPPORT' && typeof ChatWidget.openOrderSupport === 'function') {
       await ChatWidget.openOrderSupport(payload);
-    } else {
-      if (typeof ChatWidget.destroy === 'function') ChatWidget.destroy();
-      await ChatWidget.init(payload);
-      if (typeof ChatWidget.open === 'function') ChatWidget.open();
+      return ChatWidget;
+    }
+
+    if (isWidgetReady(ChatWidget)) {
+      if (typeof ChatWidget.open === 'function') {
+        await ChatWidget.open();
+      }
+      return ChatWidget;
+    }
+
+    await ChatWidget.init(payload);
+    if (typeof ChatWidget.open === 'function') {
+      await ChatWidget.open();
     }
 
     return ChatWidget;
@@ -332,6 +389,17 @@
       });
     } catch (err) {
       console.error('[OrderChat] Failed to open general support chat:', err);
+      var fallback = global.ChatWidget;
+      if (isWidgetReady(fallback)) {
+        try {
+          if (typeof fallback.open === 'function') {
+            await fallback.open();
+          }
+          return fallback;
+        } catch (openErr) {
+          console.warn('[OrderChat] open after init error failed:', openErr);
+        }
+      }
       showChatError('Unable to start live support chat right now. Please try again later.');
       return null;
     }
@@ -344,34 +412,33 @@
       return null;
     }
 
-    var user = readUser();
-    var api = resolveChatApiUrl();
-    var metadata = buildMetadata(order);
-    var orderId = resolveOrderId(order, metadata);
-    var displayId =
-      (metadata && metadata.order_number) ||
-      order.orderId ||
-      orderId;
-    var chatUser = buildChatUserPayload(user, extraOptions);
+    var payload = buildOrderSupportPayload(order, extraOptions);
+    if (!payload) {
+      console.warn('[OrderChat] Could not build order support payload');
+      return null;
+    }
 
     try {
-      return await launchWidget({
-        apiUrl: extraOptions.apiUrl || api,
-        socketUrl: extraOptions.socketUrl || resolveSocketUrl(),
-        socketPath: extraOptions.socketPath || SOCKET_PATH,
-        guestName: chatUser.guestName || order.customerName || 'Guest',
-        guestEmail: chatUser.guestEmail || order.customerEmail || null,
-        userId: chatUser.userId,
-        userAvatar: chatUser.userAvatar,
-        authToken: chatUser.authToken,
-        productMetadata: chatUser.productMetadata,
-        orderId: orderId,
-        orderDisplayId: displayId,
-        orderMetadata: metadata,
-        type: 'ORDER_SUPPORT'
-      });
+      var ChatWidget = await ensureWidgetScript();
+      if (!ChatWidget) throw new Error('ChatWidget unavailable');
+
+      if (typeof ChatWidget.openOrderSupport === 'function') {
+        await ChatWidget.openOrderSupport(payload);
+        return ChatWidget;
+      }
+
+      return await launchWidget(payload);
     } catch (err) {
       console.error('[OrderChat] Failed to open order support chat:', err);
+      var fallback = global.ChatWidget;
+      if (isWidgetReady(fallback) && typeof fallback.open === 'function') {
+        try {
+          await fallback.open();
+          return fallback;
+        } catch (openErr) {
+          console.warn('[OrderChat] open after order support error failed:', openErr);
+        }
+      }
       showChatError('Unable to start order support chat right now. Please try again later.');
       return null;
     }
@@ -419,6 +486,7 @@
     openForOrder: openForOrder,
     openFromButton: openFromButton,
     buildMetadata: buildMetadata,
+    buildOrderSupportPayload: buildOrderSupportPayload,
     getChatApiUrl: resolveChatApiUrl,
     syncIdentity: syncIdentity,
     readUser: readUser,

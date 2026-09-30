@@ -5,23 +5,22 @@
 (function (global) {
     'use strict';
 
-    var ALLOWED_WIDGET_PATHS = ['/profile', '/account'];
+    function readCustomerAuthToken() {
+        try {
+            return (
+                window.EOBStorage.get(window.EOBStorageKeys.TOKEN) ||
+                window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN) ||
+                null
+            );
+        } catch (e) {
+            return null;
+        }
+    }
 
+    /** Logged-in customers may use live chat on any storefront route (order details, PDP, etc.). */
     function isChatWidgetAllowed() {
         try {
-            var path = (global.location && global.location.pathname) || '';
-            var isAllowedPage = ALLOWED_WIDGET_PATHS.some(function (p) {
-                return path === p || path.indexOf(p + '/') === 0;
-            });
-            if (!isAllowedPage) return false;
-
-            var token = null;
-            try {
-                token =
-                    window.EOBStorage.get(window.EOBStorageKeys.TOKEN) ||
-                    window.EOBStorage.get(window.EOBStorageKeys.CUSTOMER_TOKEN);
-            } catch (e) { /* ignore */ }
-            return !!token;
+            return !!readCustomerAuthToken();
         } catch (e2) {
             return false;
         }
@@ -30,11 +29,12 @@
     if (!isChatWidgetAllowed()) {
         global.ChatWidget = {
             init: function () { return Promise.resolve(global.ChatWidget); },
-            open: function () {},
+            open: function () { return Promise.resolve(global.ChatWidget); },
             close: function () {},
             toggle: function () {},
             mount: function () {},
             destroy: function () {},
+            isReady: function () { return false; },
             openOrderSupport: function () { return Promise.resolve(global.ChatWidget); },
             linkRegisteredUser: function () { return Promise.resolve(global.ChatWidget); }
         };
@@ -311,6 +311,87 @@
         document.head.appendChild(link);
     }
 
+    var DRAG_DESKTOP_MIN_WIDTH = 768;
+
+    function isDesktopDragEnabled() {
+        return (global.innerWidth || 0) >= DRAG_DESKTOP_MIN_WIDTH;
+    }
+
+    function clampChatWindowPosition(win, left, top) {
+        var rect = win.getBoundingClientRect();
+        var w = rect.width || win.offsetWidth || 360;
+        var h = rect.height || win.offsetHeight || 520;
+        var maxLeft = Math.max(0, (global.innerWidth || 0) - w);
+        var maxTop = Math.max(0, (global.innerHeight || 0) - h);
+        return {
+            left: Math.min(Math.max(0, left), maxLeft),
+            top: Math.min(Math.max(0, top), maxTop)
+        };
+    }
+
+    function ensureWindowPixelPosition(win) {
+        if (!win) return { left: 0, top: 0 };
+        var rect = win.getBoundingClientRect();
+        win.style.bottom = 'auto';
+        win.style.right = 'auto';
+        var clamped = clampChatWindowPosition(win, rect.left, rect.top);
+        win.style.left = clamped.left + 'px';
+        win.style.top = clamped.top + 'px';
+        return clamped;
+    }
+
+    function setupDesktopDrag() {
+        var header = document.querySelector('#chatWindow .sw-chat-header');
+        var win = $('chatWindow');
+        if (!header || !win || header.getAttribute('data-drag-bound') === '1') return;
+        header.setAttribute('data-drag-bound', '1');
+
+        var drag = { active: false, pointerId: null, offsetX: 0, offsetY: 0 };
+
+        function endDrag(e) {
+            if (!drag.active) return;
+            drag.active = false;
+            drag.pointerId = null;
+            header.classList.remove('is-dragging');
+            try {
+                if (e && e.pointerId != null) header.releasePointerCapture(e.pointerId);
+            } catch (err) { /* ignore */ }
+        }
+
+        function onPointerMove(e) {
+            if (!drag.active || e.pointerId !== drag.pointerId) return;
+            var pos = clampChatWindowPosition(
+                win,
+                e.clientX - drag.offsetX,
+                e.clientY - drag.offsetY
+            );
+            win.style.left = pos.left + 'px';
+            win.style.top = pos.top + 'px';
+        }
+
+        header.addEventListener('pointerdown', function (e) {
+            if (!isDesktopDragEnabled()) return;
+            if (e.button !== 0) return;
+            if (e.target.closest('.sw-chat-header-actions, .sw-chat-icon-btn, button')) return;
+
+            ensureWindowPixelPosition(win);
+            drag.active = true;
+            drag.pointerId = e.pointerId;
+            var rect = win.getBoundingClientRect();
+            drag.offsetX = e.clientX - rect.left;
+            drag.offsetY = e.clientY - rect.top;
+            header.classList.add('is-dragging');
+            try {
+                header.setPointerCapture(e.pointerId);
+            } catch (err) { /* ignore */ }
+            e.preventDefault();
+        });
+
+        header.addEventListener('pointermove', onPointerMove);
+        header.addEventListener('pointerup', endDrag);
+        header.addEventListener('pointercancel', endDrag);
+    }
+
     function mountDom() {
         if ($('chatFab') || state.mounted) return;
         ensureCss();
@@ -406,6 +487,7 @@
         }
 
         renderWelcome();
+        setupDesktopDrag();
         state.mounted = true;
     }
 
@@ -439,7 +521,8 @@
         var text = $('orderContextText');
         if (!banner || !text) return;
         if (state.type === 'ORDER_SUPPORT' && (state.orderDisplayId || state.orderId)) {
-            text.textContent = 'Regarding Order #' + (state.orderDisplayId || state.orderId);
+            var label = String(state.orderDisplayId || state.orderId || '').replace(/^#+/, '');
+            text.textContent = 'Inquiring about Order #' + label;
             banner.style.display = 'flex';
         } else {
             banner.style.display = 'none';
@@ -845,6 +928,111 @@
         return data;
     }
 
+    function mergeInitOptions(options) {
+        options = options || {};
+        if (options.apiUrl || options.api_url) {
+            state.apiUrl = options.apiUrl || options.api_url;
+        }
+        if (options.socketUrl || options.socket_url) {
+            state.socketUrl = options.socketUrl || options.socket_url;
+        }
+        if (options.socketPath || options.socket_path) {
+            state.socketPath = options.socketPath || options.socket_path;
+        }
+        if (options.guestName || options.guest_name) {
+            state.guestName = options.guestName || options.guest_name;
+        }
+        if (options.guestEmail || options.guest_email) {
+            state.guestEmail = options.guestEmail || options.guest_email;
+        }
+        if (options.userId || options.user_id) {
+            state.userId = options.userId || options.user_id;
+        }
+        if (options.userAvatar || options.user_avatar) {
+            state.userAvatar = options.userAvatar || options.user_avatar;
+        }
+        if (options.authToken || options.auth_token) {
+            state.authToken = options.authToken || options.auth_token;
+        }
+        if (options.productMetadata || options.product_metadata) {
+            state.productMetadata = options.productMetadata || options.product_metadata;
+        }
+        if (options.orderId || options.order_id) {
+            state.orderId = options.orderId || options.order_id;
+        }
+        if (options.orderDisplayId || options.order_display_id) {
+            state.orderDisplayId = options.orderDisplayId || options.order_display_id;
+        }
+        if (options.orderMetadata || options.order_metadata) {
+            state.orderMetadata = options.orderMetadata || options.order_metadata;
+        }
+        if (options.type) state.type = options.type;
+    }
+
+    function incomingOrderSupportKey(options) {
+        options = options || {};
+        var meta = options.orderMetadata || options.order_metadata || {};
+        var id =
+            options.orderId ||
+            options.order_id ||
+            meta.order_mongo_id ||
+            meta.order_number ||
+            options.orderDisplayId ||
+            options.order_display_id ||
+            null;
+        return String(id || '').trim().toLowerCase();
+    }
+
+    function currentOrderSupportKey() {
+        var meta = state.orderMetadata || {};
+        var id =
+            state.orderId ||
+            meta.order_mongo_id ||
+            meta.order_number ||
+            state.orderDisplayId ||
+            null;
+        return String(id || '').trim().toLowerCase();
+    }
+
+    function isSameOrderSupportContext(options) {
+        var next = incomingOrderSupportKey(options);
+        var cur = currentOrderSupportKey();
+        if (!next || !cur) return false;
+        return next === cur;
+    }
+
+    function applyOrderSupportOptions(options) {
+        mergeInitOptions(Object.assign({}, options || {}, { type: 'ORDER_SUPPORT' }));
+        state.type = 'ORDER_SUPPORT';
+    }
+
+    function clearPersistedRoomsAll() {
+        try {
+            window.EOBStorage.remove(STORAGE_ROOM_PREFIX + 'GENERAL');
+            window.EOBStorage.remove(STORAGE_ROOM_PREFIX + 'ORDER_SUPPORT');
+            window.EOBStorage.remove(window.EOBStorageKeys.CHAT_CONVERSATION_ID);
+            window.EOBStorage.remove(window.EOBStorageKeys.CHAT_ROOM_ID);
+        } catch (e) { /* ignore */ }
+    }
+
+    async function refreshOrderSupportSession() {
+        clearPersistedRoomsAll();
+        state.roomId = null;
+        state.resolved = false;
+        state.renderedIds = Object.create(null);
+        state.agentAvatarUrl = null;
+        state.agentName = null;
+        var area = $('chatWidgetMessages');
+        if (area) area.innerHTML = '';
+        renderWelcome();
+        setComposerEnabled(true);
+        updateHeader();
+        showOrderBanner();
+        hideFaq();
+        await startChat();
+        if (state.socket && state.socket.connected) emitJoinRoom();
+    }
+
     async function bootstrap() {
         if (state.bootstrapping) return state.bootstrapping;
 
@@ -1114,19 +1302,23 @@
 
         init: async function (options) {
             options = options || {};
-            state.apiUrl = options.apiUrl || options.api_url || defaultApiUrl();
-            state.socketUrl = options.socketUrl || options.socket_url || defaultSocketUrl();
-            state.socketPath = options.socketPath || options.socket_path || '/chat-socket/socket.io';
-            state.guestName = options.guestName || options.guest_name || 'Guest';
-            state.guestEmail = options.guestEmail || options.guest_email || null;
-            state.userId = options.userId || options.user_id || null;
-            state.userAvatar = options.userAvatar || options.user_avatar || null;
-            state.authToken = options.authToken || options.auth_token || null;
-            state.productMetadata = options.productMetadata || options.product_metadata || null;
-            state.orderId = options.orderId || options.order_id || null;
-            state.orderDisplayId = options.orderDisplayId || options.order_display_id || null;
-            state.orderMetadata = options.orderMetadata || options.order_metadata || null;
-            state.type = options.type || (state.orderId ? 'ORDER_SUPPORT' : 'GENERAL');
+            state.apiUrl = defaultApiUrl();
+            state.socketUrl = defaultSocketUrl();
+            state.socketPath = '/chat-socket/socket.io';
+            state.guestName = 'Guest';
+            state.guestEmail = null;
+            state.userId = null;
+            state.userAvatar = null;
+            state.authToken = null;
+            state.productMetadata = null;
+            state.orderId = null;
+            state.orderDisplayId = null;
+            state.orderMetadata = null;
+            state.type = options.type || (options.orderId || options.order_id ? 'ORDER_SUPPORT' : 'GENERAL');
+            mergeInitOptions(options);
+            if (!state.apiUrl) state.apiUrl = defaultApiUrl();
+            if (!state.socketUrl) state.socketUrl = defaultSocketUrl();
+            if (!state.guestName) state.guestName = 'Guest';
             state.guestSessionId = getOrCreateSessionId();
             if (!state.authToken) {
                 try {
@@ -1156,8 +1348,38 @@
         },
 
         openOrderSupport: async function (options) {
-            if (state.initialized) ChatWidget.destroy();
-            await ChatWidget.init(Object.assign({}, options || {}, { type: 'ORDER_SUPPORT' }));
+            options = Object.assign({}, options || {}, { type: 'ORDER_SUPPORT' });
+            var sameContext =
+                state.initialized &&
+                state.type === 'ORDER_SUPPORT' &&
+                isSameOrderSupportContext(options) &&
+                state.roomId &&
+                !state.resolved;
+
+            applyOrderSupportOptions(options);
+            mountDom();
+            updateHeader();
+            showOrderBanner();
+
+            if (!state.initialized) {
+                await ChatWidget.init(options);
+                await ChatWidget.open();
+                return ChatWidget;
+            }
+
+            if (sameContext) {
+                await ChatWidget.open();
+                return ChatWidget;
+            }
+
+            if (state.type !== 'ORDER_SUPPORT' || !isSameOrderSupportContext(options)) {
+                await refreshOrderSupportSession();
+            } else {
+                mergeInitOptions(options);
+                updateHeader();
+                showOrderBanner();
+            }
+
             await ChatWidget.open();
             return ChatWidget;
         },
@@ -1210,7 +1432,11 @@
             state.isOpen = false;
         },
 
-        mount: mountDom
+        mount: mountDom,
+
+        isReady: function () {
+            return Boolean(state.mounted && state.initialized);
+        }
     };
 
     global.ChatWidget = ChatWidget;

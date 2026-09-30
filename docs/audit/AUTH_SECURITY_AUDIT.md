@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-29 (storefront EOBSanitizer XSS hardening)  
+**Last updated:** 2026-09-30 (chat admin OTP password reset + agent suspend RBAC)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -119,6 +119,11 @@
 ---
 
 ## Change Log
+
+### Chat admin OTP reset & agent suspend — 2026-09-30
+
+- Separate chat `Agent` credentials: bcrypt OTP (`reset_token`), 15-minute expiry, `/api/admin/auth/forgot-password` + `/reset-password`
+- Login returns **403** for `SUSPENDED` agents; SUPER_ADMIN status toggle + force password reset
 
 ### Storefront Step 1.2.3 — XSS sanitization — 2026-09-29
 

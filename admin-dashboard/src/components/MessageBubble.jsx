@@ -62,6 +62,34 @@ function SystemMessageBubble({ message }) {
   );
 }
 
+function isMessageReadByCustomer(message) {
+  if (!message || typeof message !== 'object') return false;
+  if (message.is_read_by_user === true || message.read_by_user === true) {
+    return true;
+  }
+  if (Array.isArray(message.read_by)) {
+    return message.read_by.some(
+      (entry) => String(entry?.role || entry?.reader || '').toLowerCase() === 'customer'
+    );
+  }
+  return false;
+}
+
+function AgentReadReceipt({ message }) {
+  const read = isMessageReadByCustomer(message);
+  return (
+    <span
+      className={`inline-flex items-center leading-none ${
+        read ? 'text-sky-500 dark:text-sky-400' : 'text-slate-400 dark:text-slate-500'
+      }`}
+      aria-label={read ? 'Read by customer' : 'Sent'}
+      title={read ? 'Read' : 'Delivered'}
+    >
+      {read ? '✓✓' : '✓'}
+    </span>
+  );
+}
+
 function AvatarSlot({ showAvatar, avatarSpacer, children }) {
   if (!showAvatar && !avatarSpacer) return null;
   return (
@@ -211,7 +239,15 @@ export default function MessageBubble({
         )}
 
         {time && (
-          <span className="text-[10px] text-slate-400 mt-0.5 px-1">{time}</span>
+          <span className="text-[10px] text-slate-400 mt-0.5 px-1 inline-flex items-center gap-1">
+            <span>{time}</span>
+            {isAgent && <AgentReadReceipt message={message} />}
+          </span>
+        )}
+        {!time && isAgent && (
+          <span className="text-[10px] mt-0.5 px-1 inline-flex items-center">
+            <AgentReadReceipt message={message} />
+          </span>
         )}
       </div>
 

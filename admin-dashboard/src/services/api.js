@@ -277,6 +277,28 @@ export async function resetAgentPassword(id, new_password) {
   return data;
 }
 
+export async function forceResetAgentPassword(id, new_password) {
+  const { data } = await api.post(`/admin/agents/${id}/force-reset`, {
+    new_password,
+  });
+  return data;
+}
+
+export async function updateAgentStatus(id, status) {
+  const { data } = await api.put(`/admin/agents/${id}/status`, { status });
+  return data;
+}
+
+export async function requestPasswordResetOtp(email) {
+  const { data } = await api.post('/admin/auth/forgot-password', { email });
+  return data;
+}
+
+export async function resetPasswordWithOtp(payload) {
+  const { data } = await api.post('/admin/auth/reset-password', payload);
+  return data;
+}
+
 export async function fetchOrder(orderId) {
   const { data } = await api.get(`/orders/${encodeURIComponent(orderId)}`);
   return data;
