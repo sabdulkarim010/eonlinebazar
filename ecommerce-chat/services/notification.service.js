@@ -1,21 +1,19 @@
-const nodemailer = require('nodemailer');
 const { AIKnowledgeBase } = require('../models/AIKnowledgeBase.model');
+const {
+  resolveSmtpCredentials,
+  createChatMailTransporter,
+} = require('../config/smtpTransporter');
 
 function getTransporter() {
-  const user = process.env.SMTP_EMAIL;
-  const pass = process.env.SMTP_PASSWORD;
+  const { user, pass } = resolveSmtpCredentials();
 
   if (!user || !pass) {
-    throw new Error('SMTP_EMAIL and SMTP_PASSWORD must be configured');
+    throw new Error(
+      'SMTP credentials not configured (SMTP_USER/SMTP_EMAIL/EMAIL_USER and matching password env)'
+    );
   }
 
-  return nodemailer.createTransport({
-    service: process.env.SMTP_SERVICE || 'gmail',
-    host: process.env.SMTP_HOST || undefined,
-    port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined,
-    family: 4, // Force IPv4 to avoid ENETUNREACH on IPv6-blocked hosts
-    auth: { user, pass },
-  });
+  return createChatMailTransporter();
 }
 
 function bangladeshTimestamp(date = new Date()) {
@@ -43,7 +41,8 @@ function escapeHtml(str) {
  * Email alert when a chat is handed over to a live agent.
  */
 async function sendHandoverAlert({ room_id, guest_name, last_message, order_id }) {
-  const to = process.env.NOTIFY_EMAIL || process.env.SMTP_EMAIL;
+  const { user: smtpFrom } = resolveSmtpCredentials();
+  const to = process.env.NOTIFY_EMAIL || smtpFrom;
   if (!to) {
     console.warn('[notification] NOTIFY_EMAIL not set — skipping handover alert');
     return { skipped: true };
@@ -104,7 +103,7 @@ async function sendHandoverAlert({ room_id, guest_name, last_message, order_id }
 
   const transporter = getTransporter();
   const info = await transporter.sendMail({
-    from: `"Chat Alert" <${process.env.SMTP_EMAIL}>`,
+    from: `"Chat Alert" <${smtpFrom}>`,
     to,
     subject,
     html,
@@ -118,7 +117,8 @@ async function sendHandoverAlert({ room_id, guest_name, last_message, order_id }
  * @param {object} stats - { total_today, resolved_today, avg_rating, rated_count? }
  */
 async function sendDailyReport(stats = {}) {
-  const to = process.env.NOTIFY_EMAIL || process.env.SMTP_EMAIL;
+  const { user: smtpFrom } = resolveSmtpCredentials();
+  const to = process.env.NOTIFY_EMAIL || smtpFrom;
   if (!to) {
     console.warn('[notification] NOTIFY_EMAIL not set — skipping daily report');
     return { skipped: true };
@@ -192,7 +192,7 @@ async function sendDailyReport(stats = {}) {
 
   const transporter = getTransporter();
   const info = await transporter.sendMail({
-    from: `"Chat Report" <${process.env.SMTP_EMAIL}>`,
+    from: `"Chat Report" <${smtpFrom}>`,
     to,
     subject: `📊 দৈনিক চ্যাট রিপোর্ট — ${bangladeshTimestamp().split(',')[0] || ''}`,
     html,

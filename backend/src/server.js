@@ -142,18 +142,24 @@ connectDB().then(async () => {
         console.error('Super Admin HRM sync error:', err.message);
     }
 
-    // Postgres must be reachable before any cron registers — crons dual-write to Neon.
+    // Postgres warm ping before crons — non-fatal if Neon is cold or host is under memory pressure.
     try {
         const { ensurePostgresReady } = require('./config/postgresBootstrap');
         const pgBootstrap = await ensurePostgresReady({ reconcileDualWrite: true });
-        console.log('PostgreSQL (Neon) ready for dual-write ✅');
-        if (pgBootstrap.reconcile?.attempted > 0) {
-            console.log(
-                `🔄 Dual-write reconcile: ${pgBootstrap.reconcile.resolved}/${pgBootstrap.reconcile.attempted} resolved`
+        if (pgBootstrap.neonWarmOk) {
+            console.log('PostgreSQL (Neon) ready for dual-write ✅');
+            if (pgBootstrap.reconcile?.attempted > 0) {
+                console.log(
+                    `🔄 Dual-write reconcile: ${pgBootstrap.reconcile.resolved}/${pgBootstrap.reconcile.attempted} resolved`
+                );
+            }
+        } else {
+            console.warn(
+                'PostgreSQL (Neon) warm ping deferred at boot — API will use Mongo fallbacks until Neon responds'
             );
         }
     } catch (err) {
-        console.error('PostgreSQL bootstrap failed — cron dual-write will not work:', err.message);
+        console.error('PostgreSQL bootstrap failed — cron dual-write may be limited:', err.message);
     }
 
     // Start background stock alert cron job

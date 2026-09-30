@@ -5,6 +5,7 @@
 const mongoose = require('mongoose');
 const redisClient = require('../utils/redisClient');
 const { getPrisma } = require('../config/prismaClient');
+const { withNeonRetry } = require('../config/neonRetry');
 
 function formatUptime(ms) {
     const totalMinutes = Math.floor(ms / 60000);
@@ -15,12 +16,16 @@ function formatUptime(ms) {
 }
 
 async function probePostgres() {
+    const probeTimeoutMs = Number(process.env.HEALTH_PG_PROBE_TIMEOUT_MS || 12000);
     try {
         const prisma = getPrisma();
         await Promise.race([
-            prisma.$queryRaw`SELECT 1`,
+            withNeonRetry(() => prisma.$queryRaw`SELECT 1`, {
+                attempts: Number(process.env.HEALTH_PG_PROBE_ATTEMPTS || 2),
+                baseDelayMs: Number(process.env.HEALTH_PG_PROBE_RETRY_MS || 1500)
+            }),
             new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('timeout')), 3000);
+                setTimeout(() => reject(new Error('health probe timeout')), probeTimeoutMs);
             })
         ]);
         return 'connected';

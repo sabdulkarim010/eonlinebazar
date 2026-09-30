@@ -428,8 +428,9 @@ Both live in the repo-root `.env`. Neither is read by the running application ye
 | `DATABASE_URL_POOLED` | Neon `-pooler` endpoint | reserved for the runtime client via a driver adapter (Stage 2, next step). **Never use for migrations** |
 
 Runtime uses `backend/src/config/neonRetry.js` + `postgresBootstrap.js` for Neon HTTP resilience:
-**20s fetch timeout** (`NEON_FETCH_TIMEOUT_MS`, default 20000), **3 query retries** with **2s base delay**,
-startup warm ping **3× @ 2s** (`NEON_WARMUP_*`), and `sslmode=require` on pooled URLs.
+**45s fetch timeout** (`NEON_FETCH_TIMEOUT_MS`, default 45000), **3 query retries** with **2s base delay**,
+startup warm ping **3× @ 2s** (`NEON_WARMUP_*`, non-fatal if deferred), and `sslmode=require` on pooled URLs.
+Health probe: `HEALTH_PG_PROBE_TIMEOUT_MS` (default 12s) + short retry via `getPrisma()`.
 Repository tests keep 90s timeout and 4 retries when `REPOSITORY_TEST=1`.
 Server boot runs `reconcileFailedSyncs()` only after a successful PG warm (dual-write backlog).
 `readRouter.js` wraps PG reads in `withNeonRetry` and consults `pgCircuitBreaker.js` (3 timeouts / 60s → bypass PG 30s).
@@ -449,6 +450,7 @@ are unaffected and remain the live system's configuration.
 | `CHAT_SERVICE_URL` / `CHAT_SERVICE_PORT` | repo-root `.env` |
 | `INTERNAL_API_KEY` | repo-root `.env` (same value chat service reads via loadEnv) |
 | `MAIN_STORE_API_URL`, `SOCKET_CORS_ORIGIN` | `ecommerce-chat/.env` |
+| `SMTP_USER` / `SMTP_EMAIL` / `EMAIL_USER` (+ matching password env) | repo-root `.env` → `ecommerce-chat/config/smtpTransporter.js` (587, IPv4) |
 | `VITE_API_URL`, `VITE_SOCKET_URL` | `admin-dashboard/.env` (use `:5000` for gateway) |
 
 See also: `docs/SETUP.md`, `ecommerce-chat/docs/SETUP.md`, `devops/first-time-server-setup.md`.

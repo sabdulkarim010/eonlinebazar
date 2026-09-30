@@ -456,10 +456,28 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 - ✅ `storage.js` loaded before admin ES module entry; `core-state` / staff / newsletter safe token reads
 - ✅ Sidebar collapsibles and nav handlers no longer blocked by `EOBStorage` TypeError at parse time
 
+## Neon HTTP Resilience + Health Probe — 2026-09-30
+
+- ✅ `getPrisma()` exported from `prismaClient.js`; `healthService.probePostgres()` uses real client (fixes false `degraded`)
+- ✅ Default Neon HTTP fetch timeout **45s**; warm boot ping non-fatal (`neonWarmOk`); server starts under memory pressure
+- ✅ `[PG-FALLBACK]` on warm failure; dual-write reconcile skipped until Neon responds
+
+## Chat Admin SMTP (Forgot Password) — 2026-09-30
+
+- ✅ Shared `ecommerce-chat/config/smtpTransporter.js` — Gmail **587** STARTTLS, **`family: 4`**, 10s connection/greeting/socket timeouts
+- ✅ Credential fallbacks: `SMTP_USER|SMTP_EMAIL|EMAIL_USER` and matching password env vars
+- ✅ Password reset send failures log `[CHAT-SMTP-ERROR]`; API still returns generic success (OTP saved; console fallback in dev)
+
+## Chat Admin Login — In-Card Password Reset UI — 2026-09-30
+
+- ✅ 3-step forgot-password flow embedded in login `glass-card` (`authView`: login | reset)
+- ✅ Light-theme step badges, OTP inputs, and errors match sign-in form; “Back to sign in” (no full-screen modal)
+- ✅ OTP API + `resetStep` logic unchanged
+
 ## Chat Admin Password Reset Email & Modal — 2026-09-30
 
 - ✅ Forgot-password sends HTML OTP via nodemailer when `SMTP_USER` + `SMTP_PASS` configured (Gmail-friendly defaults)
-- ✅ React login reset modal: dark glassmorphism, step badges, six-digit OTP inputs
+- ⚠️ Reset UI was dark modal — superseded by in-card flow (2026-09-30)
 - ✅ Tests **516/516**
 
 ## Chat Admin Auth & RBAC Phase 4 — 2026-09-30

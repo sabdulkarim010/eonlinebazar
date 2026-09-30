@@ -64,10 +64,12 @@ function createPrismaClient() {
 
 const prisma = _globalRef.__eonlinebazarPrisma ?? createPrismaClient();
 
-// In non-production environments attach to global so that a module re-evaluation
-// (e.g. nodemon restart of an adjacent require chain) reuses the same instance.
-if (process.env.NODE_ENV !== 'production') {
-  _globalRef.__eonlinebazarPrisma = prisma;
+// Reuse one client per process (production included — avoids duplicate adapters under load).
+_globalRef.__eonlinebazarPrisma = prisma;
+
+function getPrisma() {
+  return prisma;
 }
 
 module.exports = prisma;
+module.exports.getPrisma = getPrisma;

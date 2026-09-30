@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-29 (Storefront telemetry ingest route)  
+**Last updated:** 2026-09-30 (Neon boot warm non-fatal, health getPrisma, 45s fetch default)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -199,6 +199,17 @@
 - Added `test` job to `.github/workflows/deploy.yml` — runs `npm ci`, `npx prisma generate`, `npm test --passWithNoTests`, `npm run test:repositories --if-present` on Node 22 before deploy
 - Deploy job now `needs: [test]` — production SSH deploy blocked when tests fail
 - Test job env: `NODE_ENV=test`, secrets `DATABASE_URL_POOLED`, `DATABASE_URL`, `MONGODB_URI`, `JWT_SECRET`
+
+## Change Log
+
+### Neon timeout + health probe fix — 2026-09-30
+
+- `neonRetry.js`: production default `NEON_FETCH_TIMEOUT_MS` **45s** (cold-start tolerance); optional `buildNeonHttpAdapterOptions({ timeoutMs })`
+- `prismaClient.js`: exports `getPrisma()` alongside default client; global singleton in all envs
+- `postgresBootstrap.js`: `warmNeonConnection` no longer throws — returns `{ prisma, neonWarmOk }`; skips reconcile when warm fails
+- `healthService.js`: uses `getPrisma()` + `withNeonRetry` (12s probe budget)
+- `server.js`: boot continues when Neon warm deferred; warns instead of treating as hard failure
+- Tests: Jest **516/516**
 
 ### Storefront telemetry ingest — 2026-09-29
 

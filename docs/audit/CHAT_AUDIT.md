@@ -1,6 +1,6 @@
 # CHAT AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-30 (Gmail SMTP OTP delivery + reset modal UI polish)  
+**Last updated:** 2026-09-30 (chat SMTP IPv4/587 transporter + env fallbacks)  
 **Scope:** Live chat microservice (`ecommerce-chat/`), React chat admin (`admin-dashboard/`), storefront widget, mobile support, socket teardown  
 **Status:** ⚠️ PARTIAL
 
@@ -10,7 +10,8 @@
 
 | Path | Role |
 |------|------|
-| `ecommerce-chat/server.js` | Chat microservice entry (port 5001) |
+| `ecommerce-chat/config/loadEnv.js` | Repo-root + chat `.env` loading |
+| `ecommerce-chat/config/smtpTransporter.js` | Shared Gmail SMTP transport (IPv4, 587, timeouts) |
 | `ecommerce-chat/routes/chat.routes.js` | Customer chat REST |
 | `ecommerce-chat/routes/admin.routes.js` | Agent admin API |
 | `ecommerce-chat/routes/knowledge.routes.js` | AI knowledge base CRUD |
@@ -67,7 +68,7 @@
 | Close/end uses native `confirm()` not SweetAlert2 | Medium | Open | Customer widget + React admin Resolve button |
 | Session teardown incomplete on customer close | High | Open | Widget re-bootstraps room after close (`startNewChat` → `bootstrap`) |
 | Dual staff systems (Agent vs Admin) | Low | Open | Agent auto-provision exists; not full SSO |
-| OpenAI API quota exceeded | Medium | Open | Blocks AI bot fallback — see `ADMIN_NOTES.md` |
+| Chat forgot-password SMTP ETIMEDOUT on DO | High | Fixed | 2026-09-30 — `smtpTransporter.js` IPv4 + 587 STARTTLS + timeouts |
 
 ---
 
@@ -82,10 +83,21 @@
 
 ## Change Log
 
+### Chat admin SMTP ETIMEDOUT fix — 2026-09-30
+
+- **`ecommerce-chat/config/smtpTransporter.js`:** shared Nodemailer — port 587, `secure: false`, `family: 4`, 10s timeouts; env fallbacks for user/pass
+- **`admin.routes.js`:** password reset mail; `[CHAT-SMTP-ERROR]` on failure (no throw; console OTP fallback)
+- **`notification.service.js`:** alerts/reports use same transport
+
+### Chat admin login — in-card password reset UI — 2026-09-30
+
+- **`LoginPage.jsx`:** `authView` (`login` | `reset`) toggles login form vs 3-step reset inside the white `glass-card`; removed full-screen dark modal; light-theme step badges, OTP inputs, and errors aligned with sign-in form; “Back to sign in” returns to login view
+- Logic unchanged: `resetStep`, OTP API helpers, handlers
+
 ### Chat admin password reset email + modal UI — 2026-09-30
 
 - **`admin.routes.js`:** `nodemailer` transporter (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`); HTML OTP email; dev console fallback
-- **`LoginPage.jsx`:** dark glassmorphism reset overlay, step badges, six OTP digit inputs
+- **`LoginPage.jsx`:** (superseded) dark glassmorphism reset overlay — replaced by in-card flow above
 
 ### Chat admin auth & RBAC Phase 4 — 2026-09-30
 

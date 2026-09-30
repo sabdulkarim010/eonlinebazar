@@ -125,9 +125,14 @@
 - `client/admin/partials/scripts.html`: `/js/utils/storage.js` before `admin-main.js` module chain
 - `core-state.js`, `admin-staff.js`, `admin-newsletter.js`: guarded `EOBStorage.get` / `remove` (prevents sidebar/nav init crash)
 
+### Chat admin SMTP transport — 2026-09-30
+
+- `ecommerce-chat/config/smtpTransporter.js`: Gmail **587** STARTTLS, **`family: 4`**, 10s timeouts; env fallbacks for user/pass
+- `admin.routes.js`: forgot-password OTP; `[CHAT-SMTP-ERROR]` on send failure (generic API response unchanged)
+
 ### Chat admin OTP email delivery — 2026-09-30
 
-- `ecommerce-chat/routes/admin.routes.js`: nodemailer HTML OTP when `SMTP_USER` + `SMTP_PASS` set; console fallback in dev
+- `ecommerce-chat/routes/admin.routes.js`: nodemailer HTML OTP when SMTP creds set; console fallback in dev
 
 ### Store admin login crash fix — 2026-09-30
 

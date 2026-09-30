@@ -62,23 +62,28 @@ function assertPooledDatabaseUrl() {
 async function ensurePostgresReady(options = {}) {
   reloadRootEnv();
   assertPooledDatabaseUrl();
-  const prisma = await warmNeonConnection({
+  const { prisma, neonWarmOk } = await warmNeonConnection({
     attempts: options.attempts ?? DEFAULT_WARMUP_ATTEMPTS,
     baseDelayMs: options.baseDelayMs ?? DEFAULT_WARMUP_DELAY_MS
   });
 
   let reconcile = { attempted: 0, resolved: 0 };
   const shouldReconcile = options.reconcileDualWrite === true && process.env.NODE_ENV !== 'test';
-  if (shouldReconcile) {
+  if (shouldReconcile && neonWarmOk) {
     const { reconcileFailedSyncs } = require('../services/failedSyncService');
     reconcile = await reconcileFailedSyncs();
+  } else if (shouldReconcile && !neonWarmOk && process.env.NODE_ENV !== 'test') {
+    console.warn(
+      '[postgresBootstrap] Skipping dual-write reconcile — Neon warm ping did not succeed at boot'
+    );
   }
 
-  return { prisma, reconcile };
+  return { prisma, reconcile, neonWarmOk };
 }
 
 /**
  * Ping Postgres with retries — warms Neon compute after idle/cold start.
+ * Does not throw on failure; callers use neonWarmOk to decide reconcile/cron safety.
  */
 async function warmNeonConnection(options = {}) {
   reloadRootEnv();
@@ -95,11 +100,11 @@ async function warmNeonConnection(options = {}) {
 
   try {
     await withNeonRetry(() => prisma.$queryRawUnsafe('SELECT 1'), { attempts, baseDelayMs });
+    return { prisma, neonWarmOk: true };
   } catch (err) {
     logPgFallback('postgresBootstrap', err, 'warm ping skipped');
-    throw err;
+    return { prisma, neonWarmOk: false };
   }
-  return prisma;
 }
 
 module.exports = {

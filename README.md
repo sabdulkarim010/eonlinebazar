@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-30 (Admin storage bootstrap, chat OTP email, reset modal UI)
+**Last updated:** 2026-09-30 (Neon cold-start + health probe fixes)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 

@@ -1,6 +1,5 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { getJwtSecret } = require('../config/jwtSecret');
@@ -19,6 +18,10 @@ const {
   invalidateProfileCache,
 } = require('../services/storeProfile.service');
 const { getMainStoreApiUrl } = require('../config/storeApi');
+const {
+  resolveSmtpCredentials,
+  createChatMailTransporter,
+} = require('../config/smtpTransporter');
 const { syncStoreAdminAvatar } = require('../services/storeAdminSync.service');
 const {
   fetchStoreAdminProfile,
@@ -73,17 +76,7 @@ const AGENT_ROLES = ['SUPER_ADMIN', 'ADMIN', 'AGENT'];
 const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
 
 function createPasswordResetMailTransporter() {
-  const port = Number(process.env.SMTP_PORT) || 465;
-  const secure = port === 465;
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port,
-    secure,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
+  return createChatMailTransporter();
 }
 
 function buildPasswordResetOtpHtml(otp, agentName) {
@@ -111,21 +104,27 @@ function buildPasswordResetOtpHtml(otp, agentName) {
 }
 
 async function sendPasswordResetOtpEmail(agentDoc, otp) {
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
+  const { user: smtpUser, pass: smtpPass } = resolveSmtpCredentials();
   if (!smtpUser || !smtpPass || process.env.NODE_ENV === 'test') {
     return false;
   }
 
-  const transporter = createPasswordResetMailTransporter();
-  await transporter.sendMail({
-    from: `"EonlineBazar Chat Admin" <${smtpUser}>`,
-    to: agentDoc.email,
-    subject: 'Your Chat Admin password reset code',
-    text: `Your verification code is ${otp}. It expires in 15 minutes.`,
-    html: buildPasswordResetOtpHtml(otp, agentDoc.name),
-  });
-  return true;
+  try {
+    const transporter = createPasswordResetMailTransporter();
+    await transporter.sendMail({
+      from: `"EonlineBazar Chat Admin" <${smtpUser}>`,
+      to: agentDoc.email,
+      subject: 'Your Chat Admin password reset code',
+      text: `Your verification code is ${otp}. It expires in 15 minutes.`,
+      html: buildPasswordResetOtpHtml(otp, agentDoc.name),
+    });
+    return true;
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('[CHAT-SMTP-ERROR]', err.message || err);
+    }
+    return false;
+  }
 }
 
 async function issuePasswordResetOtp(agentDoc) {
