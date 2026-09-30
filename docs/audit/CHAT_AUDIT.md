@@ -1,6 +1,6 @@
 # CHAT AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-30 (chat SMTP IPv4/587 transporter + env fallbacks)  
+**Last updated:** 2026-09-30 (chat password reset via Resend API)
 **Scope:** Live chat microservice (`ecommerce-chat/`), React chat admin (`admin-dashboard/`), storefront widget, mobile support, socket teardown  
 **Status:** ⚠️ PARTIAL
 
@@ -82,6 +82,12 @@
 ---
 
 ## Change Log
+
+### Chat admin password reset — Resend API primary — 2026-09-30
+
+- **`smtpTransporter.js`:** `sendChatTransactionalEmail()` — Resend when `RESEND_API_KEY` set; SMTP fallback; `resolveSenderAddress()` uses `RESEND_FROM_*` or `SMTP_USER|SMTP_EMAIL|EMAIL_USER`
+- **`admin.routes.js`:** forgot-password OTP via shared mail helper
+- **`ecommerce-chat/package.json`:** `resend` dependency
 
 ### Chat admin SMTP ETIMEDOUT fix — 2026-09-30
 

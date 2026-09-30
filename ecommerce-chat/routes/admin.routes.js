@@ -19,8 +19,8 @@ const {
 } = require('../services/storeProfile.service');
 const { getMainStoreApiUrl } = require('../config/storeApi');
 const {
-  resolveSmtpCredentials,
-  createChatMailTransporter,
+  isChatEmailConfigured,
+  sendChatTransactionalEmail,
 } = require('../config/smtpTransporter');
 const { syncStoreAdminAvatar } = require('../services/storeAdminSync.service');
 const {
@@ -75,10 +75,6 @@ const router = express.Router();
 const AGENT_ROLES = ['SUPER_ADMIN', 'ADMIN', 'AGENT'];
 const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
 
-function createPasswordResetMailTransporter() {
-  return createChatMailTransporter();
-}
-
 function buildPasswordResetOtpHtml(otp, agentName) {
   const safeName = String(agentName || 'Agent').replace(/[<>&"]/g, '');
   const safeOtp = String(otp).replace(/\D/g, '');
@@ -104,24 +100,21 @@ function buildPasswordResetOtpHtml(otp, agentName) {
 }
 
 async function sendPasswordResetOtpEmail(agentDoc, otp) {
-  const { user: smtpUser, pass: smtpPass } = resolveSmtpCredentials();
-  if (!smtpUser || !smtpPass || process.env.NODE_ENV === 'test') {
+  if (!isChatEmailConfigured()) {
     return false;
   }
 
   try {
-    const transporter = createPasswordResetMailTransporter();
-    await transporter.sendMail({
-      from: `"EonlineBazar Chat Admin" <${smtpUser}>`,
+    const result = await sendChatTransactionalEmail({
       to: agentDoc.email,
       subject: 'Your Chat Admin password reset code',
       text: `Your verification code is ${otp}. It expires in 15 minutes.`,
       html: buildPasswordResetOtpHtml(otp, agentDoc.name),
     });
-    return true;
+    return result.delivered === true;
   } catch (err) {
     if (process.env.NODE_ENV !== 'test') {
-      console.error('[CHAT-SMTP-ERROR]', err.message || err);
+      console.error('[CHAT-EMAIL-ERROR]', err.message || err);
     }
     return false;
   }

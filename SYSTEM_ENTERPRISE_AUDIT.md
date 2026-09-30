@@ -456,6 +456,12 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 - ✅ `storage.js` loaded before admin ES module entry; `core-state` / staff / newsletter safe token reads
 - ✅ Sidebar collapsibles and nav handlers no longer blocked by `EOBStorage` TypeError at parse time
 
+## Chat Admin Password Reset — Resend API — 2026-09-30
+
+- ✅ Chat microservice sends OTP via **Resend** when `RESEND_API_KEY` is in repo-root `.env` (same as main backend)
+- ✅ SMTP (IPv4/587) fallback only when Resend key absent
+- ✅ `sendChatTransactionalEmail()` never throws; logs `[CHAT-EMAIL-ERROR]` / `[CHAT-SMTP-ERROR]`
+
 ## Neon HTTP Resilience + Health Probe — 2026-09-30
 
 - ✅ `getPrisma()` exported from `prismaClient.js`; `healthService.probePostgres()` uses real client (fixes false `degraded`)

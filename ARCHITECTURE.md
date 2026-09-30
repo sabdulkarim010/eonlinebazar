@@ -450,7 +450,8 @@ are unaffected and remain the live system's configuration.
 | `CHAT_SERVICE_URL` / `CHAT_SERVICE_PORT` | repo-root `.env` |
 | `INTERNAL_API_KEY` | repo-root `.env` (same value chat service reads via loadEnv) |
 | `MAIN_STORE_API_URL`, `SOCKET_CORS_ORIGIN` | `ecommerce-chat/.env` |
-| `SMTP_USER` / `SMTP_EMAIL` / `EMAIL_USER` (+ matching password env) | repo-root `.env` → `ecommerce-chat/config/smtpTransporter.js` (587, IPv4) |
+| `SMTP_USER` / `SMTP_EMAIL` / `EMAIL_USER` (+ matching password env) | repo-root `.env` → SMTP fallback in `config/smtpTransporter.js` |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | repo-root `.env` → chat password reset + alerts (Resend HTTP, preferred on DO) |
 | `VITE_API_URL`, `VITE_SOCKET_URL` | `admin-dashboard/.env` (use `:5000` for gateway) |
 
 See also: `docs/SETUP.md`, `ecommerce-chat/docs/SETUP.md`, `devops/first-time-server-setup.md`.

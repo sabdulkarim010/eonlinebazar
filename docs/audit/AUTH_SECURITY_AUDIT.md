@@ -125,6 +125,11 @@
 - `client/admin/partials/scripts.html`: `/js/utils/storage.js` before `admin-main.js` module chain
 - `core-state.js`, `admin-staff.js`, `admin-newsletter.js`: guarded `EOBStorage.get` / `remove` (prevents sidebar/nav init crash)
 
+### Chat admin mail — Resend HTTP primary — 2026-09-30
+
+- `ecommerce-chat/config/smtpTransporter.js`: `sendChatTransactionalEmail()` uses `RESEND_API_KEY` + `resend` SDK; SMTP fallback on DO-blocked ports
+- Password reset OTP no longer requires outbound SMTP when Resend is configured (repo-root `.env` via `loadEnv.js`)
+
 ### Chat admin SMTP transport — 2026-09-30
 
 - `ecommerce-chat/config/smtpTransporter.js`: Gmail **587** STARTTLS, **`family: 4`**, 10s timeouts; env fallbacks for user/pass

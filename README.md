@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-30 (Neon cold-start + health probe fixes)
+**Last updated:** 2026-09-30 (Chat microservice Resend for password reset OTP)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 
