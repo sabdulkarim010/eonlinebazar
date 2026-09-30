@@ -1,6 +1,6 @@
 # AUTH & SECURITY AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-30 (chat admin OTP password reset + agent suspend RBAC)  
+**Last updated:** 2026-09-30 (store admin EOBStorage guards + chat OTP email via SMTP)  
 **Scope:** Customer/admin authentication, JWT sessions, RBAC, 2FA, security logs, rate limits, emergency panel  
 **Status:** ✅ COMPLETE
 
@@ -119,6 +119,15 @@
 ---
 
 ## Change Log
+
+### Store admin panel storage bootstrap — 2026-09-30
+
+- `client/admin/partials/scripts.html`: `/js/utils/storage.js` before `admin-main.js` module chain
+- `core-state.js`, `admin-staff.js`, `admin-newsletter.js`: guarded `EOBStorage.get` / `remove` (prevents sidebar/nav init crash)
+
+### Chat admin OTP email delivery — 2026-09-30
+
+- `ecommerce-chat/routes/admin.routes.js`: nodemailer HTML OTP when `SMTP_USER` + `SMTP_PASS` set; console fallback in dev
 
 ### Store admin login crash fix — 2026-09-30
 

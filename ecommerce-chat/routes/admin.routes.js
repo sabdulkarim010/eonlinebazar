@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { getJwtSecret } = require('../config/jwtSecret');
@@ -71,12 +72,70 @@ const router = express.Router();
 const AGENT_ROLES = ['SUPER_ADMIN', 'ADMIN', 'AGENT'];
 const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
 
+function createPasswordResetMailTransporter() {
+  const port = Number(process.env.SMTP_PORT) || 465;
+  const secure = port === 465;
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port,
+    secure,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
+
+function buildPasswordResetOtpHtml(otp, agentName) {
+  const safeName = String(agentName || 'Agent').replace(/[<>&"]/g, '');
+  const safeOtp = String(otp).replace(/\D/g, '');
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0f172a;font-family:Segoe UI,system-ui,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0f172a;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" style="max-width:420px;background:rgba(30,41,59,0.95);border:1px solid rgba(148,163,184,0.2);border-radius:16px;padding:32px 28px;">
+        <tr><td style="color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:0.12em;">EonlineBazar · Chat Admin</td></tr>
+        <tr><td style="padding-top:12px;color:#f8fafc;font-size:22px;font-weight:600;">Password reset</td></tr>
+        <tr><td style="padding-top:8px;color:#cbd5e1;font-size:14px;line-height:1.5;">Hi ${safeName}, use this verification code to reset your password. It expires in 15 minutes.</td></tr>
+        <tr><td style="padding-top:28px;" align="center">
+          <div style="display:inline-block;padding:16px 28px;background:#1e293b;border:1px solid #334155;border-radius:12px;font-size:32px;font-weight:700;letter-spacing:0.35em;color:#38bdf8;">${safeOtp}</div>
+        </td></tr>
+        <tr><td style="padding-top:24px;color:#64748b;font-size:12px;line-height:1.5;">If you did not request this, ignore this email. Your account stays secure.</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+async function sendPasswordResetOtpEmail(agentDoc, otp) {
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  if (!smtpUser || !smtpPass || process.env.NODE_ENV === 'test') {
+    return false;
+  }
+
+  const transporter = createPasswordResetMailTransporter();
+  await transporter.sendMail({
+    from: `"EonlineBazar Chat Admin" <${smtpUser}>`,
+    to: agentDoc.email,
+    subject: 'Your Chat Admin password reset code',
+    text: `Your verification code is ${otp}. It expires in 15 minutes.`,
+    html: buildPasswordResetOtpHtml(otp, agentDoc.name),
+  });
+  return true;
+}
+
 async function issuePasswordResetOtp(agentDoc) {
   const otp = String(crypto.randomInt(100000, 1000000));
   agentDoc.reset_token = await bcrypt.hash(otp, 12);
   agentDoc.reset_token_expiry = new Date(Date.now() + RESET_TOKEN_TTL_MS);
   await agentDoc.save();
-  if (process.env.NODE_ENV !== 'test') {
+
+  const emailed = await sendPasswordResetOtpEmail(agentDoc, otp);
+  if (!emailed && process.env.NODE_ENV !== 'test') {
     console.log(
       `[chat-admin][password-reset] OTP for ${agentDoc.email}: ${otp} (expires ${agentDoc.reset_token_expiry.toISOString()})`
     );

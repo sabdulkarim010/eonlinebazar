@@ -4,7 +4,22 @@
  * Description: Admin newsletter subscribers & email campaign management.
  */
 
-const nlToken = () => window.EOBStorage.get(window.EOBStorageKeys.ADMIN_TOKEN);
+function nlStorage() {
+    const storage = typeof window !== 'undefined' ? window.EOBStorage : null;
+    if (!storage || typeof storage.get !== 'function') return null;
+    return storage;
+}
+
+const nlToken = () => {
+    const storage = nlStorage();
+    const keys = typeof window !== 'undefined' ? window.EOBStorageKeys : null;
+    if (!storage || !keys?.ADMIN_TOKEN) return null;
+    try {
+        return storage.get(keys.ADMIN_TOKEN) || null;
+    } catch (_) {
+        return null;
+    }
+};
 
 function nlNotify(message, type = 'success') {
     if (typeof window.showToast === 'function') return window.showToast(message, type);

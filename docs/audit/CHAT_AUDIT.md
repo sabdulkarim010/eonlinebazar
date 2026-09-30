@@ -1,6 +1,6 @@
 # CHAT AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-30 (Chat admin Phase 4 — OTP reset, agent status RBAC)  
+**Last updated:** 2026-09-30 (Gmail SMTP OTP delivery + reset modal UI polish)  
 **Scope:** Live chat microservice (`ecommerce-chat/`), React chat admin (`admin-dashboard/`), storefront widget, mobile support, socket teardown  
 **Status:** ⚠️ PARTIAL
 
@@ -81,6 +81,11 @@
 ---
 
 ## Change Log
+
+### Chat admin password reset email + modal UI — 2026-09-30
+
+- **`admin.routes.js`:** `nodemailer` transporter (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`); HTML OTP email; dev console fallback
+- **`LoginPage.jsx`:** dark glassmorphism reset overlay, step badges, six OTP digit inputs
 
 ### Chat admin auth & RBAC Phase 4 — 2026-09-30
 

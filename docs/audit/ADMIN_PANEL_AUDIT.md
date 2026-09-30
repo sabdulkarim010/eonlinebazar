@@ -1,6 +1,6 @@
 # ADMIN PANEL AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-28 (Dashboard Phase 5.1 — quick action DB sync + layout)  
+**Last updated:** 2026-09-30 (EOBStorage script order + safe token reads)  
 **Scope:** Store admin SPA — `client/admin/partials/`, `client/js/admin/`, assembled via `adminPageBuilder.js` at `GET /admin`  
 **Status:** ✅ COMPLETE
 
@@ -121,6 +121,12 @@
 ---
 
 ## Change Log
+
+### Admin dashboard script dependencies — 2026-09-30
+
+- `client/admin/partials/scripts.html`: include `storage.js` before ES module boot (`admin-main.js` → `core-state.js`)
+- `core-state.js`, `admin-staff.js`, `admin-newsletter.js`: safe storage accessors so collapsible sidebar handlers initialize
+- Tests: Jest **516/516**
 
 ### Dashboard layout alignment — 2026-09-28
 

@@ -451,6 +451,17 @@ Status key: ✅ COMPLETE | 🔶 PARTIAL | ❌ MISSING/BROKEN
 |---------|--------|-------|-------|
 | Storefront chat widget | ✅ | `client/js/chat-widget.js`, `ecommerce-chat/public/js/chat-widget.js` | FAB, socket, AI bot; logged-in routes globally; desktop draggable panel; profile Live Support without destroy race (`orderChat.js`) |
 
+## Store Admin Panel Storage Bootstrap — 2026-09-30
+
+- ✅ `storage.js` loaded before admin ES module entry; `core-state` / staff / newsletter safe token reads
+- ✅ Sidebar collapsibles and nav handlers no longer blocked by `EOBStorage` TypeError at parse time
+
+## Chat Admin Password Reset Email & Modal — 2026-09-30
+
+- ✅ Forgot-password sends HTML OTP via nodemailer when `SMTP_USER` + `SMTP_PASS` configured (Gmail-friendly defaults)
+- ✅ React login reset modal: dark glassmorphism, step badges, six-digit OTP inputs
+- ✅ Tests **516/516**
+
 ## Chat Admin Auth & RBAC Phase 4 — 2026-09-30
 
 - ✅ Chat agent OTP forgot/reset password (`/api/admin/auth/*`, bcrypt-hashed OTP, 15m expiry)

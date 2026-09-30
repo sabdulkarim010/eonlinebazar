@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -30,6 +30,107 @@ const BUBBLES = [
 ];
 
 const REMEMBER_KEY = 'chat_admin_remember_email';
+
+const RESET_STEPS = [
+  { id: 1, label: 'Email' },
+  { id: 2, label: 'Verify' },
+  { id: 3, label: 'Password' },
+];
+
+function ResetStepBadge({ stepId, label, activeStep }) {
+  const done = activeStep > stepId;
+  const active = activeStep === stepId;
+  return (
+    <div className="flex flex-1 flex-col items-center gap-2 min-w-0">
+      <div
+        className={[
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold border transition-all duration-300',
+          done
+            ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+            : active
+              ? 'bg-primary/25 border-primary/60 text-white shadow-lg shadow-primary/25'
+              : 'bg-white/5 border-white/10 text-slate-500',
+        ].join(' ')}
+        aria-current={active ? 'step' : undefined}
+      >
+        {done ? '✓' : stepId}
+      </div>
+      <span
+        className={[
+          'text-[10px] sm:text-xs font-medium uppercase tracking-wide truncate w-full text-center',
+          active ? 'text-slate-100' : done ? 'text-emerald-300/90' : 'text-slate-500',
+        ].join(' ')}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function OtpSixInput({ value, onChange, disabled }) {
+  const refs = useRef([]);
+  const digits = Array.from({ length: 6 }, (_, i) => value[i] || '');
+
+  useEffect(() => {
+    if (!disabled) refs.current[0]?.focus();
+  }, [disabled]);
+
+  const commit = (nextDigits) => {
+    onChange(nextDigits.join('').replace(/\D/g, '').slice(0, 6));
+  };
+
+  const handleKeyDown = (idx, e) => {
+    if (e.key === 'Backspace' && !digits[idx] && idx > 0) {
+      refs.current[idx - 1]?.focus();
+    }
+    if (e.key === 'ArrowLeft' && idx > 0) refs.current[idx - 1]?.focus();
+    if (e.key === 'ArrowRight' && idx < 5) refs.current[idx + 1]?.focus();
+  };
+
+  const handleChange = (idx, raw) => {
+    const d = raw.replace(/\D/g, '').slice(-1);
+    const next = [...digits];
+    next[idx] = d;
+    commit(next);
+    if (d && idx < 5) refs.current[idx + 1]?.focus();
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData
+      .getData('text')
+      .replace(/\D/g, '')
+      .slice(0, 6);
+    if (!pasted) return;
+    const next = Array.from({ length: 6 }, (_, i) => pasted[i] || '');
+    commit(next);
+    const focusIdx = Math.min(pasted.length, 5);
+    refs.current[focusIdx]?.focus();
+  };
+
+  return (
+    <div className="flex justify-center gap-2 sm:gap-2.5" onPaste={handlePaste}>
+      {digits.map((d, idx) => (
+        <input
+          key={idx}
+          ref={(el) => {
+            refs.current[idx] = el;
+          }}
+          type="text"
+          inputMode="numeric"
+          autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+          maxLength={1}
+          value={d}
+          disabled={disabled}
+          aria-label={`Digit ${idx + 1} of 6`}
+          className="h-12 w-10 sm:h-14 sm:w-12 rounded-xl border border-white/15 bg-slate-950/50 text-center text-xl font-bold text-white shadow-inner shadow-black/20 outline-none transition focus:border-primary/70 focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+          onChange={(e) => handleChange(idx, e.target.value)}
+          onKeyDown={(e) => handleKeyDown(idx, e)}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -126,7 +227,7 @@ export default function LoginPage() {
       setResetLoading(true);
       try {
         await requestPasswordResetOtp(trimmed);
-        toast.success('Verification code sent (check server logs in dev)');
+        toast.success('Verification code sent to your email');
         setResetStep(2);
       } catch (err) {
         setResetError(
@@ -379,72 +480,93 @@ export default function LoginPage() {
 
       {forgotOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md"
           role="presentation"
           onClick={closeForgotFlow}
         >
           <div
-            className="w-full max-w-md rounded-card border border-slate-200 bg-white shadow-layered p-6 animate-fadeIn"
+            className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-slate-900/85 shadow-2xl shadow-black/40 ring-1 ring-white/5 backdrop-blur-xl p-6 sm:p-8 animate-fadeIn"
             role="dialog"
             aria-modal="true"
             aria-labelledby="forgot-password-title"
             onClick={(ev) => ev.stopPropagation()}
           >
-            <h2
-              id="forgot-password-title"
-              className="text-lg font-semibold text-text-primary"
-            >
-              Reset password
-            </h2>
-            <p className="text-sm text-text-secondary mt-1">
-              Step {resetStep} of 3
-            </p>
+            <div className="pointer-events-none absolute -top-20 -right-16 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-16 -left-12 h-36 w-36 rounded-full bg-indigo-500/15 blur-3xl" />
 
-            <form onSubmit={handleForgotNext} className="mt-5 space-y-4">
+            <div className="relative">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Admin Console
+              </p>
+              <h2
+                id="forgot-password-title"
+                className="mt-1 text-xl font-bold text-white tracking-tight"
+              >
+                Reset password
+              </h2>
+              <p className="text-sm text-slate-400 mt-1">
+                Secure verification in three steps
+              </p>
+
+              <div className="mt-6 flex items-start gap-1 sm:gap-2">
+                {RESET_STEPS.map((s, i) => (
+                  <div key={s.id} className="flex flex-1 items-start gap-1 min-w-0">
+                    <ResetStepBadge
+                      stepId={s.id}
+                      label={s.label}
+                      activeStep={resetStep}
+                    />
+                    {i < RESET_STEPS.length - 1 ? (
+                      <div
+                        className={[
+                          'mt-4 h-px flex-1 min-w-[8px] rounded-full transition-colors',
+                          resetStep > s.id ? 'bg-emerald-500/40' : 'bg-white/10',
+                        ].join(' ')}
+                        aria-hidden
+                      />
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+
+            <form onSubmit={handleForgotNext} className="mt-7 space-y-5">
               {resetStep === 1 ? (
                 <div>
                   <label
                     htmlFor="reset-email"
-                    className="block text-sm font-medium text-text-primary mb-1.5"
+                    className="block text-sm font-medium text-slate-200 mb-2"
                   >
                     Registered email
                   </label>
-                  <input
-                    id="reset-email"
-                    type="email"
-                    autoComplete="email"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    className="w-full rounded-btn border border-slate-200 px-3 py-2.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    placeholder="agent@eonlinebazar.com"
-                    required
-                  />
+                  <div className="relative">
+                    <EnvelopeIcon className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      id="reset-email"
+                      type="email"
+                      autoComplete="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/40 pl-11 pr-4 py-2.5 text-white placeholder:text-slate-600 outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/25"
+                      placeholder="agent@eonlinebazar.com"
+                      required
+                    />
+                  </div>
                 </div>
               ) : null}
 
               {resetStep === 2 ? (
                 <div>
-                  <label
-                    htmlFor="reset-otp"
-                    className="block text-sm font-medium text-text-primary mb-1.5"
-                  >
+                  <label className="block text-sm font-medium text-slate-200 mb-3 text-center">
                     Verification code
                   </label>
-                  <input
-                    id="reset-otp"
-                    inputMode="numeric"
-                    pattern="[0-9]{6}"
-                    maxLength={6}
+                  <OtpSixInput
                     value={resetOtp}
-                    onChange={(e) =>
-                      setResetOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
-                    }
-                    className="w-full rounded-btn border border-slate-200 px-3 py-2.5 tracking-[0.35em] text-center font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    placeholder="000000"
-                    required
+                    onChange={setResetOtp}
+                    disabled={resetLoading}
                   />
-                  <p className="text-xs text-slate-500 mt-2">
-                    Enter the 6-digit code sent to your email.
+                  <p className="text-xs text-slate-500 mt-3 text-center leading-relaxed">
+                    Enter the 6-digit code we sent to{' '}
+                    <span className="text-slate-400">{resetEmail.trim()}</span>
                   </p>
                 </div>
               ) : null}
@@ -454,38 +576,44 @@ export default function LoginPage() {
                   <div>
                     <label
                       htmlFor="reset-new-password"
-                      className="block text-sm font-medium text-text-primary mb-1.5"
+                      className="block text-sm font-medium text-slate-200 mb-2"
                     >
                       New password
                     </label>
-                    <input
-                      id="reset-new-password"
-                      type="password"
-                      autoComplete="new-password"
-                      value={resetPassword}
-                      onChange={(e) => setResetPassword(e.target.value)}
-                      className="w-full rounded-btn border border-slate-200 px-3 py-2.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                      minLength={8}
-                      required
-                    />
+                    <div className="relative">
+                      <LockClosedIcon className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        id="reset-new-password"
+                        type="password"
+                        autoComplete="new-password"
+                        value={resetPassword}
+                        onChange={(e) => setResetPassword(e.target.value)}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/40 pl-11 pr-4 py-2.5 text-white outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/25"
+                        minLength={8}
+                        required
+                      />
+                    </div>
                   </div>
                   <div>
                     <label
                       htmlFor="reset-confirm-password"
-                      className="block text-sm font-medium text-text-primary mb-1.5"
+                      className="block text-sm font-medium text-slate-200 mb-2"
                     >
                       Confirm password
                     </label>
-                    <input
-                      id="reset-confirm-password"
-                      type="password"
-                      autoComplete="new-password"
-                      value={resetConfirm}
-                      onChange={(e) => setResetConfirm(e.target.value)}
-                      className="w-full rounded-btn border border-slate-200 px-3 py-2.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                      minLength={8}
-                      required
-                    />
+                    <div className="relative">
+                      <LockClosedIcon className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        id="reset-confirm-password"
+                        type="password"
+                        autoComplete="new-password"
+                        value={resetConfirm}
+                        onChange={(e) => setResetConfirm(e.target.value)}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/40 pl-11 pr-4 py-2.5 text-white outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/25"
+                        minLength={8}
+                        required
+                      />
+                    </div>
                   </div>
                 </>
               ) : null}
@@ -493,18 +621,18 @@ export default function LoginPage() {
               {resetError ? (
                 <div
                   role="alert"
-                  className="flex items-start gap-2 rounded-btn border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                  className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-950/40 px-3 py-2.5 text-sm text-red-200"
                 >
-                  <ExclamationCircleIcon className="w-5 h-5 shrink-0" />
+                  <ExclamationCircleIcon className="w-5 h-5 shrink-0 text-red-400" />
                   <span>{resetError}</span>
                 </div>
               ) : null}
 
-              <div className="flex items-center justify-end gap-2 pt-1">
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={closeForgotFlow}
-                  className="rounded-btn px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                  className="rounded-xl px-4 py-2 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition"
                 >
                   Cancel
                 </button>
@@ -515,7 +643,7 @@ export default function LoginPage() {
                       setResetError('');
                       setResetStep((s) => Math.max(1, s - 1));
                     }}
-                    className="rounded-btn px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
+                    className="rounded-xl px-4 py-2 text-sm font-medium text-slate-300 hover:bg-white/5 transition"
                   >
                     Back
                   </button>
@@ -523,7 +651,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="rounded-btn btn-gradient text-white text-sm font-semibold px-4 py-2 disabled:opacity-60"
+                  className="rounded-xl btn-gradient text-white text-sm font-semibold px-5 py-2.5 shadow-lg shadow-primary/20 disabled:opacity-60 transition"
                 >
                   {resetLoading
                     ? 'Please wait…'
@@ -533,6 +661,7 @@ export default function LoginPage() {
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       ) : null}
