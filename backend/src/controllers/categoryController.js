@@ -484,27 +484,37 @@ exports.getCategoryById = async (req, res) => {
   }
 };
 
-// GET /api/categories/admin/all
-exports.adminGetCategories = async (req, res) => {
+/**
+ * Product counts grouped by category name (Mongo). When Mongo is unavailable
+ * during PG-primary reads, return null so the handler still serves categories.
+ */
+async function loadCategoryProductCountMapFromMongo() {
   try {
-    // 1. Get all categories in one query
-    const categories = await fetchAllCategoriesPopulated();
-
-    // 2. Get product counts in ONE aggregation query (not N queries)
     const productCounts = await Product.aggregate([
       { $group: { _id: '$category', count: { $sum: 1 } } }
     ]);
-
-    // 3. Build a lookup map: { 'Fashion & Apparel': 8, 'Electronics': 3, ... }
     const countMap = {};
     for (const item of productCounts) {
       if (item._id) countMap[item._id] = item.count;
     }
+    return countMap;
+  } catch (err) {
+    console.error('adminGetCategories: Mongo product count aggregate failed:', err.message);
+    return null;
+  }
+}
 
-    // 4. Attach counts to categories
+// GET /api/categories/admin/all
+exports.adminGetCategories = async (req, res) => {
+  try {
+    const categories = await fetchAllCategoriesPopulated();
+    const countMap = await loadCategoryProductCountMapFromMongo();
+
     const categoriesWithCounts = categories.map((cat) => ({
       ...cat,
-      productCount: countMap[cat.name] || 0
+      productCount: countMap
+        ? (countMap[cat.name] || 0)
+        : (Number(cat.productCount) || 0)
     }));
 
     res.json({ success: true, data: categoriesWithCounts });

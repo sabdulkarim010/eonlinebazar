@@ -4,7 +4,7 @@
  * Description: Add/Edit product form, image upload, SEO/price previews, and save/update.
  */
 /* Dependencies: token, selectedFilesAdd, selectedFilesEdit, productHighlights, showToast, collectProductVariantPayload, loadProductVariantUI, resetProductVariantUI, fetchLiveProducts, upsertProductInState, showAdminSuccess, adminProductImageSrc, ADMIN_IMG_FALLBACK_ONERROR (window) */
-/* Exposes: window.addHighlightTag, window.closeEditModal, window.editProduct, window.handleImageDragLeave, window.handleImageDragOver, window.handleImageDrop, window.handleImageSelect, window.initAddProductFormUI, window.previewImage, window.removeAddImage, window.removeEditImage, window.removeHighlightTag, window.renderAddPreviews, window.renderEditPreviews, window.renderHighlightTags, window.resetAddProductFormExtras, window.resetAddProductHighlights, window.saveProductDraft, window.setupCharCounters, window.updateEditProfitPreview, window.updatePricePreview, window.updateProductDetails, window.updateSeoPreview, window.uploadProduct */
+/* Exposes: window.addHighlightTag, window.applyAiProductPayload, window.closeEditModal, window.editProduct, window.handleImageDragLeave, window.handleImageDragOver, window.handleImageDrop, window.handleImageSelect, window.initAddProductFormUI, window.previewImage, window.removeAddImage, window.removeEditImage, window.removeHighlightTag, window.renderAddPreviews, window.renderEditPreviews, window.renderHighlightTags, window.resetAddProductFormExtras, window.resetAddProductHighlights, window.saveProductDraft, window.setupCharCounters, window.updateEditProfitPreview, window.updatePricePreview, window.updateProductDetails, window.updateSeoPreview, window.uploadProduct */
 
 import '../admin-core.js';
 
@@ -153,6 +153,87 @@ window.updatePricePreview = function() {
             summary.innerHTML = '<div class="profit-summary-empty">Enter sell &amp; cost price to see analysis</div>';
         }
     }
+};
+
+/**
+ * Match AI suggested category to the add-product dropdown (name or label).
+ */
+function selectProductCategoryBySuggestion(suggested) {
+    const needle = String(suggested || '').trim().toLowerCase();
+    if (!needle) return false;
+
+    const categorySelect = document.getElementById('prodCategory');
+    if (!categorySelect) return false;
+
+    const match = Array.from(categorySelect.options).find((opt) => {
+        if (!opt.value) return false;
+        const val = opt.value.trim().toLowerCase();
+        const text = opt.textContent.replace(/^[\s└─]+/, '').trim().toLowerCase();
+        return val === needle || text === needle || text.includes(needle) || needle.includes(text);
+    });
+
+    if (match) {
+        categorySelect.value = match.value;
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Map AI product-assist JSON into the Add Product form fields.
+ */
+window.applyAiProductPayload = function(data) {
+    if (!data || typeof data !== 'object') return;
+
+    const name = data.name || data.productName;
+    if (name) {
+        const nameEl = document.getElementById('prodName');
+        if (nameEl) {
+            nameEl.value = String(name).trim();
+            nameEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+
+    const shortDesc = document.getElementById('prodDesc');
+    if (shortDesc && data.shortDescription) {
+        shortDesc.value = data.shortDescription;
+        shortDesc.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    const detailedDesc = document.getElementById('prodDetailedDesc');
+    if (detailedDesc && data.detailedDescription) {
+        detailedDesc.value = data.detailedDescription;
+    }
+
+    const highlights = data.keyHighlights || data.highlights;
+    if (Array.isArray(highlights) && highlights.length) {
+        productHighlights = highlights.map((h) => String(h).trim()).filter(Boolean);
+        if (typeof renderHighlightTags === 'function') renderHighlightTags();
+        const hidden = document.getElementById('prodHighlights');
+        if (hidden) hidden.value = productHighlights.join(', ');
+    }
+
+    if (data.suggestedCategory) {
+        selectProductCategoryBySuggestion(data.suggestedCategory);
+    }
+
+    const seoTitle = document.getElementById('prodSeoTitle');
+    if (seoTitle && data.seoTitle) seoTitle.value = String(data.seoTitle).trim();
+
+    const seoDesc = document.getElementById('prodSeoDescription');
+    if (seoDesc && data.seoDescription) {
+        seoDesc.value = String(data.seoDescription).trim().slice(0, 160);
+    }
+
+    const seoKw = document.getElementById('prodSeoKeywords');
+    if (seoKw && data.seoKeywords) {
+        seoKw.value = Array.isArray(data.seoKeywords)
+            ? data.seoKeywords.join(', ')
+            : String(data.seoKeywords).trim();
+    }
+
+    if (typeof updateSeoPreview === 'function') updateSeoPreview();
+    if (typeof updatePricePreview === 'function') updatePricePreview();
 };
 
 window.updateSeoPreview = function() {
@@ -468,7 +549,11 @@ window.uploadProduct = async function() {
             // প্রোডাক্ট লিস্ট লাইভ আপডেট করা (যদি ফাংশনটি এভেইলেবল থাকে)
             if (typeof fetchLiveProducts === "function") fetchLiveProducts();
         } else {
-            showToast("Upload failed: " + (result.message || "Unknown error"), "error");
+            const base = result.message || 'Unknown error';
+            const detail = result.errorDetail && String(result.errorDetail) !== String(base)
+                ? ` — ${result.errorDetail}`
+                : '';
+            showToast(`Upload failed: ${base}${detail}`, 'error');
         }
     } catch (e) { 
         showToast("Server error during product upload!", "error"); 
@@ -766,6 +851,7 @@ window.updateProductDetails = async function() {
 /* Expose module functions for HTML onclick + cross-module calls */
 Object.assign(window, {
     initAddProductFormUI,
+    applyAiProductPayload,
     renderAddPreviews,
     renderEditPreviews,
     renderHighlightTags,

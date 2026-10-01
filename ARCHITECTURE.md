@@ -107,7 +107,7 @@ backend/src/
 
 ├── controllers/
 
-│   ├── admin/             ← Admin-specific controllers (ERP, CRM, HRM, WMS, intelligence)
+│   ├── admin/             ← Admin-specific controllers (ERP, CRM, HRM, WMS, intelligence, productAiController)
 
 │   ├── auth/              ← Auth-specific controllers
 

@@ -1,6 +1,6 @@
 # PRODUCT & STOCK OPERATIONS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-29 (Step 3.1.3 — public catalog bounded queries)  
+**Last updated:** 2026-10-01 (AI Product Assistant — vision, multilingual, SEO auto-fill)  
 **Scope:** Inventory management, add/edit product, categories, brands, attributes, suppliers, warehouses, purchase orders, WMS transfers & stock ledger (formerly "Catalog & Inventory" nav group)  
 **Status:** ⚠️ PARTIAL — WMS backend complete; transfer UI pending; attribute PG read gap remains
 
@@ -15,6 +15,9 @@
 | `backend/src/routes/brandRoutes.js` | Brand CRUD |
 | `backend/src/routes/attributeRoutes.js` | Attribute CRUD |
 | `backend/src/controllers/productController.js` | Product logic + slug + ERP fields |
+| `backend/src/controllers/admin/productAiController.js` | AI product assist API (multipart vision) |
+| `backend/src/services/productAiAssistService.js` | Anthropic vision prompt + JSON normalize |
+| `tests/services/productAiAssistService.test.js` | AI assist normalization unit tests |
 | `backend/src/controllers/categoryController.js` | Category logic |
 | `backend/src/controllers/brandController.js` | Brand logic |
 | `backend/src/controllers/attributeController.js` | Attribute logic |
@@ -45,6 +48,8 @@
 | `backend/src/queues/importExportQueue.js` | BullMQ bulk import/export worker |
 | `backend/src/controllers/admin/pimController.js` | PIM matrix + jobs + outbox API |
 | `backend/src/middleware/rbacMiddleware.js` | Scope-based RBAC (`products:read`, etc.) |
+| `backend/src/middlewares/uploadMiddleware.js` | `productImagesUploadSafe` — JSON 400 for product image multer errors |
+| `backend/src/config/cloudinary.js` | Shared Cloudinary v2 config (product + category uploads) |
 | `backend/src/jobs/outboxDispatcherJob.js` | Outbox polling dispatcher cron |
 | `backend/src/services/warehouseService.js` | Default warehouse seed |
 | `backend/src/models/StockLedger.js` | Immutable stock movement audit trail |
@@ -69,12 +74,14 @@
 ## Feature Checklist
 
 - [x] Product CRUD + variant matrix — `productController.js`, `products-form.js`
+- [x] Add Product: Cloudinary via shared config; duplicate SKU → 409; multer → 400 — `productController.js`, `productRoutes.js`, `uploadMiddleware.js`
+- [x] Category dropdown for `edit_products` / `view_products` — `GET /api/categories/admin/all` RBAC + graceful Mongo count degrade
 - [x] Product search + cursor pagination — `products-table.js`
 - [x] Category tree CRUD — `catalog-categories.js`
 - [x] Brand CRUD — `catalog-brands.js`
 - [x] Attribute CRUD — `catalog-attributes.js`
 - [x] Bulk CSV/Excel import — `bulkImportController.js`, `products-bulk.js`
-- [x] AI product assist — `products-ai.js`, OpenAI integration
+- [x] AI product assist — vision multi-image, Bangla/English content + name modes, SEO auto-fill — `products-ai.js`, `productAiAssistService.js`, `applyAiProductPayload` in `products-form.js`
 - [x] Supplier directory — `supplierController.js`, `erp-suppliers.js`
 - [x] Multi-warehouse inventory — `warehouseController.js`, default warehouse seed
 - [x] Purchase order lifecycle — `purchaseOrderController.js`, receive workflow
@@ -122,7 +129,11 @@
 | `view_products`-only staff: boot skips product fetch | Medium | Open | `core-nav.js:648` gates on `manage_inventory` only |
 | Edit product uses table cache not admin API | Medium | Open | `products-form.js:504` vs `GET /api/admin/products/:id` |
 | Bulk actions visible without `edit_products` | Medium | Fixed | `data-permission="edit_products"` on bulk/edit/delete controls |
-| Category filter API requires `manage_catalog` | Medium | Open | `view_products` users may get static placeholder categories |
+| Category filter API requires `manage_catalog` | Medium | Fixed | `GET /api/categories/admin/all` allows `edit_products` + `view_products`; Mongo count aggregate degrades to PG `productCount` |
+| Cloudinary raw import on product create | High | Fixed | `productController.js` uses `config/cloudinary.js` |
+| Duplicate SKU returns 500 on create | Medium | Fixed | `E11000` → HTTP 409 with clear message |
+| Product image multer errors → 500 | Medium | Fixed | `productImagesUploadSafe` on POST/PUT `/api/products` |
+| Add Product UI ignores `errorDetail` | Medium | Fixed | `products-form.js` toast shows API detail |
 | Warehouse UI shows `code` field that does not exist | Low | Open | `erp-warehouses.js:56` vs `warehouse.js` schema |
 | Product slug schema field missing | Low | Open | Sparse unique index exists; field not declared on schema |
 | Debug `console.log` on product create | Low | Open | `productController.js:539–541` |
@@ -139,6 +150,22 @@
 ---
 
 ## Change Log
+
+### AI Product Assistant upgrade — 2026-10-01
+
+- Modal: multi-image vision dropzone, content/name language selectors (`view-products.html`, `products-ai.js`, `_products-form.css`)
+- Backend: `POST /api/admin/ai/product-assist` multipart (`aiImages`, languages) → structured JSON via Anthropic vision
+- Form apply: name, descriptions, highlights, category, SEO fields — `applyAiProductPayload`
+- Tests: `tests/services/productAiAssistService.test.js`
+
+### Add Product workflow hardening — 2026-10-01
+
+- Cloudinary: shared `config/cloudinary.js` in `productController.js`
+- Categories: `adminGetCategories` Mongo aggregate wrapped (fallback to stored counts); route RBAC includes `edit_products`, `view_products`
+- Create: Mongoose duplicate key (`productId` / `slug`) → 409 JSON
+- Routes: `productImagesUploadSafe(10)` for POST/PUT product uploads
+- Frontend: `uploadProduct` surfaces `errorDetail` in error toast
+- Tests: `npm test` 516/516 pass
 
 ### Storefront Step 3.1.3 — Bounded public catalog endpoints — 2026-09-29
 

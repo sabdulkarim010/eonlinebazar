@@ -4164,3 +4164,30 @@ docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
 docs/audit/DEVOPS_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
+
+# AI Product Assistant — 2026-10-01
+backend/src/services/productAiAssistService.js [NEW] Anthropic vision + multilingual JSON
+backend/src/controllers/admin/productAiController.js [NEW] multipart AI assist handler
+backend/src/controllers/admin/adminProfileController.js [MOD] removed legacy aiProductAssist
+backend/src/controllers/adminController.js [MOD] export productAiController
+backend/src/routes/adminRoutes.js [MOD] aiProductImagesUploadSafe on /ai/product-assist
+backend/src/middlewares/uploadMiddleware.js [MOD] aiProductImagesUploadSafe
+client/admin/partials/view-products.html [MOD] AI modal vision dropzone + language selects
+client/css/admin/_products-form.css [MOD] AI vision dropzone styles
+client/js/admin/modules/products-ai.js [MOD] multipart generate + vision previews
+client/js/admin/modules/products-form.js [MOD] applyAiProductPayload
+tests/services/productAiAssistService.test.js [NEW]
+docs/audit/PRODUCTS_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+
+# Add Product workflow — 2026-10-01
+backend/src/controllers/productController.js [MOD] shared Cloudinary config; E11000 → 409; duplicate message helpers
+backend/src/controllers/categoryController.js [MOD] adminGetCategories Mongo count degrade gracefully
+backend/src/routes/categoryRoutes.js [MOD] admin/all RBAC includes edit_products, view_products
+backend/src/routes/productRoutes.js [MOD] productImagesUploadSafe(10) on POST/PUT
+backend/src/middlewares/uploadMiddleware.js [MOD] productImagesUploadSafe export
+client/js/admin/modules/products-form.js [MOD] toast shows errorDetail on failed upload
+docs/audit/PRODUCTS_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]

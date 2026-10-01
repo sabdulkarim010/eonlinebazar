@@ -10,6 +10,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const { aiProductImagesUploadSafe } = require('../middlewares/uploadMiddleware');
 const adminProfileController = require('../controllers/admin/adminProfileController');
 const { getDashboardAnalytics } = require('../controllers/analyticsController');
 const { getFinanceAnalytics } = require('../controllers/financeAnalyticsController');
@@ -545,8 +546,14 @@ router.delete('/blacklist/:id', verifyAdmin, checkPermission('manage_security'),
 router.get('/login-history', verifyAdmin, checkPermission('manage_security'), adminSecurityController.getLoginHistory);
 router.get('/security/rate-limit-stats', verifyAdmin, checkPermission('manage_security'), securityMonitorController.getRateLimitStats);
 
-// ✨ AI product content assist (Anthropic proxy)
-router.post('/ai/product-assist', verifyAdmin, checkPermission('manage_inventory', 'edit_products'), adminController.aiProductAssist);
+// ✨ AI product content assist (Anthropic vision + multilingual JSON)
+router.post(
+    '/ai/product-assist',
+    verifyAdmin,
+    checkPermission('manage_inventory', 'edit_products'),
+    aiProductImagesUploadSafe(5),
+    adminController.aiProductAssist
+);
 
 // ৩. টোকেন ভেরিফিকেশন (GET)
 router.get('/verify-token', verifyAdmin, adminController.verifyAdminToken);

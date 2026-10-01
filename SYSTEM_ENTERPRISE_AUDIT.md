@@ -7,6 +7,27 @@
 
 ---
 
+## AI Product Assistant upgrade — 2026-10-01
+
+| Item | Status |
+|------|--------|
+| Vision multi-image upload + language selectors (admin modal) | ✅ |
+| `productAiAssistService` structured JSON (name, SEO, highlights, category) | ✅ |
+| `applyAiProductPayload` maps AI response into Add Product form | ✅ |
+| Unit tests `productAiAssistService.test.js` | ✅ |
+
+## Add Product workflow fixes — 2026-10-01
+
+| Item | Status |
+|------|--------|
+| Product create uses shared Cloudinary config | ✅ |
+| `GET /api/categories/admin/all` for `edit_products` / `view_products` | ✅ |
+| Category admin list survives Mongo aggregate failure (PG counts fallback) | ✅ |
+| Duplicate `productId` / `slug` → HTTP 409 on create | ✅ |
+| Product image multer errors → HTTP 400 JSON | ✅ |
+| Admin form shows API `errorDetail` on upload failure | ✅ |
+| `npm test` | ✅ 516/516 |
+
 ## Cart/commerce fixes + telemetry ingest + grid cards — 2026-09-29
 
 | Item | Status |

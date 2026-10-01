@@ -257,7 +257,51 @@ function employeeDocumentUploadSafe(req, res, next) {
     });
 }
 
+/**
+ * Product image uploads — translate multer errors to JSON 400 for admin fetch().
+ */
+function productImagesUploadSafe(maxCount = 10) {
+    return (req, res, next) => {
+        upload.array('productImages', maxCount)(req, res, (err) => {
+            if (!err) return next();
+
+            let message;
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                message = 'Each product image must be 5 MB or smaller.';
+            } else if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
+                message = `Upload limit exceeded! Maximum ${maxCount} images allowed.`;
+            } else {
+                message = err.message || 'Product image upload failed.';
+            }
+            return res.status(400).json({ success: false, message });
+        });
+    };
+}
+
+/**
+ * AI product assist vision uploads — multiple reference photos (admin modal).
+ */
+function aiProductImagesUploadSafe(maxCount = 5) {
+    return (req, res, next) => {
+        upload.array('aiImages', maxCount)(req, res, (err) => {
+            if (!err) return next();
+
+            let message;
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                message = 'Each AI reference image must be 5 MB or smaller.';
+            } else if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
+                message = `Upload limit exceeded! Maximum ${maxCount} AI reference images allowed.`;
+            } else {
+                message = err.message || 'AI image upload failed.';
+            }
+            return res.status(400).json({ success: false, message });
+        });
+    };
+}
+
 module.exports = upload;
+module.exports.productImagesUploadSafe = productImagesUploadSafe;
+module.exports.aiProductImagesUploadSafe = aiProductImagesUploadSafe;
 module.exports.brandingUpload = brandingUpload;
 module.exports.employeePhotoUpload = employeePhotoUploadSafe;
 module.exports.employeeDocumentUpload = employeeDocumentUploadSafe;

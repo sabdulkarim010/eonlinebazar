@@ -299,20 +299,52 @@
         </form>
 
         <div class="modal-bg" id="ai-assist-modal">
-            <div class="modal-box" style="max-width:520px">
+            <div class="modal-box ai-assist-modal-box">
                 <div class="modal-title">✨ AI Product Assistant</div>
 
-                <div style="margin-bottom:14px">
-                    <label class="pf-label">Product Name</label>
+                <div class="ai-assist-grid-2">
+                    <div>
+                        <label class="pf-label" for="ai-content-language">General Content Language</label>
+                        <select id="ai-content-language" class="pf-input">
+                            <option value="english" selected>English</option>
+                            <option value="bangla">Bangla</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="pf-label" for="ai-name-language">Product Name Language</label>
+                        <select id="ai-name-language" class="pf-input">
+                            <option value="english" selected>English</option>
+                            <option value="bangla">Bangla</option>
+                            <option value="both">Both (Bangla + English combined)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="ai-assist-field">
+                    <label class="pf-label" for="ai-product-name">Product Name (optional if photos provided)</label>
                     <input type="text" id="ai-product-name" class="pf-input"
-                           placeholder="Enter product name..."
+                           placeholder="Enter product name or leave blank for vision-only..."
                            value="">
                 </div>
 
-                <div style="margin-bottom:14px">
-                    <label class="pf-label">Additional Context (optional)</label>
+                <div class="ai-assist-field">
+                    <label class="pf-label" for="ai-additional-context">Additional Context (optional)</label>
                     <input type="text" id="ai-additional-context" class="pf-input"
                            placeholder="e.g., for kids, winter collection, organic...">
+                </div>
+
+                <div class="ai-assist-field">
+                    <label class="pf-label">Product Photos for AI Vision</label>
+                    <div class="ai-vision-dropzone" id="aiVisionDropzone">
+                        <input type="file" id="aiVisionFileInput" accept="image/*" multiple
+                               aria-label="Upload product photos for AI analysis">
+                        <div class="ai-vision-dropzone-inner">
+                            <i class="fa-solid fa-images" aria-hidden="true"></i>
+                            <p>Drop multiple product photos here or click to browse</p>
+                            <span class="ai-vision-hint">Up to 5 images · JPG, PNG, WebP</span>
+                        </div>
+                    </div>
+                    <div class="ai-vision-preview-grid" id="aiVisionPreviewGrid"></div>
                 </div>
 
                 <div id="ai-loading" style="display:none;text-align:center;padding:20px">

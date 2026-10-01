@@ -1,6 +1,6 @@
 # EOnlineBazar
 
-**Last updated:** 2026-09-30 (Chat microservice Resend for password reset OTP)
+**Last updated:** 2026-10-01 (AI Product Assistant — vision uploads, multilingual SEO auto-fill)
 
 ### Production-Ready Enterprise E-Commerce Platform with Modular ERP, CRM, and HRM Architecture
 

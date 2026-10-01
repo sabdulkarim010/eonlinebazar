@@ -12,7 +12,7 @@ const Brand = require('../models/brand');
 const Category = require('../models/category');
 const Settings = require('../models/Settings');
 const { upload } = require('../middlewares/uploadMiddleware'); // এখানে শুধু upload ইমপোর্ট হবে
-const cloudinary = require('cloudinary').v2; // ক্লাউডিনারি সরাসরি এখান থেকে ইমপোর্ট করুন
+const cloudinary = require('../config/cloudinary');
 const mongoose = require('mongoose');
 const { parseVariants, applyProductStockFields, computeMinVariantPrice, applyPrimaryImageToVariants } = require('../utils/variantHelpers');
 const {
@@ -146,6 +146,23 @@ function parseObjectIdField(raw) {
     const value = String(raw ?? '').trim();
     if (!value || value === 'null' || value === 'undefined') return null;
     return mongoose.Types.ObjectId.isValid(value) ? value : null;
+}
+
+function isDuplicateKeyError(error) {
+    if (!error) return false;
+    if (error.code === 11000 || error.code === '11000') return true;
+    return error.name === 'MongoServerError' && /E11000/i.test(String(error.message || ''));
+}
+
+function duplicateProductCreateMessage(error) {
+    const pattern = error?.keyPattern || {};
+    if (pattern.productId) {
+        return 'A product with this SKU / Product ID already exists. Use a unique ID.';
+    }
+    if (pattern.slug) {
+        return 'A product with this URL slug already exists. Change the product name or slug.';
+    }
+    return 'A product with these details already exists.';
 }
 
 async function resolveBrand(brandInput) {
@@ -565,11 +582,18 @@ const createProduct = async (req, res) => {
         res.status(201).json({ success: true, message: "Product added successfully!", data: newProduct });
     } catch (err) {
         console.error("Product Add Error:", err);
-        // 🚀 ফিক্স: এখন ফ্রন্টএন্ডের নেটওয়ার্ক ট্যাবে আসল এররটি দেখা যাবে
-        res.status(500).json({ 
-            success: false, 
+        if (isDuplicateKeyError(err)) {
+            const message = duplicateProductCreateMessage(err);
+            return res.status(409).json({
+                success: false,
+                message,
+                errorDetail: err.message
+            });
+        }
+        res.status(500).json({
+            success: false,
             message: "Failed to add new product",
-            errorDetail: err.message // এটি দেখে আমরা বুঝতে পারব সমস্যা কোথায়
+            errorDetail: err.message
         });
     }
 };
