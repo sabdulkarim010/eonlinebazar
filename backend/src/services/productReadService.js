@@ -200,6 +200,9 @@ function mapPgProductRow(product) {
     numOfReviews: product.numOfReviews,
     supplierId: product.supplierId,
     warehouseId: product.warehouseId,
+    seoTitle: product.seoTitle || '',
+    seoDescription: product.seoDescription || '',
+    seoKeywords: product.seoKeywords || '',
     variants: (product.variants || []).map((v) => ({
       _id: v.legacyId,
       name: v.name,

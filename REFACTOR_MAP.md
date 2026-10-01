@@ -4165,6 +4165,16 @@ docs/audit/DEVOPS_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
 
+# Product duplicate SKU, PG sync, SEO — 2026-10-01
+backend/src/controllers/productController.js [MOD] 409 message; launch status; routed GET /api/products
+backend/src/repositories/productRepository.js [MOD] categoryId by name; SEO on PG read shapes
+backend/src/services/productReadService.js [MOD] SEO fields on mapPgProductRow
+backend/src/services/seoPageService.js [MOD] routed product fetch + stored SEO meta tags
+backend/src/services/productAiAssistService.js [MOD] bilingual SEO prompt rules
+client/js/admin/modules/products-form.js [MOD] clean 409 toast
+tests/services/productAiAssistService.test.js [MOD]
+docs/audit/PRODUCTS_AUDIT.md [MOD]
+
 # AI Product Assistant — 2026-10-01
 backend/src/services/productAiAssistService.js [NEW] Anthropic vision + multilingual JSON
 backend/src/controllers/admin/productAiController.js [NEW] multipart AI assist handler

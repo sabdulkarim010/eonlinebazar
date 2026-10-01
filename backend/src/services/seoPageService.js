@@ -15,6 +15,7 @@ const { ROLES } = require('../config/permissions');
 const { applyBrandingToHtml } = require('../utils/brandingHtml');
 const { injectSharedPartials } = require('../utils/injectSharedPartials');
 const { DEFAULT_SETTINGS } = require('./storeSettingsService');
+const productReadService = require('./productReadService');
 const {
     generateMetaTags,
     generateProductJsonLd,
@@ -82,17 +83,17 @@ async function resolveCategoryByParam(categoryParam) {
 }
 
 async function findProductByQuery(idParam) {
-    if (!idParam) return null;
-    const token = String(idParam).trim();
+    const token = String(idParam || '').trim();
     if (!token) return null;
 
-    const query = mongoose.Types.ObjectId.isValid(token)
-        ? { _id: token }
-        : { productId: token };
+    if (mongoose.Types.ObjectId.isValid(token)) {
+        const byId = await productReadService.fetchProductById(token);
+        if (byId) return byId;
+    }
 
-    let product = await Product.findOne(query).lean();
+    let product = await productReadService.fetchProductByProductId(token);
     if (!product) {
-        product = await Product.findOne({ slug: token }).lean();
+        product = await productReadService.fetchProductBySlug(token);
     }
     return product;
 }
@@ -113,12 +114,18 @@ async function serveProductDetailsWithSeo(req, res) {
 
         const canonicalUrl = buildProductCanonicalUrl(product);
         const images = resolveProductImages(product);
+        const seoTitleRaw = String(product.seoTitle || '').trim();
+        const pageTitle = seoTitleRaw || product.name;
         const description = truncate(
-            product.description || product.detailedDescription || `${product.name} — EOnlineBazar-এ কিনুন`
+            String(product.seoDescription || '').trim()
+            || product.description
+            || product.detailedDescription
+            || `${product.name} — EOnlineBazar-এ কিনুন`
         );
-        const keywords = [product.name, product.category, product.brandName, ...(product.tags || [])]
-            .filter(Boolean)
-            .join(', ');
+        const keywords = String(product.seoKeywords || '').trim()
+            || [product.name, product.category, product.brandName, ...(product.tags || [])]
+                .filter(Boolean)
+                .join(', ');
 
         const breadcrumbs = [
             { name: 'Home', url: '/' },
@@ -131,7 +138,7 @@ async function serveProductDetailsWithSeo(req, res) {
 
         const seoHtml = [
             generateMetaTags({
-                title: product.name,
+                title: pageTitle,
                 description,
                 keywords,
                 canonicalUrl,

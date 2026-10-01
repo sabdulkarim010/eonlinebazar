@@ -36,9 +36,23 @@ async function resolveByLegacyId(model, mongoRef) {
   return null;
 }
 
+async function resolveCategoryIdByName(categoryName) {
+  const name = String(categoryName || '').trim();
+  if (!name) return null;
+  try {
+    const row = await prisma.category.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' } },
+      select: { id: true }
+    });
+    return row?.id ?? null;
+  } catch (_err) {
+    return null;
+  }
+}
+
 async function resolveProductMainForeignKeys(main) {
   const [
-    categoryId,
+    categoryIdFromLegacy,
     brandId,
     supplierId,
     warehouseId,
@@ -50,6 +64,11 @@ async function resolveProductMainForeignKeys(main) {
     main.warehouseId ? resolveByLegacyId('warehouse', main.warehouseId) : null,
     main.createdById ? resolveByLegacyId('admin', main.createdById) : null
   ]);
+
+  let categoryId = categoryIdFromLegacy;
+  if (!categoryId && main.categoryName) {
+    categoryId = await resolveCategoryIdByName(main.categoryName);
+  }
 
   return {
     ...main,
@@ -860,6 +879,9 @@ async function getProductByIdFromPG(mongoId) {
       images: product.images,
       rating: Number(product.rating),
       numOfReviews: product.numOfReviews,
+      seoTitle: product.seoTitle || '',
+      seoDescription: product.seoDescription || '',
+      seoKeywords: product.seoKeywords || '',
       variants: product.variants.map(v => ({
         _id: v.legacyId,
         name: v.name,
@@ -974,6 +996,9 @@ async function listProductsFromPG(filters = {}) {
       images: product.images,
       rating: Number(product.rating),
       numOfReviews: product.numOfReviews,
+      seoTitle: product.seoTitle || '',
+      seoDescription: product.seoDescription || '',
+      seoKeywords: product.seoKeywords || '',
       variants: product.variants.map(v => ({
         _id: v.legacyId,
         name: v.name,

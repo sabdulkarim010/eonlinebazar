@@ -22,10 +22,12 @@ function normalizeNameLanguage(value) {
   return normalizeLanguage(value, ['bangla', 'english', 'both'], 'english');
 }
 
+const SEO_BILINGUAL_RULE = `SEO fields (seoTitle, seoDescription, seoKeywords) MUST always combine English and Bangla (বাংলা) for Bangladesh e-commerce SEO: use high-converting English plus local Bangla search terms. seoTitle: max 60 characters, attractive for Google. seoDescription: max 160 characters, compelling for local shoppers. seoKeywords: comma-separated English and Bengali keywords (e.g. "cotton shirt, cotton t-shirt, কটন শার্ট").`;
+
 function buildLanguageRules(contentLanguage, nameLanguage) {
   const contentRule = contentLanguage === 'bangla'
-    ? 'Write shortDescription, detailedDescription, keyHighlights, seoTitle, seoDescription, and seoKeywords in Bangla (বাংলা) only.'
-    : 'Write shortDescription, detailedDescription, keyHighlights, seoTitle, seoDescription, and seoKeywords in English only.';
+    ? 'Write shortDescription, detailedDescription, and keyHighlights in Bangla (বাংলা) only.'
+    : 'Write shortDescription, detailedDescription, and keyHighlights in English only.';
 
   let nameRule;
   if (nameLanguage === 'bangla') {
@@ -36,16 +38,17 @@ function buildLanguageRules(contentLanguage, nameLanguage) {
     nameRule = 'The "name" field must be in English only.';
   }
 
-  return { contentRule, nameRule };
+  return { contentRule, nameRule, seoRule: SEO_BILINGUAL_RULE };
 }
 
 function buildVisionPrompt({ productName, additionalContext, contentLanguage, nameLanguage }) {
-  const { contentRule, nameRule } = buildLanguageRules(contentLanguage, nameLanguage);
+  const { contentRule, nameRule, seoRule } = buildLanguageRules(contentLanguage, nameLanguage);
 
   return `You are a senior e-commerce copywriter and catalog specialist for EOnlineBazar (Bangladesh).
 
 Analyze the product from any attached photos and the hints below. ${contentRule}
 ${nameRule}
+${seoRule}
 
 Product hint name: ${productName ? `"${productName}"` : '(infer from images if not provided)'}
 ${additionalContext ? `Additional context: ${additionalContext}` : ''}
@@ -57,12 +60,13 @@ Respond with ONLY a valid JSON object (no markdown fences, no commentary):
   "detailedDescription": "2-3 paragraphs suitable for a product detail page",
   "keyHighlights": ["highlight 1", "highlight 2", "highlight 3", "highlight 4"],
   "suggestedCategory": "best matching category name from typical Bangladesh e-commerce (e.g. Fashion & Apparel, Electronics, Grocery, Health & Beauty, Home & Living, Kids Fashion)",
-  "seoTitle": "SEO title under 60 characters when possible",
-  "seoDescription": "meta description MUST be 160 characters or fewer",
-  "seoKeywords": "comma, separated, keywords"
+  "seoTitle": "bilingual SEO title (English + Bangla terms), max 60 characters",
+  "seoDescription": "bilingual meta description for Bangladesh shoppers, max 160 characters",
+  "seoKeywords": "comma-separated English and Bengali search keywords"
 }
 
 Rules:
+- seoTitle MUST NOT exceed 60 characters.
 - seoDescription length MUST NOT exceed 160 characters.
 - keyHighlights: 3-6 concise bullet-style strings.
 - If images contradict the hint name, trust the images for factual attributes but still follow language rules.`;
@@ -85,6 +89,11 @@ function normalizeAiProductPayload(raw) {
     ? highlightsRaw.map((h) => String(h).trim()).filter(Boolean)
     : String(highlightsRaw || '').split(',').map((s) => s.trim()).filter(Boolean);
 
+  let seoTitle = String(raw.seoTitle || '').trim();
+  if (seoTitle.length > 60) {
+    seoTitle = seoTitle.slice(0, 60).trim();
+  }
+
   let seoDescription = String(raw.seoDescription || raw.metaDescription || '').trim();
   if (seoDescription.length > 160) {
     seoDescription = seoDescription.slice(0, 157).trim() + '...';
@@ -101,7 +110,7 @@ function normalizeAiProductPayload(raw) {
     detailedDescription: String(raw.detailedDescription || '').trim(),
     keyHighlights: highlights,
     suggestedCategory: String(raw.suggestedCategory || raw.category || '').trim(),
-    seoTitle: String(raw.seoTitle || '').trim(),
+    seoTitle,
     seoDescription,
     seoKeywords
   };
@@ -194,6 +203,7 @@ async function generateProductAssistContent(options) {
 }
 
 module.exports = {
+  SEO_BILINGUAL_RULE,
   normalizeContentLanguage,
   normalizeNameLanguage,
   buildLanguageRules,

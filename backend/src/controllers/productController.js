@@ -154,15 +154,26 @@ function isDuplicateKeyError(error) {
     return error.name === 'MongoServerError' && /E11000/i.test(String(error.message || ''));
 }
 
-function duplicateProductCreateMessage(error) {
+function duplicateProductCreateMessage(error, attemptedProductId = '') {
     const pattern = error?.keyPattern || {};
+    const keyValue = error?.keyValue || {};
     if (pattern.productId) {
-        return 'A product with this SKU / Product ID already exists. Use a unique ID.';
+        const pid = keyValue.productId || attemptedProductId || 'this ID';
+        return `Product ID / SKU '${pid}' is already taken. Please use a unique Product ID.`;
     }
     if (pattern.slug) {
-        return 'A product with this URL slug already exists. Change the product name or slug.';
+        return 'This product URL slug is already in use. Change the product name or slug.';
     }
-    return 'A product with these details already exists.';
+    return 'A product with these details already exists. Please use a unique Product ID.';
+}
+
+/** Maps admin "published" / launch intent to catalog status enum (active | inactive). */
+function resolveProductLaunchStatus(raw) {
+    const s = String(raw ?? '').trim().toLowerCase();
+    if (['inactive', 'draft', 'archived', 'disabled'].includes(s)) {
+        return 'inactive';
+    }
+    return 'active';
 }
 
 async function resolveBrand(brandInput) {
@@ -202,27 +213,35 @@ function buildProductListSearchFilter(searchTerm) {
 // ১. প্রোডাক্ট লিস্ট (পাবলিক) — ?page=1&limit=24&search=keyword&sort=popular
 const getProducts = async (req, res) => {
     try {
-        let { page, limit, skip } = await parseProductPagination(req);
+        let { page, limit } = await parseProductPagination(req);
         const searchTerm = String(req.query.search || req.query.q || '').trim();
         const sortParam = String(req.query.sort || '').trim();
         const featured = String(req.query.featured || '').toLowerCase() === 'true';
-        const filter = buildProductListSearchFilter(searchTerm) || {};
-        let sortOption = sortParam ? buildSortOption(sortParam) : { createdAt: -1 };
-        if (featured && !sortParam) {
-            sortOption = buildSortOption('top');
-        }
+
+        let listSort = sortParam || (featured ? 'top' : 'newest');
         if (featured) {
             limit = Math.min(limit, 10);
-            skip = (page - 1) * limit;
         }
 
-        const [totalProducts, products, flashSettings] = await Promise.all([
-            Product.countDocuments(filter),
-            Product.find(filter).sort(sortOption).skip(skip).limit(limit).lean(),
+        const listFilters = {
+            page,
+            limit,
+            sort: listSort === 'top' ? 'rating' : listSort,
+            q: searchTerm || undefined,
+            search: searchTerm || undefined
+        };
+        const countFilters = {
+            q: searchTerm || undefined,
+            search: searchTerm || undefined
+        };
+
+        const [products, totalProducts, flashSettings] = await Promise.all([
+            productReadService.listProducts(listFilters),
+            productReadService.countProducts(countFilters),
             loadFlashSaleSettings()
         ]);
 
-        const enriched = applyFlashSaleToProducts(products, flashSettings);
+        const enriched = applyFlashSaleToProducts(products || [], flashSettings);
         res.json({
             products: enriched,
             pagination: buildPaginationMeta(totalProducts, page, limit)
@@ -489,12 +508,10 @@ const searchProducts = async (req, res) => {
 
 // ২. নতুন প্রোডাক্ট যোগ করা (অ্যাডমিন)
 const createProduct = async (req, res) => {
+    let attemptedProductId = '';
     try {
-        // 🐛 ডিবাগিংয়ের জন্য: ফ্রন্টএন্ড থেকে কী ডাটা আসছে তা টার্মিনালে প্রিন্ট করবে
-        console.log("Request Body:", req.body); 
-        console.log("Files received:", req.files ? req.files.length : 0);
-
         const { id, name, price, buyingPrice, stock, stockQuantity, lowStockThreshold, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags, supplierId, warehouseId, reorderPoint } = req.body;
+        attemptedProductId = String(id || req.body.productId || '').trim();
         
         const parsedHighlights = parseStringArray(highlights);
         const parsedTags = parseStringArray(tags);
@@ -531,10 +548,15 @@ const createProduct = async (req, res) => {
             highlights: parsedHighlights,
             tags: parsedTags,
             seoTitle: String(req.body.seoTitle || '').trim(),
-            seoDescription: String(req.body.seoDescription || '').trim(),
+            seoDescription: String(req.body.seoDescription || '').trim().slice(0, 320),
             seoKeywords: String(req.body.seoKeywords || '').trim(),
-            images: [] 
+            status: resolveProductLaunchStatus(req.body.status || 'published'),
+            images: []
         });
+
+        if (!attemptedProductId) {
+            attemptedProductId = String(newProductData.productId || '');
+        }
 
         if (req.files && req.files.length > 0) {
             let uploadedUrls = [];
@@ -583,17 +605,16 @@ const createProduct = async (req, res) => {
     } catch (err) {
         console.error("Product Add Error:", err);
         if (isDuplicateKeyError(err)) {
-            const message = duplicateProductCreateMessage(err);
+            const message = duplicateProductCreateMessage(err, attemptedProductId);
             return res.status(409).json({
                 success: false,
                 message,
-                errorDetail: err.message
+                code: 'DUPLICATE_PRODUCT_ID'
             });
         }
         res.status(500).json({
             success: false,
-            message: "Failed to add new product",
-            errorDetail: err.message
+            message: 'Failed to add new product. Please check your input and try again.'
         });
     }
 };

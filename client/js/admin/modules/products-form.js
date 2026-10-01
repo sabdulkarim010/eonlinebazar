@@ -550,10 +550,7 @@ window.uploadProduct = async function() {
             if (typeof fetchLiveProducts === "function") fetchLiveProducts();
         } else {
             const base = result.message || 'Unknown error';
-            const detail = result.errorDetail && String(result.errorDetail) !== String(base)
-                ? ` — ${result.errorDetail}`
-                : '';
-            showToast(`Upload failed: ${base}${detail}`, 'error');
+            showToast(res.status === 409 ? base : `Upload failed: ${base}`, 'error');
         }
     } catch (e) { 
         showToast("Server error during product upload!", "error"); 

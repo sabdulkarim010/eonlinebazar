@@ -1,6 +1,6 @@
 # PRODUCT & STOCK OPERATIONS AUDIT — EonlineBazar
 
-**Last updated:** 2026-10-01 (AI Product Assistant — vision, multilingual, SEO auto-fill)  
+**Last updated:** 2026-10-01 (Duplicate SKU 409, PG sync, bilingual SEO, routed public list)  
 **Scope:** Inventory management, add/edit product, categories, brands, attributes, suppliers, warehouses, purchase orders, WMS transfers & stock ledger (formerly "Catalog & Inventory" nav group)  
 **Status:** ⚠️ PARTIAL — WMS backend complete; transfer UI pending; attribute PG read gap remains
 
@@ -150,6 +150,14 @@
 ---
 
 ## Change Log
+
+### Product visibility, duplicate SKU, SEO head — 2026-10-01
+
+- 409 duplicate `productId` user message (no raw DB `errorDetail`); launch sets `status: 'active'` (maps `published`)
+- PG dual-write resolves `categoryId` from `categoryName`; SEO fields on PG list/detail shapes
+- `GET /api/products` uses `productReadService` routed read (Mongo/PG parity)
+- Product PDP server HTML injects `seoTitle` / `seoDescription` / `seoKeywords`
+- AI SEO prompt: mandatory bilingual Bangla + English keywords
 
 ### AI Product Assistant upgrade — 2026-10-01
 
