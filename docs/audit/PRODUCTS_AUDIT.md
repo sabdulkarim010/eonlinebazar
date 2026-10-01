@@ -1,6 +1,6 @@
 # PRODUCT & STOCK OPERATIONS AUDIT — EonlineBazar
 
-**Last updated:** 2026-10-01 (Duplicate SKU 409, PG sync, bilingual SEO, routed public list)  
+**Last updated:** 2026-10-01 (English-only admin + AI, BN storefront fields, newest-first inventory)  
 **Scope:** Inventory management, add/edit product, categories, brands, attributes, suppliers, warehouses, purchase orders, WMS transfers & stock ledger (formerly "Catalog & Inventory" nav group)  
 **Status:** ⚠️ PARTIAL — WMS backend complete; transfer UI pending; attribute PG read gap remains
 
@@ -25,7 +25,9 @@
 | `backend/src/controllers/admin/supplierController.js` | Supplier CRUD |
 | `backend/src/controllers/admin/warehouseController.js` | Warehouse CRUD |
 | `backend/src/controllers/admin/purchaseOrderController.js` | PO lifecycle + receive |
-| `backend/src/models/product.js` | Product + variants + costHistory |
+| `backend/src/models/product.js` | Product + variants + costHistory + `name_bn` / description BN fields |
+| `client/js/utils/productLocale.js` | Storefront EN/BN product field picker |
+| `prisma/migrations/20261001120000_product_bilingual_fields/` | PG columns for BN product copy |
 | `backend/src/models/category.js` / `brand.js` / `attribute.js` | Catalog models |
 | `backend/src/models/supplier.js` / `warehouse.js` / `purchaseOrder.js` | ERP models |
 | `backend/src/repositories/productRepository.js` | PG product dual-write/read |
@@ -81,7 +83,9 @@
 - [x] Brand CRUD — `catalog-brands.js`
 - [x] Attribute CRUD — `catalog-attributes.js`
 - [x] Bulk CSV/Excel import — `bulkImportController.js`, `products-bulk.js`
-- [x] AI product assist — vision multi-image, Bangla/English content + name modes, SEO auto-fill — `products-ai.js`, `productAiAssistService.js`, `applyAiProductPayload` in `products-form.js`
+- [x] AI product assist — English admin fields + separate BN storefront copy — `products-ai.js`, `productAiAssistService.js`, hidden BN fields in `view-products.html`
+- [x] Admin inventory default sort newest-first — `core-state.js`, `products-table.js` → `sort=newest`
+- [x] Public `GET /api/products/:id` routed read (PG/Mongo) incl. BN fields — `productController.getProductById`, `productReadService`
 - [x] Supplier directory — `supplierController.js`, `erp-suppliers.js`
 - [x] Multi-warehouse inventory — `warehouseController.js`, default warehouse seed
 - [x] Purchase order lifecycle — `purchaseOrderController.js`, receive workflow
@@ -236,6 +240,13 @@
 - `productReadService.searchProducts` — parses `lowStock`; Mongo `$expr` per-product threshold (default 10); PG `$queryRaw` with same rule applied before count/pagination
 - `productController.searchProducts` — exposes `lowStock` in `appliedFilters`
 - Tests: `tests/services/phase1Part2LowStock.test.js`; Jest **282/282**
+
+### English admin + BN storefront + newest-first — 2026-10-01
+
+- Mongoose + Prisma: `name_bn`, `description_bn`, `detailedDescription_bn`, `highlights_bn`; dual-write via `productDualWriteHelpers.js` / `productRepository.js`
+- AI assist: English-only primary + SEO; Bangla in separate JSON keys; admin language dropdowns removed
+- Storefront: `ProductLocale` + `languageChanged` re-render on home, search, PDP
+- Tests: Jest **521/521**
 
 ### Phase 1.1 — Product search PG cutover + admin error handling — 2026-09-25
 

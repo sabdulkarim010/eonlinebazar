@@ -92,6 +92,11 @@ function t(key, vars) {
     return window.i18n ? window.i18n.t(key, vars) : key;
 }
 
+function displayProductName(product) {
+    if (window.ProductLocale) return window.ProductLocale.pickProductName(product);
+    return product?.name || 'Unknown Product';
+}
+
 function escapeHtml(str) {
     if (window.EOBSanitizer && typeof window.EOBSanitizer.escapeHtml === 'function') {
         return window.EOBSanitizer.escapeHtml(str);
@@ -1006,12 +1011,12 @@ function renderProducts(list, options = {}) {
         if (window.EOBRender && typeof window.EOBRender.mountProductCardImage === 'function') {
             window.EOBRender.mountProductCardImage(imgBox, product, { index: newCards.length, priority: 'lazy' });
         } else if (PT) {
-            PT.mountInto(imgBox, product, { variant: 'card', alt: product.name || 'Product Image', priority: 'lazy', loading: 'lazy' });
+            PT.mountInto(imgBox, product, { variant: 'card', alt: displayProductName(product) || 'Product Image', priority: 'lazy', loading: 'lazy' });
         }
 
         const wishlistBtn = (window.WishlistEngine && typeof window.WishlistEngine.createHeartButton === 'function')
             ? window.WishlistEngine.createHeartButton(productId, {
-                name: product.name,
+                name: displayProductName(product),
                 price: product.price,
                 image: imageSource,
                 icon: iconData
@@ -1025,7 +1030,7 @@ function renderProducts(list, options = {}) {
         const productInfo = document.createElement('div');
         productInfo.className = 'product-info';
         productInfo.innerHTML = `
-            <h4 class="product-name">${escapeHtml(product.name || 'Unknown Product')}</h4>
+            <h4 class="product-name">${escapeHtml(displayProductName(product))}</h4>
             <div class="product-price-row">
                 <span class="currency">৳</span>
                 <span class="price-amount">${product.price || '0'}</span>
@@ -1043,7 +1048,7 @@ function renderProducts(list, options = {}) {
             e.preventDefault();
             e.stopPropagation();
             if (typeof window.addToBag === 'function') {
-                window.addToBag(productId, product.name, product.price, imageSource);
+                window.addToBag(productId, displayProductName(product), product.price, imageSource);
             } else {
                 alert('Cart function not found. Please reload the page.');
             }

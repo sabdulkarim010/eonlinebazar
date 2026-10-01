@@ -7,11 +7,22 @@
 
 ---
 
+## Product bilingual EN admin + BN storefront — 2026-10-01
+
+| Item | Status |
+|------|--------|
+| Mongo + PG `name_bn` / description BN fields + dual-write | ✅ |
+| AI assist: English admin + separate BN JSON (no combined titles) | ✅ |
+| Storefront `ProductLocale` + BN toggle on home, search, PDP | ✅ |
+| Admin inventory default sort + APIs `createdAt` desc | ✅ |
+| `GET /api/products/:id` routed read (BN fields on PG path) | ✅ |
+| `npm test` | ✅ 521/521 |
+
 ## AI Product Assistant upgrade — 2026-10-01
 
 | Item | Status |
 |------|--------|
-| Vision multi-image upload + language selectors (admin modal) | ✅ |
+| Vision multi-image upload (admin modal) | ✅ |
 | `productAiAssistService` structured JSON (name, SEO, highlights, category) | ✅ |
 | `applyAiProductPayload` maps AI response into Add Product form | ✅ |
 | Unit tests `productAiAssistService.test.js` | ✅ |

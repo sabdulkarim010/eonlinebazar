@@ -60,6 +60,7 @@ client/
 │   ├── utils/telemetry.js ← EOBTelemetry global errors + non-blocking error reports
 
 │   ├── utils/sanitizer.js ← EOBSanitizer escapeHtml + sanitizeRichText (XSS)
+│   ├── utils/productLocale.js ← ProductLocale EN/BN product field picker (storefront toggle)
 │   ├── ui/skeletons.js    ← EOBSkeletons storefront skeleton loaders (CLS)
 │   ├── utils/debounce.js   ← EOBDebounce debounce + abortable fetch coordinator
 │   ├── searchCatalogSync.js ← EOBSearchCatalogSync URL ↔ catalog filter state

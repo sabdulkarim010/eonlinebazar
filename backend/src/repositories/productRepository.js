@@ -488,6 +488,7 @@ async function createProductInPG(mongoDoc) {
         legacyId: main.legacyId,
         productId: main.productId,
         name: main.name,
+        nameBn: main.nameBn,
         slug: main.slug,
         price: main.price,
         buyingPrice: main.buyingPrice,
@@ -503,8 +504,11 @@ async function createProductInPG(mongoDoc) {
         reorderPoint: main.reorderPoint,
         stock: main.stock,
         description: main.description,
+        descriptionBn: main.descriptionBn,
         detailedDescription: main.detailedDescription,
+        detailedDescriptionBn: main.detailedDescriptionBn,
         highlights: main.highlights,
+        highlightsBn: main.highlightsBn,
         tags: main.tags,
         weight: main.weight,
         status: main.status,
@@ -652,8 +656,14 @@ async function updateProductInPG(mongoId, updateData) {
     }
     if (updateData.reorderPoint !== undefined) fields.reorderPoint = Number(updateData.reorderPoint);
     if (updateData.description !== undefined) fields.description = String(updateData.description).trim();
+    if (updateData.description_bn !== undefined) fields.descriptionBn = String(updateData.description_bn).trim();
     if (updateData.detailedDescription !== undefined) fields.detailedDescription = String(updateData.detailedDescription).trim();
+    if (updateData.detailedDescription_bn !== undefined) {
+      fields.detailedDescriptionBn = String(updateData.detailedDescription_bn).trim();
+    }
+    if (updateData.name_bn !== undefined) fields.nameBn = String(updateData.name_bn).trim();
     if (updateData.highlights !== undefined) fields.highlights = updateData.highlights;
+    if (updateData.highlights_bn !== undefined) fields.highlightsBn = updateData.highlights_bn;
     if (updateData.tags !== undefined) fields.tags = updateData.tags;
     if (updateData.weight !== undefined) fields.weight = updateData.weight;
     if (updateData.status !== undefined) {
@@ -854,6 +864,7 @@ async function getProductByIdFromPG(mongoId) {
       _id: product.legacyId,
       productId: product.productId,
       name: product.name,
+      name_bn: product.nameBn || '',
       slug: product.slug,
       price: Number(product.price),
       buyingPrice: Number(product.buyingPrice),
@@ -868,8 +879,11 @@ async function getProductByIdFromPG(mongoId) {
       reorderPoint: product.reorderPoint,
       stock: product.stock,
       description: product.description,
+      description_bn: product.descriptionBn || '',
       detailedDescription: product.detailedDescription,
+      detailedDescription_bn: product.detailedDescriptionBn || '',
       highlights: product.highlights,
+      highlights_bn: product.highlightsBn || [],
       tags: product.tags,
       weight: product.weight,
       status: product.status === 'INACTIVE' ? 'inactive' : 'active',
@@ -975,6 +989,7 @@ async function listProductsFromPG(filters = {}) {
       _id: product.legacyId,
       productId: product.productId,
       name: product.name,
+      name_bn: product.nameBn || '',
       slug: product.slug,
       price: Number(product.price),
       buyingPrice: Number(product.buyingPrice),
@@ -986,8 +1001,11 @@ async function listProductsFromPG(filters = {}) {
       lowStockThreshold: product.lowStockThreshold,
       stock: product.stock,
       description: product.description,
+      description_bn: product.descriptionBn || '',
       detailedDescription: product.detailedDescription,
+      detailedDescription_bn: product.detailedDescriptionBn || '',
       highlights: product.highlights,
+      highlights_bn: product.highlightsBn || [],
       tags: product.tags,
       weight: product.weight,
       status: product.status === 'INACTIVE' ? 'inactive' : 'active',

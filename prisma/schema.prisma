@@ -1193,6 +1193,7 @@ model Product {
 
   productId String  @unique
   name      String?
+  nameBn    String  @default("") @map("name_bn")
   /// Sparse unique in Mongo — a nullable unique column is the exact equivalent.
   slug      String? @unique
 
@@ -1222,8 +1223,11 @@ model Product {
   stock Int @default(0)
 
   description         String   @default("")
+  descriptionBn       String   @default("") @map("description_bn")
   detailedDescription String   @default("")
+  detailedDescriptionBn String @default("") @map("detailed_description_bn")
   highlights          String[] @default([])
+  highlightsBn        String[] @default([]) @map("highlights_bn")
   tags                String[] @default([])
   /// Product weight in grams (courier integrations).
   weight              Int?

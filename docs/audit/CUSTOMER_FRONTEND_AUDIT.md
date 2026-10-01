@@ -1,6 +1,6 @@
 # CUSTOMER FRONTEND AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-29 (Cart scope/CDU fixes, grid Add to Cart-only, PDP toast)  
+**Last updated:** 2026-10-01 (Product EN/BN locale via BN toggle)  
 **Scope:** Storefront HTML pages, shared JS/CSS, profile module, checkout, PDP, cart  
 **Status:** ✅ COMPLETE
 
@@ -36,6 +36,7 @@
 | `client/js/utils/sanitizer.js` | `EOBSanitizer` — `escapeHtml`, `sanitizeRichText`, reflected input sanitization |
 | `client/js/utils/imageUtils.js` | `EOBImageUtils` — lazy/LCP attrs, srcset, catalog URL sanitize, fallback onerror |
 | `client/js/render.js` | `EOBRender.mountProductCardImage` / cart line image helpers |
+| `client/js/utils/productLocale.js` | `ProductLocale` — pick English vs `*_bn` product fields for storefront |
 | `client/js/utils/debounce.js` | `EOBDebounce` — shared debounce + abortable catalog request coordinator |
 | `client/js/searchCatalogSync.js` | `EOBSearchCatalogSync` — URL ↔ search state serialization |
 | `client/js/expressCheckout.js` | `EOBExpressCheckout` — Buy Now isolated checkout session |
@@ -302,6 +303,12 @@
 - Added `EOBCommerce` (cart/catalog proxies on `window.cart` / `window.globalProductCatalog`) and `EOBCheckoutState` for checkout UI globals.
 - Storefront HTML shells load `storage.js` + `commerceState.js` before `session-guard.js`; checkout also loads `checkoutState.js`.
 - Tests: Jest **405/405** passing.
+
+### Product EN/BN storefront toggle — 2026-10-01
+
+- `ProductLocale` reads `name_bn`, `description_bn`, `detailedDescription_bn`, `highlights_bn` when `i18n` lang is `bn`
+- Wired on homepage (`main.js`), search grid (`search.js`), PDP (`pdp/fetch-render.js`) with `languageChanged` re-render
+- Tests: Jest **521/521** (suite-wide)
 
 ### Group 4 — Loyalty + returns UI — 2026-09-20
 

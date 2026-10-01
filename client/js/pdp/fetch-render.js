@@ -90,12 +90,21 @@ async function fetchProductDetails(id) {
 // ==========================================================================
 // 🌟 SECTION 3: RENDER SUB-FUNCTIONS (INFO, IMAGES, BREADCRUMB, HIGHLIGHTS)
 // ==========================================================================
+function pl() {
+    return window.ProductLocale || null;
+}
+
+function localizedProductName(product) {
+    const L = pl();
+    return L ? L.pickProductName(product) : (product.name || 'Product');
+}
+
 function renderBreadcrumb(product) {
     const breadcrumbCategory = document.getElementById('breadcrumbCategory');
     const breadcrumbTitle = document.getElementById('breadcrumbTitle');
 
     if (breadcrumbCategory) breadcrumbCategory.innerText = product.category || 'General';
-    if (breadcrumbTitle) breadcrumbTitle.innerText = product.name || 'Product';
+    if (breadcrumbTitle) breadcrumbTitle.innerText = localizedProductName(product);
 }
 
 const DEFAULT_OG_IMAGE = '/images/og-default.jpg';
@@ -176,10 +185,12 @@ function updateSeoTags(product) {
 
     const productId = product.productId || product._id;
     const canonicalUrl = `${window.location.origin}/product-details?id=${encodeURIComponent(String(productId))}`;
-    const title = product.name || 'Product';
-    const description = truncateSeo(
-        product.description || product.detailedDescription || `Buy ${title} on EOnlineBazar`
-    );
+    const L = pl();
+    const title = localizedProductName(product);
+    const descSource = L
+        ? L.pickProductDescription(product) || L.pickProductDetailedDescription(product)
+        : (product.description || product.detailedDescription);
+    const description = truncateSeo(descSource || `Buy ${title} on EOnlineBazar`);
     const imageUrl = resolveProductImageUrl(product);
     const stockQty = Number(product.stockQuantity ?? product.stock) || 0;
     const ratingValue = product.averageRating ?? product.rating;
@@ -258,8 +269,9 @@ function renderProductInfo(product) {
     const stickyTitle = document.getElementById('stickyBarTitle');
     const stickyPrice = document.getElementById('stickyBarPrice');
 
-    if (title) title.innerText = product.name;
-    if (stickyTitle) stickyTitle.innerText = product.name;
+    const displayName = localizedProductName(product);
+    if (title) title.innerText = displayName;
+    if (stickyTitle) stickyTitle.innerText = displayName;
     if (category) category.innerText = product.category || 'General';
     if (price) price.innerText = `৳ ${product.price.toLocaleString()}`;
     if (stickyPrice) stickyPrice.innerText = `৳ ${product.price.toLocaleString()}`;
@@ -280,11 +292,12 @@ function renderHighlights(product) {
     const highlightsContainer = document.getElementById('productHighlightsList'); 
     if (!highlightsContainer) return;
 
-    if (product.highlights && product.highlights.length > 0) {
+    const highlightItems = pl() ? pl().pickProductHighlights(product) : (product.highlights || []);
+    if (highlightItems.length > 0) {
         // লক্ষ্য করুন: এখানে ব্যাকটিক (`) ব্যবহার করা হয়েছে, সিঙ্গেল কোট (') নয়!
         const esc = (v) => (window.EOBSanitizer && window.EOBSanitizer.escapeHtml(v))
             || String(v == null ? '' : v);
-        highlightsContainer.innerHTML = product.highlights
+        highlightsContainer.innerHTML = highlightItems
             .map((item) => `<li><i class="fa-solid fa-circle-check" style="color: var(--success-green); margin-right: 5px;"></i> ${esc(item)}</li>`)
             .join('');
     } else {
@@ -304,8 +317,13 @@ function renderDescriptions(product) {
     const detailedDescElement = document.getElementById('productDetailedDesc');
 
     // ফিউচার প্রুফ লজিক: নতুন ফিল্ড চেক করবে, না থাকলে মেইন description ফিল্ড নিবে
-    const shortDescText = product.shortDescription || product.description;
-    const detailedDescText = product.detailedDescription || product.description;
+    const L = pl();
+    const shortDescText = L
+        ? L.pickProductDescription(product)
+        : (product.shortDescription || product.description);
+    const detailedDescText = L
+        ? L.pickProductDetailedDescription(product)
+        : (product.detailedDescription || product.description);
 
     if (shortDescElement) {
         shortDescElement.innerText = (shortDescText && shortDescText.trim() !== "") 
@@ -383,6 +401,11 @@ function buildProductChatContext(product) {
 document.addEventListener('languageChanged', () => {
     if (window.i18n) window.i18n.applyTranslations();
     if (currentProductData) {
+        renderBreadcrumb(currentProductData);
+        renderProductInfo(currentProductData);
+        renderHighlights(currentProductData);
+        renderDescriptions(currentProductData);
+        updateSeoTags(currentProductData);
         updateStockStatus(getAvailableStock());
         renderVariants(currentProductData);
     }

@@ -47,6 +47,12 @@ const productSchema = new mongoose.Schema({
         type: String, 
        // required: true 
     },
+    /** Storefront Bangla display — separate from English catalog fields. */
+    name_bn: {
+        type: String,
+        default: '',
+        trim: true
+    },
     /** URL-friendly identifier — auto-generated from name by productController. */
     slug: {
         type: String,
@@ -153,13 +159,27 @@ const productSchema = new mongoose.Schema({
         type: String, 
         default: '' 
     },
+    description_bn: {
+        type: String,
+        default: '',
+        trim: true
+    },
     detailedDescription: {
         type: String,
         default: ''
     },
+    detailedDescription_bn: {
+        type: String,
+        default: '',
+        trim: true
+    },
     highlights: { 
         type: [String], 
         default: [] 
+    },
+    highlights_bn: {
+        type: [String],
+        default: []
     },
     tags: {
         type: [String],

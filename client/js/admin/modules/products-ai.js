@@ -152,8 +152,6 @@ window.openAIAssist = function() {
 window.generateAIContent = async function() {
     const productName = document.getElementById('ai-product-name')?.value?.trim();
     const context = document.getElementById('ai-additional-context')?.value?.trim();
-    const contentLanguage = document.getElementById('ai-content-language')?.value || 'english';
-    const nameLanguage = document.getElementById('ai-name-language')?.value || 'english';
     const visionCount = aiVisionFileList.files.length;
 
     if ((!productName || productName.length < 2) && visionCount === 0) {
@@ -172,8 +170,6 @@ window.generateAIContent = async function() {
         const formData = new FormData();
         if (productName) formData.append('productName', productName);
         if (context) formData.append('additionalContext', context);
-        formData.append('contentLanguage', contentLanguage);
-        formData.append('nameLanguage', nameLanguage);
 
         for (let i = 0; i < aiVisionFileList.files.length; i++) {
             formData.append('aiImages', aiVisionFileList.files[i]);

@@ -525,7 +525,7 @@ function getProductFilterState() {
         stockStatus: document.getElementById('filterStockStatus')?.value || 'All',
         priceRange: document.getElementById('filterPriceRange')?.value || 'All',
         pageSize: document.getElementById('product-pg-limit')?.value || '10',
-        sortKey: currentSort?.key || 'productId',
+        sortKey: currentSort?.key || 'createdAt',
         sortAsc: currentSort?.asc !== false
     };
 }

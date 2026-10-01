@@ -31,9 +31,10 @@ function ensureProductPagination() {
 }
 
 function mapProductSortParam() {
-    const key = currentSort?.key || 'productId';
+    const key = currentSort?.key || 'createdAt';
     const asc = currentSort?.asc !== false;
     if (key === 'price' || key === 'buyingPrice') return asc ? 'price_asc' : 'price_desc';
+    if (key === 'createdAt') return asc ? 'newest' : 'oldest';
     return asc ? 'newest' : 'oldest';
 }
 

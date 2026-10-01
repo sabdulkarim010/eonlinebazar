@@ -544,8 +544,12 @@ const createProduct = async (req, res) => {
             variants: parsedVariants,
             icon: icon || '📦',
             description: description || '',
-            detailedDescription: detailedDescription || '', 
+            description_bn: String(req.body.description_bn || '').trim(),
+            detailedDescription: detailedDescription || '',
+            detailedDescription_bn: String(req.body.detailedDescription_bn || '').trim(),
+            name_bn: String(req.body.name_bn || '').trim(),
             highlights: parsedHighlights,
+            highlights_bn: parseStringArray(req.body.highlights_bn),
             tags: parsedTags,
             seoTitle: String(req.body.seoTitle || '').trim(),
             seoDescription: String(req.body.seoDescription || '').trim().slice(0, 320),
@@ -625,7 +629,7 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
     try {
         const productIdParam = req.params.id;
-        const { name, price, buyingPrice, stock, stockQuantity, lowStockThreshold, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags, supplierId, warehouseId, reorderPoint, seoTitle, seoDescription, seoKeywords } = req.body;
+        const { name, price, buyingPrice, stock, stockQuantity, lowStockThreshold, category, brand, variants, hasVariants, icon, description, detailedDescription, highlights, tags, supplierId, warehouseId, reorderPoint, seoTitle, seoDescription, seoKeywords, name_bn, description_bn, detailedDescription_bn, highlights_bn } = req.body;
 
         let updateFields = {};
         if (name) updateFields.name = name;
@@ -696,9 +700,17 @@ const updateProduct = async (req, res) => {
         }
         if (description) updateFields.description = description;
         if (detailedDescription) updateFields.detailedDescription = detailedDescription;
+        if (name_bn !== undefined) updateFields.name_bn = String(name_bn).trim();
+        if (description_bn !== undefined) updateFields.description_bn = String(description_bn).trim();
+        if (detailedDescription_bn !== undefined) {
+            updateFields.detailedDescription_bn = String(detailedDescription_bn).trim();
+        }
 
         if (highlights !== undefined) {
             updateFields.highlights = parseStringArray(highlights);
+        }
+        if (highlights_bn !== undefined) {
+            updateFields.highlights_bn = parseStringArray(highlights_bn);
         }
         if (tags !== undefined) {
             updateFields.tags = parseStringArray(tags);
@@ -967,10 +979,16 @@ const getFlashDealProducts = async (req, res) => {
 const getProductById = async (req, res) => {
     try {
         const productIdParam = req.params.id;
-        let query = mongoose.Types.ObjectId.isValid(productIdParam) ? { _id: productIdParam } : { productId: String(productIdParam) };
 
         const product = await getOrSet(CACHE_KEYS.PRODUCT(productIdParam), async () => {
-            return Product.findOne(query).lean();
+            if (mongoose.Types.ObjectId.isValid(productIdParam)) {
+                return productReadService.fetchProductById(productIdParam);
+            }
+            let found = await productReadService.fetchProductByProductId(productIdParam);
+            if (!found) {
+                found = await productReadService.fetchProductBySlug(productIdParam);
+            }
+            return found;
         }, 300);
 
         if (!product) return res.status(404).json({ success: false, message: "Product not found!" });

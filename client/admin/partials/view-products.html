@@ -26,6 +26,10 @@
                         <div class="pf-group">
                             <label class="pf-label" for="prodName">Product Name *</label>
                             <input type="text" id="prodName" class="pf-input" placeholder="e.g., Premium Cotton T-Shirt" required>
+                            <input type="hidden" id="prodNameBn" name="name_bn" value="">
+                            <input type="hidden" id="prodDescBn" name="description_bn" value="">
+                            <input type="hidden" id="prodDetailedDescBn" name="detailedDescription_bn" value="">
+                            <input type="hidden" id="prodHighlightsBn" name="highlights_bn" value="">
                             <div class="char-counter" id="prodNameCounter">0 / 100</div>
                         </div>
 
@@ -302,23 +306,7 @@
             <div class="modal-box ai-assist-modal-box">
                 <div class="modal-title">✨ AI Product Assistant</div>
 
-                <div class="ai-assist-grid-2">
-                    <div>
-                        <label class="pf-label" for="ai-content-language">General Content Language</label>
-                        <select id="ai-content-language" class="pf-input">
-                            <option value="english" selected>English</option>
-                            <option value="bangla">Bangla</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="pf-label" for="ai-name-language">Product Name Language</label>
-                        <select id="ai-name-language" class="pf-input">
-                            <option value="english" selected>English</option>
-                            <option value="bangla">Bangla</option>
-                            <option value="both">Both (Bangla + English combined)</option>
-                        </select>
-                    </div>
-                </div>
+                <p class="ai-assist-hint">Generates clean English for admin fields plus Bangla translations stored for the storefront language toggle.</p>
 
                 <div class="ai-assist-field">
                     <label class="pf-label" for="ai-product-name">Product Name (optional if photos provided)</label>

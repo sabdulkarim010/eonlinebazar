@@ -15,33 +15,40 @@ describe('productAiAssistService', () => {
         expect(normalizeContentLanguage('bangla')).toBe('bangla');
     });
 
-    test('normalizeNameLanguage supports both', () => {
+    test('normalizeNameLanguage supports legacy values', () => {
         expect(normalizeNameLanguage('both')).toBe('both');
         expect(normalizeNameLanguage('invalid')).toBe('english');
     });
 
-    test('buildLanguageRules encodes Bangla + combined name pattern', () => {
-        const rules = buildLanguageRules('bangla', 'both');
-        expect(rules.contentRule).toMatch(/Bangla/);
-        expect(rules.nameRule).toMatch(/English Name - বাংলা নাম/);
-        expect(rules.seoRule).toMatch(/English and Bangla/);
+    test('buildLanguageRules requires English primary and separate Bangla fields', () => {
+        const rules = buildLanguageRules('english', 'english');
+        expect(rules.contentRule).toMatch(/English only/);
+        expect(rules.nameRule).toMatch(/English only/);
+        expect(rules.bnRule).toMatch(/name_bn/);
+        expect(rules.seoRule).toMatch(/English only/);
     });
 
-    test('normalizeAiProductPayload maps schema and truncates seoDescription', () => {
+    test('normalizeAiProductPayload maps bilingual schema and truncates seoDescription', () => {
         const long = 'x'.repeat(200);
         const out = normalizeAiProductPayload({
-            name: 'Test Product',
+            name: 'Girls Blue Ikat Dress',
+            name_bn: 'নীল ইকাত পোশাক',
             shortDescription: 'Short',
+            description_bn: 'সংক্ষিপ্ত',
             detailedDescription: 'Long body',
+            detailedDescription_bn: 'বিস্তারিত',
             keyHighlights: ['A', 'B'],
+            keyHighlights_bn: ['ক', 'খ'],
             suggestedCategory: 'Electronics',
             seoTitle: 'Title',
             seoDescription: long,
             seoKeywords: ['one', 'two']
         });
 
-        expect(out.name).toBe('Test Product');
+        expect(out.name).toBe('Girls Blue Ikat Dress');
+        expect(out.name_bn).toBe('নীল ইকাত পোশাক');
         expect(out.keyHighlights).toHaveLength(2);
+        expect(out.keyHighlights_bn).toHaveLength(2);
         expect(out.seoKeywords).toBe('one, two');
         expect(out.seoDescription.length).toBeLessThanOrEqual(160);
     });

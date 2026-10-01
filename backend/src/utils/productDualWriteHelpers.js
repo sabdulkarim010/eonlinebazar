@@ -56,9 +56,13 @@ function mongoProductToPrismaShape(mongoDoc) {
     
     stock: plain.stock != null ? Number(plain.stock) : 0,
     
+    nameBn: String(plain.name_bn || '').trim(),
     description: String(plain.description || '').trim(),
+    descriptionBn: String(plain.description_bn || '').trim(),
     detailedDescription: String(plain.detailedDescription || '').trim(),
+    detailedDescriptionBn: String(plain.detailedDescription_bn || '').trim(),
     highlights: Array.isArray(plain.highlights) ? plain.highlights : [],
+    highlightsBn: Array.isArray(plain.highlights_bn) ? plain.highlights_bn : [],
     tags: Array.isArray(plain.tags) ? plain.tags : [],
     weight: plain.weight != null ? Number(plain.weight) : null,
     

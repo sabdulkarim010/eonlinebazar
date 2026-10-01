@@ -13,9 +13,12 @@
         const cardIndex = Number(opts.index);
         const priority = opts.priority || (cardIndex === 0 ? 'lazy' : 'lazy');
 
+        const altName = global.ProductLocale
+            ? global.ProductLocale.pickProductName(product)
+            : (product.name || 'Product Image');
         PT.mountInto(container, product, {
             variant: 'card',
-            alt: product.name || 'Product Image',
+            alt: altName || 'Product Image',
             priority,
             loading: priority === 'lcp' ? 'eager' : 'lazy'
         });

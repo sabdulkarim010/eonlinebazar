@@ -4201,3 +4201,33 @@ client/js/admin/modules/products-form.js [MOD] toast shows errorDetail on failed
 docs/audit/PRODUCTS_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
+
+# Product bilingual EN admin + BN storefront — 2026-10-01
+backend/src/models/product.js [MOD] name_bn, description_bn, detailedDescription_bn, highlights_bn
+prisma/schema.prisma [MOD] Product BN columns
+prisma/migrations/20261001120000_product_bilingual_fields/migration.sql [NEW]
+backend/src/services/productAiAssistService.js [MOD] English primary + BN side fields
+backend/src/utils/productDualWriteHelpers.js [MOD] BN field mapping
+backend/src/services/productReadService.js [MOD] mapPgProductRow BN fields
+backend/src/repositories/productRepository.js [MOD] PG create/update/read BN fields
+backend/src/controllers/productController.js [MOD] create/update BN; getProductById routed read
+client/js/utils/productLocale.js [NEW]
+client/js/pdp/fetch-render.js [MOD] localized PDP + languageChanged
+client/js/main.js [MOD] localized product cards
+client/js/search.js [MOD] localized search cards
+client/js/render.js [MOD] localized card alt text
+client/index.html [MOD] productLocale script
+client/search.html [MOD] productLocale script
+client/product-details.html [MOD] productLocale script
+client/admin/partials/view-products.html [MOD] hidden BN fields; AI hint
+client/js/admin/modules/products-form.js [MOD] AI BN hidden fields + upload
+client/js/admin/modules/products-ai.js [MOD] drop language selectors from request
+client/js/admin/modules/core-state.js [MOD] default sort createdAt newest
+client/js/admin/modules/products-table.js [MOD] createdAt sort mapping
+client/js/admin/modules/core-realtime.js [MOD] persisted sort default
+tests/services/productAiAssistService.test.js [MOD]
+docs/audit/PRODUCTS_AUDIT.md [MOD]
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]

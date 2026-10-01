@@ -8,46 +8,39 @@
 
 const ALLOWED_IMAGE_MIMES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']);
 
-function normalizeLanguage(value, allowed, fallback) {
-  const key = String(value || '').trim().toLowerCase();
-  if (allowed.includes(key)) return key;
-  return fallback;
-}
-
 function normalizeContentLanguage(value) {
-  return normalizeLanguage(value, ['bangla', 'english'], 'english');
+  const key = String(value || '').trim().toLowerCase();
+  if (key === 'bangla') return 'bangla';
+  return 'english';
 }
 
+/** @deprecated Admin catalog is English-only; kept for API compatibility. */
 function normalizeNameLanguage(value) {
-  return normalizeLanguage(value, ['bangla', 'english', 'both'], 'english');
+  const key = String(value || '').trim().toLowerCase();
+  if (['bangla', 'english', 'both'].includes(key)) return key;
+  return 'english';
 }
 
-const SEO_BILINGUAL_RULE = `SEO fields (seoTitle, seoDescription, seoKeywords) MUST always combine English and Bangla (বাংলা) for Bangladesh e-commerce SEO: use high-converting English plus local Bangla search terms. seoTitle: max 60 characters, attractive for Google. seoDescription: max 160 characters, compelling for local shoppers. seoKeywords: comma-separated English and Bengali keywords (e.g. "cotton shirt, cotton t-shirt, কটন শার্ট").`;
+const SEO_ENGLISH_RULE = `SEO fields (seoTitle, seoDescription, seoKeywords) MUST be clean English only — no Bengali script. seoTitle: max 60 characters. seoDescription: max 160 characters. seoKeywords: comma-separated English search terms.`;
 
-function buildLanguageRules(contentLanguage, nameLanguage) {
-  const contentRule = contentLanguage === 'bangla'
-    ? 'Write shortDescription, detailedDescription, and keyHighlights in Bangla (বাংলা) only.'
-    : 'Write shortDescription, detailedDescription, and keyHighlights in English only.';
-
-  let nameRule;
-  if (nameLanguage === 'bangla') {
-    nameRule = 'The "name" field must be in Bangla (বাংলা) only.';
-  } else if (nameLanguage === 'both') {
-    nameRule = 'The "name" field must combine English and Bangla in this exact pattern: "English Name - বাংলা নাম" (English first, then " - ", then Bangla name).';
-  } else {
-    nameRule = 'The "name" field must be in English only.';
-  }
-
-  return { contentRule, nameRule, seoRule: SEO_BILINGUAL_RULE };
+function buildLanguageRules(_contentLanguage, _nameLanguage) {
+  return {
+    contentRule: 'Write shortDescription, detailedDescription, and keyHighlights in English only.',
+    nameRule: 'The "name" field must be in English only (no Bengali script, no combined EN-BN titles).',
+    bnRule: 'Also provide Bangla (বাংলা) translations in name_bn, description_bn, detailedDescription_bn, and keyHighlights_bn — these are separate fields and must NOT be merged into the English fields.',
+    seoRule: SEO_ENGLISH_RULE
+  };
 }
 
-function buildVisionPrompt({ productName, additionalContext, contentLanguage, nameLanguage }) {
-  const { contentRule, nameRule, seoRule } = buildLanguageRules(contentLanguage, nameLanguage);
+function buildVisionPrompt({ productName, additionalContext }) {
+  const { contentRule, nameRule, bnRule, seoRule } = buildLanguageRules();
 
   return `You are a senior e-commerce copywriter and catalog specialist for EOnlineBazar (Bangladesh).
 
-Analyze the product from any attached photos and the hints below. ${contentRule}
+Analyze the product from any attached photos and the hints below.
+${contentRule}
 ${nameRule}
+${bnRule}
 ${seoRule}
 
 Product hint name: ${productName ? `"${productName}"` : '(infer from images if not provided)'}
@@ -55,21 +48,26 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}
 
 Respond with ONLY a valid JSON object (no markdown fences, no commentary):
 {
-  "name": "product title following the name language rule",
-  "shortDescription": "one compelling sentence under 160 characters",
-  "detailedDescription": "2-3 paragraphs suitable for a product detail page",
-  "keyHighlights": ["highlight 1", "highlight 2", "highlight 3", "highlight 4"],
+  "name": "English product title",
+  "name_bn": "বাংলা পণ্যের নাম",
+  "shortDescription": "one compelling English sentence under 160 characters",
+  "description_bn": "one compelling Bangla sentence",
+  "detailedDescription": "2-3 English paragraphs for the product detail page",
+  "detailedDescription_bn": "2-3 Bangla paragraphs for the product detail page",
+  "keyHighlights": ["English highlight 1", "English highlight 2", "English highlight 3"],
+  "keyHighlights_bn": ["বাংলা হাইলাইট ১", "বাংলা হাইলাইট ২"],
   "suggestedCategory": "best matching category name from typical Bangladesh e-commerce (e.g. Fashion & Apparel, Electronics, Grocery, Health & Beauty, Home & Living, Kids Fashion)",
-  "seoTitle": "bilingual SEO title (English + Bangla terms), max 60 characters",
-  "seoDescription": "bilingual meta description for Bangladesh shoppers, max 160 characters",
-  "seoKeywords": "comma-separated English and Bengali search keywords"
+  "seoTitle": "English SEO title, max 60 characters",
+  "seoDescription": "English meta description, max 160 characters",
+  "seoKeywords": "comma-separated English keywords"
 }
 
 Rules:
+- Never combine English and Bangla in a single string field.
 - seoTitle MUST NOT exceed 60 characters.
 - seoDescription length MUST NOT exceed 160 characters.
-- keyHighlights: 3-6 concise bullet-style strings.
-- If images contradict the hint name, trust the images for factual attributes but still follow language rules.`;
+- keyHighlights and keyHighlights_bn: 3-6 concise bullet-style strings each.
+- If images contradict the hint name, trust the images for factual attributes.`;
 }
 
 function extractJsonObject(text) {
@@ -83,11 +81,16 @@ function extractJsonObject(text) {
   return JSON.parse(stripped.slice(start, end + 1));
 }
 
+function normalizeHighlightList(raw) {
+  if (Array.isArray(raw)) {
+    return raw.map((h) => String(h).trim()).filter(Boolean);
+  }
+  return String(raw || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
 function normalizeAiProductPayload(raw) {
-  const highlightsRaw = raw.keyHighlights ?? raw.highlights ?? [];
-  const highlights = Array.isArray(highlightsRaw)
-    ? highlightsRaw.map((h) => String(h).trim()).filter(Boolean)
-    : String(highlightsRaw || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const highlights = normalizeHighlightList(raw.keyHighlights ?? raw.highlights);
+  const highlightsBn = normalizeHighlightList(raw.keyHighlights_bn ?? raw.highlights_bn);
 
   let seoTitle = String(raw.seoTitle || '').trim();
   if (seoTitle.length > 60) {
@@ -106,9 +109,13 @@ function normalizeAiProductPayload(raw) {
 
   return {
     name: String(raw.name || raw.productName || '').trim(),
-    shortDescription: String(raw.shortDescription || '').trim(),
+    name_bn: String(raw.name_bn || '').trim(),
+    shortDescription: String(raw.shortDescription || raw.description || '').trim(),
+    description_bn: String(raw.description_bn || '').trim(),
     detailedDescription: String(raw.detailedDescription || '').trim(),
+    detailedDescription_bn: String(raw.detailedDescription_bn || '').trim(),
     keyHighlights: highlights,
+    keyHighlights_bn: highlightsBn,
     suggestedCategory: String(raw.suggestedCategory || raw.category || '').trim(),
     seoTitle,
     seoDescription,
@@ -181,8 +188,6 @@ async function callAnthropicProductAssist({ prompt, imageBlocks }) {
 async function generateProductAssistContent(options) {
   const productName = String(options.productName || '').trim();
   const additionalContext = String(options.additionalContext || '').trim();
-  const contentLanguage = normalizeContentLanguage(options.contentLanguage);
-  const nameLanguage = normalizeNameLanguage(options.nameLanguage);
   const files = options.files || [];
 
   if (productName.length < 2 && files.length === 0) {
@@ -193,9 +198,7 @@ async function generateProductAssistContent(options) {
 
   const prompt = buildVisionPrompt({
     productName,
-    additionalContext,
-    contentLanguage,
-    nameLanguage
+    additionalContext
   });
 
   const imageBlocks = imageFilesToContentBlocks(files);
@@ -203,7 +206,7 @@ async function generateProductAssistContent(options) {
 }
 
 module.exports = {
-  SEO_BILINGUAL_RULE,
+  SEO_ENGLISH_RULE,
   normalizeContentLanguage,
   normalizeNameLanguage,
   buildLanguageRules,

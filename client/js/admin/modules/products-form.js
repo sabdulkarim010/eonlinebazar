@@ -232,6 +232,23 @@ window.applyAiProductPayload = function(data) {
             : String(data.seoKeywords).trim();
     }
 
+    const nameBnEl = document.getElementById('prodNameBn');
+    if (nameBnEl && data.name_bn) nameBnEl.value = String(data.name_bn).trim();
+
+    const descBnEl = document.getElementById('prodDescBn');
+    if (descBnEl && data.description_bn) descBnEl.value = String(data.description_bn).trim();
+
+    const detailedBnEl = document.getElementById('prodDetailedDescBn');
+    if (detailedBnEl && data.detailedDescription_bn) {
+        detailedBnEl.value = String(data.detailedDescription_bn).trim();
+    }
+
+    const hlBn = data.keyHighlights_bn || data.highlights_bn;
+    const hlBnHidden = document.getElementById('prodHighlightsBn');
+    if (hlBnHidden && Array.isArray(hlBn) && hlBn.length) {
+        hlBnHidden.value = JSON.stringify(hlBn.map((h) => String(h).trim()).filter(Boolean));
+    }
+
     if (typeof updateSeoPreview === 'function') updateSeoPreview();
     if (typeof updatePricePreview === 'function') updatePricePreview();
 };
@@ -342,6 +359,10 @@ function resetAddProductHighlights() {
 
 function resetAddProductFormExtras() {
     resetAddProductHighlights();
+    ['prodNameBn', 'prodDescBn', 'prodDetailedDescBn', 'prodHighlightsBn'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     const nameCounter = document.getElementById('prodNameCounter');
     const descCounter = document.getElementById('shortDescCounter');
     if (nameCounter) {
@@ -516,7 +537,11 @@ window.uploadProduct = async function() {
     formData.append('seoTitle', document.getElementById('prodSeoTitle')?.value?.trim() || '');
     formData.append('seoDescription', document.getElementById('prodSeoDescription')?.value?.trim() || '');
     formData.append('seoKeywords', document.getElementById('prodSeoKeywords')?.value?.trim() || '');
-    
+    formData.append('name_bn', document.getElementById('prodNameBn')?.value?.trim() || '');
+    formData.append('description_bn', document.getElementById('prodDescBn')?.value?.trim() || '');
+    formData.append('detailedDescription_bn', document.getElementById('prodDetailedDescBn')?.value?.trim() || '');
+    formData.append('highlights_bn', document.getElementById('prodHighlightsBn')?.value?.trim() || '[]');
+
     // একাধিক ছবি থাকলে সবগুলোকে ব্যাকএন্ড রাউটের 'productImages' কী-তে অ্যাপেন্ড করা
     if (files.length > 0) {
         for (let i = 0; i < files.length; i++) {
