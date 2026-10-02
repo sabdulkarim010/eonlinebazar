@@ -61,6 +61,8 @@ client/
 
 │   ├── utils/sanitizer.js ← EOBSanitizer escapeHtml + sanitizeRichText (XSS)
 │   ├── utils/productLocale.js ← ProductLocale EN/BN product field picker (storefront toggle)
+│   ├── utils/localeCoordinator.js ← EOBLocaleCoordinator languageChanged refresh bus
+│   ├── utils/contentLocale.js ← ContentLocale categories/banners/CMS BN fallback
 │   ├── ui/skeletons.js    ← EOBSkeletons storefront skeleton loaders (CLS)
 │   ├── utils/debounce.js   ← EOBDebounce debounce + abortable fetch coordinator
 │   ├── searchCatalogSync.js ← EOBSearchCatalogSync URL ↔ catalog filter state

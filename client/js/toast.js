@@ -22,14 +22,20 @@
         wishlist: 'fa-heart'
     };
 
-    const MESSAGES = {
-        CART_ADDED: '🛒 Added to Cart successfully!',
-        CART_REMOVED: 'Item removed from Cart',
-        WISHLIST_ADDED: '❤️ Saved to Wishlist!',
-        WISHLIST_REMOVED: 'Item removed from Wishlist',
-        STOCK_EXCEEDED: '⚠️ Requested quantity exceeds available stock',
-        OUT_OF_STOCK: '⚠️ This item is currently out of stock'
-    };
+    function msg(key, fallback) {
+        return (global.i18n && global.i18n.t(key)) || fallback;
+    }
+
+    function getMessages() {
+        return {
+            CART_ADDED: msg('toast.cart_added', 'Added to Cart successfully!'),
+            CART_REMOVED: msg('toast.cart_removed', 'Item removed from Cart'),
+            WISHLIST_ADDED: msg('toast.wishlist_added', 'Saved to Wishlist!'),
+            WISHLIST_REMOVED: msg('toast.wishlist_removed', 'Item removed from Wishlist'),
+            STOCK_EXCEEDED: msg('toast.stock_exceeded', 'Requested quantity exceeds available stock'),
+            OUT_OF_STOCK: msg('toast.out_of_stock', 'This item is currently out of stock')
+        };
+    }
 
     function normalizeType(type) {
         const key = String(type || 'success').trim().toLowerCase();
@@ -108,14 +114,20 @@
         return toast;
     }
 
-    global.ToastMessages = MESSAGES;
     global.showToast = showToast;
-    global.showCartAddedToast = () => showToast(MESSAGES.CART_ADDED, 'success');
-    global.showCartRemovedToast = () => showToast(MESSAGES.CART_REMOVED, 'info');
-    global.showWishlistAddedToast = () => showToast(MESSAGES.WISHLIST_ADDED, 'wishlist');
-    global.showWishlistRemovedToast = () => showToast(MESSAGES.WISHLIST_REMOVED, 'info');
-    global.showStockExceededToast = () => showToast(MESSAGES.STOCK_EXCEEDED, 'error');
-    global.showOutOfStockToast = () => showToast(MESSAGES.OUT_OF_STOCK, 'error');
+    global.showCartAddedToast = () => showToast(getMessages().CART_ADDED, 'success');
+    global.showCartRemovedToast = () => showToast(getMessages().CART_REMOVED, 'info');
+    global.showWishlistAddedToast = () => showToast(getMessages().WISHLIST_ADDED, 'wishlist');
+    global.showWishlistRemovedToast = () => showToast(getMessages().WISHLIST_REMOVED, 'info');
+    global.showStockExceededToast = () => showToast(getMessages().STOCK_EXCEEDED, 'error');
+    global.showOutOfStockToast = () => showToast(getMessages().OUT_OF_STOCK, 'error');
+    global.ToastMessages = getMessages();
+
+    if (global.EOBLocaleCoordinator) {
+        global.EOBLocaleCoordinator.register(() => {
+            global.ToastMessages = getMessages();
+        });
+    }
 })(window);
 
 

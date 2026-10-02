@@ -302,15 +302,28 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+    function statusLabel(canonical) {
+        const keyMap = {
+            Pending: 'order.status.pending',
+            Processing: 'order.status.processing',
+            Shipped: 'order.status.shipped',
+            Delivered: 'order.status.delivered',
+            Cancelled: 'order.status.cancelled',
+            Returned: 'order.status.returned'
+        };
+        const key = keyMap[canonical] || keyMap.Pending;
+        return (window.i18n && window.i18n.t(key)) || canonical;
+    }
+
     function getStatusConfig(status) {
         const canonical = canonicalStatus(status);
         const config = {
-            Pending: { icon: '⏳', cls: 'pending', label: 'Pending' },
-            Processing: { icon: '⚙️', cls: 'processing', label: 'Processing' },
-            Shipped: { icon: '🚚', cls: 'shipped', label: 'Shipped' },
-            Delivered: { icon: '✅', cls: 'delivered', label: 'Delivered' },
-            Cancelled: { icon: '❌', cls: 'cancelled', label: 'Cancelled' },
-            Returned: { icon: '↩️', cls: 'returned', label: 'Returned' }
+            Pending: { icon: '⏳', cls: 'pending', label: statusLabel('Pending') },
+            Processing: { icon: '⚙️', cls: 'processing', label: statusLabel('Processing') },
+            Shipped: { icon: '🚚', cls: 'shipped', label: statusLabel('Shipped') },
+            Delivered: { icon: '✅', cls: 'delivered', label: statusLabel('Delivered') },
+            Cancelled: { icon: '❌', cls: 'cancelled', label: statusLabel('Cancelled') },
+            Returned: { icon: '↩️', cls: 'returned', label: statusLabel('Returned') }
         };
         return config[canonical] || config.Pending;
     }
@@ -1129,6 +1142,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.buildOrderRowHtml = buildOrderRowHtml;
     window.fetchUserOrders = fetchUserOrders;
+
+    if (window.EOBLocaleCoordinator) {
+        window.EOBLocaleCoordinator.register(() => {
+            if (typeof fetchUserOrders === 'function') fetchUserOrders();
+        });
+    }
 
     if (ordersPaginationEl) {
         ordersPaginationEl.addEventListener('click', (e) => {

@@ -43,6 +43,11 @@
   <!-- RIGHT: Form Panel -->
   <div class="auth-form-panel">
     <div class="auth-form-box">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <button type="button" class="lang-toggle lang-toggle--auth" onclick="i18n.setLanguage(i18n.getCurrentLang() === 'bn' ? 'en' : 'bn')" title="Switch Language">
+          <span id="lang-label">BN</span>
+        </button>
+      </div>
 
       <div class="auth-form-header">
         <h1>Welcome Back 👋</h1>
@@ -153,6 +158,9 @@
 </div>
 
 <script src="/js/i18n.js"></script>
+<script src="/js/utils/localeCoordinator.js"></script>
+<script src="/js/utils/contentLocale.js"></script>
+<script src="/js/utils/productLocale.js"></script>
     <script src="/js/utils/storage.js"></script>
     <script src="/js/utils/telemetry.js"></script>
     <script src="/js/utils/sanitizer.js"></script>

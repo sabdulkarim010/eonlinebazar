@@ -577,6 +577,15 @@ const createProduct = async (req, res) => {
             }
         }
 
+        try {
+            const { enrichMissingBanglaFields } = require('../services/productAutoTranslateService');
+            await enrichMissingBanglaFields(newProductData);
+        } catch (translateErr) {
+            if (process.env.NODE_ENV !== 'test') {
+                console.error('[productAutoTranslate/create]', translateErr.message || translateErr);
+            }
+        }
+
         const newProduct = new Product(newProductData);
         await newProduct.save();
         await syncCategoryProductCount(newProduct.category);
@@ -755,6 +764,41 @@ const updateProduct = async (req, res) => {
         if (category !== undefined) {
             const existingForCat = await Product.findOne(query).select('category').lean();
             oldCategoryName = existingForCat?.category || null;
+        }
+
+        const existingForTranslate = await Product.findOne(query).lean();
+        if (existingForTranslate) {
+            const mergeForTranslate = {
+                name: updateFields.name ?? existingForTranslate.name,
+                description: updateFields.description ?? existingForTranslate.description,
+                detailedDescription: updateFields.detailedDescription ?? existingForTranslate.detailedDescription,
+                highlights: updateFields.highlights ?? existingForTranslate.highlights,
+                name_bn: updateFields.name_bn ?? existingForTranslate.name_bn,
+                description_bn: updateFields.description_bn ?? existingForTranslate.description_bn,
+                detailedDescription_bn: updateFields.detailedDescription_bn
+                    ?? existingForTranslate.detailedDescription_bn,
+                highlights_bn: updateFields.highlights_bn ?? existingForTranslate.highlights_bn
+            };
+            try {
+                const { enrichMissingBanglaFields } = require('../services/productAutoTranslateService');
+                await enrichMissingBanglaFields(mergeForTranslate, existingForTranslate);
+                if (name_bn === undefined && mergeForTranslate.name_bn) {
+                    updateFields.name_bn = mergeForTranslate.name_bn;
+                }
+                if (description_bn === undefined && mergeForTranslate.description_bn) {
+                    updateFields.description_bn = mergeForTranslate.description_bn;
+                }
+                if (detailedDescription_bn === undefined && mergeForTranslate.detailedDescription_bn) {
+                    updateFields.detailedDescription_bn = mergeForTranslate.detailedDescription_bn;
+                }
+                if (highlights_bn === undefined && mergeForTranslate.highlights_bn?.length) {
+                    updateFields.highlights_bn = mergeForTranslate.highlights_bn;
+                }
+            } catch (translateErr) {
+                if (process.env.NODE_ENV !== 'test') {
+                    console.error('[productAutoTranslate/update]', translateErr.message || translateErr);
+                }
+            }
         }
 
         if (req.files && req.files.length > 0) {

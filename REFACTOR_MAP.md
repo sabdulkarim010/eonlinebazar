@@ -4241,3 +4241,29 @@ tests/repositories/order.repository.test.js [MOD] product create includes BN def
 tests/repositories/jestCompat.js [MOD] NEON_RETRY_ATTEMPTS env for warm/retry
 backend/src/repositories/productRepository.js [MOD] create/update BN fields
 docs/audit/DEVOPS_AUDIT.md [MOD]
+
+# Full storefront EN/BN localization + auto-translate — 2026-10-02
+backend/src/services/productAutoTranslateService.js [NEW]
+backend/src/services/productAiAssistService.js [MOD] export normalizeHighlightList
+backend/src/controllers/productController.js [MOD] enrich BN on create/update
+tests/services/productAutoTranslateService.test.js [NEW]
+public/js/i18n.js [MOD] expanded dictionary + coordinator hook
+client/js/utils/localeCoordinator.js [NEW]
+client/js/utils/contentLocale.js [NEW]
+client/partials/storefront-i18n-scripts.html [NEW]
+client/js/cartDisplayUtils.js [MOD] ProductLocale cart line names
+client/js/toast.js [MOD] i18n toast messages
+client/js/main.js [MOD] home locale refresh
+client/js/banner-slider.js [MOD] locale refresh
+client/js/search.js [MOD] coordinator
+client/js/cart.js [MOD] coordinator
+client/js/pdp/fetch-render.js [MOD] PDP static labels
+client/js/pdp/reviews.js [MOD]
+client/js/profile/orders.js [MOD] order status i18n
+client/js/footer.js [MOD]
+client/js/header.js [MOD]
+client/*.html [MOD] i18n bootstrap on storefront shells
+docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+README.md [MOD]
+ARCHITECTURE.md [MOD]

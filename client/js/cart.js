@@ -476,7 +476,7 @@ function renderCartDrawerItems() {
             <div class="empty-cart-container" style="text-align:center; padding:60px 20px; color:#777; width:100%;">
                 <i class="fa fa-shopping-bag" style="font-size:48px; color:#bbb; margin-bottom:15px; display:block;"></i>
                 <span style="font-size:18px; font-weight:600; color:#334155; display:block; margin-bottom:8px;">${t('cart.empty')}</span>
-                <span style="font-size:14px; color:#64748b; margin-bottom:24px; display:block;">Please add some products to your cart.</span>
+                <span style="font-size:14px; color:#64748b; margin-bottom:24px; display:block;">${t('cart.empty_hint')}</span>
                 <a href="/" style="background:#f97316; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600; display:inline-block; transition:0.3s;">${t('nav.home')}</a>
             </div>
         `;
@@ -1350,11 +1350,19 @@ document.addEventListener('DOMContentLoaded', () => {
     initCartPromoUi();
 });
 
-document.addEventListener('languageChanged', () => {
-    if (window.i18n) window.i18n.applyTranslations();
+function refreshCartLocale() {
     renderCartDrawerItems();
     updateCartTotal();
-});
+}
+
+if (window.EOBLocaleCoordinator) {
+    window.EOBLocaleCoordinator.register(refreshCartLocale);
+} else {
+    document.addEventListener('languageChanged', () => {
+        if (window.i18n) window.i18n.applyTranslations();
+        refreshCartLocale();
+    });
+}
 
 
 

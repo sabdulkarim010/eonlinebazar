@@ -18,14 +18,20 @@ function renderReviews(reviews) {
     const summaryCount = document.getElementById('productReviewCount');
 
     if (tabCount) tabCount.innerText = reviews.length;
-    if (summaryCount) summaryCount.innerText = `(${reviews.length} Customer Reviews)`;
+    const reviewLabel = window.i18n
+        ? window.i18n.t('product.customer_reviews', { count: reviews.length })
+        : `(${reviews.length} Customer Reviews)`;
+    if (summaryCount) summaryCount.innerText = reviewLabel;
 
     if (!container) return;
 
     if (reviews.length === 0) {
+        const emptyMsg = window.i18n
+            ? window.i18n.t('product.no_reviews')
+            : 'No reviews yet. Be the first to review this product!';
         container.innerHTML = `
             <p class="no-reviews-msg">
-                <i class="fa-solid fa-comment-slash"></i> No reviews yet. Be the first to review this product!
+                <i class="fa-solid fa-comment-slash"></i> ${emptyMsg}
             </p>`;
         return;
     }
@@ -45,8 +51,9 @@ function renderReviews(reviews) {
         // 🟢 ডাটাবেস থেকে ইউজারের নাম বের করার লজিক
         const reviewerName = rev.userId?.name || rev.name || "Verified Customer";
         const initial = reviewerName.trim().charAt(0).toUpperCase() || 'U';
+        const locale = window.i18n?.getCurrentLang?.() === 'bn' ? 'bn-BD' : 'en-US';
         const reviewDate = rev.createdAt
-            ? new Date(rev.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+            ? new Date(rev.createdAt).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
             : '';
 
         revCard.innerHTML = `
@@ -55,7 +62,7 @@ function renderReviews(reviews) {
                     <span class="reviewer-avatar">${escapeHtml(initial)}</span>
                     <div class="reviewer-meta">
                         <strong class="reviewer-name">${escapeHtml(reviewerName)}</strong>
-                        <span class="reviewer-verified"><i class="fa-solid fa-circle-check"></i> Verified Purchase</span>
+                        <span class="reviewer-verified"><i class="fa-solid fa-circle-check"></i> ${window.i18n ? window.i18n.t('product.verified_purchase') : 'Verified Purchase'}</span>
                     </div>
                 </div>
                 <div class="review-card-stars">${starsHTML}</div>
@@ -78,6 +85,7 @@ async function fetchProductReviews(productId) {
         const data = await response.json();
         
         if (data.success && data.reviews) {
+            window.__lastProductReviews = data.reviews;
             renderReviews(data.reviews);
         } else {
             renderReviews([]);

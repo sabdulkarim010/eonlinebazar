@@ -538,7 +538,13 @@
         return {
             id,
             productId: id,
-            name: item?.name || catalog?.name || '',
+            name: (function resolveCartLineDisplayName() {
+                if (global.ProductLocale && catalog) {
+                    const localized = global.ProductLocale.pickProductName(catalog);
+                    if (localized) return localized;
+                }
+                return item?.name || catalog?.name || '';
+            })(),
             price,
             __serverSynced: preferServerPrice,
             image: displayImage,

@@ -445,7 +445,7 @@ function renderFlashSaleBanner(state) {
     const subtitleEl = document.getElementById('flashSaleSubtitle');
     if (titleEl) titleEl.textContent = state.flashSaleTitle || `⚡ ${t('home.flash_sale')}`;
     if (subtitleEl) {
-        subtitleEl.textContent = `Up to ${state.flashSaleDiscountPercent || 0}% off on selected products — hurry before time runs out!`;
+        subtitleEl.textContent = t('home.flash_subtitle');
     }
 
     startFlashSaleCountdown(state.endsAt);
@@ -637,7 +637,7 @@ function populateSearchCategorySelect(categories) {
     if (!categorySelect || !Array.isArray(categories)) return;
 
     const previous = categorySelect.value || 'all';
-    categorySelect.innerHTML = '<option value="all">All Categories</option>';
+    categorySelect.innerHTML = `<option value="all">${t('nav.all_categories')}</option>`;
 
     getTopLevelCategories(categories).forEach((cat) => {
         if (!cat?._id && !cat?.slug && !cat?.name) return;
@@ -892,12 +892,14 @@ async function loadHomepageCategories() {
         container.style.display = '';
         container.innerHTML = `
             <div class="hp-cats-header section-header-premium">
-                <h2 class="section-title-premium">🛍️ Shop by Category</h2>
-                <a href="/products" class="section-see-all hp-cats-see-all">See All <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+                <h2 class="section-title-premium">🛍️ ${t('home.shop_by_category')}</h2>
+                <a href="/products" class="section-see-all hp-cats-see-all">${t('home.see_all')} <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
             </div>
             <div class="category-strip hp-cats-grid" id="category-grid">
                 ${categories.map((cat) => {
-                    const name = escapeCatHtml(cat.name);
+                    const CL = window.ContentLocale;
+                    const rawName = CL ? CL.pickCategoryName(cat) : cat.name;
+                    const name = escapeCatHtml(rawName);
                     const color = escapeCatHtml(categoryAccent(cat));
                     const img = categoryImage(cat);
                     const icon = escapeCatHtml(cat.icon || '🏷️');
@@ -1114,12 +1116,24 @@ async function fetchNavbarProfile(token, avatarElement) {
     }
 }
 
-document.addEventListener('languageChanged', () => {
+function refreshHomeLocaleSections() {
     if (allProducts.length) displayProducts(allProducts, { append: false });
     renderHomeCatalogControls();
     if (flashSaleState?.isActive) renderFlashSaleBanner(flashSaleState);
-    if (window.i18n) window.i18n.applyTranslations();
-});
+    loadHomepageCategories();
+    loadHomeSupplementalSections();
+    const waTip = document.getElementById('waTooltip');
+    if (waTip && window.i18n) waTip.textContent = window.i18n.t('whatsapp.help');
+}
+
+if (window.EOBLocaleCoordinator) {
+    window.EOBLocaleCoordinator.register(refreshHomeLocaleSections);
+} else {
+    document.addEventListener('languageChanged', () => {
+        refreshHomeLocaleSections();
+        if (window.i18n) window.i18n.applyTranslations();
+    });
+}
 
 
 

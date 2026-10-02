@@ -67,6 +67,7 @@ async function fetchProductDetails(id) {
         initializeDefaultVariantSelections(product);
         renderHighlights(product); 
         renderDescriptions(product);
+        renderPdpStaticLabels();
         updateSeoTags(product);
         
         // 🟢 আপডেট: এখন আলাদা এপিআই থেকে রিভিউ কল হবে
@@ -398,18 +399,49 @@ function buildProductChatContext(product) {
     };
 }
 
-document.addEventListener('languageChanged', () => {
-    if (window.i18n) window.i18n.applyTranslations();
+function refreshPdpLocale() {
     if (currentProductData) {
         renderBreadcrumb(currentProductData);
         renderProductInfo(currentProductData);
         renderHighlights(currentProductData);
         renderDescriptions(currentProductData);
+        renderPdpStaticLabels();
         updateSeoTags(currentProductData);
         updateStockStatus(getAvailableStock());
         renderVariants(currentProductData);
+        if (window.__lastProductReviews && typeof renderReviews === 'function') {
+            renderReviews(window.__lastProductReviews);
+        }
     }
-});
+}
+
+function renderPdpStaticLabels() {
+    const hi = document.querySelector('.product-highlights-box h3');
+    if (hi && window.i18n) hi.textContent = window.i18n.t('product.highlights_title');
+    document.querySelectorAll('.delivery-title').forEach((el, idx) => {
+        if (!window.i18n) return;
+        el.textContent = idx === 0
+            ? window.i18n.t('product.expected_delivery')
+            : window.i18n.t('product.warranty_title');
+    });
+    const auth = document.querySelector('.product-delivery-badge .delivery-item:nth-child(2) strong');
+    if (auth && window.i18n) auth.textContent = window.i18n.t('product.authentic');
+    const share = document.querySelector('.share-zone-label');
+    if (share && window.i18n) share.textContent = window.i18n.t('product.share');
+    const waBtn = document.getElementById('orderWhatsAppBtn');
+    if (waBtn && window.i18n) {
+        waBtn.innerHTML = `<i class="fa-brands fa-whatsapp"></i> ${window.i18n.t('product.order_whatsapp')}`;
+    }
+}
+
+if (window.EOBLocaleCoordinator) {
+    window.EOBLocaleCoordinator.register(refreshPdpLocale);
+} else {
+    document.addEventListener('languageChanged', () => {
+        if (window.i18n) window.i18n.applyTranslations();
+        refreshPdpLocale();
+    });
+}
 Object.assign(window, {
     fetchProductDetails,
     renderBreadcrumb,

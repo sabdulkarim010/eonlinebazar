@@ -1168,7 +1168,7 @@ function populateSearchCategorySelectOptions(select, categories, previousValue) 
         return !!(val && val !== 'all');
     }
 
-    select.innerHTML = '<option value="all">All Categories</option>';
+    select.innerHTML = `<option value="all">${t('nav.all_categories')}</option>`;
 
     getTopLevelCategories(categories).forEach((cat) => {
         if (!cat?._id && !cat?.slug && !cat?.name) return;
@@ -1380,10 +1380,18 @@ document.addEventListener('DOMContentLoaded', () => {
     loadFooter();
 });
 
-document.addEventListener('languageChanged', () => {
-    if (window.i18n) window.i18n.applyTranslations();
+function refreshSearchLocale() {
     runSearch();
-});
+}
+
+if (window.EOBLocaleCoordinator) {
+    window.EOBLocaleCoordinator.register(refreshSearchLocale);
+} else {
+    document.addEventListener('languageChanged', () => {
+        if (window.i18n) window.i18n.applyTranslations();
+        runSearch();
+    });
+}
 
 /* ==========================================================================
    SECTION 9: SHARED UI

@@ -67,7 +67,8 @@
             || window.EOBStorage.get(SCOPE_STORAGE_KEY)
             || 'all';
 
-        select.innerHTML = '<option value="all">All Categories</option>';
+        const allLabel = window.i18n ? window.i18n.t('nav.all_categories') : 'All Categories';
+        select.innerHTML = `<option value="all">${allLabel}</option>`;
 
         getTopLevelCategories(categories).forEach((cat) => {
             if (!cat?._id && !cat?.slug && !cat?.name) return;

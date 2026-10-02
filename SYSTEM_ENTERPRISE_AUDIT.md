@@ -7,6 +7,17 @@
 
 ---
 
+## Full storefront localization + auto-translate BN — 2026-10-02
+
+| Item | Status |
+|------|--------|
+| `productAutoTranslateService` on admin product create/update (Anthropic when key set) | ✅ |
+| `EOBLocaleCoordinator` + expanded `public/js/i18n.js` dictionary | ✅ |
+| `ContentLocale` for categories/banners/CMS fallback | ✅ |
+| i18n bootstrap on checkout, profile, payment, order pages | ✅ |
+| Cart line display names via `ProductLocale` | ✅ |
+| `npm test` | ✅ 526/526 |
+
 ## Product bilingual EN admin + BN storefront — 2026-10-01
 
 | Item | Status |

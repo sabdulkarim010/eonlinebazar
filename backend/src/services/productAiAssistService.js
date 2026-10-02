@@ -211,6 +211,7 @@ module.exports = {
   normalizeNameLanguage,
   buildLanguageRules,
   buildVisionPrompt,
+  normalizeHighlightList,
   normalizeAiProductPayload,
   generateProductAssistContent
 };

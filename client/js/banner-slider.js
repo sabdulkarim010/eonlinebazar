@@ -63,12 +63,22 @@ class BannerSlider {
 
   showFallback() {
     if (!this.container) return;
+    const t = (key, fb) => (window.i18n && window.i18n.t(key)) || fb;
     this.container.innerHTML = `
       <div class="banner-fallback">
-        <h2>Best Quality Products</h2>
-        <p>Fast delivery, easy returns</p>
+        <h2>${t('home.hero.title', 'Best Quality Products')}</h2>
+        <p>${t('home.hero.subtitle', 'Fast delivery, easy returns')}</p>
       </div>
     `;
+  }
+
+  localizedBannerField(b, field) {
+    const CL = typeof window !== 'undefined' ? window.ContentLocale : null;
+    if (CL && typeof CL.pickBannerText === 'function') {
+      return CL.pickBannerText(b, field === 'linkText' ? 'linkText' : field);
+    }
+    if (field === 'linkText') return b.linkText || '';
+    return b[field] || '';
   }
 
   escapeHtml(str) {
@@ -154,18 +164,18 @@ class BannerSlider {
                   ${b.title ? `
                     <h2 class="banner-title"
                         style="color:${this.escapeHtml(b.textColor || '#fff')}">
-                      ${this.escapeHtml(b.title)}
+                      ${this.escapeHtml(this.localizedBannerField(b, 'title'))}
                     </h2>
                   ` : ''}
                   ${b.subtitle ? `
                     <p class="banner-subtitle"
                        style="color:${this.escapeHtml(b.textColor || '#fff')}">
-                      ${this.escapeHtml(b.subtitle)}
+                      ${this.escapeHtml(this.localizedBannerField(b, 'subtitle'))}
                     </p>
                   ` : ''}
                   ${b.linkUrl ? `
                     <a href="${this.escapeHtml(b.linkUrl)}" class="banner-cta">
-                      ${this.escapeHtml(b.linkText || 'Shop Now')} <i class="fa fa-arrow-right" aria-hidden="true"></i>
+                      ${this.escapeHtml(this.localizedBannerField(b, 'linkText') || (window.i18n?.t('home.shop_now') || 'Shop Now'))} <i class="fa fa-arrow-right" aria-hidden="true"></i>
                     </a>
                   ` : ''}
                 </div>
@@ -297,9 +307,22 @@ class BannerSlider {
   }
 }
 
+let heroBannerSliderInstance = null;
+
+function refreshHeroBannerSlider() {
+  if (heroBannerSliderInstance && typeof heroBannerSliderInstance.render === 'function') {
+    heroBannerSliderInstance.render();
+    heroBannerSliderInstance.setupControls();
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('heroBannerSlider')) {
-    new BannerSlider('heroBannerSlider');
+    heroBannerSliderInstance = new BannerSlider('heroBannerSlider');
+    window.refreshHeroBannerSlider = refreshHeroBannerSlider;
+    if (window.EOBLocaleCoordinator) {
+      window.EOBLocaleCoordinator.register(refreshHeroBannerSlider);
+    }
   }
 });
 

@@ -77,6 +77,16 @@ async function initGlobalFooterEngine() {
 
 window.initGlobalFooterEngine = initGlobalFooterEngine;
 
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.EOBLocaleCoordinator) {
+        window.EOBLocaleCoordinator.register(() => {
+            if (document.getElementById('global-site-footer')) {
+                initGlobalFooterEngine();
+            }
+        });
+    }
+});
+
 async function subscribeNewsletter(inputId = 'newsletter-email') {
     const emailInput = document.getElementById(inputId);
     if (!emailInput) return;

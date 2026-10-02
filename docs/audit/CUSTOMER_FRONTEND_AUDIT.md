@@ -1,8 +1,8 @@
 # CUSTOMER FRONTEND AUDIT — EonlineBazar
 
-**Last updated:** 2026-10-01 (Product EN/BN locale via BN toggle)  
+**Last updated:** 2026-10-02 (Enterprise EN/BN localization pass)  
 **Scope:** Storefront HTML pages, shared JS/CSS, profile module, checkout, PDP, cart  
-**Status:** ✅ COMPLETE
+**Status:** ⚠️ PARTIAL (core flows localized; CMS/footer column copy still admin English until BN fields added)
 
 ---
 
@@ -37,6 +37,10 @@
 | `client/js/utils/imageUtils.js` | `EOBImageUtils` — lazy/LCP attrs, srcset, catalog URL sanitize, fallback onerror |
 | `client/js/render.js` | `EOBRender.mountProductCardImage` / cart line image helpers |
 | `client/js/utils/productLocale.js` | `ProductLocale` — pick English vs `*_bn` product fields for storefront |
+| `client/js/utils/localeCoordinator.js` | `EOBLocaleCoordinator` — central `languageChanged` refresh bus |
+| `client/js/utils/contentLocale.js` | `ContentLocale` — category/banner/CMS BN fallback helpers |
+| `client/partials/storefront-i18n-scripts.html` | Shared i18n script bundle partial |
+| `backend/src/services/productAutoTranslateService.js` | Auto-fill missing `*_bn` on admin product save |
 | `client/js/utils/debounce.js` | `EOBDebounce` — shared debounce + abortable catalog request coordinator |
 | `client/js/searchCatalogSync.js` | `EOBSearchCatalogSync` — URL ↔ search state serialization |
 | `client/js/expressCheckout.js` | `EOBExpressCheckout` — Buy Now isolated checkout session |
@@ -303,6 +307,14 @@
 - Added `EOBCommerce` (cart/catalog proxies on `window.cart` / `window.globalProductCatalog`) and `EOBCheckoutState` for checkout UI globals.
 - Storefront HTML shells load `storage.js` + `commerceState.js` before `session-guard.js`; checkout also loads `checkoutState.js`.
 - Tests: Jest **405/405** passing.
+
+### Full storefront localization — 2026-10-02
+
+- Expanded `public/js/i18n.js` (checkout, toast, home sections, sort options, footer chrome keys)
+- `EOBLocaleCoordinator` registers home, search, cart, PDP, banner, footer, profile orders refreshes
+- Cart UI names resolved via catalog + `ProductLocale`; checkout/profile/payment shells load i18n bundle
+- Admin product save auto-translates empty BN fields via `productAutoTranslateService` (when `ANTHROPIC_API_KEY` set)
+- Tests: Jest **526/526**
 
 ### Product EN/BN storefront toggle — 2026-10-01
 

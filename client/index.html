@@ -108,18 +108,18 @@
         <section id="flashSaleBanner" class="flash-sale-banner flash-sale-section animate-on-scroll delay-2" style="display:none;" aria-live="polite">
             <div class="flash-sale-banner__content flash-sale-header">
                 <div class="flash-sale-banner__copy">
-                    <span class="flash-sale-banner__eyebrow">Limited Time Offer</span>
+                    <span class="flash-sale-banner__eyebrow" data-i18n="home.limited_offer">Limited Time Offer</span>
                     <h2 id="flashSaleTitle" class="flash-sale-title" data-i18n="home.flash_sale">⚡ Flash Sale</h2>
                     <p id="flashSaleSubtitle">Grab exclusive discounts before the timer hits zero.</p>
                 </div>
                 <div class="flash-sale-banner__timer-wrap">
                     <span class="flash-sale-banner__timer-label" data-i18n="home.ends_in">Ends in</span>
                     <div class="flash-sale-countdown flash-countdown" id="flashSaleCountdown">
-                        <div class="flash-sale-countdown__unit countdown-block"><strong id="flashHours" class="countdown-num">00</strong><small class="countdown-label">Hours</small></div>
+                        <div class="flash-sale-countdown__unit countdown-block"><strong id="flashHours" class="countdown-num">00</strong><small class="countdown-label" data-i18n="home.hours">Hours</small></div>
                         <span class="flash-sale-countdown__sep countdown-sep">:</span>
-                        <div class="flash-sale-countdown__unit countdown-block"><strong id="flashMinutes" class="countdown-num">00</strong><small class="countdown-label">Min</small></div>
+                        <div class="flash-sale-countdown__unit countdown-block"><strong id="flashMinutes" class="countdown-num">00</strong><small class="countdown-label" data-i18n="home.min">Min</small></div>
                         <span class="flash-sale-countdown__sep countdown-sep">:</span>
-                        <div class="flash-sale-countdown__unit countdown-block"><strong id="flashSeconds" class="countdown-num">00</strong><small class="countdown-label">Sec</small></div>
+                        <div class="flash-sale-countdown__unit countdown-block"><strong id="flashSeconds" class="countdown-num">00</strong><small class="countdown-label" data-i18n="home.sec">Sec</small></div>
                     </div>
                 </div>
             </div>
@@ -127,22 +127,22 @@
 
         <section id="homeTrendingSection" class="homepage-product-section animate-on-scroll delay-1" hidden>
             <div class="catalog-header-row section-header-premium">
-                <h2 class="section-title section-title-premium">Trending Now</h2>
-                <a href="/search?sort=sales" class="section-see-all hp-cats-see-all">See All <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+                <h2 class="section-title section-title-premium" data-i18n="home.trending">Trending Now</h2>
+                <a href="/search?sort=sales" class="section-see-all hp-cats-see-all"><span data-i18n="home.see_all">See All</span> <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
             </div>
             <div id="homeTrendingGrid" class="product-layout-grid"></div>
         </section>
 
         <section id="homeFlashDealsSection" class="homepage-product-section animate-on-scroll delay-1" hidden>
             <div class="catalog-header-row section-header-premium">
-                <h2 class="section-title section-title-premium">Flash Deals</h2>
+                <h2 class="section-title section-title-premium" data-i18n="home.flash_deals">Flash Deals</h2>
             </div>
             <div id="homeFlashDealsGrid" class="product-layout-grid"></div>
         </section>
 
         <div class="catalog-header-row section-header-premium animate-on-scroll delay-1">
             <h2 class="section-title section-title-premium" data-i18n="home.featured">Featured Products</h2>
-            <a href="/search" class="section-see-all hp-cats-see-all">See All <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+            <a href="/search" class="section-see-all hp-cats-see-all"><span data-i18n="home.see_all">See All</span> <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
         </div>
         <div id="productGrid" class="product-layout-grid animate-on-scroll delay-2"></div>
         <div id="homeLoadMoreWrap" class="catalog-load-more-wrap" hidden></div>
@@ -151,7 +151,7 @@
 
     <!-- WhatsApp Button S-->
         <div class="whatsapp-floating-container">
-        <div class="whatsapp-tooltip" id="waTooltip">Need help? Chat with us!</div>
+        <div class="whatsapp-tooltip" id="waTooltip" data-i18n="whatsapp.help">Need help? Chat with us!</div>
         <a href="#" id="waFloatBtn" data-whatsapp-chat target="_blank" rel="noopener noreferrer" class="whatsapp-float-btn">
             <i class="fa-brands fa-whatsapp"></i>
         </a>
@@ -162,6 +162,8 @@
         <div id="global-site-footer"></div>
 
     <script src="/js/i18n.js"></script>
+    <script src="/js/utils/localeCoordinator.js"></script>
+    <script src="/js/utils/contentLocale.js"></script>
     <script src="/js/utils/productLocale.js"></script>
     <script src="/js/urlUtils.js"></script>
     <script src="/js/utils/storage.js"></script>
