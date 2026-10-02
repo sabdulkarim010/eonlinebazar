@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-09-30 (Neon boot warm non-fatal, health getPrisma, 45s fetch default)  
+**Last updated:** 2026-10-02 (CI Prisma migrate before repository integration tests)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -131,6 +131,13 @@
 - Tests: Jest **228/228** passing
 
 ## Change Log
+
+### Bilingual product migration + CI schema sync — 2026-10-02
+
+- `.github/workflows/deploy.yml`: `prisma migrate deploy` + `prisma generate` before `npm run test:repositories`; higher Neon retry env for CI
+- `scripts/run-repository-tests.js`: auto `migrate deploy` (fallback `db push`) before running 21 repository files; Windows-safe `npx` spawn
+- Root cause: Prisma client included `name_bn` columns while Neon test DB had not applied `20261001120000_product_bilingual_fields`
+- Verification: **21/21** repository files + Jest **521/521**
 
 ### Global repository test CI resilience — 2026-09-25
 

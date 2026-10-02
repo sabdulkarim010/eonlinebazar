@@ -26,6 +26,9 @@ const {
   listEmbeddedReviews
 } = require('../../backend/src/repositories/productRepository');
 const { create: createOrder } = require('../../backend/src/repositories/orderRepository');
+const {
+  sampleBilingualProductSnake
+} = require('./productFixtures');
 
 const PREFIX = `__test_prod_${Date.now()}_`;
 const createdProductIds = [];
@@ -108,6 +111,24 @@ describe('Product repository — create slug', () => {
     const name = `${PREFIX}Electronics Gadget`;
     const product = await createTestProduct({ name });
     expect(product.slug).toBe(slugifyProduct(name));
+  });
+
+  test('create() persists bilingual storefront fields separately from English', async () => {
+    const bn = sampleBilingualProductSnake();
+    const product = await createTestProduct({
+      name: `${PREFIX}English Title`,
+      description: 'English short description',
+      detailedDescription: 'English detailed body',
+      highlights: ['English highlight'],
+      ...bn
+    });
+
+    const row = await prisma.product.findUnique({ where: { id: product.id } });
+    expect(row.name).toBe(`${PREFIX}English Title`);
+    expect(row.nameBn).toBe(bn.name_bn);
+    expect(row.descriptionBn).toBe(bn.description_bn);
+    expect(row.detailedDescriptionBn).toBe(bn.detailedDescription_bn);
+    expect(row.highlightsBn).toEqual(bn.highlights_bn);
   });
 });
 

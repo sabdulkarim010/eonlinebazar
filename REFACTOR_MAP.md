@@ -4231,3 +4231,13 @@ docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
 ARCHITECTURE.md [MOD]
+
+# CI repository tests — bilingual product schema sync — 2026-10-02
+.github/workflows/deploy.yml [MOD] prisma migrate deploy + generate before test:repositories
+scripts/run-repository-tests.js [MOD] pre-flight schema sync + shell npx spawn
+tests/repositories/productFixtures.js [NEW] bilingual Prisma/snake fixtures
+tests/repositories/product.repository.test.js [MOD] bilingual create assertion
+tests/repositories/order.repository.test.js [MOD] product create includes BN defaults
+tests/repositories/jestCompat.js [MOD] NEON_RETRY_ATTEMPTS env for warm/retry
+backend/src/repositories/productRepository.js [MOD] create/update BN fields
+docs/audit/DEVOPS_AUDIT.md [MOD]

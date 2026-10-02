@@ -15,6 +15,7 @@ require('dotenv').config();
 
 
 const prisma = require('../../backend/src/config/prismaClient');
+const { bilingualProductPrismaDefaults } = require('./productFixtures');
 const {
   create,
   createFromMongo,
@@ -237,7 +238,8 @@ describe('Order repository — createFromMongo', () => {
         name: 'FK Test Product',
         slug: `${PREFIX}slug-${suffix}`,
         price: 500,
-        categoryName: 'General'
+        categoryName: 'General',
+        ...bilingualProductPrismaDefaults()
       }
     });
     createdProductIds.push(product.id);

@@ -30,19 +30,23 @@ function hookOptions() {
 
 async function withRepositoryRetry(fn, options = {}) {
   const { withNeonRetry } = require('../../backend/src/config/neonRetry');
+  const attempts = Number(process.env.NEON_RETRY_ATTEMPTS || 4);
+  const baseDelayMs = Number(process.env.NEON_RETRY_BASE_DELAY_MS || 300);
   return withNeonRetry(fn, {
-    attempts: 4,
-    baseDelayMs: 300,
+    attempts,
+    baseDelayMs,
     ...options
   });
 }
 
 function registerGlobalSetup() {
   nodeTest.before(hookOptions(), async () => {
+    const attempts = Number(process.env.NEON_RETRY_ATTEMPTS || 4);
+    const baseDelayMs = Number(process.env.NEON_RETRY_BASE_DELAY_MS || 300);
     await withRepositoryRetry(async () => {
       const { warmNeonConnection } = require('../../backend/src/config/postgresBootstrap');
-      return warmNeonConnection({ attempts: 4, baseDelayMs: 300 });
-    });
+      return warmNeonConnection({ attempts, baseDelayMs });
+    }, { attempts, baseDelayMs });
   });
 }
 

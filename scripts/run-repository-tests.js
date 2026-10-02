@@ -43,7 +43,38 @@ const MAX_FILE_RETRIES = Number(process.env.REPO_TEST_FILE_RETRIES || 2);
 const TEST_TIMEOUT_MS = Number(process.env.REPO_TEST_TIMEOUT_MS || 120000);
 const HOOK_TIMEOUT_MS = Number(process.env.REPO_TEST_HOOK_TIMEOUT_MS || 45000);
 
-const repoDir = path.join(__dirname, '..', 'tests', 'repositories');
+const repoRoot = path.join(__dirname, '..');
+
+function runPrismaCli(args) {
+  return spawnSync('npx', args, {
+    stdio: 'inherit',
+    env: process.env,
+    cwd: repoRoot,
+    shell: true
+  });
+}
+
+function syncTestDatabaseSchema() {
+  console.log('[test:repositories] Syncing PostgreSQL schema (Prisma migrate deploy)...');
+  let result = runPrismaCli(['prisma', 'migrate', 'deploy']);
+  if (result.status !== 0) {
+    console.warn('[test:repositories] migrate deploy failed; falling back to db push...');
+    result = runPrismaCli(['prisma', 'db', 'push', '--skip-generate']);
+  }
+  if (result.status !== 0) {
+    console.error('[test:repositories] Could not sync database schema. Aborting.');
+    process.exit(typeof result.status === 'number' ? result.status : 1);
+  }
+  const gen = runPrismaCli(['prisma', 'generate']);
+  if (gen.status !== 0) {
+    console.error('[test:repositories] prisma generate failed after schema sync.');
+    process.exit(typeof gen.status === 'number' ? gen.status : 1);
+  }
+}
+
+syncTestDatabaseSchema();
+
+const repoDir = path.join(repoRoot, 'tests', 'repositories');
 const testFiles = fs.readdirSync(repoDir)
   .filter((name) => name.endsWith('.repository.test.js'))
   .sort()

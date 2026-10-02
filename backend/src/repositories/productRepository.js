@@ -229,9 +229,17 @@ async function create(data) {
       warehouseId: data.warehouseId ?? null,
       reorderPoint: data.reorderPoint != null ? Number(data.reorderPoint) : 5,
       stock: data.stock != null ? Number(data.stock) : 0,
+      nameBn: String(data.nameBn ?? data.name_bn ?? '').trim(),
       description: String(data.description ?? '').trim(),
+      descriptionBn: String(data.descriptionBn ?? data.description_bn ?? '').trim(),
       detailedDescription: String(data.detailedDescription ?? '').trim(),
+      detailedDescriptionBn: String(
+        data.detailedDescriptionBn ?? data.detailedDescription_bn ?? ''
+      ).trim(),
       highlights: Array.isArray(data.highlights) ? data.highlights : [],
+      highlightsBn: Array.isArray(data.highlightsBn ?? data.highlights_bn)
+        ? (data.highlightsBn ?? data.highlights_bn)
+        : [],
       tags: Array.isArray(data.tags) ? data.tags : [],
       weight: data.weight != null ? Number(data.weight) : null,
       status: data.status !== undefined ? toStatusEnum(data.status) : 'ACTIVE',
@@ -273,6 +281,24 @@ async function update(id, data) {
   if (data.stock !== undefined) fields.stock = Number(data.stock);
   if (data.status !== undefined) fields.status = toStatusEnum(data.status);
   if (data.description !== undefined) fields.description = String(data.description).trim();
+  if (data.nameBn !== undefined || data.name_bn !== undefined) {
+    fields.nameBn = String(data.nameBn ?? data.name_bn).trim();
+  }
+  if (data.descriptionBn !== undefined || data.description_bn !== undefined) {
+    fields.descriptionBn = String(data.descriptionBn ?? data.description_bn).trim();
+  }
+  if (data.detailedDescription !== undefined) {
+    fields.detailedDescription = String(data.detailedDescription).trim();
+  }
+  if (data.detailedDescriptionBn !== undefined || data.detailedDescription_bn !== undefined) {
+    fields.detailedDescriptionBn = String(
+      data.detailedDescriptionBn ?? data.detailedDescription_bn
+    ).trim();
+  }
+  if (data.highlights !== undefined) fields.highlights = data.highlights;
+  if (data.highlightsBn !== undefined || data.highlights_bn !== undefined) {
+    fields.highlightsBn = data.highlightsBn ?? data.highlights_bn;
+  }
   if (data.tags !== undefined) fields.tags = data.tags;
   if (data.hasVariants !== undefined) fields.hasVariants = Boolean(data.hasVariants);
 

@@ -46,7 +46,17 @@ jobs:
             exit 1
           fi
 
+      - name: Sync PostgreSQL schema for repository tests
+        run: npx prisma migrate deploy
+
+      - name: Generate Prisma client (post-migrate)
+        run: npx prisma generate
+
       - name: Run repository integration tests
+        env:
+          REPO_TEST_FILE_RETRIES: '3'
+          NEON_RETRY_ATTEMPTS: '5'
+          REPO_TEST_HOOK_TIMEOUT_MS: '60000'
         run: npm run test:repositories --if-present
 
   deploy:
