@@ -4279,3 +4279,14 @@ SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 backend/src/config/neonKeepAlive.js [NEW]
 backend/src/server.js [MOD] startNeonKeepAlive after listen
 DATABASE_MIGRATION_AUDIT.md [MOD]
+
+# CI Prisma pg adapter + env fallbacks — 2026-10-04
+backend/src/config/prismaClient.js [MOD] @prisma/adapter-pg + pg (Prisma 7 TCP)
+package.json [MOD] added @prisma/adapter-pg, pg
+package-lock.json [MOD]
+tests/env-quiet.js [MOD] placeholder DATABASE_URL for Jest
+.github/workflows/deploy.yml [MOD] prisma generate + URL fallbacks before tests
+scripts/run-repository-tests.js [MOD] comment cleanup
+docs/audit/DEVOPS_AUDIT.md [MOD]
+DATABASE_MIGRATION_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]

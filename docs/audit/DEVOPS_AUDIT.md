@@ -1,6 +1,6 @@
 # DEVOPS AUDIT — EonlineBazar
 
-**Last updated:** 2026-10-02 (CI Prisma migrate before repository integration tests)  
+**Last updated:** 2026-10-04 (CI Prisma generate + pg adapter + DB URL fallbacks)  
 **Scope:** Docker, Nginx, PM2, CI/CD, deployment, env configuration, health checks, backup, Jest CI  
 **Status:** ✅ COMPLETE
 
@@ -131,6 +131,14 @@
 - Tests: Jest **228/228** passing
 
 ## Change Log
+
+### CI Prisma pg adapter + DB URL fallbacks — 2026-10-04
+
+- Root cause: Prisma 7 requires a driver adapter; Neon HTTP packages were removed without installing `@prisma/adapter-pg`/`pg`, so repository CI could not construct `PrismaClient`.
+- `backend/src/config/prismaClient.js` uses `PrismaPg` + `DATABASE_URL_POOLED || DATABASE_URL`.
+- `tests/env-quiet.js` injects placeholder PG URLs for main Jest when secrets/env are absent (mocked client).
+- `.github/workflows/deploy.yml`: `npx prisma generate` before Jest; bidirectional `DATABASE_URL` ↔ `DATABASE_URL_POOLED` fallback; `REPOSITORY_TEST=1` on repo job; `npm test -- --passWithNoTests`.
+- Verification: Jest **526/526**.
 
 ### Bilingual product migration + CI schema sync — 2026-10-02
 

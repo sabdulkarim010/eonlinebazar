@@ -4002,7 +4002,7 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | BullMQ ioredis config | ✅ | `createBullMqConnection()` — `maxRetriesPerRequest: null`, `enableReadyCheck: false` |
 | Import/export queue | ✅ | Separate Queue/Worker connections; inline fallback on enqueue failure |
 | Outbox dispatcher resilience | ✅ | Skips Postgres warmup gate; Mongo query/mark failures logged, no unhandled rejections |
-| Prisma/Neon setup | ✅ | Native `PrismaClient` TCP via pooler URL; `neonRetry.js` transient query retries |
+| Prisma/Neon setup | ✅ | `@prisma/adapter-pg` + `pg` TCP via pooler URL; `neonRetry.js` transient query retries |
 | Tests | ✅ | **307/307** — full Jest suite pass |
 
 ## Phase 4.1 Marketing Security & Core Bug Fixes — 2026-09-25

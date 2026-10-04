@@ -3887,10 +3887,12 @@ Full **HTTP-level** verification via supertest against `tests/app`, toggling `RE
 
 | Item | Change |
 |------|--------|
-| `backend/src/config/prismaClient.js` | `PrismaClient` with `datasources.db.url` = `DATABASE_URL_POOLED \|\| DATABASE_URL`; log `error`/`warn` |
-| `package.json` | Removed `@prisma/adapter-neon`, `@neondatabase/serverless` |
-| Runtime | Standard PostgreSQL TCP (Neon pooler URL); `$transaction` supported by driver |
+| `backend/src/config/prismaClient.js` | Prisma 7 + `@prisma/adapter-pg` / `pg` with `DATABASE_URL_POOLED \|\| DATABASE_URL` |
+| `package.json` | Removed `@prisma/adapter-neon`, `@neondatabase/serverless`; added `@prisma/adapter-pg`, `pg` |
+| Runtime | Native PostgreSQL TCP (Neon pooler URL); `$transaction` supported |
 | Retries | `withNeonQueryRetries` unchanged |
+
+**CI fix (same day):** main Jest gets placeholder DB URLs via `tests/env-quiet.js`; workflow runs `npx prisma generate` before tests and mirrors `DATABASE_URL` ↔ `DATABASE_URL_POOLED` for repository jobs.
 
 **Tests:** Jest suite (`npm test`) after change.
 

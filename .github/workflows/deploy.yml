@@ -29,19 +29,28 @@ jobs:
       - name: Install dependencies (CI check)
         run: npm ci
 
-      - name: Generate Prisma client (CI check)
+      - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Run Jest test suite
-        run: npm test --passWithNoTests
-
-      - name: Resolve PostgreSQL URL for repository tests
+      - name: Resolve PostgreSQL URLs for CI
         run: |
+          if [ -z "$DATABASE_URL" ] && [ -n "$DATABASE_URL_POOLED" ]; then
+            echo "DATABASE_URL=$DATABASE_URL_POOLED" >> "$GITHUB_ENV"
+            echo "Using DATABASE_URL_POOLED as DATABASE_URL fallback."
+          fi
           if [ -z "$DATABASE_URL_POOLED" ] && [ -n "$DATABASE_URL" ]; then
             echo "DATABASE_URL_POOLED=$DATABASE_URL" >> "$GITHUB_ENV"
-            echo "Using DATABASE_URL as DATABASE_URL_POOLED fallback for repository tests."
+            echo "Using DATABASE_URL as DATABASE_URL_POOLED fallback."
           fi
-          if [ -z "$DATABASE_URL_POOLED" ]; then
+
+      - name: Run Jest test suite
+        run: npm test -- --passWithNoTests
+
+      - name: Require PostgreSQL URL for repository tests
+        run: |
+          POOLED="${DATABASE_URL_POOLED:-}"
+          DIRECT="${DATABASE_URL:-}"
+          if [ -z "$POOLED" ] && [ -z "$DIRECT" ]; then
             echo "::error::Configure GitHub secret DATABASE_URL_POOLED and/or DATABASE_URL for repository integration tests."
             exit 1
           fi
@@ -54,6 +63,7 @@ jobs:
 
       - name: Run repository integration tests
         env:
+          REPOSITORY_TEST: '1'
           REPO_TEST_FILE_RETRIES: '3'
           NEON_RETRY_ATTEMPTS: '5'
           REPO_TEST_HOOK_TIMEOUT_MS: '60000'

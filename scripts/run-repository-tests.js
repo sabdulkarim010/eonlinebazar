@@ -6,7 +6,7 @@
  * GitHub secrets; local dev uses repo-root .env.
  *
  * Runs each *.repository.test.js in its own process with a short pause
- * between files to avoid Neon HTTP adapter timeouts under serial CI load.
+ * between files to ease Neon cold-start / pool pressure under serial CI load.
  * Failed files are retried with exponential backoff.
  ********************************************************************/
 
