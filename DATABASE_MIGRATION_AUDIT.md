@@ -989,23 +989,21 @@ Neon HTTP driver adapter installed, `prismaClient.js` singleton created, and fiv
 repository modules added for the simplest catalog/HRM/ERP models. **Nothing is
 wired into `server.js`, controllers, or routes** — MongoDB remains authoritative.
 
-### Packages installed
+### Packages installed (historical — HTTP adapter removed 2026-10-04)
 
 | Package | Version | Type | Note |
 |---|---|---|---|
-| `@prisma/adapter-neon` | `^7.10.0` | dependency | PrismaNeonHttp adapter factory |
-| `@neondatabase/serverless` | `^1.1.0` | dependency | HTTP query driver (used by adapter) |
-
-No existing dependency version was altered beyond these two additions.
+| ~~`@prisma/adapter-neon`~~ | removed | — | Replaced by native TCP `PrismaClient` |
+| ~~`@neondatabase/serverless`~~ | removed | — | No longer required at runtime |
 
 ### `backend/src/config/prismaClient.js`
 
 - Imports `PrismaClient` from `generated/prisma/client.mts` (Node 22.18+ native
   type-stripping + `require(esm)` — see Step 1b).
-- Constructs `new PrismaNeonHttp(process.env.DATABASE_URL_POOLED)` — the adapter
-  factory takes the **connection string**, not a pre-built `neon()` function.
-- Singleton with `global.__eonlinebazarPrisma` guard (mirrors `db.js` pattern).
-- **Not imported by the running application yet.**
+- **2026-10-04:** Standard `PrismaClient` over PostgreSQL TCP; datasource URL =
+  `DATABASE_URL_POOLED || DATABASE_URL` (pooler preferred for runtime).
+- Singleton with `globalThis.__eonlinebazarPrisma` in non-production (module cache in prod).
+- `withNeonQueryRetries` still wraps transient network errors.
 
 ### Repository files (`backend/src/repositories/`)
 
@@ -3882,4 +3880,27 @@ Full **HTTP-level** verification via supertest against `tests/app`, toggling `RE
 | Mongoose | Backend `new: true` → `returnDocument: 'after'` on findOneAndUpdate / findByIdAndUpdate |
 
 **Tests:** Jest **342/342**.
+
+---
+
+## Prisma native TCP client (remove Neon HTTP adapter) — 2026-10-04
+
+| Item | Change |
+|------|--------|
+| `backend/src/config/prismaClient.js` | `PrismaClient` with `datasources.db.url` = `DATABASE_URL_POOLED \|\| DATABASE_URL`; log `error`/`warn` |
+| `package.json` | Removed `@prisma/adapter-neon`, `@neondatabase/serverless` |
+| Runtime | Standard PostgreSQL TCP (Neon pooler URL); `$transaction` supported by driver |
+| Retries | `withNeonQueryRetries` unchanged |
+
+**Tests:** Jest suite (`npm test`) after change.
+
+---
+
+## Neon keep-alive ping — 2026-10-04
+
+| Item | Change |
+|------|--------|
+| `backend/src/config/neonKeepAlive.js` | `SELECT 1` via Prisma every 3.5 min; warn-only on failure |
+| `backend/src/server.js` | `startNeonKeepAlive()` after HTTP listen |
+| Opt-out | `NEON_KEEPALIVE=0` or `NODE_ENV=test` |
 

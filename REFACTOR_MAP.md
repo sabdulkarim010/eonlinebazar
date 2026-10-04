@@ -4267,3 +4267,15 @@ docs/audit/CUSTOMER_FRONTEND_AUDIT.md [MOD]
 SYSTEM_ENTERPRISE_AUDIT.md [MOD]
 README.md [MOD]
 ARCHITECTURE.md [MOD]
+
+# Prisma native TCP (drop Neon HTTP adapter) — 2026-10-04
+backend/src/config/prismaClient.js [MOD] standard PrismaClient + DATABASE_URL_POOLED
+package.json [MOD] removed @prisma/adapter-neon, @neondatabase/serverless
+package-lock.json [MOD]
+DATABASE_MIGRATION_AUDIT.md [MOD]
+SYSTEM_ENTERPRISE_AUDIT.md [MOD]
+
+# Neon Postgres keep-alive — 2026-10-04
+backend/src/config/neonKeepAlive.js [NEW]
+backend/src/server.js [MOD] startNeonKeepAlive after listen
+DATABASE_MIGRATION_AUDIT.md [MOD]

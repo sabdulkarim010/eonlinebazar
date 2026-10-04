@@ -2347,7 +2347,7 @@ index or constraint was changed to make validation pass.**
 | Item | Status |
 |------|--------|
 | `@prisma/adapter-neon` + `@neondatabase/serverless` installed | ✅ |
-| `backend/src/config/prismaClient.js` singleton (PrismaNeonHttp + pooled URL) | ✅ |
+| `backend/src/config/prismaClient.js` singleton (native TCP + pooled URL) | ✅ |
 | Repository layer: Category, Designation, Brand, Warehouse, Supplier | ✅ |
 | Reimplemented slug hooks (Category, Brand) | ✅ |
 | Reimplemented default-warehouse exclusivity (Warehouse) | ✅ |
@@ -4002,7 +4002,7 @@ Initial deep scan identified 6 critical bugs (74% ready). All fixed in Critical 
 | BullMQ ioredis config | ✅ | `createBullMqConnection()` — `maxRetriesPerRequest: null`, `enableReadyCheck: false` |
 | Import/export queue | ✅ | Separate Queue/Worker connections; inline fallback on enqueue failure |
 | Outbox dispatcher resilience | ✅ | Skips Postgres warmup gate; Mongo query/mark failures logged, no unhandled rejections |
-| Prisma/Neon setup | ✅ | `@prisma/adapter-neon` HTTP driver; `neonRetry.js` fetch timeout + transient retries |
+| Prisma/Neon setup | ✅ | Native `PrismaClient` TCP via pooler URL; `neonRetry.js` transient query retries |
 | Tests | ✅ | **307/307** — full Jest suite pass |
 
 ## Phase 4.1 Marketing Security & Core Bug Fixes — 2026-09-25

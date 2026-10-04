@@ -439,8 +439,11 @@ if (typeof httpServer.requestTimeout === 'number') {
   httpServer.requestTimeout = uploadSocketTimeoutMs;
 }
 
+const { startNeonKeepAlive } = require('./config/neonKeepAlive');
+
 httpServer.listen(PORT, () => {
     console.log(`Server is running at http://localhost:${PORT}`);
+    startNeonKeepAlive();
 });
 
 

@@ -39,8 +39,6 @@
     "node": ">=22.18.0"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
-    "@prisma/adapter-neon": "^7.10.0",
     "@prisma/client": "7.10.0",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-navigation/bottom-tabs": "^7.18.18",

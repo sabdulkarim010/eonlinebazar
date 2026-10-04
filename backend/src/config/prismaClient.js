@@ -3,10 +3,10 @@
  * File: prismaClient.js
  * Location: backend/src/config/prismaClient.js
  * Author: Abdul Karim Sheikh
- * Description: Singleton Prisma client using the Neon HTTP driver adapter.
- *   - Uses DATABASE_URL_POOLED (the Neon pooler endpoint) for runtime queries.
- *   - DATABASE_URL (direct endpoint) is reserved for the Prisma CLI only.
- *   - neonRetry.js applies fetch timeout + exponential retries on transient HTTP errors.
+ * Description: Singleton Prisma client — native PostgreSQL TCP (Neon pooler URL).
+ *   - Runtime: DATABASE_URL_POOLED || DATABASE_URL
+ *   - DATABASE_URL (direct) remains for Prisma CLI migrations (prisma.config.js).
+ *   - neonRetry.js wraps queries with transient TCP/network retries.
  *   - Parallel to db.js (Mongoose/MongoDB) — do NOT modify db.js.
  *
  * Stage 2 Step 2, Part 1 — created 2026-09-13.
@@ -16,30 +16,16 @@
 
 const path = require('path');
 
-// Always load repo-root .env (same path as server.js) — cwd-relative dotenv breaks
-// when the process is started from backend/ or when crons run in a long-lived server.
 require('dotenv').config({
   path: path.join(__dirname, '..', '..', '..', '.env')
 });
 
-const { PrismaNeonHttp } = require('@prisma/adapter-neon');
-const {
-  buildNeonHttpAdapterOptions,
-  withNeonQueryRetries
-} = require('./neonRetry');
+const { withNeonQueryRetries } = require('./neonRetry');
 const { normalizeNeonConnectionString } = require('./postgresBootstrap');
 
-// The generated client emits .mts files — Node 22.18+ loads them directly via
-// native TypeScript type-stripping + require(esm). See DATABASE_MIGRATION_AUDIT.md
-// Stage 2 Step 1b for the full explanation of why this works without a build step.
 const { PrismaClient } = require('../../../generated/prisma/client.mts');
 
-// ── Singleton ────────────────────────────────────────────────────────────────
-// Node's module cache already ensures one instance per process, matching the
-// same implicit singleton pattern used by db.js (Mongoose). A global guard is
-// added on top for environments (e.g. bundlers or hot-reload) where the module
-// factory can be re-executed within the same process.
-const _globalRef = global;
+const globalForPrisma = globalThis;
 
 function createPrismaClient() {
   const connectionString = normalizeNeonConnectionString(
@@ -53,19 +39,23 @@ function createPrismaClient() {
     );
   }
 
-  // PrismaNeonHttp takes the pooled connection string directly; it calls
-  // neon() internally. Do NOT pass a pre-built neon() function — the
-  // adapter factory signature is (connectionString, options?).
-  const adapter = new PrismaNeonHttp(connectionString, buildNeonHttpAdapterOptions());
-  const client = new PrismaClient({ adapter });
+  const client = new PrismaClient({
+    log: ['error', 'warn'],
+    datasources: {
+      db: {
+        url: connectionString
+      }
+    }
+  });
 
   return withNeonQueryRetries(client);
 }
 
-const prisma = _globalRef.__eonlinebazarPrisma ?? createPrismaClient();
+const prisma = globalForPrisma.__eonlinebazarPrisma ?? createPrismaClient();
 
-// Reuse one client per process (production included — avoids duplicate adapters under load).
-_globalRef.__eonlinebazarPrisma = prisma;
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.__eonlinebazarPrisma = prisma;
+}
 
 function getPrisma() {
   return prisma;
